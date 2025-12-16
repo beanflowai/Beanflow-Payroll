@@ -1,0 +1,30 @@
+/**
+ * Beanflow Design System - Cards Module
+ * Card components
+ */
+
+/* Card Base Classes */
+.card {
+	background: white;
+	border-radius: var(--radius-xl);
+	box-shadow: var(--shadow-md3-1);
+	transition: all var(--transition-standard);
+	overflow: hidden;
+}
+
+.card:hover {
+	box-shadow: var(--shadow-md3-2);
+	transform: translateY(-2px);
+}
+
+.card-elevated {
+	background: rgba(255, 255, 255, 0.95);
+	backdrop-filter: blur(10px);
+	border-radius: var(--radius-2xl);
+	box-shadow: var(--shadow-md3-2);
+}
+
+.card-elevated:hover {
+	transform: translateY(-4px);
+	box-shadow: var(--shadow-md3-3);
+}

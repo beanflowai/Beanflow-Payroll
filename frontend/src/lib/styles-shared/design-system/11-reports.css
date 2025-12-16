@@ -1,0 +1,317 @@
+/**
+ * Beanflow Design System - Reports Module
+ * Financial report styling system
+ */
+
+/* ================================
+   REPORT DESIGN SYSTEM
+   Standardized typography and styling for financial reports
+   ================================ */
+
+/* Report Typography System - Harmonized with sidebar (14px base) */
+:root {
+	/* Report-specific font sizes */
+	--report-text-xs: 11px; /* Footnotes, disclaimers */
+	--report-text-sm: 13px; /* Data rows, secondary content */
+	--report-text-base: 14px; /* Standard content (matches sidebar) */
+	--report-text-md: 16px; /* Section headers */
+	--report-text-lg: 18px; /* Major section titles */
+	--report-text-xl: 20px; /* Report titles */
+
+	/* Financial data colors */
+	--color-financial-profit: #059669; /* Green - profits/assets */
+	--color-financial-loss: #dc2626; /* Red - losses/liabilities */
+	--color-financial-neutral: #374151; /* Gray - neutral data */
+	--color-financial-warning: #d97706; /* Orange - warnings */
+
+	/* Report backgrounds */
+	--color-report-bg: #ffffff;
+	--color-report-section-bg: #f8fafc;
+	--color-report-subtotal-bg: #f1f5f9;
+	--color-report-total-bg: #e2e8f0;
+	--color-report-header-bg: #f8fafc;
+
+	/* Report borders */
+	--color-report-border-light: #f3f4f6;
+	--color-report-border-medium: #e5e7eb;
+	--color-report-border-strong: #d1d5db;
+
+	/* Report spacing */
+	--report-row-padding-y: 12px;
+	--report-row-padding-x: 16px;
+	--report-section-spacing: 24px;
+}
+
+/* Report Table Base Styles */
+.report-table {
+	font-size: var(--report-text-base);
+	line-height: 1.4;
+	background: var(--color-report-bg);
+}
+
+.report-table-header {
+	background: var(--color-report-header-bg);
+	font-weight: 600;
+	font-size: var(--report-text-xs);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: #64748b;
+	padding: var(--report-row-padding-y) var(--report-row-padding-x);
+	border-bottom: 2px solid var(--color-report-border-medium);
+}
+
+.report-table-row {
+	padding: var(--report-row-padding-y) var(--report-row-padding-x);
+	border-bottom: 1px solid var(--color-report-border-light);
+	transition: background-color 0.15s ease;
+}
+
+.report-table-row:hover {
+	background-color: #f9fafb;
+}
+
+/* Report Data Hierarchy */
+.report-level-0 {
+	font-weight: 600;
+	font-size: var(--report-text-base);
+	color: #111827;
+	padding-left: 16px;
+}
+
+.report-level-1 {
+	font-weight: 500;
+	font-size: var(--report-text-base);
+	color: #374151;
+	padding-left: 32px;
+}
+
+.report-level-2 {
+	font-weight: 400;
+	font-size: var(--report-text-sm);
+	color: #4b5563;
+	padding-left: 48px;
+}
+
+.report-level-3 {
+	font-weight: 400;
+	font-size: var(--report-text-sm);
+	color: #6b7280;
+	padding-left: 64px;
+}
+
+.report-level-4 {
+	font-weight: 400;
+	font-size: var(--report-text-sm);
+	color: #6b7280;
+	padding-left: 80px;
+}
+
+.report-level-5 {
+	font-weight: 400;
+	font-size: var(--report-text-sm);
+	color: #6b7280;
+	padding-left: 96px;
+}
+
+/* Report Section Headers */
+.report-section-header {
+	background: var(--color-report-section-bg);
+	font-weight: 700;
+	font-size: var(--report-text-md);
+	text-transform: uppercase;
+	letter-spacing: 0.025em;
+	color: #111827;
+	padding: 16px var(--report-row-padding-x);
+	border-bottom: 2px solid var(--color-report-border-strong);
+}
+
+/* Report Subtotal Rows */
+.report-subtotal {
+	background: var(--color-report-subtotal-bg);
+	font-weight: 600;
+	font-size: var(--report-text-base);
+	color: #374151;
+	border-top: 1px solid var(--color-report-border-medium);
+	border-bottom: 1px solid var(--color-report-border-medium);
+}
+
+/* Report Total Rows */
+.report-total {
+	background: var(--color-report-total-bg);
+	font-weight: 700;
+	font-size: var(--report-text-md);
+	color: #111827;
+	border-top: 2px solid var(--color-report-border-strong);
+	border-bottom: 2px solid var(--color-report-border-strong);
+}
+
+.report-grand-total {
+	background: #e2e8f0;
+	font-weight: 800;
+	font-size: var(--report-text-lg);
+	color: #111827;
+	border-top: 3px solid #374151;
+	border-bottom: 3px solid #374151;
+}
+
+/* Financial Amount Styling */
+.report-amount {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+	font-size: var(--report-text-base);
+	font-weight: 500;
+	min-width: 100px;
+	padding-right: var(--report-row-padding-x);
+}
+
+.report-amount-positive {
+	color: var(--color-financial-profit);
+}
+
+.report-amount-negative {
+	color: var(--color-financial-loss);
+}
+
+.report-amount-neutral {
+	color: var(--color-financial-neutral);
+}
+
+.report-amount-zero {
+	color: #9ca3af;
+	font-style: italic;
+}
+
+/* Report Links */
+.report-link {
+	color: #000000;
+	text-decoration: none;
+	border-bottom: 1px solid transparent;
+	transition: all 0.15s ease;
+	font-weight: 500;
+}
+
+.report-link:hover {
+	color: #000000;
+	border-bottom-color: #000000;
+	text-decoration: none;
+}
+
+.report-link:focus {
+	outline: 2px solid var(--color-primary-500, #1976d2);
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+
+/* Report Link Variants */
+.report-link-subtle {
+	color: var(--color-surface-700, #374151);
+	font-weight: 400;
+}
+
+.report-link-subtle:hover {
+	color: var(--color-primary-600, #1565c0);
+	border-bottom-color: var(--color-primary-600, #1565c0);
+}
+
+/* Global link color override for reports - fallback for any missed links */
+.report-container a:not(.report-link):not(.report-link-subtle),
+.report-table a:not(.report-link):not(.report-link-subtle) {
+	color: #000000;
+	text-decoration: none;
+	font-weight: 500;
+	transition: color 0.15s ease;
+}
+
+.report-container a:not(.report-link):not(.report-link-subtle):hover,
+.report-table a:not(.report-link):not(.report-link-subtle):hover {
+	color: #000000;
+	text-decoration: underline;
+}
+
+/* Report Cards and Containers */
+.report-container {
+	background: white;
+	border-radius: 12px;
+	box-shadow:
+		0 1px 3px 0 rgba(0, 0, 0, 0.1),
+		0 1px 2px 0 rgba(0, 0, 0, 0.06);
+	overflow: hidden;
+}
+
+.report-header {
+	background: var(--color-report-header-bg);
+	padding: 20px var(--report-row-padding-x);
+	text-align: center;
+	border-bottom: 1px solid var(--color-report-border-medium);
+}
+
+.report-title {
+	font-size: var(--report-text-xl);
+	font-weight: 700;
+	color: #111827;
+	margin: 0 0 8px 0;
+}
+
+.report-subtitle {
+	font-size: var(--report-text-base);
+	font-weight: 500;
+	color: #6b7280;
+	margin: 0;
+}
+
+/* Responsive Design */
+@media (max-width: var(--breakpoint-md)) {
+	:root {
+		--report-text-xs: 10px;
+		--report-text-sm: 12px;
+		--report-text-base: 13px;
+		--report-text-md: 14px;
+		--report-text-lg: 16px;
+		--report-text-xl: 18px;
+		--report-row-padding-y: 10px;
+		--report-row-padding-x: 12px;
+	}
+
+	.report-level-0 {
+		padding-left: 12px;
+	}
+	.report-level-1 {
+		padding-left: 24px;
+	}
+	.report-level-2 {
+		padding-left: 36px;
+	}
+	.report-level-3 {
+		padding-left: 48px;
+	}
+	.report-level-4 {
+		padding-left: 60px;
+	}
+	.report-level-5 {
+		padding-left: 72px;
+	}
+
+	.report-amount {
+		min-width: 80px;
+		font-size: var(--report-text-sm);
+	}
+
+	.report-table {
+		font-size: var(--report-text-sm);
+	}
+}
+
+@media (max-width: var(--breakpoint-sm)) {
+	.report-level-0,
+	.report-level-1,
+	.report-level-2,
+	.report-level-3 {
+		padding-left: 8px;
+		font-size: var(--report-text-sm);
+	}
+
+	.report-amount {
+		min-width: 70px;
+		padding-right: 8px;
+	}
+}

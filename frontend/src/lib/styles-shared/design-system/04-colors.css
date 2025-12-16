@@ -1,0 +1,258 @@
+/**
+ * Beanflow Design System - Colors Module
+ * Color utility classes
+ */
+
+/**
+ * Beanflow Design System
+ * Version: 1.2 - Figma-based Design System
+ * Based on: Figma Design System (migrated from Material Design 3)
+ * Optimized for Financial Applications
+ */
+
+/* ============================================================================
+   Color Utility Classes
+   ============================================================================ */
+
+/* Text Colors - Primary */
+.text-primary-25 {
+	color: var(--color-primary-25);
+}
+.text-primary-50 {
+	color: var(--color-primary-50);
+}
+.text-primary-100 {
+	color: var(--color-primary-100);
+}
+.text-primary-200 {
+	color: var(--color-primary-200);
+}
+.text-primary-300 {
+	color: var(--color-primary-300);
+}
+.text-primary-400 {
+	color: var(--color-primary-400);
+}
+.text-primary-500 {
+	color: var(--color-primary-500);
+}
+.text-primary-600 {
+	color: var(--color-primary-600);
+}
+.text-primary-700 {
+	color: var(--color-primary-700);
+}
+.text-primary-800 {
+	color: var(--color-primary-800);
+}
+.text-primary-900 {
+	color: var(--color-primary-900);
+}
+
+/* Text Colors - Surface */
+.text-surface-25 {
+	color: var(--color-surface-25);
+}
+.text-surface-50 {
+	color: var(--color-surface-50);
+}
+.text-surface-100 {
+	color: var(--color-surface-100);
+}
+.text-surface-200 {
+	color: var(--color-surface-200);
+}
+.text-surface-300 {
+	color: var(--color-surface-300);
+}
+.text-surface-400 {
+	color: var(--color-surface-400);
+}
+.text-surface-500 {
+	color: var(--color-surface-500);
+}
+.text-surface-600 {
+	color: var(--color-surface-600);
+}
+.text-surface-700 {
+	color: var(--color-surface-700);
+}
+.text-surface-800 {
+	color: var(--color-surface-800);
+}
+.text-surface-900 {
+	color: var(--color-surface-900);
+}
+
+/* Text Colors - Semantic */
+.text-success {
+	color: var(--color-success-500);
+}
+.text-warning {
+	color: var(--color-warning-500);
+}
+.text-error {
+	color: var(--color-error-500);
+}
+
+/* Background Colors - Primary */
+.bg-primary-25 {
+	background-color: var(--color-primary-25);
+}
+.bg-primary-50 {
+	background-color: var(--color-primary-50);
+}
+.bg-primary-100 {
+	background-color: var(--color-primary-100);
+}
+.bg-primary-200 {
+	background-color: var(--color-primary-200);
+}
+.bg-primary-300 {
+	background-color: var(--color-primary-300);
+}
+.bg-primary-400 {
+	background-color: var(--color-primary-400);
+}
+.bg-primary-500 {
+	background-color: var(--color-primary-500);
+}
+.bg-primary-600 {
+	background-color: var(--color-primary-600);
+}
+.bg-primary-700 {
+	background-color: var(--color-primary-700);
+}
+.bg-primary-800 {
+	background-color: var(--color-primary-800);
+}
+.bg-primary-900 {
+	background-color: var(--color-primary-900);
+}
+
+/* Background Colors - Surface */
+.bg-surface-25 {
+	background-color: var(--color-surface-25);
+}
+.bg-surface-50 {
+	background-color: var(--color-surface-50);
+}
+.bg-surface-100 {
+	background-color: var(--color-surface-100);
+}
+.bg-surface-200 {
+	background-color: var(--color-surface-200);
+}
+.bg-surface-300 {
+	background-color: var(--color-surface-300);
+}
+.bg-surface-400 {
+	background-color: var(--color-surface-400);
+}
+.bg-surface-500 {
+	background-color: var(--color-surface-500);
+}
+.bg-surface-600 {
+	background-color: var(--color-surface-600);
+}
+.bg-surface-700 {
+	background-color: var(--color-surface-700);
+}
+.bg-surface-800 {
+	background-color: var(--color-surface-800);
+}
+.bg-surface-900 {
+	background-color: var(--color-surface-900);
+}
+
+/* Background Colors - Semantic */
+.bg-success {
+	background-color: var(--color-success-500);
+}
+.bg-warning {
+	background-color: var(--color-warning-500);
+}
+.bg-error {
+	background-color: var(--color-error-500);
+}
+
+/* Border Colors - Primary */
+.border-primary-25 {
+	border-color: var(--color-primary-25);
+}
+.border-primary-50 {
+	border-color: var(--color-primary-50);
+}
+.border-primary-100 {
+	border-color: var(--color-primary-100);
+}
+.border-primary-200 {
+	border-color: var(--color-primary-200);
+}
+.border-primary-300 {
+	border-color: var(--color-primary-300);
+}
+.border-primary-400 {
+	border-color: var(--color-primary-400);
+}
+.border-primary-500 {
+	border-color: var(--color-primary-500);
+}
+.border-primary-600 {
+	border-color: var(--color-primary-600);
+}
+.border-primary-700 {
+	border-color: var(--color-primary-700);
+}
+.border-primary-800 {
+	border-color: var(--color-primary-800);
+}
+.border-primary-900 {
+	border-color: var(--color-primary-900);
+}
+
+/* Border Colors - Surface */
+.border-surface-25 {
+	border-color: var(--color-surface-25);
+}
+.border-surface-50 {
+	border-color: var(--color-surface-50);
+}
+.border-surface-100 {
+	border-color: var(--color-surface-100);
+}
+.border-surface-200 {
+	border-color: var(--color-surface-200);
+}
+.border-surface-300 {
+	border-color: var(--color-surface-300);
+}
+.border-surface-400 {
+	border-color: var(--color-surface-400);
+}
+.border-surface-500 {
+	border-color: var(--color-surface-500);
+}
+.border-surface-600 {
+	border-color: var(--color-surface-600);
+}
+.border-surface-700 {
+	border-color: var(--color-surface-700);
+}
+.border-surface-800 {
+	border-color: var(--color-surface-800);
+}
+.border-surface-900 {
+	border-color: var(--color-surface-900);
+}
+
+/* Border Colors - Semantic */
+.border-success {
+	border-color: var(--color-success-500);
+}
+.border-warning {
+	border-color: var(--color-warning-500);
+}
+.border-error {
+	border-color: var(--color-error-500);
+}

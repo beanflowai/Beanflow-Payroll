@@ -1,0 +1,174 @@
+@import 'tailwindcss';
+
+/* Import Beanflow Design System from main frontend */
+@import '../../../frontend/src/lib/styles/design-system/index.css';
+
+/**
+ * TailwindCSS v4 Theme Configuration for Payroll Frontend
+ * Synced with main frontend design system tokens
+ */
+@theme {
+	/* Beanflow Primary Colors - Purple-based from Figma */
+	--color-primary-25: #f5e8ff;
+	--color-primary-50: #eed9fe;
+	--color-primary-100: #eacffe;
+	--color-primary-200: #e0b6ff;
+	--color-primary-300: #d395ff;
+	--color-primary-400: #9996ff;
+	--color-primary-500: #9810fa;
+	--color-primary-600: #6100a7;
+	--color-primary-700: #7d00d7;
+	--color-primary-800: #5a0080;
+	--color-primary-900: #42005d;
+
+	/* Beanflow Secondary Colors */
+	--color-secondary-50: #f3e5f5;
+	--color-secondary-100: #e1bee7;
+	--color-secondary-200: #ce93d8;
+	--color-secondary-300: #ba68c8;
+	--color-secondary-400: #ab47bc;
+	--color-secondary-500: #9c27b0;
+	--color-secondary-600: #8e24aa;
+	--color-secondary-700: #7b1fa2;
+	--color-secondary-800: #6a1b9a;
+	--color-secondary-900: #4a148c;
+
+	/* Beanflow Tertiary Colors */
+	--color-tertiary-50: #e0f2f1;
+	--color-tertiary-100: #b2dfdb;
+	--color-tertiary-200: #80cbc4;
+	--color-tertiary-300: #4db6ac;
+	--color-tertiary-400: #26a69a;
+	--color-tertiary-500: #009688;
+	--color-tertiary-600: #00897b;
+	--color-tertiary-700: #00796b;
+	--color-tertiary-800: #00695c;
+	--color-tertiary-900: #004d40;
+
+	/* Beanflow Surface Colors */
+	--color-surface-25: #ffffff;
+	--color-surface-50: #ffffff;
+	--color-surface-100: #eeeef2;
+	--color-surface-200: #dcdcdd;
+	--color-surface-300: #d0d0d1;
+	--color-surface-400: #bababa;
+	--color-surface-500: #99999a;
+	--color-surface-600: #6d6d6e;
+	--color-surface-700: #161618;
+	--color-surface-800: #121214;
+	--color-surface-900: #0f0f11;
+
+	/* Beanflow Success Colors */
+	--color-success-50: #dcf4c8;
+	--color-success-100: #e6fadb;
+	--color-success-200: #a6dd78;
+	--color-success-300: #8bc34a;
+	--color-success-400: #7cb342;
+	--color-success-500: #6ec02b;
+	--color-success-600: #689f38;
+	--color-success-700: #558b2f;
+	--color-success-800: #33691e;
+	--color-success-900: #1b5e20;
+
+	/* Beanflow Warning Colors */
+	--color-warning-50: #ffe1d1;
+	--color-warning-100: #ffccbc;
+	--color-warning-200: #ffb793;
+	--color-warning-300: #ff9d97;
+	--color-warning-400: #ff8a65;
+	--color-warning-500: #ff6d24;
+	--color-warning-600: #f57c00;
+	--color-warning-700: #ef6c00;
+	--color-warning-800: #e65100;
+	--color-warning-900: #bf360c;
+
+	/* Beanflow Error Colors */
+	--color-error-50: #ffebea;
+	--color-error-100: #ffcdd2;
+	--color-error-200: #ff9d97;
+	--color-error-300: #ff8a80;
+	--color-error-400: #ff5252;
+	--color-error-500: #ff3b30;
+	--color-error-600: #f44336;
+	--color-error-700: #d32f2f;
+	--color-error-800: #c62828;
+	--color-error-900: #b71c1c;
+
+	/* Essential Legacy Colors */
+	--color-gray-50: var(--color-surface-50);
+	--color-gray-100: var(--color-surface-100);
+	--color-gray-200: var(--color-surface-200);
+	--color-gray-300: var(--color-surface-300);
+	--color-gray-400: var(--color-surface-400);
+	--color-gray-500: var(--color-surface-500);
+	--color-gray-600: var(--color-surface-600);
+	--color-gray-700: var(--color-surface-700);
+	--color-gray-800: var(--color-surface-800);
+	--color-gray-900: var(--color-surface-900);
+
+	/* Typography */
+	--font-family-sans: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+
+	--font-weight-regular: 400;
+	--font-weight-medium: 500;
+	--font-weight-semibold: 600;
+
+	/* Figma Typography Scale */
+	--font-size-caption-text: 10px;
+	--line-height-caption-text: 12px;
+	--font-size-auxiliary-text: 12px;
+	--line-height-auxiliary-text: 14px;
+	--font-size-body-content: 14px;
+	--line-height-body-content: 18px;
+	--font-size-body-content-large: 16px;
+	--line-height-body-content-large: 20px;
+	--font-size-title-minimum: 12px;
+	--line-height-title-minimum: 14px;
+	--font-size-title-small: 14px;
+	--line-height-title-small: 18px;
+	--font-size-title-medium: 16px;
+	--line-height-title-medium: 20px;
+	--font-size-title-large: 20px;
+	--line-height-title-large: 28px;
+	--font-size-headline-minimum: 24px;
+	--line-height-headline-minimum: 28px;
+	--font-size-headline-small: 28px;
+	--line-height-headline-small: 34px;
+	--font-size-headline-medium: 32px;
+	--line-height-headline-medium: 44px;
+	--font-size-headline-large: 40px;
+	--line-height-headline-large: 48px;
+
+	/* Border Radius */
+	--radius-none: 0;
+	--radius-sm: 0.25rem;
+	--radius-md: 0.5rem;
+	--radius-lg: 0.75rem;
+	--radius-xl: 1rem;
+	--radius-2xl: 1.25rem;
+	--radius-3xl: 1.75rem;
+	--radius-full: 9999px;
+
+	/* Shadows */
+	--shadow-md3-1: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 4px 8px 3px rgba(0, 0, 0, 0.15);
+	--shadow-md3-2: 0 2px 6px 2px rgba(0, 0, 0, 0.15), 0 8px 24px 4px rgba(0, 0, 0, 0.3);
+
+	/* Spacing */
+	--spacing-18: 4.5rem;
+	--spacing-22: 5.5rem;
+	--spacing-26: 6.5rem;
+	--spacing-30: 7.5rem;
+
+	/* Transitions */
+	--transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+	--transition-standard: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+	--transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Legacy CSS Variables for Backward Compatibility */
+:root {
+	--font-family-primary: var(--font-family-sans);
+	--gradient-brand: linear-gradient(135deg, var(--color-primary-600), var(--color-secondary-600));
+	--gradient-subtle: linear-gradient(135deg, var(--color-primary-50), var(--color-secondary-50));
+	--gradient-primary: var(--gradient-brand);
+}

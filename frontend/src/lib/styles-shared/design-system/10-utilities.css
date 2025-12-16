@@ -1,0 +1,134 @@
+/**
+ * Beanflow Design System - Utilities Module
+ * Miscellaneous utility classes
+ */
+
+/**
+ * Beanflow Design System
+ * Version: 1.2 - Figma-based Design System
+ * Based on: Figma Design System (migrated from Material Design 3)
+ * Optimized for Financial Applications
+ */
+
+/* ============================================================================
+   Utility Classes
+   ============================================================================ */
+
+/* Focus States */
+.focus-visible:focus-visible,
+.btn:focus-visible {
+	outline: 2px solid var(--color-primary-500);
+	outline-offset: 2px;
+}
+
+/* Hover States */
+@media (hover: hover) {
+	.hover-lift:hover {
+		transform: translateY(-2px);
+	}
+
+	.hover-scale:hover {
+		transform: scale(1.02);
+	}
+}
+
+/* Interactive States */
+.interactive {
+	cursor: pointer;
+	transition: all var(--transition-fast);
+}
+
+.interactive:hover {
+	transform: translateY(-1px);
+}
+
+.interactive:active {
+	transform: translateY(0);
+}
+
+/* ============================================================================
+   Responsive Design Utilities
+   ============================================================================ */
+
+/* Responsive breakpoints utilities can be added here */
+@media (max-width: 768px) {
+	.mobile-hidden {
+		display: none !important;
+	}
+}
+
+@media (min-width: 769px) {
+	.desktop-hidden {
+		display: none !important;
+	}
+}
+
+/* Animation Utility Classes */
+.animate-pulse {
+	animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.animate-spin {
+	animation: spin 1s linear infinite;
+}
+.animate-fade-in-up {
+	animation: fadeInUp 0.6s var(--easing-decelerate);
+}
+
+/* --------------------------------------------------------------------------
+   Tooltip Utility (lightweight, attribute-driven)
+   -------------------------------------------------------------------------- */
+.tooltip {
+	position: relative;
+}
+
+.tooltip::before {
+	content: attr(data-tooltip);
+	position: absolute;
+	left: 50%;
+	top: -8px;
+	transform: translate(-50%, -100%);
+	background: var(--color-surface-900);
+	color: #fff;
+	padding: 6px 8px;
+	border-radius: var(--radius-md);
+	font-size: var(--font-size-body-small);
+	line-height: 1;
+	white-space: nowrap;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity var(--transition-fast);
+	z-index: 1000;
+}
+
+.tooltip::after {
+	content: '';
+	position: absolute;
+	left: 50%;
+	top: -8px;
+	transform: translate(-50%, -50%);
+	border: 6px solid transparent;
+	border-top-color: var(--color-surface-900);
+	opacity: 0;
+	transition: opacity var(--transition-fast);
+}
+
+.tooltip:hover::before,
+.tooltip:hover::after {
+	opacity: 1;
+}
+
+/* ============================================================================
+   Text Overflow Utilities
+   ============================================================================ */
+
+/**
+ * Custom truncate utility with max-width constraint
+ * Use this when you need truncation with tooltip support
+ * For basic truncation, use TailwindCSS built-in 'truncate' class
+ */
+.truncate-with-tooltip {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 100%;
+}

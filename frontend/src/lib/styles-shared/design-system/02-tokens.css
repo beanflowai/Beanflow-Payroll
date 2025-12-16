@@ -1,0 +1,401 @@
+/**
+ * Beanflow Design System - Design Tokens Module
+ * Core CSS Custom Properties (Variables)
+ *
+ * ⚠️ SINGLE SOURCE OF TRUTH for all design tokens
+ *
+ * Token Duplication Notice:
+ * These tokens are also duplicated in ../../app.css (@theme block) for TailwindCSS.
+ * This is intentional and necessary because:
+ *
+ * 1. :root tokens → Used by custom components throughout the design system
+ *    - Button components: .btn-fill, .btn-border, .btn-text
+ *    - Form controls: .form-control, .form-label
+ *    - Cards, layouts, utilities, etc.
+ *    - All use CSS variables like var(--color-primary-500)
+ *
+ * 2. @theme tokens (in app.css) → Required by TailwindCSS v4
+ *    - Generates utility classes: text-*, bg-*, border-*, etc.
+ *    - Used throughout Svelte components for quick styling
+ *
+ * Synchronization Workflow:
+ * 1. Update tokens here first (this is the primary definition)
+ * 2. Copy changes to ../../app.css @theme block
+ * 3. Run `npm run build` to verify both systems work
+ * 4. Test both custom components and TailwindCSS utilities
+ *
+ * See: ./README.md for detailed maintenance guide
+ */
+
+:root {
+	/* ========== Color System ========== */
+
+	/* Primary Colors - Purple-based from Figma */
+	--color-primary-25: #f5e8ff;
+	--color-primary-50: #eed9fe;
+	--color-primary-100: #eacffe;
+	--color-primary-200: #e0b6ff;
+	--color-primary-300: #d395ff;
+	--color-primary-400: #9996ff;
+	--color-primary-500: #9810fa; /* Main brand color */
+	--color-primary-600: #6100a7;
+	--color-primary-700: #7d00d7;
+	--color-primary-800: #5a0080;
+	--color-primary-900: #42005d;
+
+	/* Secondary Colors */
+	--color-secondary-50: #f3e5f5;
+	--color-secondary-100: #e1bee7;
+	--color-secondary-200: #ce93d8;
+	--color-secondary-300: #ba68c8;
+	--color-secondary-400: #ab47bc;
+	--color-secondary-500: #9c27b0; /* Secondary brand color */
+	--color-secondary-600: #8e24aa;
+	--color-secondary-700: #7b1fa2;
+	--color-secondary-800: #6a1b9a;
+	--color-secondary-900: #4a148c;
+
+	/* Tertiary Colors */
+	--color-tertiary-50: #e0f2f1;
+	--color-tertiary-100: #b2dfdb;
+	--color-tertiary-200: #80cbc4;
+	--color-tertiary-300: #4db6ac;
+	--color-tertiary-400: #26a69a;
+	--color-tertiary-500: #009688; /* Success, confirmation */
+	--color-tertiary-600: #00897b;
+	--color-tertiary-700: #00796b;
+	--color-tertiary-800: #00695c;
+	--color-tertiary-900: #004d40;
+
+	/* Surface Colors - Neutral colors from Figma with financial contrast optimization */
+	--color-surface-25: #ffffff; /* Lightest backgrounds */
+	--color-surface-50: #ffffff;
+	--color-surface-100: #eeeef2; /* Card backgrounds */
+	--color-surface-200: #dcdcdd; /* Borders, dividers */
+	--color-surface-300: #d0d0d1;
+	--color-surface-400: #bababa;
+	--color-surface-500: #99999a;
+	--color-surface-600: #6d6d6e; /* Secondary text - improved contrast */
+	--color-surface-700: #161618; /* Supporting text - much darker */
+	--color-surface-800: #121214; /* Primary text - much darker */
+	--color-surface-900: #0f0f11; /* Headings, emphasis - darkest */
+
+	/* Success Colors - Green from Figma */
+	--color-success-50: #dcf4c8;
+	--color-success-100: #e6fadb;
+	--color-success-200: #a6dd78;
+	--color-success-300: #8bc34a;
+	--color-success-400: #7cb342;
+	--color-success-500: #6ec02b; /* Main success color */
+	--color-success-600: #689f38;
+	--color-success-700: #558b2f;
+	--color-success-800: #33691e;
+	--color-success-900: #1b5e20; /* Darkest green for complete scale */
+
+	/* Warning Colors - Orange from Figma */
+	--color-warning-50: #ffe1d1;
+	--color-warning-100: #ffccbc;
+	--color-warning-200: #ffb793;
+	--color-warning-300: #ff9d97;
+	--color-warning-400: #ff8a65;
+	--color-warning-500: #ff6d24; /* Main warning color */
+	--color-warning-600: #f57c00;
+	--color-warning-700: #ef6c00;
+	--color-warning-800: #e65100;
+	--color-warning-900: #bf360c;
+
+	/* Error Colors - Red from Figma */
+	--color-error-50: #ffebea;
+	--color-error-100: #ffcdd2;
+	--color-error-200: #ff9d97;
+	--color-error-300: #ff8a80;
+	--color-error-400: #ff5252;
+	--color-error-500: #ff3b30; /* Main error color */
+	--color-error-600: #f44336;
+	--color-error-700: #d32f2f;
+	--color-error-800: #c62828;
+	--color-error-900: #b71c1c;
+
+	/* Canadian Theme Colors */
+	--color-canadian-red: #ff0000;
+	--color-canadian-maple: #d2691e;
+	--color-canadian-winter: #e6f3ff;
+	--color-canadian-forest: #228b22;
+
+	/* ========== Typography System - Figma Standard Compliance ========== */
+	--font-family-primary: var(--font-family-sf-pro-text);
+
+	/* Figma Standard Font Weights */
+	--font-weight-regular: 400;
+	--font-weight-medium: 500;
+	--font-weight-semibold: 600;
+
+	/* Figma Standard Typography Scale - 12 Level System */
+	/* Caption & Auxiliary Text */
+	--font-size-caption-text: 10px;
+	--line-height-caption-text: 12px;
+	--font-weight-caption-text: var(--font-weight-regular);
+
+	--font-size-auxiliary-text: 12px;
+	--line-height-auxiliary-text: 14px;
+	--font-weight-auxiliary-text: var(--font-weight-regular);
+
+	/* Body Content */
+	--font-size-body-content: 14px;
+	--line-height-body-content: 18px;
+	--font-weight-body-content: var(--font-weight-regular);
+
+	--font-size-body-content-large: 16px;
+	--line-height-body-content-large: 20px;
+	--font-weight-body-content-large: var(--font-weight-regular);
+
+	/* Title Scale */
+	--font-size-title-minimum: 12px;
+	--line-height-title-minimum: 14px;
+	--font-weight-title-minimum: var(--font-weight-medium);
+
+	--font-size-title-small: 14px;
+	--line-height-title-small: 18px;
+	--font-weight-title-small: var(--font-weight-medium);
+
+	--font-size-title-medium: 16px;
+	--line-height-title-medium: 20px;
+	--font-weight-title-medium: var(--font-weight-medium);
+
+	--font-size-title-large: 20px;
+	--line-height-title-large: 28px;
+	--font-weight-title-large: var(--font-weight-medium);
+
+	/* Headline Scale */
+	--font-size-headline-minimum: 24px;
+	--line-height-headline-minimum: 28px;
+	--font-weight-headline-minimum: var(--font-weight-semibold);
+
+	--font-size-headline-small: 28px;
+	--line-height-headline-small: 34px;
+	--font-weight-headline-small: var(--font-weight-semibold);
+
+	--font-size-headline-medium: 32px;
+	--line-height-headline-medium: 44px;
+	--font-weight-headline-medium: var(--font-weight-semibold);
+
+	--font-size-headline-large: 40px;
+	--line-height-headline-large: 48px;
+	--font-weight-headline-large: var(--font-weight-semibold);
+
+	--font-size-headline-super-large: 44px;
+	--line-height-headline-super-large: 58px;
+	--font-weight-headline-super-large: var(--font-weight-semibold);
+
+	--font-size-headline-super-large-x: 56px;
+	--line-height-headline-super-large-x: 66px;
+	--font-weight-headline-super-large-x: var(--font-weight-semibold);
+
+	/* Legacy Compatibility - Map to Figma Standards */
+	/* Display Scale (Legacy - Map to Headline Super Large) */
+	--font-size-display-large: var(--font-size-headline-super-large-x);
+	--line-height-display-large: var(--line-height-headline-super-large-x);
+	--letter-spacing-display-large: 0;
+
+	--font-size-display-medium: var(--font-size-headline-super-large);
+	--line-height-display-medium: var(--line-height-headline-super-large);
+	--letter-spacing-display-medium: 0;
+
+	--font-size-display-small: var(--font-size-headline-large);
+	--line-height-display-small: var(--line-height-headline-large);
+	--letter-spacing-display-small: 0;
+
+	/* Headline Scale (Legacy) - Use explicit values to avoid circular reference */
+	--letter-spacing-headline-large: 0;
+	--letter-spacing-headline-medium: 0;
+	--letter-spacing-headline-small: 0;
+
+	/* Title Scale (Legacy) - Use explicit values to avoid circular reference */
+	--letter-spacing-title-large: 0;
+	--letter-spacing-title-medium: 0;
+	--letter-spacing-title-small: 0;
+
+	/* Body Scale (Legacy - Map to Figma Standards) */
+	--font-size-body-large: var(--font-size-body-content-large);
+	--line-height-body-large: var(--line-height-body-content-large);
+	--font-weight-body-large: var(--font-weight-regular);
+	--letter-spacing-body-large: 0;
+
+	--font-size-body-medium: var(--font-size-body-content);
+	--line-height-body-medium: var(--line-height-body-content);
+	--font-weight-body-medium: var(--font-weight-regular);
+	--letter-spacing-body-medium: 0;
+
+	--font-size-body-small: var(--font-size-auxiliary-text);
+	--line-height-body-small: var(--line-height-auxiliary-text);
+	--font-weight-body-small: var(--font-weight-regular);
+	--letter-spacing-body-small: 0;
+
+	/* Label Scale (Legacy - Map to Figma Standards) */
+	--font-size-label-large: var(--font-size-title-medium);
+	--line-height-label-large: var(--line-height-title-medium);
+	--font-weight-label-large: var(--font-weight-medium);
+	--letter-spacing-label-large: 0;
+
+	--font-size-label-medium: var(--font-size-body-content);
+	--line-height-label-medium: var(--line-height-body-content);
+	--font-weight-label-medium: var(--font-weight-regular);
+	--letter-spacing-label-medium: 0;
+
+	--font-size-label-small: var(--font-size-auxiliary-text);
+	--line-height-label-small: var(--line-height-auxiliary-text);
+	--font-weight-label-small: var(--font-weight-regular);
+	--letter-spacing-label-small: 0;
+
+	/* Financial Application Specific Font Sizes - Mapped to Figma Standards */
+	--font-size-transaction-data: var(--font-size-body-content); /* 14px */
+	--line-height-transaction-data: var(--line-height-body-content); /* 18px */
+	--font-size-transaction-amount: var(--font-size-body-content-large); /* 16px - more prominent */
+	--line-height-transaction-amount: var(--line-height-body-content-large); /* 20px */
+	--font-size-form-input: var(--font-size-body-content-large); /* 16px - mobile friendly */
+	--line-height-form-input: var(--line-height-body-content-large); /* 20px */
+	--font-size-form-label: var(--font-size-title-small); /* 14px */
+	--line-height-form-label: var(--line-height-title-small); /* 18px */
+
+	/* ========== Button System - Figma Standard Compliance ========== */
+	/* Core Button Tokens */
+	--button-font-family: var(--font-family-primary);
+	--button-font-size: 14px;
+	--button-font-weight: 400;
+	--button-line-height: 18px;
+	--button-height: 48px;
+	--button-padding-x: 16px;
+	--button-padding-y: 8px;
+	--button-border-radius-fill: 6px;
+	--button-border-radius-border: 6px;
+	--button-border-radius-text: 8px;
+	--button-gap: 8px;
+
+	/* Button State Colors - Optimized for Accessibility */
+	/* Fill Variant (solid background) */
+	--button-fill-bg-default: var(--color-primary-500); /* #9810fa */
+	--button-fill-bg-hover: var(--color-primary-600); /* #6100a7 - Darker for better contrast */
+	--button-fill-bg-disabled: var(--color-surface-100); /* #eeeef2 */
+	--button-fill-text-default: #ffffff;
+	--button-fill-text-hover: #ffffff;
+	--button-fill-text-disabled: var(--color-surface-500); /* #99999a */
+
+	/* Border Variant (outlined) */
+	--button-border-bg-default: transparent;
+	--button-border-bg-hover: var(--color-primary-50); /* Light background on hover */
+	--button-border-bg-disabled: transparent;
+	--button-border-border-default: var(--color-primary-500); /* #9810fa */
+	--button-border-border-hover: var(--color-primary-600); /* #6100a7 - Darker border */
+	--button-border-border-disabled: var(--color-surface-100); /* #eeeef2 */
+	--button-border-text-default: var(--color-primary-500); /* #9810fa */
+	--button-border-text-hover: var(--color-primary-600); /* #6100a7 - Better contrast */
+	--button-border-text-disabled: var(--color-surface-500); /* #99999a */
+
+	/* Text Variant (no background/border) */
+	--button-text-bg-default: transparent;
+	--button-text-bg-hover: var(--color-primary-50); /* Light background on hover */
+	--button-text-bg-disabled: transparent;
+	--button-text-border-default: transparent;
+	--button-text-border-hover: transparent;
+	--button-text-border-disabled: transparent;
+	--button-text-text-default: var(--color-primary-500); /* #9810fa */
+	--button-text-text-hover: var(--color-primary-600); /* #6100a7 - Better contrast */
+	--button-text-text-disabled: var(--color-surface-500); /* #99999a */
+
+	/* Success Variant (green theme) */
+	--button-success-bg-default: var(--color-success-500); /* #6ec02b */
+	--button-success-bg-hover: var(--color-success-600); /* #689f38 */
+	--button-success-bg-disabled: var(--button-fill-bg-disabled);
+	--button-success-text-default: #ffffff;
+	--button-success-text-hover: #ffffff;
+	--button-success-text-disabled: var(--button-fill-text-disabled);
+
+	/* ========== Spacing System (8px base) ========== */
+	--spacing-0: 0;
+	--spacing-1: 4px; /* 0.5 × base */
+	--spacing-2: 8px; /* 1 × base */
+	--spacing-3: 12px; /* 1.5 × base */
+	--spacing-4: 16px; /* 2 × base */
+	--spacing-5: 20px; /* 2.5 × base */
+	--spacing-6: 24px; /* 3 × base */
+	--spacing-8: 32px; /* 4 × base */
+	--spacing-10: 40px; /* 5 × base */
+	--spacing-12: 48px; /* 6 × base */
+	--spacing-16: 64px; /* 8 × base */
+	--spacing-20: 80px; /* 10 × base */
+	--spacing-24: 96px; /* 12 × base */
+	--spacing-32: 128px; /* 16 × base */
+	--spacing-40: 160px; /* 20 × base */
+	--spacing-48: 192px; /* 24 × base */
+	--spacing-56: 224px; /* 28 × base */
+	--spacing-64: 256px; /* 32 × base */
+
+	/* ========== Border Radius System ========== */
+	--radius-none: 0;
+	--radius-sm: 4px; /* Subtle elements, inputs */
+	--radius-md: 8px; /* Standard UI elements */
+	--radius-lg: 12px; /* Cards, containers */
+	--radius-xl: 16px; /* Prominent cards */
+	--radius-2xl: 20px; /* Extra large cards */
+	--radius-3xl: 28px; /* Buttons, pills */
+	--radius-full: 9999px; /* Circular elements */
+
+	/* ========== Shadow System ========== */
+	--shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 4px 8px 3px rgba(0, 0, 0, 0.15);
+	--shadow-md: 0 4px 8px 3px rgba(0, 0, 0, 0.15), 0 8px 10px 1px rgba(0, 0, 0, 0.3);
+	--shadow-lg: 0 8px 12px 6px rgba(0, 0, 0, 0.15), 0 40px 64px 12px rgba(0, 0, 0, 0.3);
+
+	/* Material Design 3 Elevation Levels */
+	--shadow-md3-1: 0 1px 3px 1px rgba(0, 0, 0, 0.15), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+	--shadow-md3-2: 0 2px 6px 2px rgba(0, 0, 0, 0.15), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+	--shadow-md3-3: 0 4px 8px 3px rgba(0, 0, 0, 0.15), 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+	--shadow-md3-4: 0 6px 10px 4px rgba(0, 0, 0, 0.15), 0 2px 3px 0 rgba(0, 0, 0, 0.3);
+	--shadow-md3-5: 0 8px 12px 6px rgba(0, 0, 0, 0.15), 0 4px 4px 0 rgba(0, 0, 0, 0.3);
+
+	/* ========== Animation System ========== */
+	/* Easing Functions */
+	--easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+	--easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
+	--easing-accelerate: cubic-bezier(0.4, 0, 1, 1);
+
+	/* Duration Guidelines */
+	--transition-fast: 150ms var(--easing-standard);
+	--transition-standard: 300ms var(--easing-standard);
+	--transition-slow: 500ms var(--easing-standard);
+	--transition-extended: 800ms var(--easing-standard);
+
+	/* ========== Brand Gradients ========== */
+	--gradient-primary: linear-gradient(135deg, var(--color-primary-500), var(--color-secondary-500));
+	--gradient-brand: linear-gradient(
+		135deg,
+		var(--color-primary-500),
+		var(--color-secondary-500),
+		var(--color-tertiary-500)
+	);
+	--gradient-surface: linear-gradient(135deg, var(--color-surface-50), var(--color-surface-100));
+	--gradient-subtle: linear-gradient(135deg, var(--color-primary-50), var(--color-secondary-50));
+
+	/* ========== Z-Index System ========== */
+	/* Layering Strategy: Semantic naming for predictable stacking order */
+	--z-base: 0; /* Default layer - normal content */
+	--z-raised: 10; /* Slightly raised elements (month headers, messages) */
+	--z-dropdown: 50; /* Dropdown menus, popovers, selectors */
+	--z-sticky: 100; /* Sticky headers, table headers */
+	--z-navigation: 1000; /* Navigation bars, sidebars, toolbars */
+	--z-overlay: 5000; /* Side panels, drawers, assistant panels */
+	--z-modal-backdrop: 8999; /* Modal backdrop/overlay (semi-transparent background) */
+	--z-modal: 9000; /* Modal content (dialog boxes, forms) */
+	--z-tooltip: 10000; /* Tooltips, hints, floating UI */
+	--z-notification: 11000; /* Global notifications, toasts, alerts */
+}
+
+/* ========== Global Base Styles ========== */
+
+body {
+	font-family: var(--font-family-primary);
+	background-color: var(--color-surface-50);
+	color: var(--color-surface-900);
+	line-height: 1.6;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
