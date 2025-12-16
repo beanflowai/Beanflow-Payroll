@@ -2,15 +2,16 @@
  * Employee types for Payroll UI
  */
 
+// 12 provinces/territories supported (Quebec excluded - separate system required)
 export type Province =
 	| 'AB' | 'BC' | 'MB' | 'NB' | 'NL' | 'NS'
-	| 'NT' | 'NU' | 'ON' | 'PE' | 'QC' | 'SK' | 'YT';
+	| 'NT' | 'NU' | 'ON' | 'PE' | 'SK' | 'YT';
 
 export const PROVINCE_LABELS: Record<Province, string> = {
 	AB: 'Alberta', BC: 'British Columbia', MB: 'Manitoba',
 	NB: 'New Brunswick', NL: 'Newfoundland', NS: 'Nova Scotia',
 	NT: 'NW Territories', NU: 'Nunavut', ON: 'Ontario',
-	PE: 'PEI', QC: 'Quebec', SK: 'Saskatchewan', YT: 'Yukon'
+	PE: 'PEI', SK: 'Saskatchewan', YT: 'Yukon'
 };
 
 export type PayFrequency = 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly';
@@ -28,11 +29,13 @@ export const PAY_PERIODS_PER_YEAR: Record<PayFrequency, number> = {
 	monthly: 12
 };
 
-export type EmploymentType = 'full_time' | 'part_time';
+export type EmploymentType = 'full_time' | 'part_time' | 'contract' | 'casual';
 
 export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
 	full_time: 'Full-time',
-	part_time: 'Part-time'
+	part_time: 'Part-time',
+	contract: 'Contract',
+	casual: 'Casual'
 };
 
 export type VacationPayoutMethod = 'accrual' | 'pay_as_you_go' | 'lump_sum';
@@ -122,11 +125,11 @@ export interface EmployeeStatusCounts {
 	terminated: number;
 }
 
-// 2025 Basic Personal Amounts
+// 2025 Basic Personal Amounts (from T4127 July 2025 edition)
 export const FEDERAL_BPA_2025 = 16129;
 export const PROVINCIAL_BPA_2025: Record<Province, number> = {
-	AB: 21003, BC: 12580, MB: 15780, NB: 13044, NL: 10818, NS: 8481,
-	NT: 17373, NU: 18767, ON: 12399, PE: 14250, QC: 18056, SK: 18491, YT: 16129
+	AB: 22323, BC: 12932, MB: 15591, NB: 13396, NL: 11067, NS: 11744,
+	NT: 17842, NU: 19274, ON: 12747, PE: 15050, SK: 19991, YT: 16129
 };
 
 // ============================================================================
@@ -172,4 +175,141 @@ export function calculatePerPeriodGross(annualSalary: number, payFrequency: PayF
  */
 export function canEditVacationBalance(employee: Employee): boolean {
 	return employee.status === 'draft' || employee.id.startsWith('new-');
+}
+
+// ============================================================================
+// Database Types (for Supabase interactions)
+// ============================================================================
+
+/**
+ * Database row type for employees table (snake_case)
+ */
+export interface DbEmployee {
+	id: string;
+	user_id: string;
+	ledger_id: string;
+	first_name: string;
+	last_name: string;
+	sin_encrypted: string;
+	email: string | null;
+	province_of_employment: Province;
+	pay_frequency: PayFrequency;
+	employment_type: EmploymentType;
+	annual_salary: number | null;
+	hourly_rate: number | null;
+	federal_claim_amount: number;
+	provincial_claim_amount: number;
+	is_cpp_exempt: boolean;
+	is_ei_exempt: boolean;
+	cpp2_exempt: boolean;
+	rrsp_per_period: number;
+	union_dues_per_period: number;
+	hire_date: string;
+	termination_date: string | null;
+	vacation_config: {
+		payout_method: VacationPayoutMethod;
+		vacation_rate: string;
+	};
+	vacation_balance: number;
+	created_at: string;
+	updated_at: string;
+}
+
+/**
+ * Input type for creating an employee (excludes auto-generated fields)
+ */
+export interface EmployeeCreateInput {
+	first_name: string;
+	last_name: string;
+	sin: string; // Raw SIN - will be encrypted on backend
+	email?: string | null;
+	province_of_employment: Province;
+	pay_frequency: PayFrequency;
+	employment_type?: EmploymentType;
+	annual_salary?: number | null;
+	hourly_rate?: number | null;
+	federal_claim_amount: number;
+	provincial_claim_amount: number;
+	is_cpp_exempt?: boolean;
+	is_ei_exempt?: boolean;
+	cpp2_exempt?: boolean;
+	rrsp_per_period?: number;
+	union_dues_per_period?: number;
+	hire_date: string;
+	termination_date?: string | null;
+	vacation_config?: {
+		payout_method: VacationPayoutMethod;
+		vacation_rate: string;
+	};
+	vacation_balance?: number;
+}
+
+/**
+ * Input type for updating an employee (all fields optional)
+ */
+export type EmployeeUpdateInput = Partial<Omit<EmployeeCreateInput, 'sin'>>;
+
+/**
+ * Convert database employee to UI employee
+ */
+export function dbEmployeeToUi(db: DbEmployee, maskedSin: string): Employee {
+	return {
+		id: db.id,
+		firstName: db.first_name,
+		lastName: db.last_name,
+		sin: maskedSin,
+		email: db.email ?? undefined,
+		provinceOfEmployment: db.province_of_employment,
+		payFrequency: db.pay_frequency,
+		employmentType: db.employment_type,
+		status: db.termination_date ? 'terminated' : 'active',
+		hireDate: db.hire_date,
+		terminationDate: db.termination_date,
+		annualSalary: db.annual_salary,
+		hourlyRate: db.hourly_rate,
+		federalClaimAmount: db.federal_claim_amount,
+		provincialClaimAmount: db.provincial_claim_amount,
+		isCppExempt: db.is_cpp_exempt,
+		isEiExempt: db.is_ei_exempt,
+		cpp2Exempt: db.cpp2_exempt,
+		rrspPerPeriod: db.rrsp_per_period,
+		unionDuesPerPeriod: db.union_dues_per_period,
+		vacationConfig: {
+			payoutMethod: db.vacation_config.payout_method,
+			vacationRate: db.vacation_config.vacation_rate as VacationRate
+		},
+		vacationBalance: db.vacation_balance
+	};
+}
+
+/**
+ * Convert UI employee to database input for create
+ */
+export function uiEmployeeToDbCreate(
+	ui: Omit<Employee, 'id' | 'status' | 'vacationBalance'> & { sin: string }
+): EmployeeCreateInput {
+	return {
+		first_name: ui.firstName,
+		last_name: ui.lastName,
+		sin: ui.sin,
+		email: ui.email ?? null,
+		province_of_employment: ui.provinceOfEmployment,
+		pay_frequency: ui.payFrequency,
+		employment_type: ui.employmentType,
+		annual_salary: ui.annualSalary ?? null,
+		hourly_rate: ui.hourlyRate ?? null,
+		federal_claim_amount: ui.federalClaimAmount,
+		provincial_claim_amount: ui.provincialClaimAmount,
+		is_cpp_exempt: ui.isCppExempt,
+		is_ei_exempt: ui.isEiExempt,
+		cpp2_exempt: ui.cpp2Exempt,
+		rrsp_per_period: ui.rrspPerPeriod,
+		union_dues_per_period: ui.unionDuesPerPeriod,
+		hire_date: ui.hireDate,
+		termination_date: ui.terminationDate ?? null,
+		vacation_config: {
+			payout_method: ui.vacationConfig.payoutMethod,
+			vacation_rate: ui.vacationConfig.vacationRate
+		}
+	};
 }
