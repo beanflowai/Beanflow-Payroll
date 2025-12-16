@@ -45,16 +45,34 @@ This checklist has been updated to reflect standalone product architecture:
 
 | Phase | Status | Start Date | End Date | Notes |
 |-------|--------|------------|----------|-------|
-| **Phase 0: Frontend Setup** | ⬜ Not Started | | | Standalone SvelteKit app |
-| Phase 1: Data Layer | ⬜ Not Started | | | Supabase migrations + Tax tables |
+| **Phase 0: Frontend Setup** | 🔄 In Progress | 2025-12-16 | | Auth + 基础布局已完成 |
+| Phase 1: Data Layer | 🔄 In Progress | 2025-12-16 | | ~70% 完成 (见下方详情) |
 | Phase 2: Calculations | ⬜ Not Started | | | CPP/EI/Tax calculators |
 | Phase 3: Paystub | ⬜ Not Started | | | PDF + DO Spaces storage |
-| Phase 4: API & Integration | ⬜ Not Started | | | REST API + UI components |
+| Phase 4: API & Integration | 🔄 In Progress | 2025-12-16 | | 前端类型和服务已完成 |
 | Phase 5: Testing | ⬜ Not Started | | | Unit + Integration + PDOC |
 | Phase 6: Year-End (Future) | ⬜ Not Started | | | T4 generation |
 | Phase 7: Compliance (Future) | ⬜ Not Started | | | ROE, Remittance |
 
 **Status Legend**: ⬜ Not Started | 🔄 In Progress | ✅ Completed | ⚠️ Blocked
+
+---
+
+## 🏗️ Architecture Update (2025-12-16)
+
+采用**混合架构**：简单 CRUD 直连 Supabase，复杂计算走 FastAPI。
+
+详见 [00_architecture_overview.md](./00_architecture_overview.md)
+
+### 额外实现 (超出原计划)
+
+以下内容已实现但未在原 checklist 中列出：
+
+- ✅ **companies 表** - 公司信息、CRA 汇款配置
+- ✅ **pay_groups 表** - 薪资组政策模板
+- ✅ **Company/PayGroup Pydantic models** - 后端模型
+- ✅ **company.ts / pay-group.ts** - 前端类型
+- ✅ **companyService.ts / payGroupService.ts** - 前端服务
 
 ---
 
@@ -154,34 +172,34 @@ This checklist has been updated to reflect standalone product architecture:
 
 ### Week 1: Supabase Database Schema (NEW)
 
-- [ ] **Task 1.0.1**: Create Supabase migration for payroll tables
-  - [ ] Create migration file: `backend/supabase/migrations/YYYYMMDD_create_payroll_tables.sql`
-  - [ ] Create `employees` table:
-    - [ ] Basic fields (id, user_id, ledger_id, names)
-    - [ ] SIN encrypted storage
-    - [ ] Employment details (province, pay_frequency)
-    - [ ] TD1 claim amounts
-    - [ ] Exemption flags (cpp, ei, cpp2)
-    - [ ] Vacation config (JSONB)
-    - [ ] Timestamps
-    - [ ] Indexes (user_ledger, province, active)
-  - [ ] Create `payroll_runs` table:
-    - [ ] Period info (start, end, pay_date)
-    - [ ] Status enum (draft, calculating, pending_approval, approved, paid)
-    - [ ] Summary totals (all deduction types)
-    - [ ] Beancount transaction IDs array
-    - [ ] Approval tracking
-    - [ ] Timestamps
-  - [ ] Create `payroll_records` table:
-    - [ ] Foreign keys (payroll_run_id, employee_id)
-    - [ ] Earnings fields
-    - [ ] Deduction fields
-    - [ ] Generated columns (total_gross, total_deductions, net_pay)
-    - [ ] YTD snapshot fields
-    - [ ] Vacation tracking
-    - [ ] Paystub storage key
-  - [ ] Add RLS policies for all tables
-  - [ ] Add updated_at triggers
+- [x] **Task 1.0.1**: Create Supabase migration for payroll tables ✅
+  - [x] Create migration file: `backend/supabase/migrations/20251216_create_payroll_tables.sql`
+  - [x] Create `employees` table:
+    - [x] Basic fields (id, user_id, ledger_id, names)
+    - [x] SIN encrypted storage
+    - [x] Employment details (province, pay_frequency)
+    - [x] TD1 claim amounts
+    - [x] Exemption flags (cpp, ei, cpp2)
+    - [x] Vacation config (JSONB)
+    - [x] Timestamps
+    - [x] Indexes (user_ledger, province, active)
+  - [x] Create `payroll_runs` table:
+    - [x] Period info (start, end, pay_date)
+    - [x] Status enum (draft, calculating, pending_approval, approved, paid)
+    - [x] Summary totals (all deduction types)
+    - [x] Beancount transaction IDs array
+    - [x] Approval tracking
+    - [x] Timestamps
+  - [x] Create `payroll_records` table:
+    - [x] Foreign keys (payroll_run_id, employee_id)
+    - [x] Earnings fields
+    - [x] Deduction fields
+    - [x] Generated columns (total_gross, total_deductions, net_pay)
+    - [x] YTD snapshot fields
+    - [x] Vacation tracking
+    - [x] Paystub storage key
+  - [x] Add RLS policies for all tables
+  - [x] Add updated_at triggers
 
 - [ ] **Task 1.0.2**: Apply and verify migration
   - [ ] Run `supabase db push` or `supabase migration up`
@@ -189,95 +207,106 @@ This checklist has been updated to reflect standalone product architecture:
   - [ ] Verify RLS is enabled
   - [ ] Verify generated columns work
 
-### Week 1: Repository Layer (NEW)
+### Week 1: Data Access Layer
 
-- [ ] **Task 1.1.1**: Create Employee Repository
-  - [ ] Create `backend/app/repositories/payroll/__init__.py`
-  - [ ] Create `backend/app/repositories/payroll/employee_repository.py`:
-    - [ ] `create_employee()` - Insert with multi-tenancy
-    - [ ] `get_employee_by_id()` - Single fetch
-    - [ ] `list_employees()` - With filters (active, province)
-    - [ ] `update_employee()` - Partial update
-    - [ ] `terminate_employee()` - Soft delete
-    - [ ] `get_employee_count()` - Count query
-    - [ ] `update_vacation_balance()` - Balance update
+> **架构决策 (2025-12-16)**: 采用混合架构，简单 CRUD 使用前端直连 Supabase，
+> 复杂逻辑使用 FastAPI。因此 Backend Repository 层改为前端 Service 层。
 
-- [ ] **Task 1.1.2**: Create Payroll Run Repository
-  - [ ] Create `backend/app/repositories/payroll/payroll_run_repository.py`:
-    - [ ] `create_payroll_run()`
-    - [ ] `get_payroll_run_by_id()`
-    - [ ] `list_payroll_runs()` - With status/year filter
-    - [ ] `update_payroll_run_status()`
-    - [ ] `update_payroll_run_totals()`
+- [x] **Task 1.1.1**: Create Employee Service (前端) ✅ ~~Repository~~
+  - [x] Create `frontend/src/lib/services/employeeService.ts`:
+    - [x] `createEmployee()` - Insert with multi-tenancy
+    - [x] `getEmployee()` - Single fetch
+    - [x] `listEmployees()` - With filters (active, province)
+    - [x] `updateEmployee()` - Partial update
+    - [x] `terminateEmployee()` - Soft delete
+    - [x] `getEmployeeCount()` - Count query
 
-- [ ] **Task 1.1.3**: Create Payroll Record Repository
-  - [ ] Create `backend/app/repositories/payroll/payroll_record_repository.py`:
-    - [ ] `create_payroll_record()`
-    - [ ] `get_records_for_run()`
-    - [ ] `get_records_for_employee()`
-    - [ ] `update_paystub_key()`
+- [x] **Task 1.1.2**: Create Company Service (前端) ✅ (额外)
+  - [x] Create `frontend/src/lib/services/companyService.ts`:
+    - [x] `createCompany()`
+    - [x] `getCompany()`
+    - [x] `listCompanies()`
+    - [x] `updateCompany()`
+    - [x] `deleteCompany()`
+
+- [x] **Task 1.1.3**: Create Pay Group Service (前端) ✅ (额外)
+  - [x] Create `frontend/src/lib/services/payGroupService.ts`:
+    - [x] `createPayGroup()`
+    - [x] `getPayGroup()`
+    - [x] `listPayGroups()`
+    - [x] `updatePayGroup()`
+    - [x] `deletePayGroup()`
+    - [x] `getMatchingPayGroups()`
 
 ### Week 2: Tax Tables
 
-- [ ] **Task 1.2.1**: Create `backend/app/services/payroll/tax_tables_2025.py`
-  - [ ] Import dependencies (Decimal, Pydantic)
-  - [ ] Define TaxBracket model
-  - [ ] Define ProvinceTaxConfig model
-  - [ ] Create FEDERAL_TAX_CONFIG (5 brackets from T4127 Table 8.1)
-  - [ ] Create CPP_CONFIG_2025:
-    - [ ] YMPE = $71,200
-    - [ ] YAMPE = $76,000
-    - [ ] Basic exemption = $3,500
-    - [ ] Rate = 5.95%
-    - [ ] Additional rate = 1%
-  - [ ] Create EI_CONFIG_2025:
-    - [ ] MIE = $65,000
-    - [ ] Employee rate = 1.70%
-    - [ ] Employer rate = 2.38% (1.4x)
-  - [ ] Add all 12 provinces to PROVINCIAL_TAX_CONFIGS:
-    - [ ] AB (Alberta) - 6 brackets
-    - [ ] BC (British Columbia) - 7 brackets
-    - [ ] MB (Manitoba) - 3 brackets + dynamic BPA
-    - [ ] NB (New Brunswick) - 4 brackets
-    - [ ] NL (Newfoundland) - 8 brackets
-    - [ ] NS (Nova Scotia) - 5 brackets + dynamic BPA
-    - [ ] NT (Northwest Territories) - 4 brackets
-    - [ ] NU (Nunavut) - 4 brackets
-    - [ ] ON (Ontario) - 5 brackets + surtax/health premium
-    - [ ] PE (Prince Edward Island) - 5 brackets
-    - [ ] SK (Saskatchewan) - 3 brackets
-    - [ ] YT (Yukon) - 5 brackets + dynamic BPA
-  - [ ] Implement helper functions:
-    - [ ] `find_tax_bracket()`
-    - [ ] `get_province_config()`
-  - [ ] Implement dynamic BPA functions:
-    - [ ] `calculate_bpamb()` (Manitoba)
-    - [ ] `calculate_bpans()` (Nova Scotia)
-    - [ ] `calculate_bpayt()` (Yukon)
-  - [ ] Add `validate_tax_tables()` function
+> **实现说明**: 采用 JSON 配置 + Python 加载器分离架构，更易于年度更新维护。
+
+- [x] **Task 1.2.1**: Create Tax Tables (JSON + Python 分离架构) ✅
+  - [x] Create `backend/config/tax_tables/2025/federal.json`:
+    - [x] BPAF = $16,129
+    - [x] CEA = $1,471
+    - [x] 5 brackets from T4127 Table 8.1
+  - [x] Create `backend/config/tax_tables/2025/cpp_ei.json`:
+    - [x] YMPE = $71,200
+    - [x] YAMPE = $76,000
+    - [x] Basic exemption = $3,500
+    - [x] Rate = 5.95%
+    - [x] Additional rate = 1%
+    - [x] MIE = $65,700 (2025 实际值)
+    - [x] Employee rate = 1.64% (2025 实际值)
+    - [x] Employer multiplier = 1.4x
+  - [x] Create `backend/config/tax_tables/2025/provinces.json`:
+    - [x] AB (Alberta) - 6 brackets
+    - [x] BC (British Columbia) - 7 brackets
+    - [x] MB (Manitoba) - 3 brackets + dynamic BPA
+    - [x] NB (New Brunswick) - 4 brackets
+    - [x] NL (Newfoundland) - 8 brackets
+    - [x] NS (Nova Scotia) - 5 brackets + dynamic BPA
+    - [x] NT (Northwest Territories) - 4 brackets
+    - [x] NU (Nunavut) - 4 brackets
+    - [x] ON (Ontario) - 5 brackets + surtax/health premium
+    - [x] PE (Prince Edward Island) - 5 brackets
+    - [x] SK (Saskatchewan) - 3 brackets
+    - [x] YT (Yukon) - 5 brackets + dynamic BPA
+  - [x] Create `backend/app/services/payroll/tax_tables.py`:
+    - [x] `load_federal_config()`
+    - [x] `load_cpp_config()` / `load_ei_config()`
+    - [x] `load_province_config()` / `load_all_provinces()`
+    - [x] `find_tax_bracket()`
+    - [x] `calculate_dynamic_bpa()` (MB, NS, YT)
+    - [x] `validate_tax_tables()`
 
 ### Week 2: Data Models
 
-- [ ] **Task 1.3.1**: Create `backend/app/models/payroll.py`
-  - [ ] Create Province enum (12 values, exclude QC)
-  - [ ] Create PayPeriodFrequency enum with `periods_per_year` property
-  - [ ] Create PayrollRunStatus enum
-  - [ ] Create EmploymentType enum
-  - [ ] Create VacationPayoutMethod enum
-  - [ ] Create VacationConfig model
-  - [ ] Create Employee models (Base, Create, Response)
-  - [ ] Create PayrollRun models (Base, Create, Response)
-  - [ ] Create PayrollRecord model
-  - [ ] Create PayrollCalculationRequest model
-  - [ ] Create PayrollCalculationResult model
+- [x] **Task 1.3.1**: Create `backend/app/models/payroll.py` ✅
+  - [x] Create Province enum (12 values, exclude QC)
+  - [x] Create PayFrequency enum with `periods_per_year` property
+  - [x] Create PayrollRunStatus enum
+  - [x] Create EmploymentType enum (full_time, part_time, contract, casual)
+  - [x] Create VacationPayoutMethod enum
+  - [x] Create VacationConfig model
+  - [x] Create Employee models (Base, Create, Update, Response)
+  - [x] Create PayrollRun models (Base, Create, Response)
+  - [x] Create PayrollRecord model
+  - [x] Create PayrollCalculationRequest model
+  - [x] Create PayrollCalculationResult model
+  - [x] (额外) Create Company models (Base, Create, Update)
+  - [x] (额外) Create PayGroup models + policy sub-models
+
+- [x] **Task 1.3.2**: Create Frontend TypeScript Types ✅ (提前完成)
+  - [x] Create `frontend/src/lib/types/employee.ts`
+  - [x] Create `frontend/src/lib/types/payroll.ts`
+  - [x] Create `frontend/src/lib/types/company.ts`
+  - [x] Create `frontend/src/lib/types/pay-group.ts`
 
 **Validation:**
 - [ ] Migration applies without errors
 - [ ] RLS policies working
-- [ ] Repository methods work (manual test)
-- [ ] All 12 provinces in config
-- [ ] Tax tables validate on import
-- [ ] Pydantic models pass type checking
+- [x] Frontend services work (manual test)
+- [x] All 12 provinces in config
+- [x] Tax tables validate on import
+- [x] Pydantic models pass type checking
 
 ---
 

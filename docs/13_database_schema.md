@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS employees (
         pay_frequency IN ('weekly', 'bi_weekly', 'semi_monthly', 'monthly')
     ),
     employment_type TEXT DEFAULT 'full_time' CHECK (
-        employment_type IN ('full_time', 'part_time')
+        employment_type IN ('full_time', 'part_time', 'contract', 'casual')
     ),
 
     -- Compensation (one required)
@@ -644,8 +644,188 @@ After 5 years: ~6,500 payroll_records per ledger.
 
 ---
 
+---
+
+## Table: companies (Added 2025-12-16)
+
+Stores company information, CRA remittance configuration, and bookkeeping integration.
+
+### Schema
+
+```sql
+CREATE TABLE IF NOT EXISTS companies (
+    -- Primary Key
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    -- Multi-tenancy
+    user_id TEXT NOT NULL,
+
+    -- Company Information
+    company_name TEXT NOT NULL,
+    business_number CHAR(9) NOT NULL,  -- 9-digit CRA Business Number
+    payroll_account_number CHAR(15) NOT NULL,  -- e.g., 123456789RP0001
+    province TEXT NOT NULL CHECK (
+        province IN (
+            'AB', 'BC', 'MB', 'NB', 'NL', 'NS',
+            'NT', 'NU', 'ON', 'PE', 'SK', 'YT'
+        )
+    ),
+
+    -- CRA Remittance Configuration
+    remitter_type TEXT NOT NULL DEFAULT 'regular' CHECK (
+        remitter_type IN ('quarterly', 'regular', 'threshold_1', 'threshold_2')
+    ),
+
+    -- Payroll Preferences
+    auto_calculate_deductions BOOLEAN DEFAULT TRUE,
+    send_paystub_emails BOOLEAN DEFAULT FALSE,
+
+    -- Bookkeeping Integration
+    bookkeeping_ledger_id TEXT,
+    bookkeeping_ledger_name TEXT,
+    bookkeeping_connected_at TIMESTAMPTZ,
+
+    -- Timestamps
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+
+    -- Constraints
+    CONSTRAINT unique_company_per_user UNIQUE (user_id, business_number)
+);
+```
+
+### Remitter Types
+
+| Type | AMWA Range | Frequency |
+|------|-----------|-----------|
+| quarterly | < $3,000 | 4 times/year |
+| regular | $3,000 - $24,999 | Monthly |
+| threshold_1 | $25,000 - $99,999 | Twice monthly |
+| threshold_2 | >= $100,000 | Up to 4x monthly |
+
+---
+
+## Table: pay_groups (Added 2025-12-16)
+
+Pay Group "Policy Template" - defines payroll configuration for groups of employees.
+
+### Schema
+
+```sql
+CREATE TABLE IF NOT EXISTS pay_groups (
+    -- Primary Key
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    -- Foreign Key to Company
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+
+    -- Basic Info
+    name TEXT NOT NULL,
+    description TEXT,
+    pay_frequency TEXT NOT NULL CHECK (
+        pay_frequency IN ('weekly', 'bi_weekly', 'semi_monthly', 'monthly')
+    ),
+    employment_type TEXT NOT NULL DEFAULT 'full_time' CHECK (
+        employment_type IN ('full_time', 'part_time')
+    ),
+
+    -- Pay Schedule
+    next_pay_date DATE NOT NULL,
+    period_start_day TEXT NOT NULL DEFAULT 'monday',
+
+    -- Leave Policy
+    leave_enabled BOOLEAN DEFAULT TRUE,
+
+    -- Policy Configurations (JSONB)
+    statutory_defaults JSONB DEFAULT '{
+        "cpp_exempt_by_default": false,
+        "cpp2_exempt_by_default": false,
+        "ei_exempt_by_default": false
+    }'::JSONB,
+
+    overtime_policy JSONB DEFAULT '{
+        "bank_time_enabled": false,
+        "bank_time_rate": 1.5,
+        "bank_time_expiry_months": 3,
+        "require_written_agreement": true
+    }'::JSONB,
+
+    wcb_config JSONB DEFAULT '{"enabled": false, "assessment_rate": 0}'::JSONB,
+
+    group_benefits JSONB DEFAULT '{"enabled": false}'::JSONB,
+
+    custom_deductions JSONB DEFAULT '[]'::JSONB,
+
+    -- Timestamps
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+
+    -- Constraints
+    CONSTRAINT unique_pay_group_name_per_company UNIQUE (company_id, name)
+);
+```
+
+### Employee Foreign Keys
+
+employees 表新增外键关联：
+
+```sql
+ALTER TABLE employees
+    ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id) ON DELETE SET NULL;
+
+ALTER TABLE employees
+    ADD COLUMN IF NOT EXISTS pay_group_id UUID REFERENCES pay_groups(id) ON DELETE SET NULL;
+```
+
+---
+
+## Entity Relationship (Updated)
+
+```
+┌─────────────────┐
+│    companies    │
+├─────────────────┤
+│ id (PK)         │
+│ user_id         │
+│ company_name    │
+│ remitter_type   │
+└────────┬────────┘
+         │ 1:N
+         ▼
+┌─────────────────┐
+│   pay_groups    │
+├─────────────────┤
+│ id (PK)         │
+│ company_id (FK) │
+│ name            │
+│ pay_frequency   │
+│ policies (JSONB)│
+└────────┬────────┘
+         │ (policy template)
+         │
+┌────────┴────────┐
+│    employees    │
+├─────────────────┤
+│ id (PK)         │
+│ company_id (FK) │──────────┐
+│ pay_group_id(FK)│          │
+│ ...             │          │
+└────────┬────────┘          │
+         │ 1:N               │
+         ▼                   │
+┌─────────────────┐         │
+│ payroll_records │         │
+├─────────────────┤         │
+│ employee_id (FK)├─────────┘
+│ payroll_run_id  │
+└─────────────────┘
+```
+
+---
+
 ## Related Documents
 
+- [Architecture Overview](./00_architecture_overview.md) - System architecture
 - [Phase 1: Data Layer](./01_phase1_data_layer.md) - Implementation guide
 - [Phase 4: API Integration](./04_phase4_api_integration.md) - Repository patterns
 - [Implementation Checklist](./implementation_checklist.md) - Progress tracker

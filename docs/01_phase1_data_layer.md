@@ -14,13 +14,16 @@
 Build the foundational data structures and tax tables for all payroll calculations.
 
 ### Deliverables
-1. ✅ **Supabase database schema** (employees, payroll_runs, payroll_records)
-2. ✅ Tax rate tables for 12 provinces/territories
-3. ✅ CPP and EI configuration constants
+1. ✅ **Supabase database schema** (employees, payroll_runs, payroll_records, companies, pay_groups)
+2. ✅ Tax rate tables for 12 provinces/territories (JSON 配置架构)
+3. ✅ CPP and EI configuration constants (2025 实际值)
 4. ✅ Pydantic models for type safety
-5. ✅ **Repository layer** for data access
+5. ✅ **前端 Service 层** for data access (混合架构：简单 CRUD 直连 Supabase)
 6. ✅ Dynamic BPA calculation functions
 7. ✅ Helper functions for tax lookups
+8. ✅ (额外) Company/Pay Group 模型和服务
+
+> **架构更新 (2025-12-16)**: 详见 [00_architecture_overview.md](./00_architecture_overview.md)
 
 ---
 
@@ -776,10 +779,10 @@ class ProvinceTaxConfig(BaseModel):
    FUTURE: This will be loaded from `backend/config/tax_tables/2025/jul/cpp_ei_2025_jul.json`
 
 5. Create EI_CONFIG_2025 dictionary:
-   - mie: Decimal("65000.00")
-   - employee_rate: Decimal("0.0170")
-   - employer_rate: Decimal("0.0238")
-   - max_premium: Decimal("1077.48")
+   - mie: Decimal("65700.00")  # 2025 实际值
+   - employee_rate: Decimal("0.0164")  # 2025 实际值
+   - employer_rate_multiplier: Decimal("1.4")
+   - max_employee_premium: Decimal("1077.48")
 
    FUTURE: This will be loaded from `backend/config/tax_tables/2025/jul/cpp_ei_2025_jul.json`
 
