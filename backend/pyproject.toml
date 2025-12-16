@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "beanflow-payroll-backend"
+version = "0.1.0"
+description = "BeanFlow Payroll FastAPI Backend"
+authors = [{name = "BeanFlow"}]
+requires-python = ">=3.11"
+dependencies = [
+    # FastAPI Framework
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+
+    # Data Validation and Settings
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.7.0",
+
+    # Supabase Client
+    "supabase>=2.10.0",
+
+    # JWT and Security
+    "python-jose[cryptography]>=3.5.0",
+    "cryptography>=44.0.0",
+
+    # HTTP Client
+    "httpx>=0.28.0",
+
+    # Environment and Utilities
+    "python-dotenv>=1.0.0",
+    "python-dateutil>=2.8.2",
+    "email-validator>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+exclude = ["tests*", "supabase*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
