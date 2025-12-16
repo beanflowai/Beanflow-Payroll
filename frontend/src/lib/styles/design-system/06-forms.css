@@ -1,0 +1,148 @@
+/**
+ * Beanflow Design System - Forms Module
+ * Form controls and inputs
+ */
+
+/**
+ * Beanflow Design System
+ * Version: 1.2 - Figma-based Design System
+ * Based on: Figma Design System (migrated from Material Design 3)
+ * Optimized for Financial Applications
+ */
+
+/* ============================================================================
+   Form Controls - Optimized for Financial Applications
+   ============================================================================ */
+
+/* Base Form Control Styles */
+.form-control {
+	display: block;
+	width: 100%;
+	padding: 12px 16px;
+	font-size: var(--font-size-form-input); /* 16px for mobile-friendly input */
+	font-family: var(--font-family-primary);
+	line-height: var(--line-height-form-input);
+	color: var(--color-surface-900);
+	background-color: #ffffff;
+	border: 1px solid var(--color-surface-300);
+	border-radius: var(--radius-md);
+	transition:
+		border-color var(--transition-fast),
+		box-shadow var(--transition-fast);
+}
+
+.form-control::placeholder {
+	color: var(--color-surface-600);
+	font-size: 14px;
+	opacity: 1;
+}
+
+.form-control:focus {
+	outline: 0;
+	border-color: var(--color-primary-400);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary-500) 10%, transparent);
+}
+
+.form-control:disabled {
+	background-color: var(--color-surface-200);
+	border-color: var(--color-surface-300);
+	color: var(--color-surface-600);
+	cursor: not-allowed;
+}
+
+/* Form Labels - Optimized Size */
+.form-label {
+	display: block;
+	margin-bottom: 4px;
+	font-size: var(--font-size-form-label); /* 14px */
+	line-height: var(--line-height-form-label);
+	font-weight: 500;
+	color: var(--color-surface-800);
+}
+
+/* Input Specific Styles */
+.form-input {
+	background-image: none; /* Remove default styling */
+}
+
+/* Select Specific Styles */
+.form-select {
+	appearance: none; /* Hide native dropdown arrow */
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3e%3cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m8 10 4 4 4-4'/%3e%3c/svg%3e");
+	background-position: right 12px center;
+	background-repeat: no-repeat;
+	background-size: 16px;
+	padding-right: 40px; /* Make room for dropdown arrow */
+	cursor: pointer;
+}
+
+.form-select:focus {
+	background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%231976d2'%3e%3cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m8 10 4 4 4-4'/%3e%3c/svg%3e");
+}
+
+/* Input with dropdown appearance (for searchable inputs) */
+.form-input-dropdown {
+	background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3e%3cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m8 10 4 4 4-4'/%3e%3c/svg%3e");
+	background-position: right 12px center;
+	background-repeat: no-repeat;
+	background-size: 16px;
+	padding-right: 40px;
+}
+
+.form-input-dropdown:focus {
+	background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%231976d2'%3e%3cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m8 10 4 4 4-4'/%3e%3c/svg%3e");
+}
+
+/* Size Variations */
+.form-control-sm {
+	padding: 8px 12px;
+	font-size: var(--font-size-body-small);
+}
+
+.form-control-sm.form-select {
+	background-position: right 8px center; /* Adjust arrow position for smaller padding */
+	padding-right: 32px; /* Adjust right padding for smaller size */
+}
+
+.form-control-sm.form-input-dropdown {
+	background-position: right 8px center; /* Adjust arrow position for smaller padding */
+	padding-right: 32px; /* Adjust right padding for smaller size */
+}
+
+.form-control-lg {
+	padding: 16px 20px;
+	font-size: var(--font-size-body-large);
+}
+
+/* Error State */
+.form-control.is-invalid {
+	border-color: var(--color-error-500);
+}
+
+.form-control.is-invalid:focus {
+	border-color: var(--color-error-500);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-error-500) 10%, transparent);
+}
+
+/* Success State */
+.form-control.is-valid {
+	border-color: var(--color-tertiary-500);
+}
+
+.form-control.is-valid:focus {
+	border-color: var(--color-tertiary-500);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-tertiary-500) 10%, transparent);
+}
+
+/* Warning State (for situations like "account doesn't exist but can be created") */
+.form-control.is-warning {
+	border-color: #f59e0b; /* yellow-500 */
+	background-color: #fef3c7; /* yellow-50 */
+}
+
+.form-control.is-warning:focus {
+	border-color: #d97706; /* yellow-600 */
+	box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+}

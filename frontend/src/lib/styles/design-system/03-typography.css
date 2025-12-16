@@ -1,0 +1,155 @@
+/**
+ * Beanflow Design System - Typography Module
+ * Typography utility classes based on Figma Standard
+ */
+
+/**
+ * Beanflow Design System
+ * Version: 1.2 - Figma-based Design System
+ * Based on: Figma Design System (migrated from Material Design 3)
+ * Optimized for Financial Applications
+ */
+
+/* ============================================================================
+   Typography Utility Classes - Figma Standard Compliance
+   ============================================================================ */
+
+/* Figma Standard Typography Classes */
+/* Caption & Auxiliary Text */
+.text-caption-text {
+	font-size: var(--font-size-caption-text);
+	line-height: var(--line-height-caption-text);
+	font-weight: var(--font-weight-caption-text);
+}
+
+.text-auxiliary-text {
+	font-size: var(--font-size-auxiliary-text);
+	line-height: var(--line-height-auxiliary-text);
+	font-weight: var(--font-weight-auxiliary-text);
+}
+
+/* Body Content */
+.text-body-content {
+	font-size: var(--font-size-body-content);
+	line-height: var(--line-height-body-content);
+	font-weight: var(--font-weight-body-content);
+}
+
+.text-body-content-large {
+	font-size: var(--font-size-body-content-large);
+	line-height: var(--line-height-body-content-large);
+	font-weight: var(--font-weight-body-content-large);
+}
+
+/* Title Scale - Figma Standard */
+.text-title-minimum {
+	font-size: var(--font-size-title-minimum);
+	line-height: var(--line-height-title-minimum);
+	font-weight: var(--font-weight-title-minimum);
+}
+
+.text-title-small {
+	font-size: var(--font-size-title-small);
+	line-height: var(--line-height-title-small);
+	font-weight: var(--font-weight-title-small);
+}
+
+.text-title-medium {
+	font-size: var(--font-size-title-medium);
+	line-height: var(--line-height-title-medium);
+	font-weight: var(--font-weight-title-medium);
+}
+
+.text-title-large {
+	font-size: var(--font-size-title-large);
+	line-height: var(--line-height-title-large);
+	font-weight: var(--font-weight-title-large);
+}
+
+/* Headline Scale - Figma Standard */
+.text-headline-minimum {
+	font-size: var(--font-size-headline-minimum);
+	line-height: var(--line-height-headline-minimum);
+	font-weight: var(--font-weight-headline-minimum);
+}
+
+.text-headline-small {
+	font-size: var(--font-size-headline-small);
+	line-height: var(--line-height-headline-small);
+	font-weight: var(--font-weight-headline-small);
+}
+
+.text-headline-medium {
+	font-size: var(--font-size-headline-medium);
+	line-height: var(--line-height-headline-medium);
+	font-weight: var(--font-weight-headline-medium);
+}
+
+.text-headline-large {
+	font-size: var(--font-size-headline-large);
+	line-height: var(--line-height-headline-large);
+	font-weight: var(--font-weight-headline-large);
+}
+
+.text-headline-super-large {
+	font-size: var(--font-size-headline-super-large);
+	line-height: var(--line-height-headline-super-large);
+	font-weight: var(--font-weight-headline-super-large);
+}
+
+.text-headline-super-large-x {
+	font-size: var(--font-size-headline-super-large-x);
+	line-height: var(--line-height-headline-super-large-x);
+	font-weight: var(--font-weight-headline-super-large-x);
+}
+
+/* Legacy Display Scale - Mapped to Figma Standards */
+.text-display-large {
+	font-size: var(--font-size-display-large);
+	line-height: var(--line-height-display-large);
+	font-weight: 400;
+	letter-spacing: var(--letter-spacing-display-large);
+}
+
+.text-display-medium {
+	font-size: var(--font-size-display-medium);
+	line-height: var(--line-height-display-medium);
+	font-weight: 400;
+	letter-spacing: var(--letter-spacing-display-medium);
+}
+
+.text-display-small {
+	font-size: var(--font-size-display-small);
+	line-height: var(--line-height-display-small);
+	font-weight: 400;
+	letter-spacing: var(--letter-spacing-display-small);
+}
+
+/* Legacy Typography Classes - Use Standard Figma Classes Above */
+/* Note: Legacy classes (text-headline-*, text-title-*, text-body-*, text-label-*)
+   already defined above in Figma Standard section. No need to redefine. */
+
+/* Financial Application Specific Typography Classes */
+.text-transaction-data {
+	font-size: var(--font-size-transaction-data);
+	line-height: var(--line-height-transaction-data);
+	font-weight: 400;
+}
+
+.text-transaction-amount {
+	font-size: var(--font-size-transaction-amount);
+	line-height: var(--line-height-transaction-amount);
+	font-weight: 600;
+}
+
+.text-form-input {
+	font-size: var(--font-size-form-input);
+	line-height: var(--line-height-form-input);
+	font-weight: 400;
+}
+
+.text-form-label {
+	font-size: var(--font-size-form-label);
+	line-height: var(--line-height-form-label);
+	font-weight: 500;
+}

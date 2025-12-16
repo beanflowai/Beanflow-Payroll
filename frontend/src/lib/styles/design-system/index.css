@@ -1,0 +1,41 @@
+/**
+ * Beanflow Design System - Modular Architecture
+ * Version: 2.0 - Modularized from v1.2
+ *
+ * This is the main entry point for the Beanflow Design System.
+ * All design tokens, components, and utilities are imported through this file.
+ *
+ * Module Structure:
+ * 01-fonts.css       - Web font declarations (@font-face)
+ * 02-tokens.css      - Core design tokens (colors, typography, spacing, etc.)
+ * 03-typography.css  - Typography utility classes
+ * 04-colors.css      - Color utility classes
+ * 05-buttons.css     - Button components
+ * 06-forms.css       - Form components
+ * 07-cards.css       - Card components
+ * 08-layout.css      - Layout utility classes
+ * 09-animations.css  - Animation keyframes and utilities
+ * 10-utilities.css   - Miscellaneous utility classes
+ * 11-reports.css     - Report design system
+ */
+
+/* ========== Foundation Layer ========== */
+@import './01-fonts.css';
+@import './02-tokens.css';
+
+/* ========== Utility Layer ========== */
+@import './03-typography.css';
+@import './04-colors.css';
+@import './08-layout.css';
+@import './10-utilities.css';
+
+/* ========== Component Layer ========== */
+@import './05-buttons.css';
+@import './06-forms.css';
+@import './07-cards.css';
+
+/* ========== Animation Layer ========== */
+@import './09-animations.css';
+
+/* ========== Domain-Specific Layer ========== */
+@import './11-reports.css';

@@ -1,0 +1,201 @@
+/**
+ * Beanflow Design System - Fonts Module
+ * Web Font Configuration for SF Pro Text
+ */
+
+/* ===== CORE FONT FACE DECLARATIONS ===== */
+
+/* Light (300) - Used in AI Assistant */
+@font-face {
+	font-family: 'SF Pro Text';
+	src:
+		local('SF Pro Text Light'),
+		local('SFProText-Light'),
+		url('/fonts/sf-pro-text/SF-Pro-Text-Light.woff2') format('woff2');
+	font-weight: 300;
+	font-style: normal;
+	font-display: swap;
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+		U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Regular (400) - Most common body text */
+@font-face {
+	font-family: 'SF Pro Text';
+	src:
+		local('SF Pro Text'),
+		local('SFProText-Regular'),
+		url('/fonts/sf-pro-text/SF-Pro-Text-Regular.woff2') format('woff2');
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+		U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Medium (500) - Buttons and interactive elements */
+@font-face {
+	font-family: 'SF Pro Text';
+	src:
+		local('SF Pro Text Medium'),
+		local('SFProText-Medium'),
+		url('/fonts/sf-pro-text/SF-Pro-Text-Medium.woff2') format('woff2');
+	font-weight: 500;
+	font-style: normal;
+	font-display: swap;
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+		U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Semibold (600) - Most used heading weight in this project */
+@font-face {
+	font-family: 'SF Pro Text';
+	src:
+		local('SF Pro Text Semibold'),
+		local('SFProText-Semibold'),
+		url('/fonts/sf-pro-text/SF-Pro-Text-Semibold.woff2') format('woff2');
+	font-weight: 600;
+	font-style: normal;
+	font-display: swap;
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+		U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Bold (700) - Page titles and important text */
+@font-face {
+	font-family: 'SF Pro Text';
+	src:
+		local('SF Pro Text Bold'),
+		local('SFProText-Bold'),
+		url('/fonts/sf-pro-text/SF-Pro-Text-Bold.woff2') format('woff2');
+	font-weight: 700;
+	font-style: normal;
+	font-display: swap;
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+		U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Heavy (800) - Financial reports emphasis */
+@font-face {
+	font-family: 'SF Pro Text';
+	src:
+		local('SF Pro Text Heavy'),
+		local('SFProText-Heavy'),
+		url('/fonts/sf-pro-text/SF-Pro-Text-Heavy.woff2') format('woff2');
+	font-weight: 800;
+	font-style: normal;
+	font-display: swap;
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074,
+		U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ===== FONT STACK CSS VARIABLES ===== */
+
+:root {
+	/* Primary SF Pro Text font stack with fallbacks */
+	--font-family-sf-pro-text:
+		'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+		system-ui, sans-serif;
+
+	/* Weight-specific font families for precise control */
+	--font-family-sf-pro-text-light:
+		'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+	--font-family-sf-pro-text-regular:
+		'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+	--font-family-sf-pro-text-medium:
+		'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+	--font-family-sf-pro-text-semibold:
+		'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+	--font-family-sf-pro-text-bold:
+		'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+	--font-family-sf-pro-text-heavy:
+		'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+}
+
+/* ===== UTILITY CLASSES ===== */
+
+/* Base SF Pro Text font family */
+.font-sf-pro-text {
+	font-family: var(--font-family-sf-pro-text);
+}
+
+/* Weight-specific utilities for fine-tuned control */
+.font-sf-pro-text-light {
+	font-family: var(--font-family-sf-pro-text-light);
+	font-weight: 300;
+}
+
+.font-sf-pro-text-medium {
+	font-family: var(--font-family-sf-pro-text-medium);
+	font-weight: 500;
+}
+
+.font-sf-pro-text-semibold {
+	font-family: var(--font-family-sf-pro-text-semibold);
+	font-weight: 600;
+}
+
+.font-sf-pro-text-bold {
+	font-family: var(--font-family-sf-pro-text-bold);
+	font-weight: 700;
+}
+
+.font-sf-pro-text-heavy {
+	font-family: var(--font-family-sf-pro-text-heavy);
+	font-weight: 800;
+}
+
+/* ===== OPTIMIZATIONS ===== */
+
+/* Prevent layout shift during font loading */
+@supports (font-display: swap) {
+	.font-sf-pro-text {
+		/* Metrics adjustment to match fallback fonts */
+		size-adjust: 98%;
+		ascent-override: 95%;
+		descent-override: 100%;
+		line-gap-override: 90%;
+	}
+}
+
+/* ===== PERFORMANCE CLASSES ===== */
+
+/* Critical fonts - preloaded */
+.font-critical {
+	font-display: swap;
+}
+
+/* Non-critical fonts - optional loading */
+.font-optional {
+	font-display: optional;
+}
+
+/* ===== PRINT STYLES ===== */
+
+@media print {
+	.font-sf-pro-text {
+		font-family: 'SF Pro Text', 'Times New Roman', serif !important;
+	}
+}
+
+/* ===== ACCESSIBILITY ===== */
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+	.font-sf-pro-text {
+		font-weight: 500;
+	}
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+	.font-sf-pro-text {
+		transition: none !important;
+	}
+}

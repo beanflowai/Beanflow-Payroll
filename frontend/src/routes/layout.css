@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
-/* Import Beanflow Design System from main frontend */
-@import '../../../frontend/src/lib/styles/design-system/index.css';
+/* Import Beanflow Design System */
+@import '../lib/styles/design-system/index.css';
 
 /**
  * TailwindCSS v4 Theme Configuration for Payroll Frontend

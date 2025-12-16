@@ -1,0 +1,219 @@
+/**
+ * Beanflow Design System - Buttons Module
+ * Button components and variants
+ *
+ * Note: Design tokens are defined in 02-tokens.css
+ * This module only contains button-specific component classes
+ */
+
+/* ============================================================================
+   Component Base Classes
+   ============================================================================ */
+
+/* Button Base Classes - Figma Standard Compliance */
+.btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--button-gap);
+	font-family: var(--button-font-family);
+	font-size: var(--button-font-size);
+	font-weight: var(--button-font-weight);
+	line-height: var(--button-line-height);
+	text-decoration: none;
+	cursor: pointer;
+	transition: all var(--transition-fast);
+	position: relative;
+	overflow: hidden;
+	height: var(--button-height);
+	padding: 0 var(--button-padding-x);
+	user-select: none;
+	white-space: nowrap;
+}
+
+.btn:focus-visible {
+	outline: 2px solid var(--color-primary-500);
+	outline-offset: 2px;
+}
+
+.btn:disabled {
+	cursor: not-allowed;
+	opacity: 1; /* Override default opacity for disabled styling */
+}
+
+/* Button Sizes - Figma Standard */
+.btn-small {
+	height: 40px;
+	padding: 0 var(--spacing-4);
+	font-size: 13px;
+}
+
+.btn-medium {
+	height: var(--button-height);
+	padding: 0 var(--button-padding-x);
+	font-size: var(--button-font-size);
+}
+
+.btn-large {
+	height: 56px;
+	padding: 0 var(--spacing-8);
+	font-size: 16px;
+}
+
+/* Button Fill Variant - Solid Background */
+.btn-fill {
+	background: var(--button-fill-bg-default);
+	color: var(--button-fill-text-default);
+	border: none;
+	border-radius: var(--button-border-radius-fill);
+}
+
+.btn-fill:hover:not(:disabled) {
+	background: var(--button-fill-bg-hover);
+	color: var(--button-fill-text-hover);
+}
+
+.btn-fill:disabled {
+	background: var(--button-fill-bg-disabled);
+	color: var(--button-fill-text-disabled);
+}
+
+/* Button Border Variant - Border Only */
+.btn-border {
+	background: var(--button-border-bg-default);
+	color: var(--button-border-text-default);
+	border: 1px solid var(--button-border-border-default);
+	border-radius: var(--button-border-radius-border);
+}
+
+.btn-border:hover:not(:disabled) {
+	background: var(--button-border-bg-hover);
+	color: var(--button-border-text-hover);
+	border-color: var(--button-border-border-hover);
+}
+
+.btn-border:disabled {
+	background: var(--button-border-bg-disabled);
+	color: var(--button-border-text-disabled);
+	border-color: var(--button-border-border-disabled);
+}
+
+/* Button Text Variant - No Background, No Border */
+.btn-text {
+	background: var(--button-text-bg-default);
+	color: var(--button-text-text-default);
+	border: none;
+	border-radius: var(--button-border-radius-text);
+}
+
+.btn-text:hover:not(:disabled) {
+	background: var(--button-text-bg-hover);
+	color: var(--button-text-text-hover);
+}
+
+.btn-text:disabled {
+	background: var(--button-text-bg-disabled);
+	color: var(--button-text-text-disabled);
+}
+
+/* Button Success Variant - Green Success Theme */
+.btn-success {
+	background: var(--button-success-bg-default);
+	color: var(--button-success-text-default);
+	border: none;
+	border-radius: var(--button-border-radius-fill);
+}
+
+.btn-success:hover:not(:disabled) {
+	background: var(--button-success-bg-hover);
+	color: var(--button-success-text-hover);
+}
+
+.btn-success:disabled {
+	background: var(--button-success-bg-disabled);
+	color: var(--button-success-text-disabled);
+}
+
+/* Button Active/Pressed State */
+.btn:active:not(:disabled) {
+	transform: scale(0.98);
+}
+
+/* Legacy Button Variants for Backward Compatibility */
+.btn-primary {
+	/* Map to fill variant */
+	background: var(--button-fill-bg-default);
+	color: var(--button-fill-text-default);
+	border: none;
+	border-radius: var(--button-border-radius-fill);
+}
+
+.btn-primary:hover:not(:disabled) {
+	background: var(--button-fill-bg-hover);
+	color: var(--button-fill-text-hover);
+}
+
+.btn-primary:disabled {
+	background: var(--button-fill-bg-disabled);
+	color: var(--button-fill-text-disabled);
+}
+
+.btn-secondary {
+	/* Map to border variant */
+	background: var(--button-border-bg-default);
+	color: var(--button-border-text-default);
+	border: 1px solid var(--button-border-border-default);
+	border-radius: var(--button-border-radius-border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+	background: var(--button-border-bg-hover);
+	color: var(--button-border-text-hover);
+	border-color: var(--button-border-border-hover);
+}
+
+.btn-secondary:disabled {
+	background: var(--button-border-bg-disabled);
+	color: var(--button-border-text-disabled);
+	border-color: var(--button-border-border-disabled);
+}
+
+.btn-outline {
+	/* Map to border variant */
+	background: var(--button-border-bg-default);
+	color: var(--button-border-text-default);
+	border: 1px solid var(--button-border-border-default);
+	border-radius: var(--button-border-radius-border);
+}
+
+.btn-outline:hover:not(:disabled) {
+	background: var(--button-border-bg-hover);
+	color: var(--button-border-text-hover);
+	border-color: var(--button-border-border-hover);
+}
+
+.btn-outline:disabled {
+	background: var(--button-border-bg-disabled);
+	color: var(--button-border-text-disabled);
+	border-color: var(--button-border-border-disabled);
+}
+
+.btn-ghost {
+	/* Map to text variant */
+	background: var(--button-text-bg-default);
+	color: var(--button-text-text-default);
+	border: none;
+	border-radius: var(--button-border-radius-text);
+}
+
+.btn-ghost:hover:not(:disabled) {
+	background: var(--button-text-bg-hover);
+	color: var(--button-text-text-hover);
+}
+
+.btn-ghost:disabled {
+	background: var(--button-text-bg-disabled);
+	color: var(--button-text-text-disabled);
+}
+
+/* Card Base Classes */
