@@ -9,3 +9,7 @@ export { default as LeaveModal } from './LeaveModal.svelte';
 export { default as LeaveAlert } from './LeaveAlert.svelte';
 export { default as LeaveTypeBadge } from './LeaveTypeBadge.svelte';
 export { default as OvertimeModal } from './OvertimeModal.svelte';
+
+// Multi Pay Group Support
+export { default as PayDateCard } from './PayDateCard.svelte';
+export { default as PayGroupSection } from './PayGroupSection.svelte';

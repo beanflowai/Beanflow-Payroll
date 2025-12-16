@@ -215,3 +215,103 @@ export interface DeductionsBreakdown {
 	amount: number;
 	isAutoCalculated: boolean;
 }
+
+// ===========================================
+// Multi Pay Group Support Types
+// ===========================================
+
+/**
+ * Summary of a Pay Group for dashboard display
+ */
+export interface PayGroupSummary {
+	id: string;
+	name: string;
+	payFrequency: 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly';
+	employmentType: 'full_time' | 'part_time';
+	employeeCount: number;
+	estimatedGross: number;
+	periodStart: string;
+	periodEnd: string;
+}
+
+/**
+ * Upcoming pay date with associated pay groups
+ * Used in the Payroll Dashboard
+ */
+export interface UpcomingPayDate {
+	payDate: string; // ISO date string
+	payGroups: PayGroupSummary[];
+	totalEmployees: number;
+	totalEstimatedGross: number;
+	// Status of the payroll run for this date (if exists)
+	runStatus?: PayrollRunStatus;
+	runId?: string;
+}
+
+/**
+ * Extended PayrollRecord with Pay Group info
+ */
+export interface PayrollRecordWithGroup extends PayrollRecord {
+	payGroupId: string;
+	payGroupName: string;
+}
+
+/**
+ * Pay Group section within a Payroll Run
+ */
+export interface PayrollRunPayGroup {
+	payGroupId: string;
+	payGroupName: string;
+	payFrequency: 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly';
+	employmentType: 'full_time' | 'part_time';
+	periodStart: string;
+	periodEnd: string;
+	// Aggregated totals for this pay group
+	totalEmployees: number;
+	totalGross: number;
+	totalDeductions: number;
+	totalNetPay: number;
+	totalEmployerCost: number;
+	// Employee records for this pay group
+	records: PayrollRecord[];
+}
+
+/**
+ * Payroll Run with multiple Pay Groups
+ * Used in the Payroll Run detail page
+ */
+export interface PayrollRunWithGroups {
+	id: string;
+	payDate: string;
+	status: PayrollRunStatus;
+	// All pay groups in this run
+	payGroups: PayrollRunPayGroup[];
+	// Aggregated totals across all pay groups
+	totalEmployees: number;
+	totalGross: number;
+	totalCppEmployee: number;
+	totalCppEmployer: number;
+	totalEiEmployee: number;
+	totalEiEmployer: number;
+	totalFederalTax: number;
+	totalProvincialTax: number;
+	totalDeductions: number;
+	totalNetPay: number;
+	totalEmployerCost: number;
+	// Holidays applicable to this pay date
+	holidays?: Holiday[];
+}
+
+// Pay frequency labels for display
+export const PAY_FREQUENCY_LABELS: Record<string, string> = {
+	weekly: 'Weekly',
+	bi_weekly: 'Bi-weekly',
+	semi_monthly: 'Semi-monthly',
+	monthly: 'Monthly'
+};
+
+// Employment type labels for display
+export const EMPLOYMENT_TYPE_LABELS: Record<string, string> = {
+	full_time: 'Full-time',
+	part_time: 'Part-time'
+};
