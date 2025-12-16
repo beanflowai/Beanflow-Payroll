@@ -3,6 +3,7 @@
  */
 
 import { API_BASE_URL } from '$lib/config';
+import { supabase } from './supabase';
 
 export interface APIError {
 	error: string;
@@ -55,14 +56,29 @@ export class BaseAPI {
 		return (apiResponse.data !== undefined ? apiResponse.data : apiResponse) as T;
 	}
 
+	/**
+	 * Get authorization headers from Supabase session
+	 */
+	private async getAuthHeaders(): Promise<Record<string, string>> {
+		const {
+			data: { session }
+		} = await supabase.auth.getSession();
+		if (session?.access_token) {
+			return { Authorization: `Bearer ${session.access_token}` };
+		}
+		return {};
+	}
+
 	protected async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
 		const url = `${API_BASE_URL}${endpoint}`;
 
+		const authHeaders = await this.getAuthHeaders();
 		const isFormData = options.body instanceof FormData;
 		const headers: HeadersInit = isFormData
-			? { ...options.headers }
+			? { ...authHeaders, ...options.headers }
 			: {
 					'Content-Type': 'application/json',
+					...authHeaders,
 					...options.headers
 				};
 

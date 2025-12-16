@@ -1,30 +1,14 @@
 /**
  * Authentication HTTP API client for Payroll Frontend
+ * Used for backend API calls that require authentication
  */
 
-import type { GoogleAuthURL, UserResponse } from '$lib/types/auth';
+import type { UserResponse } from '$lib/types/auth';
 import { BaseAPI } from './base';
 
 class AuthAPI extends BaseAPI {
 	/**
-	 * Initiate Google OAuth login
-	 * Automatically includes current frontend URL as redirect_frontend for proper OAuth callback
-	 */
-	async initiateGoogleLogin(): Promise<GoogleAuthURL> {
-		// Get current origin for redirect_frontend (e.g., http://localhost:5175)
-		const redirectFrontend = typeof window !== 'undefined' ? window.location.origin : undefined;
-
-		const params: Record<string, string> = {};
-		if (redirectFrontend) {
-			params.redirect_frontend = redirectFrontend;
-		}
-
-		const response = await this.get<GoogleAuthURL>('/auth/login/google', params);
-		return response;
-	}
-
-	/**
-	 * Get current authenticated user
+	 * Get current authenticated user from backend
 	 */
 	async getCurrentUser(): Promise<UserResponse> {
 		const response = await this.get<UserResponse>('/auth/me');
@@ -32,25 +16,7 @@ class AuthAPI extends BaseAPI {
 	}
 
 	/**
-	 * Logout current user
-	 */
-	async logout(): Promise<void> {
-		try {
-			await this.post<void>('/auth/logout');
-		} catch {
-			// Ignore logout errors
-		}
-	}
-
-	/**
-	 * Refresh authentication token
-	 */
-	async refreshToken(): Promise<void> {
-		await this.post<void>('/auth/refresh');
-	}
-
-	/**
-	 * Check if user is authenticated
+	 * Check if user is authenticated with backend
 	 */
 	async checkAuth(): Promise<UserResponse | null> {
 		try {
