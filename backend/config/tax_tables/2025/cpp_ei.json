@@ -1,0 +1,25 @@
+{
+  "year": 2025,
+  "effective_date": "2025-01-01",
+  "source": "CRA T4127 (121st Edition, July 2025)",
+  "cpp": {
+    "ympe": 71200.00,
+    "yampe": 76000.00,
+    "basic_exemption": 3500.00,
+    "base_rate": 0.0595,
+    "additional_rate": 0.01,
+    "max_base_contribution": 4034.10,
+    "max_additional_contribution": 396.00,
+    "max_total_contribution": 4430.10,
+    "employer_rate_multiplier": 1.0,
+    "description": "CPP contributions apply on pensionable earnings between $3,500 and YMPE at 5.95%, plus additional 1% on earnings between YMPE and YAMPE"
+  },
+  "ei": {
+    "mie": 65700.00,
+    "employee_rate": 0.0164,
+    "employer_rate_multiplier": 1.4,
+    "max_employee_premium": 1077.48,
+    "max_employer_premium": 1508.47,
+    "description": "EI premiums apply on insurable earnings up to MIE at 1.64% for employees, 1.4x for employers"
+  }
+}

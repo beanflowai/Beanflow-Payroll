@@ -1,0 +1,260 @@
+{
+  "year": 2025,
+  "effective_date": "2025-07-01",
+  "source": "CRA T4127 (121st Edition, July 2025) - Table 8.1",
+  "provinces": {
+    "AB": {
+      "name": "Alberta",
+      "code": "AB",
+      "bpa": 22323.00,
+      "bpa_is_dynamic": false,
+      "indexing_rate": 0.020,
+      "has_surtax": false,
+      "has_health_premium": false,
+      "has_tax_reduction": false,
+      "brackets": [
+        {"threshold": 0, "rate": 0.10, "constant": 0},
+        {"threshold": 148269, "rate": 0.12, "constant": 2965.38},
+        {"threshold": 177922, "rate": 0.13, "constant": 4745.00},
+        {"threshold": 237230, "rate": 0.14, "constant": 7117.30},
+        {"threshold": 355845, "rate": 0.15, "constant": 10675.75},
+        {"threshold": 474460, "rate": 0.15, "constant": 10675.75}
+      ]
+    },
+    "BC": {
+      "name": "British Columbia",
+      "code": "BC",
+      "bpa": 12932.00,
+      "bpa_is_dynamic": false,
+      "indexing_rate": 0.027,
+      "has_surtax": false,
+      "has_health_premium": false,
+      "has_tax_reduction": true,
+      "tax_reduction_config": {
+        "base_reduction": 521.00,
+        "reduction_rate": 0.036,
+        "phase_out_start": 25437.00,
+        "phase_out_end": 39913.00
+      },
+      "brackets": [
+        {"threshold": 0, "rate": 0.0506, "constant": 0},
+        {"threshold": 47937, "rate": 0.077, "constant": 1264.39},
+        {"threshold": 95875, "rate": 0.105, "constant": 3948.89},
+        {"threshold": 110076, "rate": 0.1229, "constant": 5918.25},
+        {"threshold": 143184, "rate": 0.147, "constant": 9367.68},
+        {"threshold": 194400, "rate": 0.168, "constant": 13448.08},
+        {"threshold": 252752, "rate": 0.205, "constant": 22777.92}
+      ]
+    },
+    "MB": {
+      "name": "Manitoba",
+      "code": "MB",
+      "bpa": 15591.00,
+      "bpa_is_dynamic": true,
+      "dynamic_bpa_type": "income_based_reduction",
+      "dynamic_bpa_config": {
+        "base_bpa": 15591.00,
+        "reduction_start": 200000.00,
+        "reduction_end": 400000.00,
+        "min_bpa": 0.00
+      },
+      "indexing_rate": null,
+      "has_surtax": false,
+      "has_health_premium": false,
+      "has_tax_reduction": false,
+      "brackets": [
+        {"threshold": 0, "rate": 0.108, "constant": 0},
+        {"threshold": 47564, "rate": 0.1275, "constant": 927.50},
+        {"threshold": 100248, "rate": 0.174, "constant": 5588.01}
+      ]
+    },
+    "NB": {
+      "name": "New Brunswick",
+      "code": "NB",
+      "bpa": 13396.00,
+      "bpa_is_dynamic": false,
+      "indexing_rate": 0.027,
+      "has_surtax": false,
+      "has_health_premium": false,
+      "has_tax_reduction": false,
+      "brackets": [
+        {"threshold": 0, "rate": 0.094, "constant": 0},
+        {"threshold": 51306, "rate": 0.14, "constant": 2360.08},
+        {"threshold": 102614, "rate": 0.16, "constant": 4412.36},
+        {"threshold": 190060, "rate": 0.195, "constant": 11071.46}
+      ]
+    },
+    "NL": {
+      "name": "Newfoundland and Labrador",
+      "code": "NL",
+      "bpa": 11067.00,
+      "bpa_is_dynamic": false,
+      "indexing_rate": 0.027,
+      "has_surtax": false,
+      "has_health_premium": false,
+      "has_tax_reduction": false,
+      "brackets": [
+        {"threshold": 0, "rate": 0.087, "constant": 0},
+        {"threshold": 44192, "rate": 0.145, "constant": 2563.14},
+        {"threshold": 88382, "rate": 0.158, "constant": 3711.91},
+        {"threshold": 157792, "rate": 0.178, "constant": 6867.75},
+        {"threshold": 220910, "rate": 0.198, "constant": 11286.17},
+        {"threshold": 282214, "rate": 0.208, "constant": 14107.68},
+        {"threshold": 564429, "rate": 0.218, "constant": 19752.11},
+        {"threshold": 1128858, "rate": 0.218, "constant": 19752.11}
+      ]
+    },
+    "NS": {
+      "name": "Nova Scotia",
+      "code": "NS",
+      "bpa": 11744.00,
+      "bpa_is_dynamic": true,
+      "dynamic_bpa_type": "income_based_increase",
+      "dynamic_bpa_config": {
+        "base_bpa": 11744.00,
+        "increase_start": 25000.00,
+        "increase_end": 75000.00,
+        "increase_rate": 0.06,
+        "max_bpa": 14744.00
+      },
+      "indexing_rate": null,
+      "has_surtax": false,
+      "has_health_premium": false,
+      "has_tax_reduction": false,
+      "brackets": [
+        {"threshold": 0, "rate": 0.0879, "constant": 0},
+        {"threshold": 30507, "rate": 0.1495, "constant": 1878.23},
+        {"threshold": 61015, "rate": 0.1667, "constant": 2928.49},
+        {"threshold": 95883, "rate": 0.175, "constant": 3724.82},
+        {"threshold": 154650, "rate": 0.21, "constant": 9137.55}
+      ]
+    },
+    "NT": {
+      "name": "Northwest Territories",
+      "code": "NT",
+      "bpa": 17842.00,
+      "bpa_is_dynamic": false,
+      "indexing_rate": 0.027,
+      "has_surtax": false,
+      "has_health_premium": false,
+      "has_tax_reduction": false,
+      "brackets": [
+        {"threshold": 0, "rate": 0.059, "constant": 0},
+        {"threshold": 51964, "rate": 0.086, "constant": 1403.03},
+        {"threshold": 103930, "rate": 0.122, "constant": 5144.51},
+        {"threshold": 169264, "rate": 0.1405, "constant": 8277.89}
+      ]
+    },
+    "NU": {
+      "name": "Nunavut",
+      "code": "NU",
+      "bpa": 19274.00,
+      "bpa_is_dynamic": false,
+      "indexing_rate": 0.027,
+      "has_surtax": false,
+      "has_health_premium": false,
+      "has_tax_reduction": false,
+      "brackets": [
+        {"threshold": 0, "rate": 0.04, "constant": 0},
+        {"threshold": 54707, "rate": 0.07, "constant": 1641.21},
+        {"threshold": 109413, "rate": 0.09, "constant": 3829.47},
+        {"threshold": 178174, "rate": 0.115, "constant": 8284.82}
+      ]
+    },
+    "ON": {
+      "name": "Ontario",
+      "code": "ON",
+      "bpa": 12747.00,
+      "bpa_is_dynamic": false,
+      "indexing_rate": 0.027,
+      "has_surtax": true,
+      "has_health_premium": true,
+      "has_tax_reduction": false,
+      "surtax_config": {
+        "first_threshold": 5710.00,
+        "first_rate": 0.20,
+        "second_threshold": 7307.00,
+        "second_rate": 0.36
+      },
+      "health_premium_config": {
+        "brackets": [
+          {"threshold": 0, "premium": 0},
+          {"threshold": 20000, "premium": 0, "rate": 0.06, "base": 0},
+          {"threshold": 25000, "premium": 300},
+          {"threshold": 36000, "premium": 300, "rate": 0.06, "base": 300},
+          {"threshold": 38500, "premium": 450},
+          {"threshold": 48000, "premium": 450, "rate": 0.25, "base": 450},
+          {"threshold": 48600, "premium": 600},
+          {"threshold": 72000, "premium": 600, "rate": 0.25, "base": 600},
+          {"threshold": 72600, "premium": 750},
+          {"threshold": 200000, "premium": 750, "rate": 0.25, "base": 750},
+          {"threshold": 200600, "premium": 900}
+        ]
+      },
+      "brackets": [
+        {"threshold": 0, "rate": 0.0505, "constant": 0},
+        {"threshold": 52886, "rate": 0.0915, "constant": 2168.33},
+        {"threshold": 105775, "rate": 0.1116, "constant": 4294.88},
+        {"threshold": 150000, "rate": 0.1216, "constant": 5794.88},
+        {"threshold": 220000, "rate": 0.1316, "constant": 7994.88}
+      ]
+    },
+    "PE": {
+      "name": "Prince Edward Island",
+      "code": "PE",
+      "bpa": 15050.00,
+      "bpa_is_dynamic": false,
+      "indexing_rate": 0.027,
+      "has_surtax": true,
+      "has_health_premium": false,
+      "has_tax_reduction": false,
+      "surtax_config": {
+        "threshold": 13500.00,
+        "rate": 0.10
+      },
+      "brackets": [
+        {"threshold": 0, "rate": 0.095, "constant": 0},
+        {"threshold": 33328, "rate": 0.1325, "constant": 1249.80},
+        {"threshold": 64656, "rate": 0.166, "constant": 3415.99},
+        {"threshold": 105000, "rate": 0.1765, "constant": 4517.24},
+        {"threshold": 140000, "rate": 0.19, "constant": 6408.24}
+      ]
+    },
+    "SK": {
+      "name": "Saskatchewan",
+      "code": "SK",
+      "bpa": 19491.00,
+      "bpa_is_dynamic": false,
+      "indexing_rate": 0.027,
+      "has_surtax": false,
+      "has_health_premium": false,
+      "has_tax_reduction": false,
+      "brackets": [
+        {"threshold": 0, "rate": 0.105, "constant": 0},
+        {"threshold": 53463, "rate": 0.125, "constant": 1069.26},
+        {"threshold": 152750, "rate": 0.145, "constant": 4124.26}
+      ]
+    },
+    "YT": {
+      "name": "Yukon",
+      "code": "YT",
+      "bpa": 16129.00,
+      "bpa_is_dynamic": true,
+      "dynamic_bpa_type": "follows_federal",
+      "dynamic_bpa_config": {
+        "description": "Yukon BPA follows federal BPA"
+      },
+      "indexing_rate": 0.027,
+      "has_surtax": false,
+      "has_health_premium": false,
+      "has_tax_reduction": false,
+      "brackets": [
+        {"threshold": 0, "rate": 0.064, "constant": 0},
+        {"threshold": 57375, "rate": 0.09, "constant": 1491.75},
+        {"threshold": 114750, "rate": 0.109, "constant": 3672.00},
+        {"threshold": 177882, "rate": 0.128, "constant": 7054.78},
+        {"threshold": 500000, "rate": 0.15, "constant": 18054.78}
+      ]
+    }
+  }
+}
