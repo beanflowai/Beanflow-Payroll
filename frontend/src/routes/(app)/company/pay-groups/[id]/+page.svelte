@@ -3,7 +3,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import type { PayGroup } from '$lib/types/pay-group';
-	import { getMockPayGroup } from '$lib/mocks/pay-groups';
+	import { getPayGroup, updatePayGroup, deletePayGroup, type PayGroupUpdateInput } from '$lib/services/payGroupService';
 	import PayGroupDetailHeader from '$lib/components/company/pay-group-detail/PayGroupDetailHeader.svelte';
 	import PayGroupSummaryCards from '$lib/components/company/pay-group-detail/PayGroupSummaryCards.svelte';
 	import PayGroupBasicInfoSection from '$lib/components/company/pay-group-detail/PayGroupBasicInfoSection.svelte';
@@ -16,30 +16,38 @@
 	// Get pay group ID from route
 	const payGroupId = $derived($page.params.id);
 
-	// Load pay group data (using mock data)
+	// State
 	let payGroup = $state<PayGroup | null>(null);
 	let isLoading = $state(true);
+	let isSaving = $state(false);
+	let isDeleting = $state(false);
 	let error = $state<string | null>(null);
 
 	// Load pay group on mount
 	$effect(() => {
-		loadPayGroup(payGroupId);
+		if (payGroupId) {
+			loadPayGroupData(payGroupId);
+		}
 	});
 
-	function loadPayGroup(id: string) {
+	async function loadPayGroupData(id: string) {
 		isLoading = true;
 		error = null;
 
-		// Simulate async load with mock data
-		setTimeout(() => {
-			const found = getMockPayGroup(id);
-			if (found) {
-				payGroup = found;
+		try {
+			const result = await getPayGroup(id);
+			if (result.error) {
+				error = result.error;
+			} else if (result.data) {
+				payGroup = result.data;
 			} else {
 				error = 'Pay Group not found';
 			}
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to load pay group';
+		} finally {
 			isLoading = false;
-		}, 100);
+		}
 	}
 
 	// Handle back navigation
@@ -47,18 +55,61 @@
 		goto('/company?tab=pay-groups');
 	}
 
-	// Handle delete (would show confirmation modal in real app)
-	function handleDelete() {
-		if (confirm(`Delete "${payGroup?.name}"? This action cannot be undone.`)) {
-			// In real app, call API to delete
-			goto('/company?tab=pay-groups');
+	// Handle delete
+	async function handleDelete() {
+		if (!payGroup) return;
+		if (!confirm(`Delete "${payGroup.name}"? This action cannot be undone.`)) return;
+
+		isDeleting = true;
+		try {
+			const result = await deletePayGroup(payGroup.id);
+			if (result.error) {
+				error = result.error;
+			} else {
+				goto('/company?tab=pay-groups');
+			}
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to delete pay group';
+		} finally {
+			isDeleting = false;
 		}
 	}
 
 	// Handle pay group updates from sections
-	function handleUpdate(updatedPayGroup: PayGroup) {
-		payGroup = updatedPayGroup;
-		// In real app, would save to backend
+	async function handleUpdate(updatedPayGroup: PayGroup) {
+		if (!payGroup) return;
+
+		isSaving = true;
+		error = null;
+
+		// Build update input from the changed pay group
+		const updateInput: PayGroupUpdateInput = {
+			name: updatedPayGroup.name,
+			description: updatedPayGroup.description,
+			pay_frequency: updatedPayGroup.payFrequency,
+			employment_type: updatedPayGroup.employmentType,
+			next_pay_date: updatedPayGroup.nextPayDate,
+			period_start_day: updatedPayGroup.periodStartDay,
+			leave_enabled: updatedPayGroup.leaveEnabled,
+			statutory_defaults: updatedPayGroup.statutoryDefaults,
+			overtime_policy: updatedPayGroup.overtimePolicy,
+			wcb_config: updatedPayGroup.wcbConfig,
+			group_benefits: updatedPayGroup.groupBenefits,
+			custom_deductions: updatedPayGroup.customDeductions
+		};
+
+		try {
+			const result = await updatePayGroup(payGroup.id, updateInput);
+			if (result.error) {
+				error = result.error;
+			} else if (result.data) {
+				payGroup = result.data;
+			}
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to update pay group';
+		} finally {
+			isSaving = false;
+		}
 	}
 </script>
 
@@ -83,6 +134,25 @@
 			</button>
 		</div>
 	{:else if payGroup}
+		<!-- Save/Delete Error Banner -->
+		{#if error && !isLoading}
+			<div class="error-banner">
+				<i class="fas fa-exclamation-circle"></i>
+				<span>{error}</span>
+				<button class="error-dismiss" onclick={() => error = null}>
+					<i class="fas fa-times"></i>
+				</button>
+			</div>
+		{/if}
+
+		<!-- Saving Indicator -->
+		{#if isSaving}
+			<div class="saving-indicator">
+				<i class="fas fa-spinner fa-spin"></i>
+				<span>Saving changes...</span>
+			</div>
+		{/if}
+
 		<!-- Header -->
 		<PayGroupDetailHeader
 			{payGroup}
@@ -91,7 +161,9 @@
 		/>
 
 		<!-- Summary Cards -->
-		<PayGroupSummaryCards {payGroup} />
+		<div class="summary-cards-wrapper">
+			<PayGroupSummaryCards {payGroup} />
+		</div>
 
 		<!-- Sections -->
 		<div class="sections">
@@ -173,6 +245,10 @@
 		margin: 0;
 	}
 
+	.summary-cards-wrapper {
+		margin-top: var(--spacing-5);
+	}
+
 	.sections {
 		display: flex;
 		flex-direction: column;
@@ -197,6 +273,54 @@
 
 	.btn-primary:hover {
 		opacity: 0.9;
+	}
+
+	/* Error Banner */
+	.error-banner {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-3);
+		padding: var(--spacing-4);
+		background: var(--color-error-50, #fef2f2);
+		border: 1px solid var(--color-error-200, #fecaca);
+		border-radius: var(--radius-lg);
+		color: var(--color-error-700, #b91c1c);
+		margin-bottom: var(--spacing-4);
+	}
+
+	.error-banner i:first-child {
+		font-size: 1.25rem;
+	}
+
+	.error-banner span {
+		flex: 1;
+	}
+
+	.error-dismiss {
+		background: none;
+		border: none;
+		color: var(--color-error-500, #ef4444);
+		cursor: pointer;
+		padding: var(--spacing-1);
+		opacity: 0.7;
+	}
+
+	.error-dismiss:hover {
+		opacity: 1;
+	}
+
+	/* Saving Indicator */
+	.saving-indicator {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
+		padding: var(--spacing-3) var(--spacing-4);
+		background: var(--color-primary-50);
+		border: 1px solid var(--color-primary-200);
+		border-radius: var(--radius-lg);
+		color: var(--color-primary-700);
+		font-size: var(--font-size-body-content);
+		margin-bottom: var(--spacing-4);
 	}
 
 	@media (max-width: 768px) {

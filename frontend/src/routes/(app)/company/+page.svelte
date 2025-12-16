@@ -92,6 +92,7 @@
 <style>
 	.company-page {
 		max-width: 900px;
+		margin: 0 auto;
 	}
 
 	.page-header {

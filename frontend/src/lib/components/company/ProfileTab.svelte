@@ -6,8 +6,14 @@
 		calculateNextDueDate,
 		formatDueDateWithDays
 	} from '$lib/types/company';
-	import type { RemitterType } from '$lib/types/company';
+	import type { RemitterType, CompanyProfile } from '$lib/types/company';
 	import type { Province } from '$lib/types/employee';
+	import {
+		getOrCreateDefaultCompany,
+		createCompany,
+		updateCompany,
+		type CompanyCreateInput
+	} from '$lib/services/companyService';
 
 	interface Props {
 		onSave?: () => void;
@@ -16,18 +22,64 @@
 
 	let { onSave, onCancel }: Props = $props();
 
-	// Form state - mock data for Phase 0
-	let companyName = $state('Acme Corporation');
-	let businessNumber = $state('123456789');
-	let payrollAccountNumber = $state('123456789RP0001');
+	// Company state
+	let companyId = $state<string | null>(null);
+	let isNewCompany = $state(false);
+
+	// Form state
+	let companyName = $state('');
+	let businessNumber = $state('');
+	let payrollAccountNumber = $state('');
 	let province = $state<Province>('ON');
 	let remitterType = $state<RemitterType>('regular');
 	let autoCalculate = $state(true);
-	let sendPaystubs = $state(true);
+	let sendPaystubs = $state(false);
 
 	// UI state
 	let showRemitterInfo = $state(false);
 	let isSaving = $state(false);
+	let isLoading = $state(true);
+	let error = $state<string | null>(null);
+
+	// Load company data on mount
+	$effect(() => {
+		loadCompany();
+	});
+
+	async function loadCompany() {
+		isLoading = true;
+		error = null;
+		try {
+			const result = await getOrCreateDefaultCompany();
+			if (result.error) {
+				error = result.error;
+				return;
+			}
+			if (result.data) {
+				// Existing company - populate form
+				populateForm(result.data);
+				companyId = result.data.id;
+				isNewCompany = false;
+			} else {
+				// No company yet - show empty form for creation
+				isNewCompany = true;
+			}
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to load company';
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	function populateForm(company: CompanyProfile) {
+		companyName = company.companyName;
+		businessNumber = company.businessNumber;
+		payrollAccountNumber = company.payrollAccountNumber;
+		province = company.province;
+		remitterType = company.remitterType;
+		autoCalculate = company.autoCalculateDeductions;
+		sendPaystubs = company.sendPaystubEmails;
+	}
 
 	// Computed due date info
 	let dueDateInfo = $derived(() => {
@@ -35,19 +87,99 @@
 		return formatDueDateWithDays(nextDue);
 	});
 
-	function handleSave() {
+	async function handleSave() {
+		// Validation
+		if (!companyName.trim()) {
+			error = 'Company name is required';
+			return;
+		}
+		if (!businessNumber.trim() || businessNumber.length !== 9) {
+			error = 'Business number must be 9 digits';
+			return;
+		}
+		if (!payrollAccountNumber.trim() || payrollAccountNumber.length !== 15) {
+			error = 'Payroll account number must be 15 characters';
+			return;
+		}
+
 		isSaving = true;
-		// Simulate save
-		setTimeout(() => {
-			isSaving = false;
+		error = null;
+
+		try {
+			if (isNewCompany) {
+				// Create new company
+				const input: CompanyCreateInput = {
+					company_name: companyName.trim(),
+					business_number: businessNumber.trim(),
+					payroll_account_number: payrollAccountNumber.trim(),
+					province,
+					remitter_type: remitterType,
+					auto_calculate_deductions: autoCalculate,
+					send_paystub_emails: sendPaystubs
+				};
+				const result = await createCompany(input);
+				if (result.error) {
+					error = result.error;
+					return;
+				}
+				if (result.data) {
+					companyId = result.data.id;
+					isNewCompany = false;
+				}
+			} else if (companyId) {
+				// Update existing company
+				const result = await updateCompany(companyId, {
+					company_name: companyName.trim(),
+					business_number: businessNumber.trim(),
+					payroll_account_number: payrollAccountNumber.trim(),
+					province,
+					remitter_type: remitterType,
+					auto_calculate_deductions: autoCalculate,
+					send_paystub_emails: sendPaystubs
+				});
+				if (result.error) {
+					error = result.error;
+					return;
+				}
+			}
 			onSave?.();
-		}, 500);
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to save company';
+		} finally {
+			isSaving = false;
+		}
 	}
 </script>
 
 <div class="profile-tab">
-	<!-- Company Information -->
-	<section class="settings-section">
+	<!-- Error Message -->
+	{#if error}
+		<div class="error-banner">
+			<i class="fas fa-exclamation-circle"></i>
+			<span>{error}</span>
+			<button class="error-dismiss" onclick={() => error = null}>
+				<i class="fas fa-times"></i>
+			</button>
+		</div>
+	{/if}
+
+	<!-- Loading State -->
+	{#if isLoading}
+		<div class="loading-container">
+			<div class="loading-spinner"></div>
+			<p>Loading company profile...</p>
+		</div>
+	{:else}
+		<!-- New Company Notice -->
+		{#if isNewCompany}
+			<div class="info-banner">
+				<i class="fas fa-info-circle"></i>
+				<span>No company profile found. Fill in the details below to create your company.</span>
+			</div>
+		{/if}
+
+		<!-- Company Information -->
+		<section class="settings-section">
 		<div class="section-header">
 			<div class="section-icon">
 				<i class="fas fa-building"></i>
@@ -251,6 +383,7 @@
 			{/if}
 		</button>
 	</div>
+	{/if}
 </div>
 
 <style>
@@ -258,6 +391,85 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-8);
+	}
+
+	/* Error Banner */
+	.error-banner {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-3);
+		padding: var(--spacing-4);
+		background: var(--color-danger-50, #fef2f2);
+		border: 1px solid var(--color-danger-200, #fecaca);
+		border-radius: var(--radius-lg);
+		color: var(--color-danger-700, #b91c1c);
+	}
+
+	.error-banner i:first-child {
+		font-size: 1.25rem;
+	}
+
+	.error-banner span {
+		flex: 1;
+	}
+
+	.error-dismiss {
+		background: none;
+		border: none;
+		color: var(--color-danger-500, #ef4444);
+		cursor: pointer;
+		padding: var(--spacing-1);
+		opacity: 0.7;
+	}
+
+	.error-dismiss:hover {
+		opacity: 1;
+	}
+
+	/* Info Banner */
+	.info-banner {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-3);
+		padding: var(--spacing-4);
+		background: var(--color-primary-50, #eff6ff);
+		border: 1px solid var(--color-primary-200, #bfdbfe);
+		border-radius: var(--radius-lg);
+		color: var(--color-primary-700, #1d4ed8);
+	}
+
+	.info-banner i {
+		font-size: 1.25rem;
+	}
+
+	/* Loading State */
+	.loading-container {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: var(--spacing-12) var(--spacing-6);
+		gap: var(--spacing-4);
+	}
+
+	.loading-spinner {
+		width: 40px;
+		height: 40px;
+		border: 3px solid var(--color-surface-200);
+		border-top-color: var(--color-primary-500, #3b82f6);
+		border-radius: 50%;
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	.loading-container p {
+		color: var(--color-surface-500);
+		margin: 0;
 	}
 
 	/* Section */

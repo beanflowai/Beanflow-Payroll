@@ -1,5 +1,6 @@
 <script lang="ts">
 	// PayGroupBasicInfoSection - Basic info display/edit with section-level edit mode
+	import { untrack } from 'svelte';
 	import type {
 		PayGroup,
 		PayFrequency,
@@ -91,6 +92,37 @@
 
 	// Validation
 	const isValid = $derived(editName.trim().length > 0 && editNextPayDate.length > 0);
+
+	// When startInEditMode is true, sync changes back to parent in real-time
+	// This is needed for the "new" page where the parent has a separate save button
+	// Use untrack to read payGroup without creating a dependency loop
+	$effect(() => {
+		if (startInEditMode && isEditing) {
+			// Track these edit fields
+			const name = editName;
+			const desc = editDescription;
+			const freq = editPayFrequency;
+			const empType = editEmploymentType;
+			const nextDate = editNextPayDate;
+			const startDay = editPeriodStartDay;
+			const leave = editLeaveEnabled;
+
+			// Read payGroup without tracking to avoid loop
+			untrack(() => {
+				const updated: PayGroup = {
+					...payGroup,
+					name: name.trim(),
+					description: desc.trim() || undefined,
+					payFrequency: freq,
+					employmentType: empType,
+					nextPayDate: nextDate,
+					periodStartDay: startDay,
+					leaveEnabled: leave
+				};
+				onUpdate(updated);
+			});
+		}
+	});
 </script>
 
 <section class="info-section">
@@ -99,16 +131,18 @@
 			<i class="fas fa-info-circle"></i>
 			Basic Information
 		</h2>
-		{#if isEditing}
-			<div class="header-actions">
-				<button class="btn-cancel" onclick={cancelEdit}>Cancel</button>
-				<button class="btn-save" onclick={saveChanges} disabled={!isValid}>Save</button>
-			</div>
-		{:else}
-			<button class="btn-edit" onclick={enterEditMode}>
-				<i class="fas fa-pen"></i>
-				Edit
-			</button>
+		{#if !startInEditMode}
+			{#if isEditing}
+				<div class="header-actions">
+					<button class="btn-cancel" onclick={cancelEdit}>Cancel</button>
+					<button class="btn-save" onclick={saveChanges} disabled={!isValid}>Save</button>
+				</div>
+			{:else}
+				<button class="btn-edit" onclick={enterEditMode}>
+					<i class="fas fa-pen"></i>
+					Edit
+				</button>
+			{/if}
 		{/if}
 	</div>
 

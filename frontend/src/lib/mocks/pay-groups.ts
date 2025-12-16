@@ -83,6 +83,55 @@ export const MOCK_PAY_GROUPS: PayGroup[] = [
 			}
 		},
 
+		// Additional Earnings (Phase 6+)
+		earningsConfig: {
+			enabled: true,
+			commission: {
+				enabled: true,
+				calculationType: 'percentage',
+				defaultAmount: 5
+			},
+			bonus: {
+				enabled: true,
+				discretionaryEnabled: true,
+				nonDiscretionaryEnabled: true
+			},
+			allowance: {
+				enabled: true,
+				regularAllowance: {
+					enabled: true,
+					defaultAmount: 100
+				},
+				housingAllowance: {
+					enabled: false,
+					defaultAmount: 0
+				}
+			},
+			expenseReimbursement: {
+				enabled: true,
+				requireReceipts: true
+			}
+		},
+
+		// Taxable Benefits (Phase 6+)
+		taxableBenefits: {
+			enabled: false,
+			automobile: {
+				enabled: false,
+				monthlyValue: 0,
+				includesGstHst: true
+			},
+			housing: {
+				enabled: false,
+				monthlyValue: 0
+			},
+			travelAssistance: {
+				enabled: false,
+				annualValue: 0,
+				prescribedZone: false
+			}
+		},
+
 		// Custom deductions
 		customDeductions: [
 			{
@@ -193,6 +242,55 @@ export const MOCK_PAY_GROUPS: PayGroup[] = [
 			}
 		},
 
+		// Additional Earnings (Phase 6+) - Executives get bonuses
+		earningsConfig: {
+			enabled: true,
+			commission: {
+				enabled: false,
+				calculationType: 'fixed',
+				defaultAmount: 0
+			},
+			bonus: {
+				enabled: true,
+				discretionaryEnabled: true,
+				nonDiscretionaryEnabled: true
+			},
+			allowance: {
+				enabled: true,
+				regularAllowance: {
+					enabled: true,
+					defaultAmount: 500
+				},
+				housingAllowance: {
+					enabled: true,
+					defaultAmount: 2000
+				}
+			},
+			expenseReimbursement: {
+				enabled: true,
+				requireReceipts: false
+			}
+		},
+
+		// Taxable Benefits (Phase 6+) - Executives often have company cars
+		taxableBenefits: {
+			enabled: true,
+			automobile: {
+				enabled: true,
+				monthlyValue: 600,
+				includesGstHst: true
+			},
+			housing: {
+				enabled: false,
+				monthlyValue: 0
+			},
+			travelAssistance: {
+				enabled: false,
+				annualValue: 0,
+				prescribedZone: false
+			}
+		},
+
 		// Custom deductions
 		customDeductions: [
 			{
@@ -279,6 +377,55 @@ export const MOCK_PAY_GROUPS: PayGroup[] = [
 				employeeDeduction: 0,
 				employerContribution: 0,
 				isTaxable: false
+			}
+		},
+
+		// Additional Earnings (Phase 6+) - Part-time minimal
+		earningsConfig: {
+			enabled: false,
+			commission: {
+				enabled: false,
+				calculationType: 'fixed',
+				defaultAmount: 0
+			},
+			bonus: {
+				enabled: false,
+				discretionaryEnabled: false,
+				nonDiscretionaryEnabled: false
+			},
+			allowance: {
+				enabled: false,
+				regularAllowance: {
+					enabled: false,
+					defaultAmount: 0
+				},
+				housingAllowance: {
+					enabled: false,
+					defaultAmount: 0
+				}
+			},
+			expenseReimbursement: {
+				enabled: false,
+				requireReceipts: true
+			}
+		},
+
+		// Taxable Benefits (Phase 6+) - Part-time no benefits
+		taxableBenefits: {
+			enabled: false,
+			automobile: {
+				enabled: false,
+				monthlyValue: 0,
+				includesGstHst: true
+			},
+			housing: {
+				enabled: false,
+				monthlyValue: 0
+			},
+			travelAssistance: {
+				enabled: false,
+				annualValue: 0,
+				prescribedZone: false
 			}
 		},
 

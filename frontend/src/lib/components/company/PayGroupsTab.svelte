@@ -2,25 +2,64 @@
 	// PayGroupsTab - Pay Groups management (Tab 2)
 	import { goto } from '$app/navigation';
 	import type { PayGroup } from '$lib/types/pay-group';
-	import { MOCK_PAY_GROUPS, deleteMockPayGroup } from '$lib/mocks/pay-groups';
+	import { listPayGroupsWithCounts, deletePayGroup, type PayGroupWithCount } from '$lib/services/payGroupService';
+	import { getOrCreateDefaultCompany } from '$lib/services/companyService';
 	import PayGroupCard from './PayGroupCard.svelte';
 	import PayGroupDeleteModal from './PayGroupDeleteModal.svelte';
 
-	// Use mock data (reactive to changes)
-	let payGroups = $state<PayGroup[]>([...MOCK_PAY_GROUPS]);
+	// State
+	let payGroups = $state<PayGroupWithCount[]>([]);
+	let isLoading = $state(true);
+	let error = $state<string | null>(null);
+	let companyId = $state<string | null>(null);
 
 	// Delete modal state
 	let showDeleteModal = $state(false);
 	let deletingPayGroup = $state<PayGroup | null>(null);
+	let isDeleting = $state(false);
 
 	// Computed: is empty state
 	const isEmpty = $derived(payGroups.length === 0);
+	const hasNoCompany = $derived(!companyId && !isLoading);
 
-	// Refresh pay groups from mock data (for when returning from new/detail page)
+	// Load data on mount
 	$effect(() => {
-		// Re-sync with mock data when component mounts or re-renders
-		payGroups = [...MOCK_PAY_GROUPS];
+		loadData();
 	});
+
+	async function loadData() {
+		isLoading = true;
+		error = null;
+
+		try {
+			// First get the company
+			const companyResult = await getOrCreateDefaultCompany();
+			if (companyResult.error) {
+				error = companyResult.error;
+				return;
+			}
+			if (!companyResult.data) {
+				// No company yet
+				companyId = null;
+				return;
+			}
+
+			companyId = companyResult.data.id;
+
+			// Then load pay groups
+			const result = await listPayGroupsWithCounts(companyId);
+			if (result.error) {
+				error = result.error;
+				return;
+			}
+
+			payGroups = result.data;
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to load pay groups';
+		} finally {
+			isLoading = false;
+		}
+	}
 
 	function handleAddGroup() {
 		// Navigate to the new pay group page
@@ -42,31 +81,75 @@
 		deletingPayGroup = null;
 	}
 
-	function handleDeleteConfirm() {
-		if (deletingPayGroup) {
-			deleteMockPayGroup(deletingPayGroup.id);
-			payGroups = payGroups.filter((pg) => pg.id !== deletingPayGroup!.id);
+	async function handleDeleteConfirm() {
+		if (!deletingPayGroup) return;
+
+		isDeleting = true;
+		try {
+			const result = await deletePayGroup(deletingPayGroup.id);
+			if (result.error) {
+				error = result.error;
+			} else {
+				payGroups = payGroups.filter((pg) => pg.id !== deletingPayGroup!.id);
+			}
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to delete pay group';
+		} finally {
+			isDeleting = false;
+			handleDeleteModalClose();
 		}
-		handleDeleteModalClose();
 	}
 </script>
 
 <div class="pay-groups-tab">
-	<div class="tab-header">
-		<div class="header-content">
-			<h2 class="header-title">Pay Groups</h2>
-			<p class="header-description">
-				Organize employees by pay frequency and employment type. Each Pay Group is run separately in
-				Payroll.
-			</p>
+	<!-- Error Banner -->
+	{#if error}
+		<div class="error-banner">
+			<i class="fas fa-exclamation-circle"></i>
+			<span>{error}</span>
+			<button class="error-dismiss" onclick={() => error = null}>
+				<i class="fas fa-times"></i>
+			</button>
 		</div>
-		<button class="btn-primary" onclick={handleAddGroup}>
-			<i class="fas fa-plus"></i>
-			<span>Add Group</span>
-		</button>
-	</div>
+	{/if}
 
-	{#if isEmpty}
+	<!-- Loading State -->
+	{#if isLoading}
+		<div class="loading-container">
+			<div class="loading-spinner"></div>
+			<p>Loading pay groups...</p>
+		</div>
+	{:else if hasNoCompany}
+		<!-- No Company State -->
+		<div class="no-company-state">
+			<div class="empty-icon">
+				<i class="fas fa-building"></i>
+			</div>
+			<h3 class="empty-title">No Company Profile</h3>
+			<p class="empty-description">
+				Please set up your company profile first before creating pay groups.
+			</p>
+			<button class="btn-primary" onclick={() => goto('/company?tab=profile')}>
+				<i class="fas fa-arrow-left"></i>
+				<span>Go to Profile</span>
+			</button>
+		</div>
+	{:else}
+		<div class="tab-header">
+			<div class="header-content">
+				<h2 class="header-title">Pay Groups</h2>
+				<p class="header-description">
+					Organize employees by pay frequency and employment type. Each Pay Group is run separately in
+					Payroll.
+				</p>
+			</div>
+			<button class="btn-primary" onclick={handleAddGroup}>
+				<i class="fas fa-plus"></i>
+				<span>Add Group</span>
+			</button>
+		</div>
+
+		{#if isEmpty}
 		<!-- Empty State -->
 		<div class="empty-state">
 			<div class="empty-icon">
@@ -112,6 +195,7 @@
 				to <a href="/employees">Employees</a> to assign groups.
 			</span>
 		</div>
+		{/if}
 	{/if}
 </div>
 
@@ -301,6 +385,81 @@
 	.btn-lg {
 		padding: var(--spacing-4) var(--spacing-6);
 		font-size: var(--font-size-title-medium);
+	}
+
+	/* Loading State */
+	.loading-container {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: var(--spacing-12) var(--spacing-6);
+		gap: var(--spacing-4);
+	}
+
+	.loading-spinner {
+		width: 40px;
+		height: 40px;
+		border: 3px solid var(--color-surface-200);
+		border-top-color: var(--color-primary-500);
+		border-radius: 50%;
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	.loading-container p {
+		color: var(--color-surface-500);
+		margin: 0;
+	}
+
+	/* Error Banner */
+	.error-banner {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-3);
+		padding: var(--spacing-4);
+		background: var(--color-error-50, #fef2f2);
+		border: 1px solid var(--color-error-200, #fecaca);
+		border-radius: var(--radius-lg);
+		color: var(--color-error-700, #b91c1c);
+	}
+
+	.error-banner i:first-child {
+		font-size: 1.25rem;
+	}
+
+	.error-banner span {
+		flex: 1;
+	}
+
+	.error-dismiss {
+		background: none;
+		border: none;
+		color: var(--color-error-500, #ef4444);
+		cursor: pointer;
+		padding: var(--spacing-1);
+		opacity: 0.7;
+	}
+
+	.error-dismiss:hover {
+		opacity: 1;
+	}
+
+	/* No Company State */
+	.no-company-state {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		text-align: center;
+		padding: var(--spacing-12) var(--spacing-6);
+		background: white;
+		border-radius: var(--radius-xl);
+		box-shadow: var(--shadow-md3-1);
 	}
 
 	@media (max-width: 640px) {
