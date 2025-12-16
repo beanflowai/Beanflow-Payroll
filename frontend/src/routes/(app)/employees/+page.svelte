@@ -2,146 +2,57 @@
 	import type { Employee, ColumnGroup, EmployeeFilters, EmployeeStatusCounts } from '$lib/types/employee';
 	import {
 		PROVINCE_LABELS,
-		DEFAULT_EMPLOYEE_FILTERS
+		DEFAULT_EMPLOYEE_FILTERS,
+		FEDERAL_BPA_2025,
+		PROVINCIAL_BPA_2025
 	} from '$lib/types/employee';
 	import { EmployeeTable, EmployeeDetailSidebar, EmployeeFilters as EmployeeFiltersComponent } from '$lib/components/employees';
-
-	// ===========================================
-	// Mock Data
-	// ===========================================
-	const mockEmployees: Employee[] = [
-		{
-			id: '1',
-			firstName: 'Sarah',
-			lastName: 'Johnson',
-			sin: '123-456-789',
-			email: 'sarah.johnson@example.com',
-			provinceOfEmployment: 'ON',
-			payFrequency: 'bi_weekly',
-			employmentType: 'full_time',
-			status: 'active',
-			hireDate: '2024-03-15',
-			terminationDate: null,
-			annualSalary: 85000,
-			hourlyRate: null,
-			federalClaimAmount: 16129,
-			provincialClaimAmount: 12399,
-			isCppExempt: false,
-			isEiExempt: false,
-			cpp2Exempt: false,
-			rrspPerPeriod: 200,
-			unionDuesPerPeriod: 0,
-			vacationConfig: { payoutMethod: 'accrual', vacationRate: '0.04' },
-			vacationBalance: 1234.56
-		},
-		{
-			id: '2',
-			firstName: 'Michael',
-			lastName: 'Chen',
-			sin: '987-654-321',
-			email: 'michael.chen@example.com',
-			provinceOfEmployment: 'BC',
-			payFrequency: 'bi_weekly',
-			employmentType: 'full_time',
-			status: 'active',
-			hireDate: '2023-08-01',
-			terminationDate: null,
-			annualSalary: null,
-			hourlyRate: 45,
-			federalClaimAmount: 16129,
-			provincialClaimAmount: 12580,
-			isCppExempt: false,
-			isEiExempt: false,
-			cpp2Exempt: false,
-			rrspPerPeriod: 0,
-			unionDuesPerPeriod: 50,
-			vacationConfig: { payoutMethod: 'pay_as_you_go', vacationRate: '0.04' },
-			vacationBalance: 0
-		},
-		{
-			id: '3',
-			firstName: 'Emily',
-			lastName: 'Davis',
-			sin: '456-789-123',
-			email: 'emily.davis@example.com',
-			provinceOfEmployment: 'ON',
-			payFrequency: 'semi_monthly',
-			employmentType: 'part_time',
-			status: 'active',
-			hireDate: '2024-01-10',
-			terminationDate: null,
-			annualSalary: 52000,
-			hourlyRate: null,
-			federalClaimAmount: 16129,
-			provincialClaimAmount: 12399,
-			isCppExempt: false,
-			isEiExempt: false,
-			cpp2Exempt: false,
-			rrspPerPeriod: 100,
-			unionDuesPerPeriod: 0,
-			vacationConfig: { payoutMethod: 'accrual', vacationRate: '0.04' },
-			vacationBalance: 520
-		},
-		{
-			id: '4',
-			firstName: 'James',
-			lastName: 'Wilson',
-			sin: '321-654-987',
-			email: 'james.wilson@example.com',
-			provinceOfEmployment: 'AB',
-			payFrequency: 'monthly',
-			employmentType: 'full_time',
-			status: 'draft',
-			hireDate: '2024-06-01',
-			terminationDate: null,
-			annualSalary: 96000,
-			hourlyRate: null,
-			federalClaimAmount: 16129,
-			provincialClaimAmount: 21003,
-			isCppExempt: true,
-			isEiExempt: true,
-			cpp2Exempt: true,
-			rrspPerPeriod: 0,
-			unionDuesPerPeriod: 0,
-			vacationConfig: { payoutMethod: 'lump_sum', vacationRate: '0.06' },
-			vacationBalance: 2880
-		},
-		{
-			id: '5',
-			firstName: 'Lisa',
-			lastName: 'Thompson',
-			sin: '789-123-456',
-			email: 'lisa.thompson@example.com',
-			provinceOfEmployment: 'ON',
-			payFrequency: 'bi_weekly',
-			employmentType: 'full_time',
-			status: 'terminated',
-			hireDate: '2022-05-15',
-			terminationDate: '2024-11-30',
-			annualSalary: 72000,
-			hourlyRate: null,
-			federalClaimAmount: 16129,
-			provincialClaimAmount: 12399,
-			isCppExempt: false,
-			isEiExempt: false,
-			cpp2Exempt: false,
-			rrspPerPeriod: 150,
-			unionDuesPerPeriod: 25,
-			vacationConfig: { payoutMethod: 'accrual', vacationRate: '0.06' },
-			vacationBalance: 0
-		}
-	];
+	import {
+		listEmployees,
+		createEmployee,
+		updateEmployee,
+		deleteEmployee as deleteEmployeeService
+	} from '$lib/services/employeeService';
+	import type { EmployeeCreateInput, EmployeeUpdateInput } from '$lib/types/employee';
 
 	// ===========================================
 	// State
 	// ===========================================
-	let employees = $state(mockEmployees);
+	let employees = $state<Employee[]>([]);
+	let isLoading = $state(true);
+	let error = $state<string | null>(null);
+	let isSaving = $state(false);
 	let selectedIds = $state<Set<string>>(new Set());
 	let filters = $state<EmployeeFilters>({ ...DEFAULT_EMPLOYEE_FILTERS });
 	let activeColumnGroup = $state<ColumnGroup>('personal');
 	let showSINMap = $state<Record<string, boolean>>({});
 	let editingCell = $state<{ id: string; field: string } | null>(null);
 	let selectedEmployeeId = $state<string | null>(null);
+
+	// ===========================================
+	// Data Loading
+	// ===========================================
+	async function loadEmployees() {
+		isLoading = true;
+		error = null;
+		try {
+			const result = await listEmployees({ activeOnly: false });
+			if (result.error) {
+				error = result.error;
+			} else {
+				employees = result.data;
+			}
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to load employees';
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	// Load employees on mount
+	$effect(() => {
+		loadEmployees();
+	});
 
 	// ===========================================
 	// Computed
@@ -287,20 +198,41 @@
 		});
 	}
 
-	function deleteEmployee(id: string) {
+	async function handleDeleteEmployee(id: string) {
 		const emp = employees.find((e) => e.id === id);
-		if (emp && confirm(`Are you sure you want to delete ${emp.firstName} ${emp.lastName}?`)) {
+		if (!emp) return;
+
+		if (!confirm(`Are you sure you want to delete ${emp.firstName} ${emp.lastName}?`)) return;
+
+		// For new (unsaved) employees, just remove locally
+		if (id.startsWith('new-')) {
 			employees = employees.filter((e) => e.id !== id);
-			// Also remove from selection if selected
-			if (selectedIds.has(id)) {
-				const newSet = new Set(selectedIds);
-				newSet.delete(id);
-				selectedIds = newSet;
-			}
-			// Close detail sidebar if this employee was selected
-			if (selectedEmployeeId === id) {
-				selectedEmployeeId = null;
-			}
+			return;
+		}
+
+		// Delete from Supabase
+		isSaving = true;
+		const result = await deleteEmployeeService(id);
+		isSaving = false;
+
+		if (result.error) {
+			alert(`Failed to delete employee: ${result.error}`);
+			return;
+		}
+
+		// Remove from local state
+		employees = employees.filter((e) => e.id !== id);
+
+		// Also remove from selection if selected
+		if (selectedIds.has(id)) {
+			const newSet = new Set(selectedIds);
+			newSet.delete(id);
+			selectedIds = newSet;
+		}
+
+		// Close detail sidebar if this employee was selected
+		if (selectedEmployeeId === id) {
+			selectedEmployeeId = null;
 		}
 	}
 </script>
@@ -323,44 +255,68 @@
 					<i class="fas fa-file-import"></i>
 					<span>Import</span>
 				</button>
-				<button class="btn-primary" onclick={addNewRow}>
+				<button class="btn-primary" onclick={addNewRow} disabled={isSaving}>
 					<i class="fas fa-plus"></i>
 					<span>Add Employee</span>
 				</button>
 			</div>
 		</header>
 
-		<!-- Employee Filters -->
-		<EmployeeFiltersComponent
-			{filters}
-			{statusCounts}
-			onFiltersChange={(newFilters) => (filters = newFilters)}
-		/>
+		<!-- Error Message -->
+		{#if error}
+			<div class="error-banner">
+				<i class="fas fa-exclamation-circle"></i>
+				<span>{error}</span>
+				<button class="error-dismiss" onclick={() => error = null}>
+					<i class="fas fa-times"></i>
+				</button>
+			</div>
+		{/if}
 
-		<!-- Employee Table -->
-		<EmployeeTable
-			employees={filteredEmployees()}
-			{selectedIds}
-			{activeColumnGroup}
-			{showSINMap}
-			{editingCell}
-			onToggleSelectAll={toggleSelectAll}
-			onToggleSelect={toggleSelect}
-			onToggleSIN={toggleSIN}
-			onStartEdit={startEdit}
-			onStopEdit={stopEdit}
-			onOpenDetails={openDetails}
-			onAddNewRow={addNewRow}
-			onToggleCompensationType={toggleCompensationType}
-			onDeleteEmployee={deleteEmployee}
-		/>
+		<!-- Loading State -->
+		{#if isLoading}
+			<div class="loading-container">
+				<div class="loading-spinner"></div>
+				<p>Loading employees...</p>
+			</div>
+		{:else}
+			<!-- Employee Filters -->
+			<EmployeeFiltersComponent
+				{filters}
+				{statusCounts}
+				onFiltersChange={(newFilters) => (filters = newFilters)}
+			/>
 
-		<!-- Results Summary -->
-		<div class="results-summary">
-			<span class="results-count">
-				Showing {filteredEmployees().length} of {employees.length} employee{employees.length !== 1 ? 's' : ''}
-			</span>
-		</div>
+			<!-- Employee Table -->
+			<EmployeeTable
+				employees={filteredEmployees()}
+				{selectedIds}
+				{activeColumnGroup}
+				{showSINMap}
+				{editingCell}
+				onToggleSelectAll={toggleSelectAll}
+				onToggleSelect={toggleSelect}
+				onToggleSIN={toggleSIN}
+				onStartEdit={startEdit}
+				onStopEdit={stopEdit}
+				onOpenDetails={openDetails}
+				onAddNewRow={addNewRow}
+				onToggleCompensationType={toggleCompensationType}
+				onDeleteEmployee={handleDeleteEmployee}
+			/>
+
+			<!-- Results Summary -->
+			<div class="results-summary">
+				<span class="results-count">
+					Showing {filteredEmployees().length} of {employees.length} employee{employees.length !== 1 ? 's' : ''}
+				</span>
+				{#if isSaving}
+					<span class="saving-indicator">
+						<i class="fas fa-spinner fa-spin"></i> Saving...
+					</span>
+				{/if}
+			</div>
+		{/if}
 	</div>
 
 	<!-- Detail Sidebar -->
@@ -452,6 +408,83 @@
 	.btn-secondary:hover {
 		background: var(--color-surface-50);
 		border-color: var(--color-surface-300);
+	}
+
+	.btn-primary:disabled,
+	.btn-secondary:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+
+	/* Error Banner */
+	.error-banner {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-3);
+		padding: var(--spacing-4);
+		background: var(--color-danger-50, #fef2f2);
+		border: 1px solid var(--color-danger-200, #fecaca);
+		border-radius: var(--radius-lg);
+		color: var(--color-danger-700, #b91c1c);
+		margin-bottom: var(--spacing-4);
+	}
+
+	.error-banner i:first-child {
+		font-size: 1.25rem;
+	}
+
+	.error-banner span {
+		flex: 1;
+	}
+
+	.error-dismiss {
+		background: none;
+		border: none;
+		color: var(--color-danger-500, #ef4444);
+		cursor: pointer;
+		padding: var(--spacing-1);
+		opacity: 0.7;
+	}
+
+	.error-dismiss:hover {
+		opacity: 1;
+	}
+
+	/* Loading State */
+	.loading-container {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: var(--spacing-12) var(--spacing-6);
+		gap: var(--spacing-4);
+	}
+
+	.loading-spinner {
+		width: 40px;
+		height: 40px;
+		border: 3px solid var(--color-surface-200);
+		border-top-color: var(--color-primary-500, #3b82f6);
+		border-radius: 50%;
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	.loading-container p {
+		color: var(--color-surface-500);
+		margin: 0;
+	}
+
+	/* Saving Indicator */
+	.saving-indicator {
+		font-size: var(--font-size-body-small);
+		color: var(--color-primary-600, #2563eb);
+		margin-left: var(--spacing-4);
 	}
 
 	/* Results Summary */

@@ -12,9 +12,9 @@ import type {
 	EmployeeUpdateInput,
 	Employee,
 	Province,
-	PayFrequency,
-	dbEmployeeToUi
+	PayFrequency
 } from '$lib/types/employee';
+import { dbEmployeeToUi } from '$lib/types/employee';
 import { authState } from '$lib/stores/auth.svelte';
 
 // Re-export the conversion function for convenience
