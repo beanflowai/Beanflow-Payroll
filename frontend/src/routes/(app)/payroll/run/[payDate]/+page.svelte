@@ -530,6 +530,22 @@
 									<span class="stat-label">Net Pay</span>
 								</div>
 							</div>
+							<button
+								class="btn-add-more-header"
+								onclick={() => openAddEmployeesModal({
+									id: payGroup.id,
+									name: payGroup.name,
+									payFrequency: payGroup.payFrequency,
+									employmentType: payGroup.employmentType,
+									employeeCount: payGroup.employees.length,
+									estimatedGross: 0,
+									periodStart: payGroup.periodStart,
+									periodEnd: payGroup.periodEnd
+								})}
+							>
+								<i class="fas fa-user-plus"></i>
+								<span>Add</span>
+							</button>
 						</div>
 					</div>
 
@@ -1586,6 +1602,31 @@
 	.section-header-static .stat-label {
 		font-size: var(--font-size-auxiliary-text);
 		color: var(--color-surface-500);
+	}
+
+	.btn-add-more-header {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--spacing-2);
+		margin-left: var(--spacing-4);
+		padding: var(--spacing-2) var(--spacing-3);
+		background: var(--color-primary-50);
+		color: var(--color-primary-600);
+		border: 1px solid var(--color-primary-200);
+		border-radius: var(--radius-md);
+		font-size: var(--font-size-auxiliary-text);
+		font-weight: var(--font-weight-medium);
+		cursor: pointer;
+		transition: var(--transition-fast);
+	}
+
+	.btn-add-more-header:hover {
+		background: var(--color-primary-100);
+		border-color: var(--color-primary-300);
+	}
+
+	.btn-add-more-header i {
+		font-size: 12px;
 	}
 
 	.section-content {

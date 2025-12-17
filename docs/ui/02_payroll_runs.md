@@ -496,35 +496,103 @@ payroll-frontend/src/lib/components/payroll/
 
 ## 8. Run Payroll Workflow
 
-### Step 1: Create New Run
-1. Ensure a Pay Group is selected
-2. Click "+ Run Payroll" button
-3. System auto-detects next pay period based on **selected Pay Group's** pay frequency
-4. Creates draft payroll run for that Pay Group only
+> **Updated**: 2025-12-17
+> **Change**: Simplified workflow with "Before Run" state and direct creation
 
-### Step 2: Review & Edit
-1. System pre-fills all employees with calculated amounts
-2. User can edit overtime, bonuses, etc.
+### Overview
+
+The payroll run page (`/payroll/run/[payDate]`) supports two states:
+1. **Before Run**: No payroll_runs record exists - shows UI with placeholder data
+2. **After Run**: payroll_runs record exists - shows calculated data
+
+### 8.1 Before Run State (No payroll_runs record)
+
+When user navigates to `/payroll/run/2025-12-20` and no payroll run exists:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ ← Back to Payroll                                                       │
+│                                                                         │
+│ Pay Date: Friday, December 20, 2025                    [Not Started]    │
+│ 2 Pay Groups · 8 Employees                      [Start Payroll Run]     │
+├─────────────────────────────────────────────────────────────────────────┤
+│ 🎄 Holidays in this period: Christmas Day (Dec 25)    [Manage Hours →] │
+├─────────────────────────────────────────────────────────────────────────┤
+│ ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐            │
+│ │ Total Gross│ │ Deductions │ │ Net Pay    │ │ Employees  │            │
+│ │     --     │ │     --     │ │     --     │ │     8      │            │
+│ └────────────┘ └────────────┘ └────────────┘ └────────────┘            │
+├─────────────────────────────────────────────────────────────────────────┤
+│ ┌─ Bi-weekly Full-time ─────────────────────────────────────────────┐  │
+│ │ Bi-weekly · Full-time · Dec 1 - Dec 14    6 Emp  --  --    [Add]  │  │
+│ ├───────────────────────────────────────────────────────────────────┤  │
+│ │ Employee       │ Province │ Gross │ Leave │ OT │ Deduct │ Net Pay │  │
+│ │ Sarah Johnson  │   ON     │   --  │   -   │  - │   --   │    --   │  │
+│ │ Michael Chen   │   BC     │   --  │   -   │  - │   --   │    --   │  │
+│ │ ...            │          │       │       │    │        │         │  │
+│ └───────────────────────────────────────────────────────────────────┘  │
+├─────────────────────────────────────────────────────────────────────────┤
+│ ℹ️ Click "Start Payroll Run" to calculate gross, deductions, net pay   │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Features**:
+- Summary cards show `--` placeholder
+- Employee table shows names and provinces, amounts are `--`
+- "Add" button in each pay group header to add employees
+- "Start Payroll Run" button is primary action
+
+### 8.2 Start Payroll Run
+
+When user clicks "Start Payroll Run":
+
+1. **Create Records**:
+   - Create `payroll_runs` record with status = `pending_approval`
+   - For each employee in pay groups:
+     - Calculate gross pay (salary/periods or hours × rate)
+     - Calculate CPP (5.95% employee, 5.95% employer)
+     - Calculate EI (1.66% employee, 1.4× employer)
+     - Calculate Federal Tax (simplified)
+     - Calculate Provincial Tax (simplified)
+   - Create `payroll_records` for each employee
+
+2. **Update UI**:
+   - Summary cards show calculated totals
+   - Employee table shows calculated amounts
+   - Button changes to "Approve & Send Paystubs"
+   - Status badge shows "Pending Approval"
+
+### 8.3 Review & Edit
+
+1. System displays all employees with calculated amounts
+2. User can edit overtime, bonuses, leave hours
 3. Changes trigger recalculation
+4. Holiday Alert: If holidays in period, manage hours
+5. Leave Alert: Manage vacation/sick leave
 
-### Step 3: Holiday Check
-1. If holidays exist in period, show alert banner
-2. User clicks "Manage Holiday Hours"
-3. Records who worked on holidays
+### 8.4 Approve
 
-### Step 4: Approve
 1. User reviews totals
-2. Clicks "Approve" → Opens confirmation modal (see Section 10)
+2. Clicks "Approve & Send Paystubs" → Opens confirmation modal (see Section 10)
 3. System generates paystubs for all employees
 4. System sends paystubs via email (PDF attachment)
 5. Status changes to "Approved"
 6. Optional: Generate Beancount journal entry
 
-### Step 5: Mark as Paid
+### 8.5 Mark as Paid
+
 1. After bank transfer complete
 2. User clicks "Mark as Paid"
 3. Status changes to "Paid"
 4. Locked from further edits
+
+### 8.6 Route Structure
+
+```
+/payroll                    → Payroll Dashboard (upcoming pay dates)
+/payroll/run/[payDate]      → Payroll Run Page (before/after run)
+/payroll/history            → Past payroll runs
+```
 
 ---
 

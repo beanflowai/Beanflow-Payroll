@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app import __version__
-from app.api.v1 import auth, health
+from app.api.v1 import auth, health, payroll
 from app.core.config import get_config
 from app.core.exceptions import (
     AuthenticationError,
@@ -106,6 +106,7 @@ def create_app() -> FastAPI:
     # Register routers
     app.include_router(health.router, prefix="/health", tags=["Health"])
     app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+    app.include_router(payroll.router, prefix="/api/v1/payroll", tags=["Payroll"])
 
     return app
 

@@ -1,10 +1,13 @@
 /**
  * Payroll Service - Data access layer for payroll operations
  *
- * Supabase Implementation - Direct database queries only
+ * Hybrid Implementation:
+ * - Simple CRUD: Direct Supabase queries
+ * - Complex calculations: Backend API calls
  */
 
 import { supabase } from '$lib/api/supabase';
+import { api } from '$lib/api/client';
 import { authState } from '$lib/stores/auth.svelte';
 import type {
 	UpcomingPayDate,
@@ -781,13 +784,96 @@ export async function getPayGroupsWithEmployeesForPayDate(
 }
 
 // ===========================================
+// Backend API Types for Payroll Calculation
+// ===========================================
+
+interface EmployeeCalculationRequest {
+	employee_id: string;
+	province: string;
+	pay_frequency: string;
+	gross_regular: string;
+	gross_overtime?: string;
+	holiday_pay?: string;
+	holiday_premium_pay?: string;
+	vacation_pay?: string;
+	other_earnings?: string;
+	federal_claim_amount?: string;
+	provincial_claim_amount?: string;
+	rrsp_per_period?: string;
+	union_dues_per_period?: string;
+	garnishments?: string;
+	other_deductions?: string;
+	ytd_gross?: string;
+	ytd_pensionable_earnings?: string;
+	ytd_insurable_earnings?: string;
+	ytd_cpp_base?: string;
+	ytd_cpp_additional?: string;
+	ytd_ei?: string;
+	is_cpp_exempt?: boolean;
+	is_ei_exempt?: boolean;
+	cpp2_exempt?: boolean;
+}
+
+interface BatchCalculationRequest {
+	employees: EmployeeCalculationRequest[];
+	include_details?: boolean;
+}
+
+interface CalculationResult {
+	employee_id: string;
+	province: string;
+	gross_regular: string;
+	gross_overtime: string;
+	holiday_pay: string;
+	holiday_premium_pay: string;
+	vacation_pay: string;
+	other_earnings: string;
+	total_gross: string;
+	cpp_base: string;
+	cpp_additional: string;
+	cpp_total: string;
+	ei_employee: string;
+	federal_tax: string;
+	provincial_tax: string;
+	rrsp: string;
+	union_dues: string;
+	garnishments: string;
+	other_deductions: string;
+	total_employee_deductions: string;
+	cpp_employer: string;
+	ei_employer: string;
+	total_employer_costs: string;
+	net_pay: string;
+	new_ytd_gross: string;
+	new_ytd_cpp: string;
+	new_ytd_ei: string;
+}
+
+interface BatchCalculationResponse {
+	results: CalculationResult[];
+	summary: {
+		total_employees: number;
+		total_gross: string;
+		total_cpp_employee: string;
+		total_cpp_employer: string;
+		total_ei_employee: string;
+		total_ei_employer: string;
+		total_federal_tax: string;
+		total_provincial_tax: string;
+		total_deductions: string;
+		total_net_pay: string;
+		total_employer_costs: string;
+	};
+}
+
+// ===========================================
 // Start Payroll Run
 // ===========================================
 
 /**
  * Start a payroll run for a specific pay date
  * Creates the payroll_runs record and payroll_records for all employees
- * Calculates CPP, EI, and taxes for each employee
+ * Calls backend API for accurate CRA-compliant tax calculations
  */
 export async function startPayrollRun(
 	payDate: string
@@ -812,7 +898,64 @@ export async function startPayrollRun(
 		const periodStart = payGroups[0].periodStart;
 		const periodEnd = payGroups[0].periodEnd;
 
-		// Create the payroll_runs record
+		// Build calculation requests for all employees
+		const calculationRequests: EmployeeCalculationRequest[] = [];
+
+		for (const payGroup of payGroups) {
+			// Map pay frequency to backend format
+			const payFrequency = payGroup.payFrequency === 'bi_weekly' ? 'bi_weekly' :
+				payGroup.payFrequency === 'semi_monthly' ? 'semi_monthly' :
+				payGroup.payFrequency === 'monthly' ? 'monthly' : 'weekly';
+
+			for (const employee of payGroup.employees) {
+				// Calculate gross pay based on salary or hourly rate
+				let grossRegular = 0;
+				if (employee.annualSalary) {
+					const periodsPerYear = payGroup.payFrequency === 'weekly' ? 52 :
+						payGroup.payFrequency === 'bi_weekly' ? 26 :
+						payGroup.payFrequency === 'semi_monthly' ? 24 : 12;
+					grossRegular = employee.annualSalary / periodsPerYear;
+				} else if (employee.hourlyRate) {
+					const hoursPerPeriod = payGroup.payFrequency === 'weekly' ? 40 :
+						payGroup.payFrequency === 'bi_weekly' ? 80 :
+						payGroup.payFrequency === 'semi_monthly' ? 86.67 : 173.33;
+					grossRegular = employee.hourlyRate * hoursPerPeriod;
+				}
+
+				calculationRequests.push({
+					employee_id: employee.id,
+					province: employee.province,
+					pay_frequency: payFrequency,
+					gross_regular: grossRegular.toFixed(2),
+					// Use default BPA values - would be from employee TD1 in production
+					federal_claim_amount: '16129.00',
+					provincial_claim_amount: getProvincialBpa(employee.province),
+					// YTD values would come from previous payroll records
+					ytd_gross: '0',
+					ytd_cpp_base: '0',
+					ytd_cpp_additional: '0',
+					ytd_ei: '0',
+				});
+			}
+		}
+
+		// Call backend API for batch calculation
+		let calculationResponse: BatchCalculationResponse;
+		try {
+			calculationResponse = await api.post<BatchCalculationResponse>(
+				'/payroll/calculate/batch',
+				{
+					employees: calculationRequests,
+					include_details: false
+				} as BatchCalculationRequest
+			);
+		} catch (apiError) {
+			console.error('Backend calculation failed:', apiError);
+			return { data: null, error: `Calculation failed: ${apiError instanceof Error ? apiError.message : 'Unknown error'}` };
+		}
+
+		// Create the payroll_runs record with calculated totals
+		const summary = calculationResponse.summary;
 		const { data: runData, error: runError } = await supabase
 			.from('payroll_runs')
 			.insert({
@@ -823,15 +966,15 @@ export async function startPayrollRun(
 				pay_date: payDate,
 				status: 'pending_approval',
 				total_employees: totalEmployees,
-				total_gross: 0,
-				total_cpp_employee: 0,
-				total_cpp_employer: 0,
-				total_ei_employee: 0,
-				total_ei_employer: 0,
-				total_federal_tax: 0,
-				total_provincial_tax: 0,
-				total_net_pay: 0,
-				total_employer_cost: 0
+				total_gross: parseFloat(summary.total_gross),
+				total_cpp_employee: parseFloat(summary.total_cpp_employee),
+				total_cpp_employer: parseFloat(summary.total_cpp_employer),
+				total_ei_employee: parseFloat(summary.total_ei_employee),
+				total_ei_employer: parseFloat(summary.total_ei_employer),
+				total_federal_tax: parseFloat(summary.total_federal_tax),
+				total_provincial_tax: parseFloat(summary.total_provincial_tax),
+				total_net_pay: parseFloat(summary.total_net_pay),
+				total_employer_cost: parseFloat(summary.total_employer_costs)
 			})
 			.select()
 			.single();
@@ -843,122 +986,37 @@ export async function startPayrollRun(
 
 		const runId = runData.id;
 
-		// Calculate and create payroll records for each employee
-		let totalGross = 0;
-		let totalCppEmployee = 0;
-		let totalCppEmployer = 0;
-		let totalEiEmployee = 0;
-		let totalEiEmployer = 0;
-		let totalFederalTax = 0;
-		let totalProvincialTax = 0;
-		let totalNetPay = 0;
-		let totalEmployerCost = 0;
-
-		const payrollRecords: Array<{
-			payroll_run_id: string;
-			employee_id: string;
-			user_id: string;
-			ledger_id: string;
-			gross_regular: number;
-			gross_overtime: number;
-			holiday_pay: number;
-			holiday_premium_pay: number;
-			vacation_pay_paid: number;
-			other_earnings: number;
-			cpp_employee: number;
-			cpp_additional: number;
-			ei_employee: number;
-			federal_tax: number;
-			provincial_tax: number;
-			rrsp: number;
-			union_dues: number;
-			garnishments: number;
-			other_deductions: number;
-			cpp_employer: number;
-			ei_employer: number;
-			ytd_gross: number;
-			ytd_cpp: number;
-			ytd_ei: number;
-			ytd_federal_tax: number;
-			ytd_provincial_tax: number;
-			vacation_accrued: number;
-			vacation_hours_taken: number;
-		}> = [];
-
-		for (const payGroup of payGroups) {
-			for (const employee of payGroup.employees) {
-				// Calculate gross pay based on salary or hourly rate
-				let grossRegular = 0;
-				if (employee.annualSalary) {
-					// For salaried employees, divide annual salary by pay periods
-					const periodsPerYear = payGroup.payFrequency === 'weekly' ? 52 :
-						payGroup.payFrequency === 'bi_weekly' ? 26 :
-						payGroup.payFrequency === 'semi_monthly' ? 24 : 12;
-					grossRegular = employee.annualSalary / periodsPerYear;
-				} else if (employee.hourlyRate) {
-					// For hourly employees, assume standard hours per period
-					const hoursPerPeriod = payGroup.payFrequency === 'weekly' ? 40 :
-						payGroup.payFrequency === 'bi_weekly' ? 80 :
-						payGroup.payFrequency === 'semi_monthly' ? 86.67 : 173.33;
-					grossRegular = employee.hourlyRate * hoursPerPeriod;
-				}
-
-				// Simple tax calculations (these would be replaced with proper CRA calculations)
-				// Using approximate rates for demonstration
-				const cppEmployee = grossRegular * 0.0595; // 5.95% employee portion
-				const cppEmployer = cppEmployee; // Same for employer
-				const eiEmployee = grossRegular * 0.0166; // 1.66% employee portion
-				const eiEmployer = eiEmployee * 1.4; // 1.4x for employer
-				const federalTax = grossRegular * 0.15; // Simplified federal tax
-				const provincialTax = grossRegular * 0.05; // Simplified provincial tax
-
-				const totalDeductions = cppEmployee + eiEmployee + federalTax + provincialTax;
-				const netPay = grossRegular - totalDeductions;
-				const employerCost = cppEmployer + eiEmployer;
-
-				// Accumulate totals
-				totalGross += grossRegular;
-				totalCppEmployee += cppEmployee;
-				totalCppEmployer += cppEmployer;
-				totalEiEmployee += eiEmployee;
-				totalEiEmployer += eiEmployer;
-				totalFederalTax += federalTax;
-				totalProvincialTax += provincialTax;
-				totalNetPay += netPay;
-				totalEmployerCost += employerCost;
-
-				payrollRecords.push({
-					payroll_run_id: runId,
-					employee_id: employee.id,
-					user_id: userId,
-					ledger_id: ledgerId,
-					gross_regular: grossRegular,
-					gross_overtime: 0,
-					holiday_pay: 0,
-					holiday_premium_pay: 0,
-					vacation_pay_paid: 0,
-					other_earnings: 0,
-					cpp_employee: cppEmployee,
-					cpp_additional: 0,
-					ei_employee: eiEmployee,
-					federal_tax: federalTax,
-					provincial_tax: provincialTax,
-					rrsp: 0,
-					union_dues: 0,
-					garnishments: 0,
-					other_deductions: 0,
-					cpp_employer: cppEmployer,
-					ei_employer: eiEmployer,
-					ytd_gross: grossRegular,
-					ytd_cpp: cppEmployee,
-					ytd_ei: eiEmployee,
-					ytd_federal_tax: federalTax,
-					ytd_provincial_tax: provincialTax,
-					vacation_accrued: 0,
-					vacation_hours_taken: 0
-				});
-			}
-		}
+		// Create payroll records from calculation results
+		const payrollRecords = calculationResponse.results.map((result) => ({
+			payroll_run_id: runId,
+			employee_id: result.employee_id,
+			user_id: userId,
+			ledger_id: ledgerId,
+			gross_regular: parseFloat(result.gross_regular),
+			gross_overtime: parseFloat(result.gross_overtime),
+			holiday_pay: parseFloat(result.holiday_pay),
+			holiday_premium_pay: parseFloat(result.holiday_premium_pay),
+			vacation_pay_paid: parseFloat(result.vacation_pay),
+			other_earnings: parseFloat(result.other_earnings),
+			cpp_employee: parseFloat(result.cpp_base),
+			cpp_additional: parseFloat(result.cpp_additional),
+			ei_employee: parseFloat(result.ei_employee),
+			federal_tax: parseFloat(result.federal_tax),
+			provincial_tax: parseFloat(result.provincial_tax),
+			rrsp: parseFloat(result.rrsp),
+			union_dues: parseFloat(result.union_dues),
+			garnishments: parseFloat(result.garnishments),
+			other_deductions: parseFloat(result.other_deductions),
+			cpp_employer: parseFloat(result.cpp_employer),
+			ei_employer: parseFloat(result.ei_employer),
+			ytd_gross: parseFloat(result.new_ytd_gross),
+			ytd_cpp: parseFloat(result.new_ytd_cpp),
+			ytd_ei: parseFloat(result.new_ytd_ei),
+			ytd_federal_tax: 0, // Would be updated from result
+			ytd_provincial_tax: 0, // Would be updated from result
+			vacation_accrued: 0,
+			vacation_hours_taken: 0
+		}));
 
 		// Insert all payroll records
 		const { error: recordsError } = await supabase
@@ -972,26 +1030,6 @@ export async function startPayrollRun(
 			return { data: null, error: recordsError.message };
 		}
 
-		// Update the payroll_runs with totals
-		const { error: updateError } = await supabase
-			.from('payroll_runs')
-			.update({
-				total_gross: totalGross,
-				total_cpp_employee: totalCppEmployee,
-				total_cpp_employer: totalCppEmployer,
-				total_ei_employee: totalEiEmployee,
-				total_ei_employer: totalEiEmployer,
-				total_federal_tax: totalFederalTax,
-				total_provincial_tax: totalProvincialTax,
-				total_net_pay: totalNetPay,
-				total_employer_cost: totalEmployerCost
-			})
-			.eq('id', runId);
-
-		if (updateError) {
-			console.error('Failed to update payroll run totals:', updateError);
-		}
-
 		// Return the full payroll run data
 		return getPayrollRunByPayDate(payDate);
 	} catch (err) {
@@ -999,4 +1037,25 @@ export async function startPayrollRun(
 		console.error('startPayrollRun error:', message);
 		return { data: null, error: message };
 	}
+}
+
+/**
+ * Get provincial Basic Personal Amount based on province code
+ */
+function getProvincialBpa(province: string): string {
+	const bpaMap: Record<string, string> = {
+		AB: '22323.00',
+		BC: '12932.00',
+		MB: '15591.00',
+		NB: '13396.00',
+		NL: '11067.00',
+		NS: '11744.00',
+		NT: '17842.00',
+		NU: '19274.00',
+		ON: '12747.00',
+		PE: '15050.00',
+		SK: '19491.00',
+		YT: '16129.00',
+	};
+	return bpaMap[province] ?? '12747.00'; // Default to ON if unknown
 }
