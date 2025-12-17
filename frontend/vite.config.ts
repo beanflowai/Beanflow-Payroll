@@ -5,7 +5,7 @@ import { defineConfig } from 'vite';
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
 	server: {
-		port: 5175
+		port: 5176
 	},
 	resolve: {
 		// Preserve symlinks to ensure dependencies are resolved from payroll-frontend/node_modules

@@ -138,15 +138,21 @@
 
 	<div class="pay-groups-list">
 		{#each payDateData.payGroups as group (group.id)}
-			<div class="pay-group-chip">
+			<div class="pay-group-chip" class:no-employees={group.employeeCount === 0}>
 				<div class="chip-header">
 					<span class="chip-name">{group.name}</span>
 				</div>
-				<div class="chip-details">
-					<span class="chip-stat">{group.employeeCount} emp</span>
-					<span class="chip-divider"></span>
-					<span class="chip-stat">{formatCurrency(group.estimatedGross)}</span>
-				</div>
+				{#if group.employeeCount === 0}
+					<div class="chip-empty">
+						<span class="chip-empty-text">No employees</span>
+					</div>
+				{:else}
+					<div class="chip-details">
+						<span class="chip-stat">{group.employeeCount} emp</span>
+						<span class="chip-divider"></span>
+						<span class="chip-stat">{formatCurrency(group.estimatedGross)}</span>
+					</div>
+				{/if}
 			</div>
 		{/each}
 	</div>
@@ -366,6 +372,24 @@
 		height: 4px;
 		border-radius: 50%;
 		background: var(--color-surface-300);
+	}
+
+	/* No employees state */
+	.pay-group-chip.no-employees {
+		border-color: var(--color-warning-200);
+		background: var(--color-warning-50);
+	}
+
+	.chip-empty {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--spacing-2);
+	}
+
+	.chip-empty-text {
+		font-size: var(--font-size-auxiliary-text);
+		color: var(--color-warning-700);
 	}
 
 	@media (max-width: 768px) {

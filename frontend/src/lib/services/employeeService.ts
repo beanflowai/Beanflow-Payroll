@@ -403,3 +403,136 @@ export async function getEmployeesByPayFrequency(): Promise<Record<PayFrequency,
 		return {} as Record<PayFrequency, number>;
 	}
 }
+
+// ===========================================
+// Pay Group Assignment Functions
+// ===========================================
+
+/**
+ * Get employees assigned to a specific pay group
+ */
+export async function getEmployeesByPayGroup(
+	payGroupId: string
+): Promise<EmployeeListResult> {
+	try {
+		const userId = getCurrentUserId();
+		const ledgerId = getCurrentLedgerId();
+
+		const { data, error, count } = await supabase
+			.from(TABLE_NAME)
+			.select('*', { count: 'exact' })
+			.eq('user_id', userId)
+			.eq('ledger_id', ledgerId)
+			.eq('pay_group_id', payGroupId)
+			.is('termination_date', null)
+			.order('last_name')
+			.order('first_name');
+
+		if (error) {
+			console.error('Failed to get employees by pay group:', error);
+			return { data: [], count: 0, error: error.message };
+		}
+
+		const employees: Employee[] = (data as DbEmployee[]).map((db) =>
+			dbEmployeeToUi(db, maskSin(db.sin_encrypted))
+		);
+
+		return { data: employees, count: count ?? 0, error: null };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to get employees by pay group';
+		return { data: [], count: 0, error: message };
+	}
+}
+
+/**
+ * Get employees not assigned to any pay group
+ */
+export async function getUnassignedEmployees(): Promise<EmployeeListResult> {
+	try {
+		const userId = getCurrentUserId();
+		const ledgerId = getCurrentLedgerId();
+
+		const { data, error, count } = await supabase
+			.from(TABLE_NAME)
+			.select('*', { count: 'exact' })
+			.eq('user_id', userId)
+			.eq('ledger_id', ledgerId)
+			.is('pay_group_id', null)
+			.is('termination_date', null)
+			.order('last_name')
+			.order('first_name');
+
+		if (error) {
+			console.error('Failed to get unassigned employees:', error);
+			return { data: [], count: 0, error: error.message };
+		}
+
+		const employees: Employee[] = (data as DbEmployee[]).map((db) =>
+			dbEmployeeToUi(db, maskSin(db.sin_encrypted))
+		);
+
+		return { data: employees, count: count ?? 0, error: null };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to get unassigned employees';
+		return { data: [], count: 0, error: message };
+	}
+}
+
+/**
+ * Assign multiple employees to a pay group
+ */
+export async function assignEmployeesToPayGroup(
+	employeeIds: string[],
+	payGroupId: string
+): Promise<{ error: string | null }> {
+	try {
+		const userId = getCurrentUserId();
+		const ledgerId = getCurrentLedgerId();
+
+		const { error } = await supabase
+			.from(TABLE_NAME)
+			.update({ pay_group_id: payGroupId })
+			.eq('user_id', userId)
+			.eq('ledger_id', ledgerId)
+			.in('id', employeeIds);
+
+		if (error) {
+			console.error('Failed to assign employees to pay group:', error);
+			return { error: error.message };
+		}
+
+		return { error: null };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to assign employees';
+		return { error: message };
+	}
+}
+
+/**
+ * Remove an employee from their pay group (set pay_group_id to null)
+ */
+export async function removeEmployeeFromPayGroup(
+	employeeId: string
+): Promise<{ error: string | null }> {
+	try {
+		const userId = getCurrentUserId();
+		const ledgerId = getCurrentLedgerId();
+
+		const { error } = await supabase
+			.from(TABLE_NAME)
+			.update({ pay_group_id: null })
+			.eq('user_id', userId)
+			.eq('ledger_id', ledgerId)
+			.eq('id', employeeId);
+
+		if (error) {
+			console.error('Failed to remove employee from pay group:', error);
+			return { error: error.message };
+		}
+
+		return { error: null };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to remove employee from pay group';
+		return { error: message };
+	}
+}

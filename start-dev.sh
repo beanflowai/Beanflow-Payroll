@@ -18,7 +18,7 @@ FRONTEND_DIR="$PROJECT_ROOT/frontend"
 
 # Ports
 BACKEND_PORT=8040
-FRONTEND_PORT=5175
+FRONTEND_PORT=5176
 
 # PID files for cleanup
 BACKEND_PID_FILE="/tmp/beanflow-payroll-backend.pid"

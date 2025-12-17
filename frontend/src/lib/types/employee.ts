@@ -83,6 +83,7 @@ export interface Employee {
 	unionDuesPerPeriod: number;
 	vacationConfig: VacationConfig;
 	vacationBalance: number;  // Read-only, updated by payroll system
+	payGroupId?: string | null;  // Pay group assignment
 }
 
 // Column groups for Excel-like table view
@@ -211,6 +212,7 @@ export interface DbEmployee {
 		vacation_rate: string;
 	};
 	vacation_balance: number;
+	pay_group_id: string | null;
 	created_at: string;
 	updated_at: string;
 }
@@ -278,7 +280,8 @@ export function dbEmployeeToUi(db: DbEmployee, maskedSin: string): Employee {
 			payoutMethod: db.vacation_config.payout_method,
 			vacationRate: db.vacation_config.vacation_rate as VacationRate
 		},
-		vacationBalance: db.vacation_balance
+		vacationBalance: db.vacation_balance,
+		payGroupId: db.pay_group_id
 	};
 }
 
