@@ -43,16 +43,18 @@
 	}
 </script>
 
-<div class="expanded-content">
+<div class="p-4 bg-surface-50 border-t border-surface-200">
 	<!-- Three Column Layout -->
-	<div class="expanded-columns">
+	<div class="grid grid-cols-3 gap-6 mb-4 max-lg:grid-cols-2 max-md:grid-cols-1">
 		<!-- Earnings Column -->
-		<div class="expanded-col earnings-col">
-			<h4 class="col-title">Earnings <span class="edit-hint">(double-click to edit)</span></h4>
-			<div class="earnings-list">
+		<div class="bg-white rounded-lg p-4 shadow-sm">
+			<h4 class="text-body-content font-semibold text-surface-700 mb-3 flex items-center gap-2">
+				Earnings <span class="text-caption font-normal text-surface-400">(double-click to edit)</span>
+			</h4>
+			<div class="flex flex-col gap-2">
 				{#each earningsBreakdown as item (item.key)}
-					<div class="earnings-item" class:editable-row={item.editable}>
-						<span class="item-label">{item.label}</span>
+					<div class="flex justify-between items-center py-2 border-b border-surface-100 last:border-b-0" class:editable-row={item.editable}>
+						<span class="text-body-small text-surface-600">{item.label}</span>
 						{#if item.editable && item.editType === 'amount'}
 							<!-- Editable amount (Regular Pay for salaried) -->
 							<InlineEditField
@@ -63,7 +65,7 @@
 							/>
 						{:else if item.editable && item.editType === 'hours'}
 							<!-- Editable hours (Overtime) -->
-							<div class="hours-edit-wrapper">
+							<div class="flex items-center gap-2">
 								<InlineEditField
 									value={item.editValue ?? 0}
 									formatValue={(h) => `${h}h`}
@@ -72,74 +74,74 @@
 									suffix="h"
 								/>
 								{#if item.amount > 0}
-									<span class="hours-result">= {formatCurrency(item.amount)}</span>
+									<span class="text-body-small text-surface-500">= {formatCurrency(item.amount)}</span>
 								{/if}
 							</div>
 						{:else}
 							<!-- Non-editable display -->
-							<span class="item-amount" class:negative={item.amount < 0}>
+							<span class="text-body-small font-medium" class:text-error-600={item.amount < 0} class:text-surface-800={item.amount >= 0} class:text-surface-400={item.amount === 0}>
 								{item.amount !== 0 ? formatCurrency(Math.abs(item.amount)) : '--'}
 							</span>
 						{/if}
 					</div>
 					{#if item.detail && !item.editable}
-						<div class="item-detail">{item.detail}</div>
+						<div class="text-caption text-surface-500 pl-2 -mt-1 mb-1">{item.detail}</div>
 					{/if}
 				{/each}
 				{#if earningsBreakdown.length === 0}
-					<div class="empty-section">No earnings data</div>
+					<div class="text-center py-4 text-surface-400 text-body-small">No earnings data</div>
 				{/if}
 			</div>
-			<div class="col-total">
+			<div class="flex justify-between items-center mt-3 pt-3 border-t-2 border-surface-200 font-semibold">
 				<span>Est. Gross</span>
-				<span class="total-amount">
+				<span class="text-body-content" class:text-primary-600={estimatedGross !== null} class:text-surface-400={estimatedGross === null}>
 					{estimatedGross !== null ? formatCurrency(estimatedGross) : '--'}
 				</span>
 			</div>
 		</div>
 
 		<!-- Deductions Column (Placeholder) -->
-		<div class="expanded-col deductions-col">
-			<h4 class="col-title">Deductions</h4>
-			<div class="deductions-list placeholder-section">
-				<div class="deduction-item">
-					<span class="item-label">CPP</span>
-					<span class="item-amount placeholder">--</span>
+		<div class="bg-white rounded-lg p-4 shadow-sm">
+			<h4 class="text-body-content font-semibold text-surface-700 mb-3">Deductions</h4>
+			<div class="flex flex-col gap-2 opacity-60">
+				<div class="flex justify-between items-center py-2 border-b border-surface-100">
+					<span class="text-body-small text-surface-600">CPP</span>
+					<span class="text-body-small font-medium text-surface-400">--</span>
 				</div>
-				<div class="deduction-item">
-					<span class="item-label">EI</span>
-					<span class="item-amount placeholder">--</span>
+				<div class="flex justify-between items-center py-2 border-b border-surface-100">
+					<span class="text-body-small text-surface-600">EI</span>
+					<span class="text-body-small font-medium text-surface-400">--</span>
 				</div>
-				<div class="deduction-item">
-					<span class="item-label">Federal Tax</span>
-					<span class="item-amount placeholder">--</span>
+				<div class="flex justify-between items-center py-2 border-b border-surface-100">
+					<span class="text-body-small text-surface-600">Federal Tax</span>
+					<span class="text-body-small font-medium text-surface-400">--</span>
 				</div>
-				<div class="deduction-item">
-					<span class="item-label">Provincial Tax</span>
-					<span class="item-amount placeholder">--</span>
+				<div class="flex justify-between items-center py-2 border-b border-surface-100 last:border-b-0">
+					<span class="text-body-small text-surface-600">Provincial Tax</span>
+					<span class="text-body-small font-medium text-surface-400">--</span>
 				</div>
 			</div>
-			<div class="col-total">
+			<div class="flex justify-between items-center mt-3 pt-3 border-t-2 border-surface-200 font-semibold">
 				<span>Total Deductions</span>
-				<span class="total-amount placeholder">--</span>
+				<span class="text-body-content text-surface-400">--</span>
 			</div>
 		</div>
 
 		<!-- Leave Column -->
-		<div class="expanded-col leave-col">
-			<h4 class="col-title">Leave</h4>
-			<div class="leave-inputs">
+		<div class="bg-white rounded-lg p-4 shadow-sm max-lg:col-span-2 max-md:col-span-1">
+			<h4 class="text-body-content font-semibold text-surface-700 mb-3">Leave</h4>
+			<div class="flex flex-col gap-4">
 				<!-- Vacation Block -->
-				<div class="leave-type-block">
-					<div class="leave-type-header">
-						<span class="leave-icon">🏖️</span>
-						<span class="leave-type-name">Vacation</span>
+				<div class="bg-surface-50 rounded-md p-3">
+					<div class="flex items-center gap-2 mb-2">
+						<span class="text-base">🏖️</span>
+						<span class="text-body-small font-medium text-surface-700">Vacation</span>
 					</div>
-					<div class="leave-field">
-						<span class="field-label">Hours:</span>
+					<div class="flex items-center gap-2 mb-1">
+						<span class="text-caption text-surface-500 min-w-[50px]">Hours:</span>
 						<input
 							type="number"
-							class="leave-hours-input"
+							class="w-[70px] py-1 px-2 border border-surface-300 rounded-md text-body-small text-center focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
 							min="0"
 							max="200"
 							step="0.5"
@@ -148,22 +150,22 @@
 							placeholder="0"
 						/>
 					</div>
-					<div class="leave-field balance">
-						<span class="field-label">Balance:</span>
-						<span class="balance-value">-- h</span>
+					<div class="flex items-center gap-2">
+						<span class="text-caption text-surface-500 min-w-[50px]">Balance:</span>
+						<span class="text-body-small text-surface-500">-- h</span>
 					</div>
 				</div>
 				<!-- Sick Block -->
-				<div class="leave-type-block">
-					<div class="leave-type-header">
-						<span class="leave-icon">🏥</span>
-						<span class="leave-type-name">Sick</span>
+				<div class="bg-surface-50 rounded-md p-3">
+					<div class="flex items-center gap-2 mb-2">
+						<span class="text-base">🏥</span>
+						<span class="text-body-small font-medium text-surface-700">Sick</span>
 					</div>
-					<div class="leave-field">
-						<span class="field-label">Hours:</span>
+					<div class="flex items-center gap-2 mb-1">
+						<span class="text-caption text-surface-500 min-w-[50px]">Hours:</span>
 						<input
 							type="number"
-							class="leave-hours-input"
+							class="w-[70px] py-1 px-2 border border-surface-300 rounded-md text-body-small text-center focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
 							min="0"
 							max="200"
 							step="0.5"
@@ -172,9 +174,9 @@
 							placeholder="0"
 						/>
 					</div>
-					<div class="leave-field balance">
-						<span class="field-label">Balance:</span>
-						<span class="balance-value">-- h</span>
+					<div class="flex items-center gap-2">
+						<span class="text-caption text-surface-500 min-w-[50px]">Balance:</span>
+						<span class="text-body-small text-surface-500">-- h</span>
 					</div>
 				</div>
 			</div>
@@ -182,24 +184,27 @@
 	</div>
 
 	<!-- One-time Adjustments Section -->
-	<div class="adjustments-section">
-		<div class="adjustments-header">
-			<h4 class="section-title">One-time Adjustments</h4>
-			<button class="btn-add-adjustment" onclick={onAddAdjustment}>
-				<i class="fas fa-plus"></i>
+	<div class="bg-white rounded-lg p-4 shadow-sm mb-4">
+		<div class="flex justify-between items-center mb-3">
+			<h4 class="text-body-content font-semibold text-surface-700">One-time Adjustments</h4>
+			<button
+				class="flex items-center gap-1 py-1 px-2 bg-primary-50 text-primary-600 border-none rounded-md text-caption font-medium cursor-pointer transition-all duration-150 hover:bg-primary-100"
+				onclick={onAddAdjustment}
+			>
+				<i class="fas fa-plus text-[10px]"></i>
 				Add
 			</button>
 		</div>
 		{#if input.adjustments.length === 0}
-			<div class="no-adjustments">
+			<div class="text-center py-3 text-surface-400 text-body-small">
 				<span>No adjustments added</span>
 			</div>
 		{:else}
-			<div class="adjustments-list">
+			<div class="flex flex-col gap-2">
 				{#each input.adjustments as adj, idx (adj.id)}
-					<div class="adjustment-row">
+					<div class="flex items-center gap-2 p-2 bg-surface-50 rounded-md max-md:flex-wrap">
 						<select
-							class="adj-type-select"
+							class="py-1 px-2 border border-surface-300 rounded-md text-body-small bg-white min-w-[130px] max-md:min-w-full"
 							value={adj.type}
 							onchange={(e) => {
 								const newType = (e.target as HTMLSelectElement).value as typeof adj.type;
@@ -215,18 +220,18 @@
 						</select>
 						<input
 							type="text"
-							class="adj-desc-input"
+							class="flex-1 py-1 px-2 border border-surface-300 rounded-md text-body-small max-md:min-w-full max-md:order-3"
 							placeholder="Description"
 							value={adj.description}
 							onchange={(e) => {
 								onUpdateAdjustment(idx, { description: (e.target as HTMLInputElement).value });
 							}}
 						/>
-						<div class="adj-amount-wrapper">
-							<span class="currency-prefix">$</span>
+						<div class="flex items-center bg-white border border-surface-300 rounded-md overflow-hidden">
+							<span class="py-1 px-2 bg-surface-100 text-surface-500 text-body-small">$</span>
 							<input
 								type="number"
-								class="adj-amount-input"
+								class="w-[80px] py-1 px-2 border-none text-body-small text-right focus:outline-none"
 								min="0"
 								step="0.01"
 								value={adj.amount}
@@ -236,7 +241,7 @@
 							/>
 						</div>
 						<button
-							class="btn-remove-adj"
+							class="flex items-center justify-center w-7 h-7 bg-transparent border-none text-surface-400 cursor-pointer rounded-md transition-all duration-150 hover:bg-error-100 hover:text-error-600"
 							onclick={() => onRemoveAdjustment(idx)}
 							aria-label="Remove adjustment"
 						>
@@ -249,418 +254,20 @@
 	</div>
 
 	<!-- Net Pay Preview -->
-	<div class="net-pay-preview">
-		<span class="net-label">Est. Net Pay</span>
-		<span class="net-value placeholder">--</span>
-		<span class="net-hint">(Start Payroll Run to calculate CPP/EI/Tax)</span>
+	<div class="flex items-center gap-3 p-3 bg-surface-100 rounded-lg">
+		<span class="text-body-content font-semibold text-surface-700">Est. Net Pay</span>
+		<span class="text-title-small font-bold text-surface-400">--</span>
+		<span class="text-caption text-surface-500 ml-auto">(Start Payroll Run to calculate CPP/EI/Tax)</span>
 	</div>
 </div>
 
 <style>
-	.expanded-content {
-		padding: var(--spacing-4);
-		background: var(--color-surface-50);
-		border-top: 1px solid var(--color-surface-200);
-	}
-
-	.expanded-columns {
-		display: grid;
-		grid-template-columns: 1fr 1fr 1fr;
-		gap: var(--spacing-6);
-		margin-bottom: var(--spacing-4);
-	}
-
-	.expanded-col {
-		background: white;
-		border-radius: var(--radius-lg);
-		padding: var(--spacing-4);
-		box-shadow: var(--shadow-sm);
-	}
-
-	.col-title {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-700);
-		margin: 0 0 var(--spacing-3);
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-	}
-
-	.edit-hint {
-		font-size: var(--font-size-caption);
-		font-weight: var(--font-weight-normal);
-		color: var(--color-surface-400);
-	}
-
-	/* Earnings */
-	.earnings-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-2);
-	}
-
-	.earnings-item {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: var(--spacing-2) 0;
-		border-bottom: 1px solid var(--color-surface-100);
-	}
-
-	.earnings-item:last-child {
-		border-bottom: none;
-	}
-
-	.earnings-item.editable-row {
+	/* Only keep styles that can't be easily expressed in Tailwind */
+	.editable-row {
 		background: var(--color-primary-50);
 		margin: 0 calc(-1 * var(--spacing-2));
 		padding: var(--spacing-2);
 		border-radius: var(--radius-md);
 		border-bottom: none;
-	}
-
-	.item-label {
-		font-size: var(--font-size-body-small);
-		color: var(--color-surface-600);
-	}
-
-	.item-amount {
-		font-size: var(--font-size-body-small);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-800);
-	}
-
-	.item-amount.negative {
-		color: var(--color-error-600);
-	}
-
-	.item-amount.placeholder {
-		color: var(--color-surface-400);
-	}
-
-	.item-detail {
-		font-size: var(--font-size-caption);
-		color: var(--color-surface-500);
-		padding-left: var(--spacing-2);
-		margin-top: -4px;
-		margin-bottom: var(--spacing-1);
-	}
-
-	.hours-edit-wrapper {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-	}
-
-	.hours-result {
-		font-size: var(--font-size-body-small);
-		color: var(--color-surface-500);
-	}
-
-	.col-total {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-top: var(--spacing-3);
-		padding-top: var(--spacing-3);
-		border-top: 2px solid var(--color-surface-200);
-		font-weight: var(--font-weight-semibold);
-	}
-
-	.total-amount {
-		font-size: var(--font-size-body-content);
-		color: var(--color-primary-600);
-	}
-
-	.total-amount.placeholder {
-		color: var(--color-surface-400);
-	}
-
-	.empty-section {
-		text-align: center;
-		padding: var(--spacing-4);
-		color: var(--color-surface-400);
-		font-size: var(--font-size-body-small);
-	}
-
-	/* Deductions */
-	.deductions-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-2);
-	}
-
-	.deduction-item {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: var(--spacing-2) 0;
-		border-bottom: 1px solid var(--color-surface-100);
-	}
-
-	.deduction-item:last-child {
-		border-bottom: none;
-	}
-
-	.placeholder-section .item-amount {
-		color: var(--color-surface-400);
-	}
-
-	/* Leave */
-	.leave-inputs {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-4);
-	}
-
-	.leave-type-block {
-		background: var(--color-surface-50);
-		border-radius: var(--radius-md);
-		padding: var(--spacing-3);
-	}
-
-	.leave-type-header {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		margin-bottom: var(--spacing-2);
-	}
-
-	.leave-icon {
-		font-size: 16px;
-	}
-
-	.leave-type-name {
-		font-size: var(--font-size-body-small);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-700);
-	}
-
-	.leave-field {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		margin-bottom: var(--spacing-1);
-	}
-
-	.leave-field.balance {
-		margin-bottom: 0;
-	}
-
-	.field-label {
-		font-size: var(--font-size-caption);
-		color: var(--color-surface-500);
-		min-width: 50px;
-	}
-
-	.leave-hours-input {
-		width: 70px;
-		padding: var(--spacing-1) var(--spacing-2);
-		border: 1px solid var(--color-surface-300);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-small);
-		text-align: center;
-	}
-
-	.leave-hours-input:focus {
-		outline: none;
-		border-color: var(--color-primary-500);
-		box-shadow: 0 0 0 2px var(--color-primary-100);
-	}
-
-	.balance-value {
-		font-size: var(--font-size-body-small);
-		color: var(--color-surface-500);
-	}
-
-	/* Adjustments */
-	.adjustments-section {
-		background: white;
-		border-radius: var(--radius-lg);
-		padding: var(--spacing-4);
-		box-shadow: var(--shadow-sm);
-		margin-bottom: var(--spacing-4);
-	}
-
-	.adjustments-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: var(--spacing-3);
-	}
-
-	.section-title {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-700);
-		margin: 0;
-	}
-
-	.btn-add-adjustment {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-1);
-		padding: var(--spacing-1) var(--spacing-2);
-		background: var(--color-primary-50);
-		color: var(--color-primary-600);
-		border: none;
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-caption);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-add-adjustment:hover {
-		background: var(--color-primary-100);
-	}
-
-	.no-adjustments {
-		text-align: center;
-		padding: var(--spacing-3);
-		color: var(--color-surface-400);
-		font-size: var(--font-size-body-small);
-	}
-
-	.adjustments-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-2);
-	}
-
-	.adjustment-row {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-2);
-		background: var(--color-surface-50);
-		border-radius: var(--radius-md);
-	}
-
-	.adj-type-select {
-		padding: var(--spacing-1) var(--spacing-2);
-		border: 1px solid var(--color-surface-300);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-small);
-		background: white;
-		min-width: 130px;
-	}
-
-	.adj-desc-input {
-		flex: 1;
-		padding: var(--spacing-1) var(--spacing-2);
-		border: 1px solid var(--color-surface-300);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-small);
-	}
-
-	.adj-amount-wrapper {
-		display: flex;
-		align-items: center;
-		background: white;
-		border: 1px solid var(--color-surface-300);
-		border-radius: var(--radius-md);
-		overflow: hidden;
-	}
-
-	.currency-prefix {
-		padding: var(--spacing-1) var(--spacing-2);
-		background: var(--color-surface-100);
-		color: var(--color-surface-500);
-		font-size: var(--font-size-body-small);
-	}
-
-	.adj-amount-input {
-		width: 80px;
-		padding: var(--spacing-1) var(--spacing-2);
-		border: none;
-		font-size: var(--font-size-body-small);
-		text-align: right;
-	}
-
-	.adj-amount-input:focus {
-		outline: none;
-	}
-
-	.btn-remove-adj {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 28px;
-		background: none;
-		border: none;
-		color: var(--color-surface-400);
-		cursor: pointer;
-		border-radius: var(--radius-md);
-		transition: var(--transition-fast);
-	}
-
-	.btn-remove-adj:hover {
-		background: var(--color-error-100);
-		color: var(--color-error-600);
-	}
-
-	/* Net Pay Preview */
-	.net-pay-preview {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-		padding: var(--spacing-3);
-		background: var(--color-surface-100);
-		border-radius: var(--radius-lg);
-	}
-
-	.net-label {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-700);
-	}
-
-	.net-value {
-		font-size: var(--font-size-title-small);
-		font-weight: var(--font-weight-bold);
-		color: var(--color-success-600);
-	}
-
-	.net-value.placeholder {
-		color: var(--color-surface-400);
-	}
-
-	.net-hint {
-		font-size: var(--font-size-caption);
-		color: var(--color-surface-500);
-		margin-left: auto;
-	}
-
-	/* Responsive */
-	@media (max-width: 1024px) {
-		.expanded-columns {
-			grid-template-columns: 1fr 1fr;
-		}
-
-		.leave-col {
-			grid-column: span 2;
-		}
-	}
-
-	@media (max-width: 768px) {
-		.expanded-columns {
-			grid-template-columns: 1fr;
-		}
-
-		.leave-col {
-			grid-column: span 1;
-		}
-
-		.adjustment-row {
-			flex-wrap: wrap;
-		}
-
-		.adj-desc-input {
-			min-width: 100%;
-			order: 3;
-		}
 	}
 </style>

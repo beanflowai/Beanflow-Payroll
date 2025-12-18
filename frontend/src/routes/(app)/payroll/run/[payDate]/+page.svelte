@@ -16,13 +16,10 @@
 	import type { Employee } from '$lib/types/employee';
 	import {
 		PAYROLL_STATUS_LABELS,
-		PAY_FREQUENCY_LABELS,
-		EMPLOYMENT_TYPE_LABELS,
 		LEAVE_TYPE_LABELS,
 		ADJUSTMENT_TYPE_LABELS,
 		createDefaultPayrollInput
 	} from '$lib/types/payroll';
-	import { PROVINCE_LABELS } from '$lib/types/employee';
 	import { StatusBadge } from '$lib/components/shared';
 	import {
 		PayGroupSection,
@@ -33,7 +30,14 @@
 		LeaveModal,
 		OvertimeModal,
 		BeforeRunPayGroupSection,
-		AddEmployeesModal
+		AddEmployeesModal,
+		BeforeRunSummaryCards,
+		BeforeRunEmployerCosts,
+		PayrollLoadingState,
+		PayrollErrorState,
+		PayrollNotFound,
+		PayrollPageHeader,
+		PayrollInfoMessage
 	} from '$lib/components/payroll';
 	import {
 		getPayrollRunByPayDate,
@@ -81,7 +85,6 @@
 	let isAssigning = $state(false);
 
 	// Payroll Input State - tracks all payroll input data for each employee
-	// Map of employeeId -> EmployeePayrollInput
 	let payrollInputMap = $state<Map<string, EmployeePayrollInput>>(new Map());
 
 	// ===========================================
@@ -125,8 +128,6 @@
 					for (const payGroup of beforeRunData.payGroups) {
 						const defaultHours = getDefaultRegularHours(payGroup.payFrequency);
 						for (const employee of payGroup.employees) {
-							// All employees get an input entry
-							// Hourly employees get default hours, salaried get 0
 							const input = createDefaultPayrollInput(
 								employee.id,
 								employee.compensationType === 'hourly' ? defaultHours : 0
@@ -216,12 +217,6 @@
 	// ===========================================
 	// Helpers
 	// ===========================================
-	function formatDateRange(start: string, end: string): string {
-		const startDate = new Date(start);
-		const endDate = new Date(end);
-		return `${startDate.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}`;
-	}
-
 	function formatDate(dateStr: string): string {
 		return new Date(dateStr).toLocaleDateString('en-CA', {
 			weekday: 'long',
@@ -238,25 +233,15 @@
 		}).format(amount);
 	}
 
-	/**
-	 * Get payroll input for an employee
-	 */
 	function getPayrollInput(employeeId: string): EmployeePayrollInput {
 		return payrollInputMap.get(employeeId) || createDefaultPayrollInput(employeeId);
 	}
 
-	/**
-	 * Update payroll input for an employee (partial update)
-	 */
 	function updatePayrollInput(employeeId: string, updates: Partial<EmployeePayrollInput>) {
 		const current = getPayrollInput(employeeId);
 		payrollInputMap = new Map(payrollInputMap).set(employeeId, { ...current, ...updates });
 	}
 
-	/**
-	 * Calculate estimated gross pay for an employee before payroll run
-	 * Includes: Regular Pay + Overtime + Leave Pay + Holiday Pay + Adjustments
-	 */
 	function calculateEstimatedGross(
 		employee: EmployeeForPayroll,
 		payFrequency: 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly'
@@ -270,12 +255,10 @@
 				payFrequency === 'semi_monthly' ? 24 : 12;
 			let gross = employee.annualSalary / periodsPerYear;
 
-			// Use override if set
 			if (input?.overrides?.regularPay !== undefined) {
 				gross = input.overrides.regularPay;
 			}
 
-			// Add adjustments
 			if (input?.adjustments) {
 				for (const adj of input.adjustments) {
 					if (adj.type === 'deduction') {
@@ -292,24 +275,20 @@
 		// Hourly employees
 		if (employee.compensationType === 'hourly' && employee.hourlyRate) {
 			if (!input || input.regularHours <= 0) {
-				return null; // No hours entered yet
+				return null;
 			}
 
 			const hourlyRate = employee.hourlyRate;
-
-			// Regular Pay
 			let regularPay = input.regularHours * hourlyRate;
 			if (input.overrides?.regularPay !== undefined) {
 				regularPay = input.overrides.regularPay;
 			}
 
-			// Overtime Pay (1.5x)
 			let overtimePay = (input.overtimeHours || 0) * hourlyRate * 1.5;
 			if (input.overrides?.overtimePay !== undefined) {
 				overtimePay = input.overrides.overtimePay;
 			}
 
-			// Leave Pay (paid at regular rate)
 			let leavePay = 0;
 			if (input.leaveEntries) {
 				for (const leave of input.leaveEntries) {
@@ -317,7 +296,6 @@
 				}
 			}
 
-			// Holiday Pay (1.5x premium for working on holiday)
 			let holidayPay = 0;
 			if (input.holidayWorkEntries) {
 				for (const hw of input.holidayWorkEntries) {
@@ -328,7 +306,6 @@
 				holidayPay = input.overrides.holidayPay;
 			}
 
-			// Adjustments
 			let adjustmentTotal = 0;
 			if (input.adjustments) {
 				for (const adj of input.adjustments) {
@@ -346,9 +323,6 @@
 		return null;
 	}
 
-	/**
-	 * Calculate total estimated gross for a pay group
-	 */
 	function calculatePayGroupEstimatedGross(
 		payGroup: { employees: EmployeeForPayroll[]; payFrequency: 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly' }
 	): number | null {
@@ -362,13 +336,9 @@
 				total += gross;
 			}
 		}
-		// Return total if we have at least some data, null if no employees or all null
 		return payGroup.employees.length > 0 && total > 0 ? total : (hasAllData ? 0 : null);
 	}
 
-	/**
-	 * Calculate total estimated gross for all pay groups (for summary cards)
-	 */
 	const totalEstimatedGross = $derived(() => {
 		if (!beforeRunData) return null;
 		let total = 0;
@@ -384,10 +354,6 @@
 		return total > 0 ? total : (hasAllData ? 0 : null);
 	});
 
-	/**
-	 * Get earnings breakdown for an employee (for expanded row display)
-	 * Returns array of line items with label, amount, and optional detail
-	 */
 	function getEarningsBreakdown(
 		employee: EmployeeForPayroll,
 		payFrequency: 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly'
@@ -412,9 +378,7 @@
 				editValue: regularPay
 			});
 
-			// Salaried employees can also have overtime
 			const overtimeHours = input?.overtimeHours || 0;
-			// Calculate hourly rate from annual salary for overtime
 			const impliedHourlyRate = employee.annualSalary / (periodsPerYear * (payFrequency === 'weekly' ? 40 : payFrequency === 'bi_weekly' ? 80 : payFrequency === 'semi_monthly' ? 86.67 : 173.33));
 			const overtimePay = overtimeHours * impliedHourlyRate * 1.5;
 			breakdown.push({
@@ -431,7 +395,6 @@
 		else if (employee.compensationType === 'hourly' && employee.hourlyRate && input) {
 			const hourlyRate = employee.hourlyRate;
 
-			// Regular Pay (not editable for hourly - use Hours input instead)
 			if (input.regularHours > 0) {
 				const regularPay = input.overrides?.regularPay ?? (input.regularHours * hourlyRate);
 				breakdown.push({
@@ -439,11 +402,10 @@
 					label: 'Regular Pay',
 					amount: regularPay,
 					detail: `${input.regularHours}h @ ${formatCurrency(hourlyRate)}`,
-					editable: false  // Hourly employees edit via Hours input
+					editable: false
 				});
 			}
 
-			// Overtime (editable as hours)
 			const overtimeHours = input.overtimeHours || 0;
 			const overtimePay = input.overrides?.overtimePay ?? (overtimeHours * hourlyRate * 1.5);
 			breakdown.push({
@@ -456,7 +418,6 @@
 				editValue: overtimeHours
 			});
 
-			// Leave entries (not editable here - use Leave column)
 			if (input.leaveEntries && input.leaveEntries.length > 0) {
 				for (const leave of input.leaveEntries) {
 					const leavePay = leave.hours * hourlyRate;
@@ -466,12 +427,11 @@
 						label: `${leaveLabel.icon} ${leaveLabel.full}`,
 						amount: leavePay,
 						detail: `${leave.hours}h @ ${formatCurrency(hourlyRate)}`,
-						editable: false  // Use Leave column instead
+						editable: false
 					});
 				}
 			}
 
-			// Holiday work entries (not editable - managed via holiday modal)
 			if (input.holidayWorkEntries && input.holidayWorkEntries.length > 0) {
 				for (const hw of input.holidayWorkEntries) {
 					const holidayPay = hw.hoursWorked * hourlyRate * 1.5;
@@ -486,7 +446,7 @@
 			}
 		}
 
-		// Adjustments (for all employee types, not editable in earnings list - managed separately)
+		// Adjustments
 		if (input?.adjustments) {
 			for (const adj of input.adjustments) {
 				const adjLabel = ADJUSTMENT_TYPE_LABELS[adj.type];
@@ -494,7 +454,7 @@
 					key: `adj_${adj.id}`,
 					label: `${adjLabel.icon} ${adj.description || adjLabel.label}`,
 					amount: adj.type === 'deduction' ? -adj.amount : adj.amount,
-					editable: false  // Managed via adjustments section
+					editable: false
 				});
 			}
 		}
@@ -561,7 +521,6 @@
 	async function handleStartPayrollRun() {
 		if (!beforeRunData || isStartingRun) return;
 
-		// Validate that all hourly employees have hours entered
 		if (!allHourlyEmployeesHaveHours()) {
 			alert('Please enter hours for all hourly employees before starting the payroll run.');
 			return;
@@ -571,7 +530,6 @@
 		error = null;
 
 		try {
-			// Build hours input array for hourly employees from payrollInputMap
 			const hoursInput: EmployeeHoursInput[] = [];
 			for (const pg of beforeRunData.payGroups) {
 				for (const emp of pg.employees) {
@@ -595,7 +553,6 @@
 				return;
 			}
 
-			// Update local state with the new payroll run
 			payrollRun = result.data;
 			beforeRunData = null;
 		} catch (err) {
@@ -617,13 +574,11 @@
 				return;
 			}
 
-			// Update local state with approved run
 			payrollRun = {
 				...payrollRun,
 				status: 'approved'
 			};
 
-			// Update records with paystub status (simulated)
 			payrollRun.payGroups = payrollRun.payGroups.map((pg) => ({
 				...pg,
 				records: pg.records.map((record, index) => ({
@@ -660,7 +615,6 @@
 	async function openAddEmployeesModal(payGroup: PayGroupSummary) {
 		selectedPayGroup = payGroup;
 
-		// Load unassigned employees
 		try {
 			const result = await getUnassignedEmployees();
 			if (result.error) {
@@ -691,7 +645,6 @@
 			}
 
 			closeAddEmployeesModal();
-			// Reload data to reflect changes
 			await loadPayrollRun();
 		} catch (err) {
 			alert(`Failed to assign employees: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -706,121 +659,54 @@
 </svelte:head>
 
 {#if isLoading}
-	<!-- Loading State -->
-	<div class="loading-state">
-		<div class="loading-spinner"></div>
-		<p>Loading payroll run...</p>
-	</div>
+	<PayrollLoadingState />
 {:else if error}
-	<!-- Error State -->
-	<div class="error-state">
-		<div class="error-icon">
-			<i class="fas fa-exclamation-triangle"></i>
-		</div>
-		<h2>Error Loading Payroll Run</h2>
-		<p>{error}</p>
-		<button class="btn-primary" onclick={() => loadPayrollRun()}>
-			<i class="fas fa-redo"></i>
-			<span>Try Again</span>
-		</button>
-	</div>
+	<PayrollErrorState {error} onRetry={loadPayrollRun} />
 {:else if !payrollRun && !payDateInfo}
-	<div class="not-found">
-		<div class="not-found-icon">
-			<i class="fas fa-calendar-times"></i>
-		</div>
-		<h2>Payroll Run Not Found</h2>
-		<p>No payroll run exists for {formatDate(payDate)}.</p>
-		<button class="btn-primary" onclick={handleBack}>
-			<i class="fas fa-arrow-left"></i>
-			<span>Back to Payroll</span>
-		</button>
-	</div>
+	<PayrollNotFound payDateFormatted={formatDate(payDate)} onBack={handleBack} />
 {:else if !payrollRun && beforeRunData}
-	<!-- No payroll run yet - show full UI with placeholder data -->
-	<div class="payroll-run-page">
-		<!-- Header -->
-		<header class="page-header">
-			<button class="back-btn" onclick={handleBack}>
-				<i class="fas fa-arrow-left"></i>
-				<span>Back to Payroll</span>
-			</button>
-
-			<div class="header-content">
-				<div class="header-main">
-					<h1 class="page-title">Pay Date: {formatDate(beforeRunData.payDate)}</h1>
-					<p class="page-subtitle">
-						{beforeRunData.payGroups.length} Pay Group{beforeRunData.payGroups.length > 1 ? 's' : ''}
-						&middot;
-						{beforeRunData.totalEmployees} Employee{beforeRunData.totalEmployees > 1 ? 's' : ''}
-					</p>
-				</div>
-				<div class="header-actions">
-					<StatusBadge status="Not Started" variant="pill" />
-					<button
-						class="btn-primary"
-						onclick={handleStartPayrollRun}
-						disabled={isStartingRun || beforeRunData.totalEmployees === 0 || (hourlyEmployeesCount() > 0 && !allHourlyEmployeesHaveHours())}
-					>
-						{#if isStartingRun}
-							<i class="fas fa-spinner fa-spin"></i>
-							<span>Starting...</span>
-						{:else}
-							<i class="fas fa-play"></i>
-							<span>Start Payroll Run</span>
-						{/if}
-					</button>
-				</div>
-			</div>
-		</header>
+	<!-- Before Run View -->
+	<div class="max-w-[1200px]">
+		<PayrollPageHeader
+			payDateFormatted={formatDate(beforeRunData.payDate)}
+			payGroupCount={beforeRunData.payGroups.length}
+			employeeCount={beforeRunData.totalEmployees}
+			onBack={handleBack}
+		>
+			{#snippet actions()}
+				<StatusBadge status="Not Started" variant="pill" />
+				<button
+					class="flex items-center gap-2 py-3 px-5 bg-gradient-to-br from-primary-600 to-secondary-600 text-white border-none rounded-lg text-body-content font-medium cursor-pointer shadow-md3-1 transition-all duration-150 hover:opacity-90 hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+					onclick={handleStartPayrollRun}
+					disabled={isStartingRun || beforeRunData.totalEmployees === 0 || (hourlyEmployeesCount() > 0 && !allHourlyEmployeesHaveHours())}
+				>
+					{#if isStartingRun}
+						<i class="fas fa-spinner fa-spin"></i>
+						<span>Starting...</span>
+					{:else}
+						<i class="fas fa-play"></i>
+						<span>Start Payroll Run</span>
+					{/if}
+				</button>
+			{/snippet}
+		</PayrollPageHeader>
 
 		<!-- Holiday Alert -->
 		{#if beforeRunData.holidays && beforeRunData.holidays.length > 0}
 			<HolidayAlert holidays={beforeRunData.holidays} onManageHolidayHours={openHolidayModal} />
 		{/if}
 
-		<!-- Summary Cards - Show estimated values where available -->
-		<div class="summary-cards-placeholder">
-			<div class="summary-card">
-				<div class="summary-label">Est. Gross</div>
-				{#if totalEstimatedGross() !== null}
-					<div class="summary-value estimated">{formatCurrency(totalEstimatedGross()!)}</div>
-				{:else}
-					<div class="summary-value placeholder">--</div>
-				{/if}
-			</div>
-			<div class="summary-card">
-				<div class="summary-label">Deductions</div>
-				<div class="summary-value placeholder deduction">--</div>
-			</div>
-			<div class="summary-card highlight">
-				<div class="summary-label">Net Pay</div>
-				<div class="summary-value placeholder">--</div>
-			</div>
-			<div class="summary-card">
-				<div class="summary-label">Employees</div>
-				<div class="summary-value">{beforeRunData.totalEmployees}</div>
-			</div>
-		</div>
+		<!-- Summary Cards -->
+		<BeforeRunSummaryCards
+			estimatedGross={totalEstimatedGross()}
+			totalEmployees={beforeRunData.totalEmployees}
+		/>
 
-		<!-- Employer Costs - Placeholder -->
-		<div class="employer-costs-placeholder">
-			<div class="employer-cost-card">
-				<div class="cost-label">Employer CPP</div>
-				<div class="cost-value placeholder">--</div>
-			</div>
-			<div class="employer-cost-card">
-				<div class="cost-label">Employer EI</div>
-				<div class="cost-value placeholder">--</div>
-			</div>
-			<div class="employer-cost-card highlight">
-				<div class="cost-label">Total Employer Cost</div>
-				<div class="cost-value placeholder">--</div>
-			</div>
-		</div>
+		<!-- Employer Costs -->
+		<BeforeRunEmployerCosts />
 
-		<!-- Pay Group Sections with Employee List -->
-		<div class="pay-groups-container">
+		<!-- Pay Group Sections -->
+		<div class="flex flex-col gap-4">
 			{#each beforeRunData.payGroups as payGroup (payGroup.id)}
 				{@const pgEstimatedGross = calculatePayGroupEstimatedGross(payGroup)}
 				<BeforeRunPayGroupSection
@@ -848,61 +734,58 @@
 
 		<!-- Info/Warning Message -->
 		{#if hourlyEmployeesCount() > 0 && !allHourlyEmployeesHaveHours()}
-			<div class="warning-message">
-				<i class="fas fa-exclamation-triangle"></i>
-				<span>Enter hours for all hourly employees before starting the payroll run.</span>
-			</div>
+			<PayrollInfoMessage
+				variant="warning"
+				message="Enter hours for all hourly employees before starting the payroll run."
+			/>
 		{:else}
-			<div class="info-message">
-				<i class="fas fa-info-circle"></i>
-				<span>Click "Start Payroll Run" to calculate gross pay, deductions, and net pay for all employees.</span>
-			</div>
+			<PayrollInfoMessage
+				variant="info"
+				message="Click &quot;Start Payroll Run&quot; to calculate gross pay, deductions, and net pay for all employees."
+			/>
 		{/if}
 	</div>
 {:else if payrollRun}
-	<div class="payroll-run-page">
-		<!-- Header -->
-		<header class="page-header">
-			<button class="back-btn" onclick={handleBack}>
-				<i class="fas fa-arrow-left"></i>
-				<span>Back to Payroll</span>
-			</button>
-
-			<div class="header-content">
-				<div class="header-main">
-					<h1 class="page-title">Pay Date: {formatDate(payrollRun.payDate)}</h1>
-					{#if payrollRun.payGroups.length > 0}
-						<p class="page-subtitle">
-							{payrollRun.payGroups.length} Pay Group{payrollRun.payGroups.length > 1 ? 's' : ''}
-							&middot;
-							{payrollRun.totalEmployees} Employee{payrollRun.totalEmployees > 1 ? 's' : ''}
-						</p>
-					{/if}
-				</div>
-				<div class="header-actions">
-					<StatusBadge status={PAYROLL_STATUS_LABELS[payrollRun.status]} variant="pill" />
-					<button class="btn-secondary">
-						<i class="fas fa-file-csv"></i>
-						<span>Export CSV</span>
+	<!-- Payroll Run View -->
+	<div class="max-w-[1200px]">
+		<PayrollPageHeader
+			payDateFormatted={formatDate(payrollRun.payDate)}
+			payGroupCount={payrollRun.payGroups.length}
+			employeeCount={payrollRun.totalEmployees}
+			onBack={handleBack}
+		>
+			{#snippet actions()}
+				<StatusBadge status={PAYROLL_STATUS_LABELS[payrollRun.status]} variant="pill" />
+				<button class="flex items-center gap-2 py-3 px-5 bg-white text-surface-700 border border-surface-200 rounded-lg text-body-content font-medium cursor-pointer transition-all duration-150 hover:bg-surface-50 hover:border-surface-300">
+					<i class="fas fa-file-csv"></i>
+					<span>Export CSV</span>
+				</button>
+				{#if isApprovedOrPaid}
+					<button
+						class="flex items-center gap-2 py-3 px-5 bg-white text-surface-700 border border-surface-200 rounded-lg text-body-content font-medium cursor-pointer transition-all duration-150 hover:bg-surface-50 hover:border-surface-300"
+						onclick={handleDownloadAllPaystubs}
+					>
+						<i class="fas fa-file-archive"></i>
+						<span>Download All Paystubs</span>
 					</button>
-					{#if isApprovedOrPaid}
-						<button class="btn-secondary" onclick={handleDownloadAllPaystubs}>
-							<i class="fas fa-file-archive"></i>
-							<span>Download All Paystubs</span>
-						</button>
-						<button class="btn-primary" onclick={handleResendAll}>
-							<i class="fas fa-paper-plane"></i>
-							<span>Resend All</span>
-						</button>
-					{:else}
-						<button class="btn-primary" onclick={handleApprove}>
-							<i class="fas fa-check"></i>
-							<span>Approve & Send Paystubs</span>
-						</button>
-					{/if}
-				</div>
-			</div>
-		</header>
+					<button
+						class="flex items-center gap-2 py-3 px-5 bg-gradient-to-br from-primary-600 to-secondary-600 text-white border-none rounded-lg text-body-content font-medium cursor-pointer shadow-md3-1 transition-all duration-150 hover:opacity-90 hover:-translate-y-px"
+						onclick={handleResendAll}
+					>
+						<i class="fas fa-paper-plane"></i>
+						<span>Resend All</span>
+					</button>
+				{:else}
+					<button
+						class="flex items-center gap-2 py-3 px-5 bg-gradient-to-br from-primary-600 to-secondary-600 text-white border-none rounded-lg text-body-content font-medium cursor-pointer shadow-md3-1 transition-all duration-150 hover:opacity-90 hover:-translate-y-px"
+						onclick={handleApprove}
+					>
+						<i class="fas fa-check"></i>
+						<span>Approve & Send Paystubs</span>
+					</button>
+				{/if}
+			{/snippet}
+		</PayrollPageHeader>
 
 		<!-- Holiday Alert -->
 		{#if payrollRun.holidays && payrollRun.holidays.length > 0}
@@ -918,7 +801,7 @@
 		{/if}
 
 		<!-- Pay Group Sections -->
-		<div class="pay-groups-container">
+		<div class="flex flex-col gap-4">
 			{#each payrollRun.payGroups as payGroup (payGroup.payGroupId)}
 				<PayGroupSection
 					{payGroup}
@@ -973,7 +856,7 @@
 	{/if}
 {/if}
 
-<!-- Add Employees Modal (shared between setup and run views) -->
+<!-- Add Employees Modal -->
 {#if showAddEmployeesModal && selectedPayGroup}
 	<AddEmployeesModal
 		payGroup={selectedPayGroup}
@@ -983,1559 +866,3 @@
 		onAssign={handleAssignEmployeesFromModal}
 	/>
 {/if}
-
-<style>
-	.payroll-run-page {
-		max-width: 1200px;
-	}
-
-	/* Loading State */
-	.loading-state {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		min-height: 400px;
-		text-align: center;
-	}
-
-	.loading-spinner {
-		width: 48px;
-		height: 48px;
-		border: 4px solid var(--color-surface-200);
-		border-top-color: var(--color-primary-500);
-		border-radius: 50%;
-		animation: spin 1s linear infinite;
-		margin-bottom: var(--spacing-4);
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
-
-	.loading-state p {
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-600);
-	}
-
-	/* Error State */
-	.error-state {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		min-height: 400px;
-		text-align: center;
-	}
-
-	.error-icon {
-		width: 80px;
-		height: 80px;
-		border-radius: 50%;
-		background: var(--color-error-100);
-		color: var(--color-error-600);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 32px;
-		margin-bottom: var(--spacing-4);
-	}
-
-	.error-state h2 {
-		font-size: var(--font-size-title-small);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-		margin: 0 0 var(--spacing-2);
-	}
-
-	.error-state p {
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-600);
-		margin: 0 0 var(--spacing-6);
-	}
-
-	/* Not Found */
-	.not-found {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		min-height: 400px;
-		text-align: center;
-	}
-
-	.not-found-icon {
-		width: 80px;
-		height: 80px;
-		border-radius: 50%;
-		background: var(--color-surface-100);
-		color: var(--color-surface-400);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 32px;
-		margin-bottom: var(--spacing-4);
-	}
-
-	.not-found h2 {
-		font-size: var(--font-size-title-small);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-		margin: 0 0 var(--spacing-2);
-	}
-
-	.not-found p {
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-600);
-		margin: 0 0 var(--spacing-6);
-	}
-
-	/* Header */
-	.page-header {
-		margin-bottom: var(--spacing-6);
-	}
-
-	.back-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-2) 0;
-		background: none;
-		border: none;
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-primary-600);
-		cursor: pointer;
-		margin-bottom: var(--spacing-4);
-		transition: var(--transition-fast);
-	}
-
-	.back-btn:hover {
-		color: var(--color-primary-700);
-	}
-
-	.back-btn i {
-		font-size: 12px;
-	}
-
-	.header-content {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		flex-wrap: wrap;
-		gap: var(--spacing-4);
-	}
-
-	.page-title {
-		font-size: var(--font-size-headline-minimum);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-		margin: 0 0 var(--spacing-1);
-	}
-
-	.page-subtitle {
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-600);
-		margin: 0;
-	}
-
-	.header-actions {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-		flex-wrap: wrap;
-	}
-
-	.btn-primary,
-	.btn-secondary {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-3) var(--spacing-5);
-		border: none;
-		border-radius: var(--radius-lg);
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-		text-decoration: none;
-	}
-
-	.btn-primary {
-		background: var(--gradient-primary);
-		color: white;
-		box-shadow: var(--shadow-md3-1);
-	}
-
-	.btn-primary:hover {
-		opacity: 0.9;
-		transform: translateY(-1px);
-	}
-
-	.btn-secondary {
-		background: white;
-		color: var(--color-surface-700);
-		border: 1px solid var(--color-surface-200);
-	}
-
-	.btn-secondary:hover {
-		background: var(--color-surface-50);
-		border-color: var(--color-surface-300);
-	}
-
-	/* Pay Groups Container */
-	.pay-groups-container {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-4);
-	}
-
-	/* Responsive */
-	@media (max-width: 768px) {
-		.header-content {
-			flex-direction: column;
-		}
-
-		.header-actions {
-			width: 100%;
-		}
-	}
-
-	/* Setup Page (when no payroll run exists) */
-	.payroll-setup-page {
-		max-width: 1200px;
-	}
-
-	.pay-groups-setup {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-		gap: var(--spacing-4);
-		margin-bottom: var(--spacing-6);
-	}
-
-	.pay-group-setup-card {
-		background: white;
-		border-radius: var(--radius-xl);
-		box-shadow: var(--shadow-md3-1);
-		padding: var(--spacing-5);
-		transition: var(--transition-fast);
-	}
-
-	.pay-group-setup-card.no-employees {
-		border: 2px dashed var(--color-warning-300);
-		background: var(--color-warning-50);
-	}
-
-	.setup-card-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: flex-start;
-		margin-bottom: var(--spacing-4);
-	}
-
-	.setup-card-title {
-		font-size: var(--font-size-title-small);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-		margin: 0 0 var(--spacing-2);
-	}
-
-	.setup-card-badges {
-		display: flex;
-		gap: var(--spacing-2);
-	}
-
-	.badge {
-		display: inline-block;
-		padding: var(--spacing-1) var(--spacing-2);
-		background: var(--color-surface-100);
-		color: var(--color-surface-600);
-		border-radius: var(--radius-full);
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-medium);
-	}
-
-	.setup-card-stats {
-		text-align: right;
-	}
-
-	.stat-value {
-		display: block;
-		font-size: var(--font-size-title-large);
-		font-weight: var(--font-weight-bold);
-		color: var(--color-surface-800);
-	}
-
-	.stat-label {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	.setup-card-empty,
-	.setup-card-ready {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--spacing-4);
-		border-radius: var(--radius-lg);
-		gap: var(--spacing-3);
-	}
-
-	.setup-card-empty {
-		background: var(--color-warning-100);
-	}
-
-	.setup-card-ready {
-		background: var(--color-success-50);
-	}
-
-	.empty-message,
-	.ready-message {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		font-size: var(--font-size-body-content);
-	}
-
-	.empty-message {
-		color: var(--color-warning-700);
-	}
-
-	.ready-message {
-		color: var(--color-success-700);
-	}
-
-	.btn-add-employees {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-2) var(--spacing-4);
-		background: var(--color-primary-500);
-		color: white;
-		border: none;
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-		white-space: nowrap;
-	}
-
-	.btn-add-employees:hover {
-		background: var(--color-primary-600);
-	}
-
-	.btn-add-more {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-2) var(--spacing-4);
-		background: transparent;
-		color: var(--color-success-700);
-		border: 1px solid var(--color-success-300);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-		white-space: nowrap;
-	}
-
-	.btn-add-more:hover {
-		background: var(--color-success-100);
-	}
-
-	.setup-actions {
-		display: flex;
-		justify-content: center;
-	}
-
-	.btn-large {
-		padding: var(--spacing-4) var(--spacing-8);
-		font-size: var(--font-size-title-small);
-	}
-
-	/* Modal Styles */
-	.modal-overlay {
-		position: fixed;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.5);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 1000;
-		padding: var(--spacing-4);
-	}
-
-	.modal-content {
-		background: white;
-		border-radius: var(--radius-xl);
-		width: 100%;
-		max-width: 500px;
-		max-height: 80vh;
-		display: flex;
-		flex-direction: column;
-		box-shadow: var(--shadow-md3-3);
-	}
-
-	.modal-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: var(--spacing-4) var(--spacing-5);
-		border-bottom: 1px solid var(--color-surface-100);
-	}
-
-	.modal-header h3 {
-		margin: 0;
-		font-size: var(--font-size-title-small);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-	}
-
-	.btn-close {
-		width: 32px;
-		height: 32px;
-		border-radius: var(--radius-md);
-		background: transparent;
-		border: none;
-		color: var(--color-surface-500);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-close:hover {
-		background: var(--color-surface-100);
-	}
-
-	.modal-body {
-		flex: 1;
-		overflow-y: auto;
-		padding: var(--spacing-4) var(--spacing-5);
-	}
-
-	.modal-empty {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		text-align: center;
-		padding: var(--spacing-6);
-	}
-
-	.modal-empty i {
-		font-size: 32px;
-		color: var(--color-surface-400);
-		margin-bottom: var(--spacing-4);
-	}
-
-	.modal-empty p {
-		color: var(--color-surface-600);
-		margin: 0;
-	}
-
-	.modal-empty .hint {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-		margin-top: var(--spacing-2);
-	}
-
-	.btn-go-employees {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		margin-top: var(--spacing-4);
-		padding: var(--spacing-3) var(--spacing-4);
-		background: var(--color-primary-500);
-		color: white;
-		border-radius: var(--radius-md);
-		text-decoration: none;
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		transition: var(--transition-fast);
-	}
-
-	.btn-go-employees:hover {
-		background: var(--color-primary-600);
-	}
-
-	.select-all-row {
-		padding-bottom: var(--spacing-3);
-		border-bottom: 1px solid var(--color-surface-100);
-		margin-bottom: var(--spacing-3);
-	}
-
-	.employees-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-2);
-	}
-
-	.employee-row {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-		padding: var(--spacing-3);
-		border-radius: var(--radius-md);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.employee-row:hover {
-		background: var(--color-surface-50);
-	}
-
-	.employee-row input[type='checkbox'] {
-		width: 18px;
-		height: 18px;
-		accent-color: var(--color-primary-500);
-	}
-
-	.employee-info {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.employee-info .name {
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-800);
-	}
-
-	.employee-info .details {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	.checkbox-label {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		cursor: pointer;
-	}
-
-	.checkbox-label span {
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-700);
-	}
-
-	.modal-footer {
-		display: flex;
-		justify-content: flex-end;
-		gap: var(--spacing-3);
-		padding: var(--spacing-4) var(--spacing-5);
-		border-top: 1px solid var(--color-surface-100);
-	}
-
-	.btn-cancel {
-		padding: var(--spacing-2) var(--spacing-4);
-		background: transparent;
-		color: var(--color-surface-600);
-		border: 1px solid var(--color-surface-200);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-cancel:hover {
-		background: var(--color-surface-100);
-	}
-
-	.btn-assign {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-2) var(--spacing-4);
-		background: var(--color-primary-500);
-		color: white;
-		border: none;
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-assign:hover:not(:disabled) {
-		background: var(--color-primary-600);
-	}
-
-	.btn-assign:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	@media (max-width: 640px) {
-		.pay-groups-setup {
-			grid-template-columns: 1fr;
-		}
-
-		.setup-card-empty,
-		.setup-card-ready {
-			flex-direction: column;
-			text-align: center;
-		}
-	}
-
-	/* Before Run View - Placeholder Styles */
-	.summary-cards-placeholder {
-		display: grid;
-		grid-template-columns: repeat(4, 1fr);
-		gap: var(--spacing-4);
-		margin-bottom: var(--spacing-4);
-	}
-
-	.summary-card {
-		background: white;
-		border-radius: var(--radius-xl);
-		padding: var(--spacing-5);
-		box-shadow: var(--shadow-md3-1);
-	}
-
-	.summary-card.highlight {
-		background: var(--color-primary-600);
-		color: white;
-	}
-
-	.summary-label {
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-500);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-		margin-bottom: var(--spacing-2);
-	}
-
-	.summary-card.highlight .summary-label {
-		color: rgba(255, 255, 255, 0.8);
-	}
-
-	.summary-value {
-		font-size: var(--font-size-title-large);
-		font-weight: var(--font-weight-bold);
-		color: var(--color-surface-800);
-	}
-
-	.summary-card.highlight .summary-value {
-		color: white;
-	}
-
-	.summary-value.placeholder {
-		color: var(--color-surface-400);
-	}
-
-	.summary-value.deduction {
-		color: var(--color-error-500);
-	}
-
-	.employer-costs-placeholder {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: var(--spacing-4);
-		margin-bottom: var(--spacing-6);
-	}
-
-	.employer-cost-card {
-		background: white;
-		border-radius: var(--radius-xl);
-		padding: var(--spacing-4);
-		box-shadow: var(--shadow-md3-1);
-	}
-
-	.employer-cost-card.highlight {
-		background: var(--color-surface-800);
-		color: white;
-	}
-
-	.cost-label {
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-500);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-		margin-bottom: var(--spacing-1);
-	}
-
-	.employer-cost-card.highlight .cost-label {
-		color: rgba(255, 255, 255, 0.7);
-	}
-
-	.cost-value {
-		font-size: var(--font-size-title-small);
-		font-weight: var(--font-weight-bold);
-		color: var(--color-surface-800);
-	}
-
-	.employer-cost-card.highlight .cost-value {
-		color: white;
-	}
-
-	.cost-value.placeholder {
-		color: var(--color-surface-400);
-	}
-
-	/* Pay Group Section for Before Run */
-	.pay-group-section {
-		background: white;
-		border-radius: var(--radius-xl);
-		box-shadow: var(--shadow-md3-1);
-		overflow: hidden;
-		margin-bottom: var(--spacing-4);
-	}
-
-	.section-header-static {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--spacing-4) var(--spacing-5);
-		background: var(--color-surface-50);
-	}
-
-	.section-header-static .header-left {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-	}
-
-	.section-header-static .group-badge {
-		width: 36px;
-		height: 36px;
-		border-radius: var(--radius-md);
-		background: var(--color-primary-100);
-		color: var(--color-primary-600);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 14px;
-	}
-
-	.section-header-static .group-info {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-1);
-	}
-
-	.section-header-static .group-name {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-		margin: 0;
-	}
-
-	.section-header-static .group-meta {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-	}
-
-	.section-header-static .meta-item {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-600);
-	}
-
-	.section-header-static .meta-divider {
-		width: 4px;
-		height: 4px;
-		border-radius: 50%;
-		background: var(--color-surface-300);
-	}
-
-	.section-header-static .header-right {
-		display: flex;
-		align-items: center;
-	}
-
-	.section-header-static .header-stats {
-		display: flex;
-		gap: var(--spacing-6);
-	}
-
-	.section-header-static .stat {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-end;
-	}
-
-	.section-header-static .stat-value {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-	}
-
-	.section-header-static .stat-value.placeholder {
-		color: var(--color-surface-400);
-	}
-
-	.section-header-static .stat-label {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	.btn-add-more-header {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		margin-left: var(--spacing-4);
-		padding: var(--spacing-2) var(--spacing-3);
-		background: var(--color-primary-50);
-		color: var(--color-primary-600);
-		border: 1px solid var(--color-primary-200);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-add-more-header:hover {
-		background: var(--color-primary-100);
-		border-color: var(--color-primary-300);
-	}
-
-	.btn-add-more-header i {
-		font-size: 12px;
-	}
-
-	.section-content {
-		border-top: 1px solid var(--color-surface-200);
-	}
-
-	.empty-employees {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: var(--spacing-8);
-		gap: var(--spacing-3);
-		color: var(--color-surface-500);
-	}
-
-	.empty-employees i {
-		font-size: 32px;
-	}
-
-	/* Records Table for Before Run */
-	.records-table {
-		width: 100%;
-		border-collapse: collapse;
-	}
-
-	.records-table th {
-		text-align: left;
-		padding: var(--spacing-3) var(--spacing-4);
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-600);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-		background: var(--color-surface-50);
-		border-bottom: 1px solid var(--color-surface-200);
-	}
-
-	.records-table td {
-		padding: var(--spacing-3) var(--spacing-4);
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-700);
-		border-bottom: 1px solid var(--color-surface-100);
-	}
-
-	.records-table tbody tr:last-child td {
-		border-bottom: none;
-	}
-
-	.col-employee {
-		width: 22%;
-	}
-
-	.col-province {
-		width: 8%;
-	}
-
-	.col-gross,
-	.col-deductions,
-	.col-net {
-		width: 13%;
-		text-align: right;
-	}
-
-	.col-leave {
-		width: 10%;
-	}
-
-	.col-overtime {
-		width: 10%;
-	}
-
-	.col-actions {
-		width: 8%;
-		text-align: right;
-	}
-
-	.records-table th.col-type,
-	.records-table th.col-hours {
-		text-align: center;
-	}
-
-	.records-table th.col-rate,
-	.records-table th.col-gross,
-	.records-table th.col-deductions,
-	.records-table th.col-net,
-	.records-table th.col-actions {
-		text-align: right;
-	}
-
-	.employee-name {
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-800);
-	}
-
-	.province-badge {
-		display: inline-flex;
-		padding: var(--spacing-1) var(--spacing-2);
-		background: var(--color-surface-100);
-		border-radius: var(--radius-sm);
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-700);
-	}
-
-	.net-pay {
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-	}
-
-	.no-leave,
-	.no-overtime {
-		color: var(--color-surface-400);
-	}
-
-	.placeholder-cell {
-		color: var(--color-surface-400);
-		text-align: right;
-	}
-
-	/* Info Message */
-	.info-message {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-		padding: var(--spacing-4);
-		background: var(--color-primary-50);
-		border-radius: var(--radius-lg);
-		color: var(--color-primary-700);
-		font-size: var(--font-size-body-content);
-		margin-top: var(--spacing-6);
-	}
-
-	.info-message i {
-		font-size: 18px;
-	}
-
-	/* Warning Message */
-	.warning-message {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-		padding: var(--spacing-4);
-		background: var(--color-warning-50);
-		border-radius: var(--radius-lg);
-		color: var(--color-warning-700);
-		font-size: var(--font-size-body-content);
-		margin-top: var(--spacing-6);
-		border: 1px solid var(--color-warning-200);
-	}
-
-	.warning-message i {
-		font-size: 18px;
-		color: var(--color-warning-500);
-	}
-
-	/* Type Badge */
-	.type-badge {
-		display: inline-flex;
-		align-items: center;
-		padding: 2px 8px;
-		border-radius: var(--radius-full);
-		font-size: var(--font-size-body-small);
-		font-weight: var(--font-weight-medium);
-	}
-
-	.type-badge.salaried {
-		background: var(--color-primary-50);
-		color: var(--color-primary-700);
-	}
-
-	.type-badge.hourly {
-		background: var(--color-success-50);
-		color: var(--color-success-700);
-	}
-
-	/* Rate Value */
-	.rate-value {
-		font-family: var(--font-mono);
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-700);
-	}
-
-	/* Hours Input */
-	.hours-input-group {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-	}
-
-	.hours-input {
-		width: 70px;
-		padding: var(--spacing-2) var(--spacing-3);
-		border: 1px solid var(--color-surface-300);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-content);
-		font-family: var(--font-mono);
-		text-align: center;
-		transition: var(--transition-fast);
-	}
-
-	.hours-input:focus {
-		outline: none;
-		border-color: var(--color-primary-500);
-		box-shadow: 0 0 0 3px var(--color-primary-100);
-	}
-
-	.hours-input::-webkit-inner-spin-button,
-	.hours-input::-webkit-outer-spin-button {
-		opacity: 1;
-	}
-
-	.no-hours {
-		color: var(--color-surface-400);
-	}
-
-	/* Estimated Gross */
-	.estimated-gross {
-		font-family: var(--font-mono);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-700);
-	}
-
-	/* Estimated values (summary cards and stats) */
-	.summary-value.estimated,
-	.stat-value.estimated {
-		color: var(--color-primary-600);
-		font-weight: var(--font-weight-semibold);
-	}
-
-	/* Column widths for before run table */
-	.col-type {
-		width: 80px;
-		text-align: center;
-	}
-
-	.col-rate {
-		width: 120px;
-		text-align: right;
-	}
-
-	.col-hours {
-		width: 90px;
-		text-align: center;
-	}
-
-	.btn-primary:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	/* Before Run Table - New Columns */
-	.before-run-table .col-overtime,
-	.before-run-table .col-leave {
-		width: 80px;
-		text-align: center;
-	}
-
-	.before-run-table .col-expand {
-		width: 50px;
-		text-align: center;
-	}
-
-	.before-run-table th.col-overtime,
-	.before-run-table th.col-leave {
-		text-align: center;
-	}
-
-	.overtime-input {
-		width: 60px;
-	}
-
-	.leave-badge {
-		display: inline-flex;
-		padding: 2px 8px;
-		background: var(--color-primary-50);
-		color: var(--color-primary-700);
-		border-radius: var(--radius-full);
-		font-size: var(--font-size-body-small);
-		font-weight: var(--font-weight-medium);
-	}
-
-	.no-leave {
-		color: var(--color-surface-400);
-	}
-
-	/* Expand Button */
-	.btn-expand {
-		width: 32px;
-		height: 32px;
-		border-radius: var(--radius-md);
-		background: var(--color-surface-100);
-		border: none;
-		color: var(--color-surface-600);
-		cursor: pointer;
-		transition: var(--transition-fast);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.btn-expand:hover {
-		background: var(--color-surface-200);
-		color: var(--color-surface-800);
-	}
-
-	.btn-expand.expanded {
-		background: var(--color-primary-100);
-		color: var(--color-primary-700);
-	}
-
-	/* Expanded Row */
-	.records-table tr.expanded > td {
-		background: var(--color-surface-50);
-	}
-
-	.expanded-row td {
-		padding: 0 !important;
-		background: var(--color-surface-50);
-	}
-
-	.expanded-content {
-		padding: var(--spacing-5);
-		border-top: 1px solid var(--color-surface-200);
-	}
-
-	.expanded-columns {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: var(--spacing-5);
-		margin-bottom: var(--spacing-5);
-	}
-
-	.expanded-col {
-		background: white;
-		border-radius: var(--radius-lg);
-		padding: var(--spacing-4);
-		box-shadow: var(--shadow-md3-1);
-	}
-
-	.col-title {
-		font-size: var(--font-size-body-small);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-600);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-		margin: 0 0 var(--spacing-3);
-		padding-bottom: var(--spacing-2);
-		border-bottom: 1px solid var(--color-surface-100);
-	}
-
-	.col-title .edit-hint {
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-normal);
-		color: var(--color-surface-400);
-		text-transform: none;
-		letter-spacing: 0;
-	}
-
-	/* Earnings Column */
-	.earnings-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-2);
-		margin-bottom: var(--spacing-3);
-	}
-
-	.earnings-item,
-	.deduction-item {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		font-size: var(--font-size-body-content);
-	}
-
-	.item-label {
-		color: var(--color-surface-700);
-	}
-
-	.item-amount {
-		font-family: var(--font-mono);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-800);
-	}
-
-	.item-amount.negative {
-		color: var(--color-error-600);
-	}
-
-	.item-amount.placeholder {
-		color: var(--color-surface-400);
-	}
-
-	.editable-row {
-		background: var(--color-surface-50);
-		margin: 0 calc(-1 * var(--spacing-2));
-		padding: var(--spacing-1) var(--spacing-2);
-		border-radius: var(--radius-sm);
-	}
-
-	.hours-edit-wrapper {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-2);
-	}
-
-	.hours-result {
-		font-size: var(--font-size-body-small);
-		color: var(--color-surface-500);
-		font-family: var(--font-mono);
-	}
-
-	.item-detail {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-		margin-left: var(--spacing-2);
-		margin-bottom: var(--spacing-1);
-	}
-
-	.empty-section {
-		color: var(--color-surface-400);
-		font-size: var(--font-size-body-small);
-		text-align: center;
-		padding: var(--spacing-3);
-	}
-
-	.col-total {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding-top: var(--spacing-3);
-		border-top: 1px solid var(--color-surface-200);
-		font-weight: var(--font-weight-semibold);
-	}
-
-	.total-amount {
-		font-family: var(--font-mono);
-		color: var(--color-surface-800);
-	}
-
-	.total-amount.placeholder {
-		color: var(--color-surface-400);
-	}
-
-	/* Deductions Column */
-	.deductions-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-2);
-		margin-bottom: var(--spacing-3);
-	}
-
-	.placeholder-section {
-		opacity: 0.6;
-	}
-
-	/* Leave Column */
-	.leave-inputs {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-3);
-	}
-
-	.leave-type-block {
-		padding: var(--spacing-3);
-		background: var(--color-surface-50);
-		border-radius: var(--radius-md);
-	}
-
-	.leave-type-header {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		margin-bottom: var(--spacing-2);
-		font-weight: var(--font-weight-medium);
-	}
-
-	.leave-icon {
-		font-size: 16px;
-	}
-
-	.leave-type-name {
-		color: var(--color-surface-700);
-	}
-
-	.leave-field {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		margin-top: var(--spacing-2);
-	}
-
-	.field-label {
-		font-size: var(--font-size-body-small);
-		color: var(--color-surface-500);
-		min-width: 60px;
-	}
-
-	.leave-hours-input {
-		width: 60px;
-		padding: var(--spacing-1) var(--spacing-2);
-		border: 1px solid var(--color-surface-300);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-content);
-		font-family: var(--font-mono);
-		text-align: center;
-	}
-
-	.leave-hours-input:focus {
-		outline: none;
-		border-color: var(--color-primary-500);
-		box-shadow: 0 0 0 3px var(--color-primary-100);
-	}
-
-	.balance-value {
-		font-family: var(--font-mono);
-		color: var(--color-surface-600);
-	}
-
-	/* One-time Adjustments Section */
-	.adjustments-section {
-		background: white;
-		border-radius: var(--radius-lg);
-		padding: var(--spacing-4);
-		box-shadow: var(--shadow-md3-1);
-		margin-bottom: var(--spacing-4);
-	}
-
-	.adjustments-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: var(--spacing-3);
-	}
-
-	.section-title {
-		font-size: var(--font-size-body-small);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-600);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-		margin: 0;
-	}
-
-	.btn-add-adjustment {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-1);
-		padding: var(--spacing-1) var(--spacing-3);
-		background: var(--color-primary-50);
-		color: var(--color-primary-600);
-		border: 1px solid var(--color-primary-200);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-small);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-add-adjustment:hover {
-		background: var(--color-primary-100);
-	}
-
-	.btn-add-adjustment i {
-		font-size: 10px;
-	}
-
-	.no-adjustments {
-		text-align: center;
-		padding: var(--spacing-4);
-		color: var(--color-surface-400);
-		font-size: var(--font-size-body-small);
-	}
-
-	.adjustments-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-2);
-	}
-
-	.adjustment-row {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-2);
-		background: var(--color-surface-50);
-		border-radius: var(--radius-md);
-	}
-
-	.adj-type-select {
-		padding: var(--spacing-2);
-		border: 1px solid var(--color-surface-300);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-small);
-		background: white;
-		min-width: 140px;
-	}
-
-	.adj-desc-input {
-		flex: 1;
-		padding: var(--spacing-2);
-		border: 1px solid var(--color-surface-300);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-small);
-	}
-
-	.adj-amount-wrapper {
-		display: flex;
-		align-items: center;
-		background: white;
-		border: 1px solid var(--color-surface-300);
-		border-radius: var(--radius-md);
-		padding-left: var(--spacing-2);
-	}
-
-	.currency-prefix {
-		color: var(--color-surface-500);
-		font-size: var(--font-size-body-small);
-	}
-
-	.adj-amount-input {
-		width: 80px;
-		padding: var(--spacing-2);
-		border: none;
-		font-size: var(--font-size-body-small);
-		font-family: var(--font-mono);
-		text-align: right;
-	}
-
-	.adj-amount-input:focus {
-		outline: none;
-	}
-
-	.adj-amount-wrapper:focus-within {
-		border-color: var(--color-primary-500);
-		box-shadow: 0 0 0 3px var(--color-primary-100);
-	}
-
-	.btn-remove-adj {
-		width: 28px;
-		height: 28px;
-		border-radius: var(--radius-md);
-		background: transparent;
-		border: none;
-		color: var(--color-surface-400);
-		cursor: pointer;
-		transition: var(--transition-fast);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.btn-remove-adj:hover {
-		background: var(--color-error-50);
-		color: var(--color-error-600);
-	}
-
-	/* Net Pay Preview */
-	.net-pay-preview {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--spacing-3);
-		padding: var(--spacing-4);
-		background: var(--color-surface-100);
-		border-radius: var(--radius-lg);
-	}
-
-	.net-label {
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-700);
-	}
-
-	.net-value {
-		font-size: var(--font-size-title-small);
-		font-weight: var(--font-weight-bold);
-		font-family: var(--font-mono);
-		color: var(--color-surface-800);
-	}
-
-	.net-value.placeholder {
-		color: var(--color-surface-400);
-	}
-
-	.net-hint {
-		font-size: var(--font-size-body-small);
-		color: var(--color-surface-500);
-	}
-
-	@media (max-width: 1024px) {
-		.summary-cards-placeholder {
-			grid-template-columns: repeat(2, 1fr);
-		}
-	}
-
-	@media (max-width: 768px) {
-		.summary-cards-placeholder {
-			grid-template-columns: 1fr;
-		}
-
-		.employer-costs-placeholder {
-			grid-template-columns: 1fr;
-		}
-
-		.section-header-static {
-			flex-direction: column;
-			align-items: flex-start;
-			gap: var(--spacing-3);
-		}
-
-		.section-header-static .header-right {
-			width: 100%;
-		}
-
-		.section-header-static .header-stats {
-			width: 100%;
-			justify-content: space-between;
-		}
-
-		.section-header-static .stat {
-			align-items: flex-start;
-		}
-
-		/* Expanded columns stack on mobile */
-		.expanded-columns {
-			grid-template-columns: 1fr;
-		}
-
-		/* Adjustment row wraps on mobile */
-		.adjustment-row {
-			flex-wrap: wrap;
-		}
-
-		.adj-type-select {
-			min-width: 100%;
-		}
-
-		.adj-desc-input {
-			min-width: 100%;
-		}
-	}
-</style>

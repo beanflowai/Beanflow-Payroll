@@ -100,50 +100,47 @@
 	}
 </script>
 
-<div class="pay-group-section">
+<div class="bg-white rounded-xl shadow-md3-1 overflow-hidden">
 	<!-- Section Header -->
-	<div class="section-header-static">
-		<div class="header-left">
-			<div class="group-badge">
+	<div class="flex justify-between items-center py-4 px-5 bg-surface-50 border-b border-surface-200 max-lg:flex-col max-lg:items-start max-lg:gap-3">
+		<div class="flex items-center gap-3">
+			<div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary-600 to-secondary-600 text-white flex items-center justify-center text-base">
 				<i class="fas fa-tag"></i>
 			</div>
-			<div class="group-info">
-				<h3 class="group-name">{payGroup.name}</h3>
-				<div class="group-meta">
-					<span class="meta-item">
-						{PAY_FREQUENCY_LABELS[payGroup.payFrequency] || payGroup.payFrequency}
-					</span>
-					<span class="meta-divider"></span>
-					<span class="meta-item">
-						{EMPLOYMENT_TYPE_LABELS[payGroup.employmentType] || payGroup.employmentType}
-					</span>
-					<span class="meta-divider"></span>
-					<span class="meta-item">
-						{formatDateRange(payGroup.periodStart, payGroup.periodEnd)}
-					</span>
+			<div class="flex flex-col gap-1">
+				<h3 class="text-body-content font-semibold text-surface-800 m-0">{payGroup.name}</h3>
+				<div class="flex items-center gap-2 text-caption text-surface-500">
+					<span>{PAY_FREQUENCY_LABELS[payGroup.payFrequency] || payGroup.payFrequency}</span>
+					<span class="w-1 h-1 rounded-full bg-surface-300"></span>
+					<span>{EMPLOYMENT_TYPE_LABELS[payGroup.employmentType] || payGroup.employmentType}</span>
+					<span class="w-1 h-1 rounded-full bg-surface-300"></span>
+					<span>{formatDateRange(payGroup.periodStart, payGroup.periodEnd)}</span>
 				</div>
 			</div>
 		</div>
-		<div class="header-right">
-			<div class="header-stats">
-				<div class="stat">
-					<span class="stat-value">{payGroup.employees.length}</span>
-					<span class="stat-label">Employees</span>
+		<div class="flex items-center gap-4 max-lg:w-full max-lg:justify-between">
+			<div class="flex gap-5 max-md:gap-3">
+				<div class="flex flex-col items-end gap-0.5">
+					<span class="text-body-content font-semibold text-surface-800">{payGroup.employees.length}</span>
+					<span class="text-caption text-surface-500">Employees</span>
 				</div>
-				<div class="stat">
+				<div class="flex flex-col items-end gap-0.5">
 					{#if estimatedGross !== null}
-						<span class="stat-value estimated">{formatCurrency(estimatedGross)}</span>
+						<span class="text-body-content font-semibold text-success-600">{formatCurrency(estimatedGross)}</span>
 					{:else}
-						<span class="stat-value placeholder">--</span>
+						<span class="text-body-content font-semibold text-surface-400">--</span>
 					{/if}
-					<span class="stat-label">Est. Gross</span>
+					<span class="text-caption text-surface-500">Est. Gross</span>
 				</div>
-				<div class="stat">
-					<span class="stat-value placeholder">--</span>
-					<span class="stat-label">Net Pay</span>
+				<div class="flex flex-col items-end gap-0.5">
+					<span class="text-body-content font-semibold text-surface-400">--</span>
+					<span class="text-caption text-surface-500">Net Pay</span>
 				</div>
 			</div>
-			<button class="btn-add-more-header" onclick={onAddEmployees}>
+			<button
+				class="flex items-center gap-2 py-2 px-3 bg-primary-50 text-primary-600 border border-primary-200 rounded-lg text-body-small font-medium cursor-pointer transition-all duration-150 hover:bg-primary-100 hover:border-primary-300"
+				onclick={onAddEmployees}
+			>
 				<i class="fas fa-user-plus"></i>
 				<span>Add</span>
 			</button>
@@ -151,28 +148,31 @@
 	</div>
 
 	<!-- Employee Table -->
-	<div class="section-content">
+	<div class="p-0">
 		{#if payGroup.employees.length === 0}
-			<div class="empty-employees">
-				<i class="fas fa-user-plus"></i>
-				<span>No employees assigned to this pay group</span>
-				<button class="btn-add-employees" onclick={onAddEmployees}>
+			<div class="flex flex-col items-center justify-center py-8 text-center text-surface-500">
+				<i class="fas fa-user-plus text-[32px] mb-3 text-surface-300"></i>
+				<span class="text-body-content mb-4">No employees assigned to this pay group</span>
+				<button
+					class="flex items-center gap-2 py-2 px-4 bg-gradient-to-br from-primary-600 to-secondary-600 text-white border-none rounded-lg text-body-small font-medium cursor-pointer transition-all duration-150 hover:opacity-90 hover:-translate-y-px"
+					onclick={onAddEmployees}
+				>
 					<i class="fas fa-plus"></i>
 					Add Employees
 				</button>
 			</div>
 		{:else}
-			<table class="records-table before-run-table">
-				<thead>
+			<table class="w-full border-collapse">
+				<thead class="bg-surface-100">
 					<tr>
-						<th class="col-employee">Employee</th>
-						<th class="col-type">Type</th>
-						<th class="col-rate">Rate/Salary</th>
-						<th class="col-hours">Hours</th>
-						<th class="col-overtime">Overtime</th>
-						<th class="col-leave">Leave</th>
-						<th class="col-gross">Est. Gross</th>
-						<th class="col-expand"></th>
+						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-left uppercase tracking-wider border-b border-surface-200">Employee</th>
+						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-left uppercase tracking-wider border-b border-surface-200">Type</th>
+						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-left uppercase tracking-wider border-b border-surface-200">Rate/Salary</th>
+						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-left uppercase tracking-wider border-b border-surface-200">Hours</th>
+						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-left uppercase tracking-wider border-b border-surface-200">Overtime</th>
+						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-left uppercase tracking-wider border-b border-surface-200">Leave</th>
+						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-right uppercase tracking-wider border-b border-surface-200">Est. Gross</th>
+						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-left uppercase tracking-wider border-b border-surface-200 w-[50px]"></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -200,229 +200,3 @@
 		{/if}
 	</div>
 </div>
-
-<style>
-	.pay-group-section {
-		background: white;
-		border-radius: var(--radius-xl);
-		box-shadow: var(--shadow-md3-1);
-		overflow: hidden;
-	}
-
-	/* Section Header */
-	.section-header-static {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: var(--spacing-4) var(--spacing-5);
-		background: var(--color-surface-50);
-		border-bottom: 1px solid var(--color-surface-200);
-	}
-
-	.header-left {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-	}
-
-	.group-badge {
-		width: 40px;
-		height: 40px;
-		border-radius: var(--radius-lg);
-		background: var(--gradient-primary);
-		color: white;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 16px;
-	}
-
-	.group-info {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-1);
-	}
-
-	.group-name {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-		margin: 0;
-	}
-
-	.group-meta {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		font-size: var(--font-size-caption);
-		color: var(--color-surface-500);
-	}
-
-	.meta-divider {
-		width: 4px;
-		height: 4px;
-		border-radius: 50%;
-		background: var(--color-surface-300);
-	}
-
-	.header-right {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-4);
-	}
-
-	.header-stats {
-		display: flex;
-		gap: var(--spacing-5);
-	}
-
-	.stat {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-end;
-		gap: 2px;
-	}
-
-	.stat-value {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-	}
-
-	.stat-value.estimated {
-		color: var(--color-success-600);
-	}
-
-	.stat-value.placeholder {
-		color: var(--color-surface-400);
-	}
-
-	.stat-label {
-		font-size: var(--font-size-caption);
-		color: var(--color-surface-500);
-	}
-
-	.btn-add-more-header {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-2) var(--spacing-3);
-		background: var(--color-primary-50);
-		color: var(--color-primary-600);
-		border: 1px solid var(--color-primary-200);
-		border-radius: var(--radius-lg);
-		font-size: var(--font-size-body-small);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-add-more-header:hover {
-		background: var(--color-primary-100);
-		border-color: var(--color-primary-300);
-	}
-
-	/* Section Content */
-	.section-content {
-		padding: 0;
-	}
-
-	/* Empty State */
-	.empty-employees {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: var(--spacing-8);
-		text-align: center;
-		color: var(--color-surface-500);
-	}
-
-	.empty-employees i {
-		font-size: 32px;
-		margin-bottom: var(--spacing-3);
-		color: var(--color-surface-300);
-	}
-
-	.empty-employees span {
-		font-size: var(--font-size-body-content);
-		margin-bottom: var(--spacing-4);
-	}
-
-	.btn-add-employees {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-2) var(--spacing-4);
-		background: var(--gradient-primary);
-		color: white;
-		border: none;
-		border-radius: var(--radius-lg);
-		font-size: var(--font-size-body-small);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-add-employees:hover {
-		opacity: 0.9;
-		transform: translateY(-1px);
-	}
-
-	/* Records Table */
-	.records-table {
-		width: 100%;
-		border-collapse: collapse;
-	}
-
-	.records-table thead {
-		background: var(--color-surface-100);
-	}
-
-	.records-table th {
-		padding: var(--spacing-3) var(--spacing-4);
-		font-size: var(--font-size-caption);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-600);
-		text-align: left;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		border-bottom: 1px solid var(--color-surface-200);
-	}
-
-	.records-table th.col-gross {
-		text-align: right;
-	}
-
-	.records-table th.col-expand {
-		width: 50px;
-	}
-
-	/* Responsive */
-	@media (max-width: 1024px) {
-		.section-header-static {
-			flex-direction: column;
-			align-items: flex-start;
-			gap: var(--spacing-3);
-		}
-
-		.header-right {
-			width: 100%;
-			justify-content: space-between;
-		}
-	}
-
-	@media (max-width: 768px) {
-		.header-stats {
-			gap: var(--spacing-3);
-		}
-
-		.records-table {
-			font-size: var(--font-size-body-small);
-		}
-
-		.records-table th {
-			padding: var(--spacing-2) var(--spacing-3);
-		}
-	}
-</style>

@@ -53,26 +53,32 @@
 	const totalLeaveHours = $derived(input.leaveEntries.reduce((sum, l) => sum + l.hours, 0));
 </script>
 
-<tr class:expanded={isExpanded}>
-	<td class="col-employee">
-		<div class="employee-info">
-			<span class="employee-name">{employee.firstName} {employee.lastName}</span>
+<tr class="transition-colors duration-150 hover:bg-surface-50" class:bg-primary-50={isExpanded}>
+	<td class="py-3 px-4 border-b border-surface-100 align-middle min-w-[180px]">
+		<div class="flex flex-col gap-1">
+			<span class="text-body-content font-medium text-surface-800">{employee.firstName} {employee.lastName}</span>
 		</div>
 	</td>
-	<td class="col-type">
-		<span class="type-badge {employee.compensationType}">
+	<td class="py-3 px-4 border-b border-surface-100 align-middle min-w-[80px]">
+		<span
+			class="inline-block py-1 px-2 rounded-full text-caption font-medium"
+			class:bg-info-100={employee.compensationType === 'hourly'}
+			class:text-info-700={employee.compensationType === 'hourly'}
+			class:bg-success-100={employee.compensationType === 'salaried'}
+			class:text-success-700={employee.compensationType === 'salaried'}
+		>
 			{employee.compensationType === 'salaried' ? 'Salary' : 'Hourly'}
 		</span>
 	</td>
-	<td class="col-rate">
-		<span class="rate-value">{formatCompensation()}</span>
+	<td class="py-3 px-4 border-b border-surface-100 align-middle min-w-[120px]">
+		<span class="text-body-content font-medium text-surface-700">{formatCompensation()}</span>
 	</td>
-	<td class="col-hours">
+	<td class="py-3 px-4 border-b border-surface-100 align-middle min-w-[90px]">
 		{#if employee.compensationType === 'hourly'}
-			<div class="hours-input-group">
+			<div class="flex items-center">
 				<input
 					type="number"
-					class="hours-input"
+					class="w-[70px] py-2 border border-surface-300 rounded-md text-body-small text-center transition-all duration-150 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
 					min="0"
 					max="200"
 					step="0.5"
@@ -82,14 +88,14 @@
 				/>
 			</div>
 		{:else}
-			<span class="no-hours">-</span>
+			<span class="text-surface-400 text-body-content">-</span>
 		{/if}
 	</td>
-	<td class="col-overtime">
-		<div class="hours-input-group">
+	<td class="py-3 px-4 border-b border-surface-100 align-middle min-w-[90px]">
+		<div class="flex items-center">
 			<input
 				type="number"
-				class="hours-input overtime-input"
+				class="w-[70px] py-2 border border-warning-300 rounded-md text-body-small text-center transition-all duration-150 focus:outline-none focus:border-warning-500 focus:ring-2 focus:ring-warning-100"
 				min="0"
 				max="100"
 				step="0.5"
@@ -99,24 +105,29 @@
 			/>
 		</div>
 	</td>
-	<td class="col-leave">
+	<td class="py-3 px-4 border-b border-surface-100 align-middle min-w-[70px]">
 		{#if totalLeaveHours > 0}
-			<span class="leave-badge">{totalLeaveHours}h</span>
+			<span class="inline-block py-1 px-2 bg-warning-100 text-warning-700 rounded-full text-caption font-medium">{totalLeaveHours}h</span>
 		{:else}
-			<span class="no-leave">-</span>
+			<span class="text-surface-400 text-body-content">-</span>
 		{/if}
 	</td>
-	<td class="col-gross">
+	<td class="py-3 px-4 border-b border-surface-100 align-middle min-w-[110px] text-right">
 		{#if estimatedGross !== null}
-			<span class="estimated-gross">{formatCurrency(estimatedGross)}</span>
+			<span class="text-body-content font-semibold text-success-600">{formatCurrency(estimatedGross)}</span>
 		{:else}
-			<span class="placeholder-cell">--</span>
+			<span class="text-surface-400">--</span>
 		{/if}
 	</td>
-	<td class="col-expand">
+	<td class="py-3 px-4 border-b border-surface-100 align-middle w-[50px] text-center">
 		<button
-			class="btn-expand"
-			class:expanded={isExpanded}
+			class="flex items-center justify-center w-8 h-8 rounded-md border-none cursor-pointer transition-all duration-150"
+			class:bg-surface-100={!isExpanded}
+			class:text-surface-500={!isExpanded}
+			class:hover:bg-surface-200={!isExpanded}
+			class:hover:text-surface-700={!isExpanded}
+			class:bg-primary-100={isExpanded}
+			class:text-primary-600={isExpanded}
 			onclick={onToggleExpand}
 			aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
 		>
@@ -125,8 +136,8 @@
 	</td>
 </tr>
 {#if isExpanded}
-	<tr class="expanded-row">
-		<td colspan="8">
+	<tr>
+		<td colspan="8" class="p-0 bg-surface-50">
 			<BeforeRunEmployeeExpandedRow
 				{input}
 				{earningsBreakdown}
@@ -140,197 +151,3 @@
 		</td>
 	</tr>
 {/if}
-
-<style>
-	tr {
-		transition: background-color var(--transition-fast);
-	}
-
-	tr:hover {
-		background: var(--color-surface-50);
-	}
-
-	tr.expanded {
-		background: var(--color-primary-50);
-	}
-
-	td {
-		padding: var(--spacing-3) var(--spacing-4);
-		border-bottom: 1px solid var(--color-surface-100);
-		vertical-align: middle;
-	}
-
-	.expanded-row td {
-		padding: 0;
-		background: var(--color-surface-50);
-	}
-
-	/* Employee Column */
-	.col-employee {
-		min-width: 180px;
-	}
-
-	.employee-info {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-1);
-	}
-
-	.employee-name {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-800);
-	}
-
-	/* Type Badge */
-	.col-type {
-		min-width: 80px;
-	}
-
-	.type-badge {
-		display: inline-block;
-		padding: var(--spacing-1) var(--spacing-2);
-		border-radius: var(--radius-full);
-		font-size: var(--font-size-caption);
-		font-weight: var(--font-weight-medium);
-	}
-
-	.type-badge.hourly {
-		background: var(--color-info-100);
-		color: var(--color-info-700);
-	}
-
-	.type-badge.salaried {
-		background: var(--color-success-100);
-		color: var(--color-success-700);
-	}
-
-	/* Rate Column */
-	.col-rate {
-		min-width: 120px;
-	}
-
-	.rate-value {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-700);
-	}
-
-	/* Hours Input */
-	.col-hours,
-	.col-overtime {
-		min-width: 90px;
-	}
-
-	.hours-input-group {
-		display: flex;
-		align-items: center;
-	}
-
-	.hours-input {
-		width: 70px;
-		padding: var(--spacing-2);
-		border: 1px solid var(--color-surface-300);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-small);
-		text-align: center;
-		transition: var(--transition-fast);
-	}
-
-	.hours-input:focus {
-		outline: none;
-		border-color: var(--color-primary-500);
-		box-shadow: 0 0 0 2px var(--color-primary-100);
-	}
-
-	.hours-input.overtime-input {
-		border-color: var(--color-warning-300);
-	}
-
-	.hours-input.overtime-input:focus {
-		border-color: var(--color-warning-500);
-		box-shadow: 0 0 0 2px var(--color-warning-100);
-	}
-
-	.no-hours {
-		color: var(--color-surface-400);
-		font-size: var(--font-size-body-content);
-	}
-
-	/* Leave Column */
-	.col-leave {
-		min-width: 70px;
-	}
-
-	.leave-badge {
-		display: inline-block;
-		padding: var(--spacing-1) var(--spacing-2);
-		background: var(--color-warning-100);
-		color: var(--color-warning-700);
-		border-radius: var(--radius-full);
-		font-size: var(--font-size-caption);
-		font-weight: var(--font-weight-medium);
-	}
-
-	.no-leave {
-		color: var(--color-surface-400);
-		font-size: var(--font-size-body-content);
-	}
-
-	/* Gross Column */
-	.col-gross {
-		min-width: 110px;
-		text-align: right;
-	}
-
-	.estimated-gross {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-success-600);
-	}
-
-	.placeholder-cell {
-		color: var(--color-surface-400);
-	}
-
-	/* Expand Button */
-	.col-expand {
-		width: 50px;
-		text-align: center;
-	}
-
-	.btn-expand {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 32px;
-		height: 32px;
-		background: var(--color-surface-100);
-		border: none;
-		border-radius: var(--radius-md);
-		color: var(--color-surface-500);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-expand:hover {
-		background: var(--color-surface-200);
-		color: var(--color-surface-700);
-	}
-
-	.btn-expand.expanded {
-		background: var(--color-primary-100);
-		color: var(--color-primary-600);
-	}
-
-	/* Responsive */
-	@media (max-width: 768px) {
-		td {
-			padding: var(--spacing-2) var(--spacing-3);
-		}
-
-		.hours-input {
-			width: 60px;
-		}
-	}
-</style>
