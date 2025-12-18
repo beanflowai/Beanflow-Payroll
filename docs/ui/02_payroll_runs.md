@@ -497,13 +497,18 @@ payroll-frontend/src/lib/components/payroll/
 ## 8. Run Payroll Workflow
 
 > **Updated**: 2025-12-17
-> **Change**: Simplified workflow with "Before Run" state and direct creation
+> **Major Change**: Before Run now supports complete data input (Hours, Overtime, Leave, Adjustments)
+> **Design Principle**: All data affecting payroll calculations should be entered BEFORE starting the run
 
 ### Overview
 
-The payroll run page (`/payroll/run/[payDate]`) supports two states:
-1. **Before Run**: No payroll_runs record exists - shows UI with placeholder data
-2. **After Run**: payroll_runs record exists - shows calculated data
+The payroll run page (`/payroll/run/[payDate]`) supports three states:
+
+| State | Data Input | Calculation |
+|-------|-----------|-------------|
+| **Before Run** | Hours, Overtime, Leave, Holiday Work, Adjustments | Frontend estimation (Est.) |
+| **After Run (Draft)** | Same as above, can modify | Backend precise calculation, needs Recalculate after changes |
+| **After Run (Approved)** | Read-only | Locked |
 
 ### 8.1 Before Run State (No payroll_runs record)
 
@@ -519,44 +524,149 @@ When user navigates to `/payroll/run/2025-12-20` and no payroll run exists:
 │ 🎄 Holidays in this period: Christmas Day (Dec 25)    [Manage Hours →] │
 ├─────────────────────────────────────────────────────────────────────────┤
 │ ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐            │
-│ │ Total Gross│ │ Deductions │ │ Net Pay    │ │ Employees  │            │
-│ │     --     │ │     --     │ │     --     │ │     8      │            │
+│ │Est. Gross  │ │ Deductions │ │ Net Pay    │ │ Employees  │            │
+│ │ $18,500    │ │     --     │ │     --     │ │     8      │            │
 │ └────────────┘ └────────────┘ └────────────┘ └────────────┘            │
 ├─────────────────────────────────────────────────────────────────────────┤
 │ ┌─ Bi-weekly Full-time ─────────────────────────────────────────────┐  │
-│ │ Bi-weekly · Full-time · Dec 1 - Dec 14    6 Emp  --  --    [Add]  │  │
+│ │ Bi-weekly · Full-time · Dec 1 - Dec 14    6 Emp  $12k  --  [Add]  │  │
 │ ├───────────────────────────────────────────────────────────────────┤  │
-│ │ Employee       │ Type   │ Rate/Salary │ Hours │ Gross │ ... │ Net │  │
-│ │ Sarah Johnson  │ Salary │ $60,000/yr  │   -   │   --  │     │ --  │  │
-│ │ Michael Chen   │ Hourly │ $25.00/hr   │ [40]  │   --  │     │ --  │  │
-│ │ Lisa Wong      │ Hourly │ $22.50/hr   │ [32]  │   --  │     │ --  │  │
-│ │ ...            │        │             │       │       │     │     │  │
+│ │ Employee       │Type  │Rate/Salary│Hours│OT │Leave│Est.Gross│ ▶  │  │
+│ ├───────────────────────────────────────────────────────────────────┤  │
+│ │ Sarah Johnson  │Salary│$60,000/yr │  -  │ 0 │  0  │ $2,307  │ ▶  │  │
+│ │ Michael Chen   │Hourly│$25.00/hr  │[80] │[5]│ 8h  │ $2,187  │ ▶  │  │
+│ │ Lisa Wong      │Hourly│$22.50/hr  │[64] │ 0 │  0  │ $1,440  │ ▶  │  │
 │ └───────────────────────────────────────────────────────────────────┘  │
 ├─────────────────────────────────────────────────────────────────────────┤
-│ ⚠️ Enter hours for hourly employees before starting payroll run        │
+│ ℹ️ Click "Start Payroll Run" to calculate deductions and net pay       │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
+**Table Columns**:
+
+| Column | Description | Editable |
+|--------|-------------|----------|
+| Employee | Name (click to expand) | No |
+| Type | "Salary" or "Hourly" badge | No |
+| Rate/Salary | `$XX,XXX/yr` or `$XX.XX/hr` | No |
+| Hours | Regular hours (hourly only) | Yes |
+| OT | Overtime hours | Yes |
+| Leave | Total leave hours (VAC + SIC) | Yes (click to open modal) |
+| Est. Gross | Frontend calculated estimate | No (auto-calculated) |
+| ▶ | Expand/collapse row | - |
+
 **Key Features**:
-- Summary cards show `--` placeholder
-- Employee table shows:
-  - **Type column**: "Salary" or "Hourly" based on compensation type
-  - **Rate/Salary column**: Shows `$XX,XXX/yr` for salary, `$XX.XX/hr` for hourly
-  - **Hours column**:
-    - Salaried employees: Shows `-` (not applicable)
-    - Hourly employees: Shows editable input field `[40]`
-- "Add" button in each pay group header to add employees
-- "Start Payroll Run" button is primary action (disabled if hourly employees have no hours)
-- Warning message appears if hourly employees have missing hours
+- **Complete data input**: All payroll-affecting data can be entered before starting
+- **Real-time estimation**: Est. Gross updates as user enters data
+- **Expandable rows**: Click ▶ to see detailed breakdown and edit more fields
+- Summary cards show estimated totals (Deductions and Net Pay show `--` until Start)
 
-**Hourly Employee Hours Input Rules**:
-1. Hours input field appears only for employees with `hourly_rate` (no `annual_salary`)
-2. Default value can be pre-filled based on pay period (e.g., 80 hours for bi-weekly)
-3. Input allows decimals (e.g., 37.5 hours)
-4. Validation: Hours must be > 0 for all hourly employees before Start
-5. Hours are saved locally until "Start Payroll Run" is clicked
+### 8.2 Expanded Row Design (Before Run)
 
-### 8.2 Start Payroll Run
+Click the ▶ button to expand an employee row:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Michael Chen                                                       [▼]  │
+├─────────────────────┬─────────────────────┬─────────────────────────────┤
+│     EARNINGS        │    DEDUCTIONS       │          LEAVE              │
+│  (double-click edit)│   (after Start)     │        (editable)           │
+├─────────────────────┼─────────────────────┼─────────────────────────────┤
+│ Regular Pay  $2,000 │ CPP         --      │ 🏖️ Vacation                 │
+│ Overtime(5h)  $187  │ EI          --      │    Hours: [8]               │
+│ Holiday Pay    --   │ Federal Tax --      │    Balance: 72h ($1,800)    │
+│ Vacation(8h) $200   │ Provincial  --      │                             │
+│                     │ RRSP        --      │ 🏥 Sick                     │
+│─────────────────────│─────────────────────│    Hours: [0]               │
+│ Est. Gross  $2,387  │ Total       --      │    Balance: 40h             │
+└─────────────────────┴─────────────────────┴─────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│ ONE-TIME ADJUSTMENTS                                        [+ Add]     │
+├─────────────────────────────────────────────────────────────────────────┤
+│ 💰 Bonus: Q4 Performance                                    +$500.00    │
+│ 🎁 Taxable Benefit: Holiday gift card                       +$100.00    │
+│ 💵 Reimbursement: Mileage (non-taxable)                      +$75.00    │
+│ ➖ Deduction: Extra RRSP contribution                        -$100.00   │
+└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         EST. NET PAY: --                                │
+│               (Start Payroll Run to calculate CPP/EI/Tax)               │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Expanded Row Sections**:
+
+1. **EARNINGS Column** (Left)
+   - Shows all earnings items with amounts
+   - **Double-click to inline edit**: Regular Pay, Overtime hours, etc.
+   - Est. Gross = sum of all earnings
+
+2. **DEDUCTIONS Column** (Middle)
+   - Shows `--` placeholder before Start
+   - After Start, shows calculated CPP, EI, Tax, etc.
+
+3. **LEAVE Column** (Right)
+   - Editable input fields for Vacation and Sick hours
+   - Shows current balance (hours and dollars)
+   - Updates Est. Gross when leave hours change
+
+4. **ONE-TIME ADJUSTMENTS Section** (Bottom)
+   - `[+ Add]` button to add new adjustment
+   - Types: Bonus, Taxable Benefit, Reimbursement, Deduction
+   - Each item shows icon, description, and amount
+   - Can delete items with X button
+
+**Inline Edit Behavior**:
+- Normal state: Display value
+- Hover state: Show edit icon
+- Click/double-click: Show input field
+- Enter or blur: Save value
+- Escape: Cancel edit
+
+### 8.3 Data Input Rules (Before Run)
+
+**Hours Input** (Hourly employees only):
+1. Default value pre-filled based on pay period (e.g., 80 for bi-weekly)
+2. Input allows decimals (e.g., 37.5 hours)
+3. Validation: Must be > 0 for hourly employees
+
+**Overtime Input**:
+1. Available for all employee types
+2. Calculated at 1.5x regular rate
+3. Default: 0
+
+**Leave Input**:
+1. Vacation: Deducted from balance, paid at regular rate
+2. Sick: Tracked separately, provincial rules apply
+3. Balance shown in real-time
+
+**One-Time Adjustments**:
+| Type | Icon | Taxable | CPP | EI |
+|------|------|---------|-----|-----|
+| Bonus | 💰 | Yes | Yes | Yes |
+| Retroactive Pay | ⏪ | Yes | Yes | Yes |
+| Taxable Benefit | 🎁 | Yes | No | Configurable |
+| Reimbursement | 💵 | No | No | No |
+| Deduction | ➖ | Pre-tax | Reduces taxable | - |
+
+### 8.4 Estimated Gross Calculation (Frontend)
+
+Before Start, the frontend calculates Est. Gross in real-time:
+
+```
+Est. Gross = Regular Pay + Overtime Pay + Leave Pay + Adjustments
+
+Where:
+- Salaried: Regular Pay = annual_salary / pay_periods_per_year
+- Hourly: Regular Pay = regular_hours × hourly_rate
+- Overtime Pay = overtime_hours × hourly_rate × 1.5
+- Leave Pay = leave_hours × hourly_rate (or derived from salary)
+- Adjustments = sum of all positive adjustments - deductions
+```
+
+**Note**: Deductions (CPP, EI, Tax) are NOT calculated until Start is clicked.
+
+### 8.5 Start Payroll Run
 
 When user clicks "Start Payroll Run":
 
@@ -564,55 +674,141 @@ When user clicks "Start Payroll Run":
    - Check all hourly employees have hours entered (> 0)
    - If validation fails, show error and prevent start
 
-2. **Create Records**:
-   - Create `payroll_runs` record with status = `pending_approval`
-   - For each employee in pay groups:
-     - **Salaried employees**: `gross_regular = annual_salary / pay_periods_per_year`
-     - **Hourly employees**: `gross_regular = regular_hours_worked × hourly_rate`
-     - Store `regular_hours_worked` and `hourly_rate_snapshot` in payroll_records
+2. **Send Data to Backend**:
+   All input data is sent to the backend for precise calculation:
+   ```typescript
+   interface StartPayrollRunRequest {
+     payDate: string;
+     employeeInputs: Array<{
+       employeeId: string;
+       regularHours?: number;
+       overtimeHours?: number;
+       leaveEntries?: LeaveEntry[];
+       holidayWorkEntries?: HolidayWorkEntry[];
+       adjustments?: Adjustment[];
+       overrides?: {
+         regularPay?: number;
+         overtimePay?: number;
+       };
+     }>;
+   }
+   ```
+
+3. **Backend Calculation**:
+   - Create `payroll_runs` record with status = `draft`
+   - For each employee:
+     - Calculate gross earnings (using input data)
      - Calculate CPP (5.95% employee, 5.95% employer)
      - Calculate EI (1.66% employee, 1.4× employer)
-     - Calculate Federal Tax (simplified)
-     - Calculate Provincial Tax (simplified)
+     - Calculate Federal Tax
+     - Calculate Provincial Tax
    - Create `payroll_records` for each employee
 
-3. **Update UI**:
-   - Summary cards show calculated totals
-   - Employee table shows calculated amounts
-   - Hours column becomes read-only (shows actual hours used)
+4. **Update UI**:
+   - Summary cards show calculated totals (including Deductions and Net Pay)
+   - Employee table shows all calculated amounts
    - Button changes to "Approve & Send Paystubs"
-   - Status badge shows "Pending Approval"
+   - Status badge shows "Draft"
 
-### 8.3 Review & Edit
+### 8.6 Review & Edit (After Run)
 
-1. System displays all employees with calculated amounts
-2. User can edit overtime, bonuses, leave hours
-3. Changes trigger recalculation
-4. Holiday Alert: If holidays in period, manage hours
-5. Leave Alert: Manage vacation/sick leave
+After Start, the UI transitions to "After Run" state:
 
-### 8.4 Approve
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Pay Date: Friday, December 20, 2025                    [Draft]          │
+│ 2 Pay Groups · 8 Employees            [Recalculate] [Approve & Send]    │
+├─────────────────────────────────────────────────────────────────────────┤
+│ ⚠️ Data has been modified. Click "Recalculate" to update deductions.   │
+├─────────────────────────────────────────────────────────────────────────┤
+│ ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐            │
+│ │Total Gross │ │ Deductions │ │ Net Pay    │ │ Employees  │            │
+│ │ $18,615    │ │  $4,289    │ │ $14,326    │ │     8      │            │
+│ └────────────┘ └────────────┘ └────────────┘ └────────────┘            │
+├─────────────────────────────────────────────────────────────────────────┤
+│ Employee table shows full calculated data...                            │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Differences from Before Run**:
+- All fields (Hours, OT, Leave, Adjustments) are still editable
+- Deductions column shows calculated values
+- Net Pay shows calculated values
+- Changes trigger "modified" warning banner
+
+### 8.7 Recalculate
+
+When user modifies any data after Start:
+
+1. **Visual Feedback**:
+   - Yellow warning banner appears: "Data has been modified. Click Recalculate to update deductions."
+   - Modified fields are highlighted
+   - "Recalculate" button appears (or becomes enabled)
+
+2. **Recalculate Action**:
+   - User clicks "Recalculate"
+   - All input data is sent to backend
+   - Backend recalculates CPP, EI, Tax for all employees
+   - UI updates with new values
+   - Warning banner disappears
+
+3. **Why Recalculate is Needed**:
+   - CPP/EI have annual maximums that depend on YTD amounts
+   - Tax brackets depend on total taxable income
+   - Changing any earnings item affects all deductions
+   - Frontend cannot accurately calculate these
+
+### 8.8 Approve
 
 1. User reviews totals
-2. Clicks "Approve & Send Paystubs" → Opens confirmation modal (see Section 10)
-3. System generates paystubs for all employees
-4. System sends paystubs via email (PDF attachment)
-5. Status changes to "Approved"
-6. Optional: Generate Beancount journal entry
+2. **Validation**: Cannot approve if there are unsaved modifications (must Recalculate first)
+3. Clicks "Approve & Send Paystubs" → Opens confirmation modal (see Section 10)
+4. System generates paystubs for all employees
+5. System sends paystubs via email (PDF attachment)
+6. Status changes to "Approved"
+7. **All fields become read-only**
 
-### 8.5 Mark as Paid
+### 8.9 Mark as Paid
 
 1. After bank transfer complete
 2. User clicks "Mark as Paid"
 3. Status changes to "Paid"
 4. Locked from further edits
 
-### 8.6 Route Structure
+### 8.10 Route Structure
 
 ```
 /payroll                    → Payroll Dashboard (upcoming pay dates)
 /payroll/run/[payDate]      → Payroll Run Page (before/after run)
 /payroll/history            → Past payroll runs
+```
+
+### 8.11 State Machine Summary
+
+```
+                    ┌─────────────┐
+                    │ Before Run  │
+                    │ (no record) │
+                    └──────┬──────┘
+                           │ Start Payroll Run
+                           ▼
+                    ┌─────────────┐
+              ┌────►│    Draft    │◄────┐
+              │     └──────┬──────┘     │
+              │            │            │
+         Recalculate       │       Edit Data
+              │            │            │
+              └────────────┴────────────┘
+                           │ Approve
+                           ▼
+                    ┌─────────────┐
+                    │  Approved   │
+                    └──────┬──────┘
+                           │ Mark as Paid
+                           ▼
+                    ┌─────────────┐
+                    │    Paid     │
+                    └─────────────┘
 ```
 
 ---

@@ -221,13 +221,9 @@ export async function getPayrollRunByPayDate(
 			.eq('user_id', userId)
 			.eq('ledger_id', ledgerId)
 			.eq('pay_date', payDate)
-			.single();
+			.maybeSingle();
 
 		if (runError) {
-			// Not found is not an error, just return null
-			if (runError.code === 'PGRST116') {
-				return { data: null, error: null };
-			}
 			console.error('Failed to get payroll run:', runError);
 			return { data: null, error: runError.message };
 		}
@@ -344,12 +340,9 @@ export async function getPayrollRunById(
 			.eq('user_id', userId)
 			.eq('ledger_id', ledgerId)
 			.eq('id', runId)
-			.single();
+			.maybeSingle();
 
 		if (runError) {
-			if (runError.code === 'PGRST116') {
-				return { data: null, error: null };
-			}
 			console.error('Failed to get payroll run:', runError);
 			return { data: null, error: runError.message };
 		}

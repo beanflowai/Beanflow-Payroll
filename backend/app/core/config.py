@@ -31,7 +31,7 @@ class Config(BaseSettings):
 
     # CORS Configuration
     allowed_origins: str = Field(
-        default="http://localhost:5173,http://localhost:5174,http://localhost:3000",
+        default="http://localhost:5173,http://localhost:3000",
         validation_alias="ALLOWED_ORIGINS",
     )
 

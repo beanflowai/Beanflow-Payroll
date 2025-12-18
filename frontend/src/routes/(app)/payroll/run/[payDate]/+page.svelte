@@ -9,12 +9,21 @@
 		OvertimeEntry,
 		PaystubStatus,
 		UpcomingPayDate,
-		PayGroupSummary
+		PayGroupSummary,
+		EmployeePayrollInput,
+		EarningsBreakdown
 	} from '$lib/types/payroll';
 	import type { Employee } from '$lib/types/employee';
-	import { PAYROLL_STATUS_LABELS, PAY_FREQUENCY_LABELS, EMPLOYMENT_TYPE_LABELS } from '$lib/types/payroll';
+	import {
+		PAYROLL_STATUS_LABELS,
+		PAY_FREQUENCY_LABELS,
+		EMPLOYMENT_TYPE_LABELS,
+		LEAVE_TYPE_LABELS,
+		ADJUSTMENT_TYPE_LABELS,
+		createDefaultPayrollInput
+	} from '$lib/types/payroll';
 	import { PROVINCE_LABELS } from '$lib/types/employee';
-	import { StatusBadge } from '$lib/components/shared';
+	import { StatusBadge, InlineEditField } from '$lib/components/shared';
 	import {
 		PayGroupSection,
 		PayrollSummaryCards,
@@ -70,9 +79,9 @@
 	let selectedEmployeeIds = $state<Set<string>>(new Set());
 	let isAssigning = $state(false);
 
-	// Hours Input State - tracks hours for each hourly employee
-	// Map of employeeId -> { regularHours, overtimeHours }
-	let hoursInputMap = $state<Map<string, { regularHours: number; overtimeHours: number }>>(new Map());
+	// Payroll Input State - tracks all payroll input data for each employee
+	// Map of employeeId -> EmployeePayrollInput
+	let payrollInputMap = $state<Map<string, EmployeePayrollInput>>(new Map());
 
 	// ===========================================
 	// Load Data
@@ -109,21 +118,22 @@
 				}
 				beforeRunData = beforeResult.data;
 
-				// Initialize hours input for hourly employees
+				// Initialize payroll input for all employees
 				if (beforeRunData) {
-					const newHoursMap = new Map<string, { regularHours: number; overtimeHours: number }>();
+					const newInputMap = new Map<string, EmployeePayrollInput>();
 					for (const payGroup of beforeRunData.payGroups) {
 						const defaultHours = getDefaultRegularHours(payGroup.payFrequency);
 						for (const employee of payGroup.employees) {
-							if (employee.compensationType === 'hourly') {
-								newHoursMap.set(employee.id, {
-									regularHours: defaultHours,
-									overtimeHours: 0
-								});
-							}
+							// All employees get an input entry
+							// Hourly employees get default hours, salaried get 0
+							const input = createDefaultPayrollInput(
+								employee.id,
+								employee.compensationType === 'hourly' ? defaultHours : 0
+							);
+							newInputMap.set(employee.id, input);
 						}
 					}
-					hoursInputMap = newHoursMap;
+					payrollInputMap = newInputMap;
 				}
 			}
 		} catch (err) {
@@ -167,8 +177,8 @@
 		for (const pg of beforeRunData.payGroups) {
 			for (const emp of pg.employees) {
 				if (emp.compensationType === 'hourly') {
-					const hoursData = hoursInputMap.get(emp.id);
-					if (!hoursData || hoursData.regularHours <= 0) {
+					const input = payrollInputMap.get(emp.id);
+					if (!input || input.regularHours <= 0) {
 						return false;
 					}
 				}
@@ -236,39 +246,126 @@
 		return '--';
 	}
 
-	function updateHoursInput(employeeId: string, field: 'regularHours' | 'overtimeHours', value: number) {
-		const current = hoursInputMap.get(employeeId) || { regularHours: 0, overtimeHours: 0 };
-		const updated = { ...current, [field]: value };
-		hoursInputMap = new Map(hoursInputMap).set(employeeId, updated);
+	/**
+	 * Get payroll input for an employee
+	 */
+	function getPayrollInput(employeeId: string): EmployeePayrollInput {
+		return payrollInputMap.get(employeeId) || createDefaultPayrollInput(employeeId);
 	}
 
+	/**
+	 * Update payroll input for an employee (partial update)
+	 */
+	function updatePayrollInput(employeeId: string, updates: Partial<EmployeePayrollInput>) {
+		const current = getPayrollInput(employeeId);
+		payrollInputMap = new Map(payrollInputMap).set(employeeId, { ...current, ...updates });
+	}
+
+	/**
+	 * Update hours input (convenience wrapper for template compatibility)
+	 */
+	function updateHoursInput(employeeId: string, field: 'regularHours' | 'overtimeHours', value: number) {
+		updatePayrollInput(employeeId, { [field]: value });
+	}
+
+	/**
+	 * Get hours input (convenience wrapper for template compatibility)
+	 */
 	function getHoursInput(employeeId: string): { regularHours: number; overtimeHours: number } {
-		return hoursInputMap.get(employeeId) || { regularHours: 0, overtimeHours: 0 };
+		const input = getPayrollInput(employeeId);
+		return { regularHours: input.regularHours, overtimeHours: input.overtimeHours };
 	}
 
 	/**
 	 * Calculate estimated gross pay for an employee before payroll run
-	 * - Salaried: annual_salary / pay_periods_per_year
-	 * - Hourly: hours × hourly_rate
+	 * Includes: Regular Pay + Overtime + Leave Pay + Holiday Pay + Adjustments
 	 */
 	function calculateEstimatedGross(
 		employee: EmployeeForPayroll,
 		payFrequency: 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly'
 	): number | null {
+		const input = payrollInputMap.get(employee.id);
+
+		// Salaried employees
 		if (employee.compensationType === 'salaried' && employee.annualSalary) {
 			const periodsPerYear = payFrequency === 'weekly' ? 52 :
 				payFrequency === 'bi_weekly' ? 26 :
 				payFrequency === 'semi_monthly' ? 24 : 12;
-			return employee.annualSalary / periodsPerYear;
-		} else if (employee.compensationType === 'hourly' && employee.hourlyRate) {
-			const hoursData = hoursInputMap.get(employee.id);
-			if (hoursData && hoursData.regularHours > 0) {
-				const regularPay = hoursData.regularHours * employee.hourlyRate;
-				const overtimePay = (hoursData.overtimeHours || 0) * employee.hourlyRate * 1.5;
-				return regularPay + overtimePay;
+			let gross = employee.annualSalary / periodsPerYear;
+
+			// Use override if set
+			if (input?.overrides?.regularPay !== undefined) {
+				gross = input.overrides.regularPay;
 			}
-			return null; // No hours entered yet
+
+			// Add adjustments
+			if (input?.adjustments) {
+				for (const adj of input.adjustments) {
+					if (adj.type === 'deduction') {
+						gross -= adj.amount;
+					} else {
+						gross += adj.amount;
+					}
+				}
+			}
+
+			return gross;
 		}
+
+		// Hourly employees
+		if (employee.compensationType === 'hourly' && employee.hourlyRate) {
+			if (!input || input.regularHours <= 0) {
+				return null; // No hours entered yet
+			}
+
+			const hourlyRate = employee.hourlyRate;
+
+			// Regular Pay
+			let regularPay = input.regularHours * hourlyRate;
+			if (input.overrides?.regularPay !== undefined) {
+				regularPay = input.overrides.regularPay;
+			}
+
+			// Overtime Pay (1.5x)
+			let overtimePay = (input.overtimeHours || 0) * hourlyRate * 1.5;
+			if (input.overrides?.overtimePay !== undefined) {
+				overtimePay = input.overrides.overtimePay;
+			}
+
+			// Leave Pay (paid at regular rate)
+			let leavePay = 0;
+			if (input.leaveEntries) {
+				for (const leave of input.leaveEntries) {
+					leavePay += leave.hours * hourlyRate;
+				}
+			}
+
+			// Holiday Pay (1.5x premium for working on holiday)
+			let holidayPay = 0;
+			if (input.holidayWorkEntries) {
+				for (const hw of input.holidayWorkEntries) {
+					holidayPay += hw.hoursWorked * hourlyRate * 1.5;
+				}
+			}
+			if (input.overrides?.holidayPay !== undefined) {
+				holidayPay = input.overrides.holidayPay;
+			}
+
+			// Adjustments
+			let adjustmentTotal = 0;
+			if (input.adjustments) {
+				for (const adj of input.adjustments) {
+					if (adj.type === 'deduction') {
+						adjustmentTotal -= adj.amount;
+					} else {
+						adjustmentTotal += adj.amount;
+					}
+				}
+			}
+
+			return regularPay + overtimePay + leavePay + holidayPay + adjustmentTotal;
+		}
+
 		return null;
 	}
 
@@ -309,6 +406,146 @@
 		}
 		return total > 0 ? total : (hasAllData ? 0 : null);
 	});
+
+	/**
+	 * Get earnings breakdown for an employee (for expanded row display)
+	 * Returns array of line items with label, amount, and optional detail
+	 */
+	function getEarningsBreakdown(
+		employee: EmployeeForPayroll,
+		payFrequency: 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly'
+	): EarningsBreakdown[] {
+		const input = payrollInputMap.get(employee.id);
+		const breakdown: EarningsBreakdown[] = [];
+
+		// Salaried employees
+		if (employee.compensationType === 'salaried' && employee.annualSalary) {
+			const periodsPerYear = payFrequency === 'weekly' ? 52 :
+				payFrequency === 'bi_weekly' ? 26 :
+				payFrequency === 'semi_monthly' ? 24 : 12;
+			const defaultRegularPay = employee.annualSalary / periodsPerYear;
+			const regularPay = input?.overrides?.regularPay ?? defaultRegularPay;
+			breakdown.push({
+				key: 'regular_pay',
+				label: 'Regular Pay',
+				amount: regularPay,
+				detail: `${formatCurrency(employee.annualSalary)}/yr / ${periodsPerYear}`,
+				editable: true,
+				editType: 'amount',
+				editValue: regularPay
+			});
+
+			// Salaried employees can also have overtime
+			const overtimeHours = input?.overtimeHours || 0;
+			// Calculate hourly rate from annual salary for overtime
+			const impliedHourlyRate = employee.annualSalary / (periodsPerYear * (payFrequency === 'weekly' ? 40 : payFrequency === 'bi_weekly' ? 80 : payFrequency === 'semi_monthly' ? 86.67 : 173.33));
+			const overtimePay = overtimeHours * impliedHourlyRate * 1.5;
+			breakdown.push({
+				key: 'overtime',
+				label: 'Overtime',
+				amount: overtimePay,
+				detail: overtimeHours > 0 ? `${overtimeHours}h @ ${formatCurrency(impliedHourlyRate * 1.5)}` : undefined,
+				editable: true,
+				editType: 'hours',
+				editValue: overtimeHours
+			});
+		}
+		// Hourly employees
+		else if (employee.compensationType === 'hourly' && employee.hourlyRate && input) {
+			const hourlyRate = employee.hourlyRate;
+
+			// Regular Pay (not editable for hourly - use Hours input instead)
+			if (input.regularHours > 0) {
+				const regularPay = input.overrides?.regularPay ?? (input.regularHours * hourlyRate);
+				breakdown.push({
+					key: 'regular_pay',
+					label: 'Regular Pay',
+					amount: regularPay,
+					detail: `${input.regularHours}h @ ${formatCurrency(hourlyRate)}`,
+					editable: false  // Hourly employees edit via Hours input
+				});
+			}
+
+			// Overtime (editable as hours)
+			const overtimeHours = input.overtimeHours || 0;
+			const overtimePay = input.overrides?.overtimePay ?? (overtimeHours * hourlyRate * 1.5);
+			breakdown.push({
+				key: 'overtime',
+				label: 'Overtime',
+				amount: overtimePay,
+				detail: overtimeHours > 0 ? `${overtimeHours}h @ ${formatCurrency(hourlyRate * 1.5)}` : undefined,
+				editable: true,
+				editType: 'hours',
+				editValue: overtimeHours
+			});
+
+			// Leave entries (not editable here - use Leave column)
+			if (input.leaveEntries && input.leaveEntries.length > 0) {
+				for (const leave of input.leaveEntries) {
+					const leavePay = leave.hours * hourlyRate;
+					const leaveLabel = LEAVE_TYPE_LABELS[leave.type];
+					breakdown.push({
+						key: `leave_${leave.type}`,
+						label: `${leaveLabel.icon} ${leaveLabel.full}`,
+						amount: leavePay,
+						detail: `${leave.hours}h @ ${formatCurrency(hourlyRate)}`,
+						editable: false  // Use Leave column instead
+					});
+				}
+			}
+
+			// Holiday work entries (not editable - managed via holiday modal)
+			if (input.holidayWorkEntries && input.holidayWorkEntries.length > 0) {
+				for (const hw of input.holidayWorkEntries) {
+					const holidayPay = hw.hoursWorked * hourlyRate * 1.5;
+					breakdown.push({
+						key: `holiday_${hw.holidayDate}`,
+						label: `Holiday: ${hw.holidayName}`,
+						amount: holidayPay,
+						detail: `${hw.hoursWorked}h @ ${formatCurrency(hourlyRate * 1.5)}`,
+						editable: false
+					});
+				}
+			}
+		}
+
+		// Adjustments (for all employee types, not editable in earnings list - managed separately)
+		if (input?.adjustments) {
+			for (const adj of input.adjustments) {
+				const adjLabel = ADJUSTMENT_TYPE_LABELS[adj.type];
+				breakdown.push({
+					key: `adj_${adj.id}`,
+					label: `${adjLabel.icon} ${adj.description || adjLabel.label}`,
+					amount: adj.type === 'deduction' ? -adj.amount : adj.amount,
+					editable: false  // Managed via adjustments section
+				});
+			}
+		}
+
+		return breakdown;
+	}
+
+	/**
+	 * Handle inline edit of earnings items
+	 */
+	function handleEarningsEdit(employeeId: string, key: string, newValue: number) {
+		const current = getPayrollInput(employeeId);
+
+		if (key === 'regular_pay') {
+			// Save to overrides.regularPay (only for Salaried)
+			updatePayrollInput(employeeId, {
+				overrides: {
+					...current.overrides,
+					regularPay: newValue
+				}
+			});
+		} else if (key === 'overtime') {
+			// Overtime: directly edit hours
+			updatePayrollInput(employeeId, {
+				overtimeHours: newValue
+			});
+		}
+	}
 
 	// ===========================================
 	// Actions
@@ -379,17 +616,17 @@
 		error = null;
 
 		try {
-			// Build hours input array for hourly employees
+			// Build hours input array for hourly employees from payrollInputMap
 			const hoursInput: EmployeeHoursInput[] = [];
 			for (const pg of beforeRunData.payGroups) {
 				for (const emp of pg.employees) {
 					if (emp.compensationType === 'hourly') {
-						const hoursData = hoursInputMap.get(emp.id);
-						if (hoursData) {
+						const input = payrollInputMap.get(emp.id);
+						if (input) {
 							hoursInput.push({
 								employeeId: emp.id,
-								regularHours: hoursData.regularHours,
-								overtimeHours: hoursData.overtimeHours
+								regularHours: input.regularHours,
+								overtimeHours: input.overtimeHours
 							});
 						}
 					}
@@ -734,24 +971,26 @@
 								</button>
 							</div>
 						{:else}
-							<table class="records-table">
+							<table class="records-table before-run-table">
 								<thead>
 									<tr>
 										<th class="col-employee">Employee</th>
 										<th class="col-type">Type</th>
 										<th class="col-rate">Rate/Salary</th>
 										<th class="col-hours">Hours</th>
-										<th class="col-gross">Gross</th>
-										<th class="col-deductions">Deductions</th>
-										<th class="col-net">Net Pay</th>
-										<th class="col-actions"></th>
+										<th class="col-overtime">Overtime</th>
+										<th class="col-leave">Leave</th>
+										<th class="col-gross">Est. Gross</th>
+										<th class="col-expand"></th>
 									</tr>
 								</thead>
 								<tbody>
 									{#each payGroup.employees as employee (employee.id)}
-										{@const hoursData = getHoursInput(employee.id)}
+										{@const input = getPayrollInput(employee.id)}
 										{@const estimatedGross = calculateEstimatedGross(employee, payGroup.payFrequency)}
-										<tr>
+										{@const isExpanded = expandedRecordId === employee.id}
+										{@const totalLeaveHours = input.leaveEntries.reduce((sum, l) => sum + l.hours, 0)}
+										<tr class:expanded={isExpanded}>
 											<td class="col-employee">
 												<div class="employee-info">
 													<span class="employee-name">{employee.firstName} {employee.lastName}</span>
@@ -774,13 +1013,34 @@
 															min="0"
 															max="200"
 															step="0.5"
-															value={hoursData.regularHours}
+															value={input.regularHours}
 															onchange={(e) => updateHoursInput(employee.id, 'regularHours', parseFloat((e.target as HTMLInputElement).value) || 0)}
 															placeholder="Hrs"
 														/>
 													</div>
 												{:else}
 													<span class="no-hours">-</span>
+												{/if}
+											</td>
+											<td class="col-overtime">
+												<div class="hours-input-group">
+													<input
+														type="number"
+														class="hours-input overtime-input"
+														min="0"
+														max="100"
+														step="0.5"
+														value={input.overtimeHours}
+														onchange={(e) => updateHoursInput(employee.id, 'overtimeHours', parseFloat((e.target as HTMLInputElement).value) || 0)}
+														placeholder="OT"
+													/>
+												</div>
+											</td>
+											<td class="col-leave">
+												{#if totalLeaveHours > 0}
+													<span class="leave-badge">{totalLeaveHours}h</span>
+												{:else}
+													<span class="no-leave">-</span>
 												{/if}
 											</td>
 											<td class="col-gross">
@@ -790,12 +1050,272 @@
 													<span class="placeholder-cell">--</span>
 												{/if}
 											</td>
-											<td class="col-deductions placeholder-cell">--</td>
-											<td class="col-net">
-												<span class="net-pay placeholder-cell">--</span>
+											<td class="col-expand">
+												<button
+													class="btn-expand"
+													class:expanded={isExpanded}
+													onclick={() => toggleExpand(employee.id)}
+													aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
+												>
+													<i class="fas fa-chevron-{isExpanded ? 'up' : 'down'}"></i>
+												</button>
 											</td>
-											<td class="col-actions"></td>
 										</tr>
+										{#if isExpanded}
+											<tr class="expanded-row">
+												<td colspan="8">
+													<div class="expanded-content">
+														<!-- Three Column Layout -->
+														<div class="expanded-columns">
+															<!-- Earnings Column -->
+															<div class="expanded-col earnings-col">
+																<h4 class="col-title">Earnings <span class="edit-hint">(double-click to edit)</span></h4>
+																<div class="earnings-list">
+																	{#each getEarningsBreakdown(employee, payGroup.payFrequency) as item (item.key)}
+																		<div class="earnings-item" class:editable-row={item.editable}>
+																			<span class="item-label">{item.label}</span>
+																			{#if item.editable && item.editType === 'amount'}
+																				<!-- Editable amount (Regular Pay for salaried) -->
+																				<InlineEditField
+																					value={item.editValue ?? item.amount}
+																					formatValue={formatCurrency}
+																					onSave={(newValue) => handleEarningsEdit(employee.id, item.key, newValue)}
+																					step={0.01}
+																				/>
+																			{:else if item.editable && item.editType === 'hours'}
+																				<!-- Editable hours (Overtime) -->
+																				<div class="hours-edit-wrapper">
+																					<InlineEditField
+																						value={item.editValue ?? 0}
+																						formatValue={(h) => `${h}h`}
+																						onSave={(newValue) => handleEarningsEdit(employee.id, item.key, newValue)}
+																						step={0.5}
+																						suffix="h"
+																					/>
+																					{#if item.amount > 0}
+																						<span class="hours-result">= {formatCurrency(item.amount)}</span>
+																					{/if}
+																				</div>
+																			{:else}
+																				<!-- Non-editable display -->
+																				<span class="item-amount" class:negative={item.amount < 0}>
+																					{item.amount !== 0 ? formatCurrency(Math.abs(item.amount)) : '--'}
+																				</span>
+																			{/if}
+																		</div>
+																		{#if item.detail && !item.editable}
+																			<div class="item-detail">{item.detail}</div>
+																		{/if}
+																	{/each}
+																	{#if getEarningsBreakdown(employee, payGroup.payFrequency).length === 0}
+																		<div class="empty-section">No earnings data</div>
+																	{/if}
+																</div>
+																<div class="col-total">
+																	<span>Est. Gross</span>
+																	<span class="total-amount">
+																		{estimatedGross !== null ? formatCurrency(estimatedGross) : '--'}
+																	</span>
+																</div>
+															</div>
+
+															<!-- Deductions Column (Placeholder) -->
+															<div class="expanded-col deductions-col">
+																<h4 class="col-title">Deductions</h4>
+																<div class="deductions-list placeholder-section">
+																	<div class="deduction-item">
+																		<span class="item-label">CPP</span>
+																		<span class="item-amount placeholder">--</span>
+																	</div>
+																	<div class="deduction-item">
+																		<span class="item-label">EI</span>
+																		<span class="item-amount placeholder">--</span>
+																	</div>
+																	<div class="deduction-item">
+																		<span class="item-label">Federal Tax</span>
+																		<span class="item-amount placeholder">--</span>
+																	</div>
+																	<div class="deduction-item">
+																		<span class="item-label">Provincial Tax</span>
+																		<span class="item-amount placeholder">--</span>
+																	</div>
+																</div>
+																<div class="col-total">
+																	<span>Total Deductions</span>
+																	<span class="total-amount placeholder">--</span>
+																</div>
+															</div>
+
+															<!-- Leave Column -->
+															<div class="expanded-col leave-col">
+																<h4 class="col-title">Leave</h4>
+																<div class="leave-inputs">
+																	<!-- Vacation Block -->
+																	<div class="leave-type-block">
+																		<div class="leave-type-header">
+																			<span class="leave-icon">🏖️</span>
+																			<span class="leave-type-name">Vacation</span>
+																		</div>
+																		<div class="leave-field">
+																			<span class="field-label">Hours:</span>
+																			<input
+																				type="number"
+																				class="leave-hours-input"
+																				min="0"
+																				max="200"
+																				step="0.5"
+																				value={input.leaveEntries.find(l => l.type === 'vacation')?.hours ?? 0}
+																				onchange={(e) => {
+																					const hours = parseFloat((e.target as HTMLInputElement).value) || 0;
+																					const newLeaveEntries = input.leaveEntries.filter(l => l.type !== 'vacation');
+																					if (hours > 0) {
+																						newLeaveEntries.push({ type: 'vacation', hours });
+																					}
+																					updatePayrollInput(employee.id, { leaveEntries: newLeaveEntries });
+																				}}
+																				placeholder="0"
+																			/>
+																		</div>
+																		<div class="leave-field balance">
+																			<span class="field-label">Balance:</span>
+																			<span class="balance-value">-- h</span>
+																		</div>
+																	</div>
+																	<!-- Sick Block -->
+																	<div class="leave-type-block">
+																		<div class="leave-type-header">
+																			<span class="leave-icon">🏥</span>
+																			<span class="leave-type-name">Sick</span>
+																		</div>
+																		<div class="leave-field">
+																			<span class="field-label">Hours:</span>
+																			<input
+																				type="number"
+																				class="leave-hours-input"
+																				min="0"
+																				max="200"
+																				step="0.5"
+																				value={input.leaveEntries.find(l => l.type === 'sick')?.hours ?? 0}
+																				onchange={(e) => {
+																					const hours = parseFloat((e.target as HTMLInputElement).value) || 0;
+																					const newLeaveEntries = input.leaveEntries.filter(l => l.type !== 'sick');
+																					if (hours > 0) {
+																						newLeaveEntries.push({ type: 'sick', hours });
+																					}
+																					updatePayrollInput(employee.id, { leaveEntries: newLeaveEntries });
+																				}}
+																				placeholder="0"
+																			/>
+																		</div>
+																		<div class="leave-field balance">
+																			<span class="field-label">Balance:</span>
+																			<span class="balance-value">-- h</span>
+																		</div>
+																	</div>
+																</div>
+															</div>
+														</div>
+
+														<!-- One-time Adjustments Section -->
+														<div class="adjustments-section">
+															<div class="adjustments-header">
+																<h4 class="section-title">One-time Adjustments</h4>
+																<button
+																	class="btn-add-adjustment"
+																	onclick={() => {
+																		const newAdj = {
+																			id: crypto.randomUUID(),
+																			type: 'bonus' as const,
+																			amount: 0,
+																			description: '',
+																			taxable: true
+																		};
+																		updatePayrollInput(employee.id, {
+																			adjustments: [...input.adjustments, newAdj]
+																		});
+																	}}
+																>
+																	<i class="fas fa-plus"></i>
+																	Add
+																</button>
+															</div>
+															{#if input.adjustments.length === 0}
+																<div class="no-adjustments">
+																	<span>No adjustments added</span>
+																</div>
+															{:else}
+																<div class="adjustments-list">
+																	{#each input.adjustments as adj, idx (adj.id)}
+																		<div class="adjustment-row">
+																			<select
+																				class="adj-type-select"
+																				value={adj.type}
+																				onchange={(e) => {
+																					const newType = (e.target as HTMLSelectElement).value as typeof adj.type;
+																					const newTaxable = ADJUSTMENT_TYPE_LABELS[newType].taxable;
+																					const newAdjs = [...input.adjustments];
+																					newAdjs[idx] = { ...adj, type: newType, taxable: newTaxable };
+																					updatePayrollInput(employee.id, { adjustments: newAdjs });
+																				}}
+																			>
+																				<option value="bonus">Bonus</option>
+																				<option value="retroactive_pay">Retroactive Pay</option>
+																				<option value="taxable_benefit">Taxable Benefit</option>
+																				<option value="reimbursement">Reimbursement</option>
+																				<option value="deduction">Deduction</option>
+																			</select>
+																			<input
+																				type="text"
+																				class="adj-desc-input"
+																				placeholder="Description"
+																				value={adj.description}
+																				onchange={(e) => {
+																					const newAdjs = [...input.adjustments];
+																					newAdjs[idx] = { ...adj, description: (e.target as HTMLInputElement).value };
+																					updatePayrollInput(employee.id, { adjustments: newAdjs });
+																				}}
+																			/>
+																			<div class="adj-amount-wrapper">
+																				<span class="currency-prefix">$</span>
+																				<input
+																					type="number"
+																					class="adj-amount-input"
+																					min="0"
+																					step="0.01"
+																					value={adj.amount}
+																					onchange={(e) => {
+																						const newAdjs = [...input.adjustments];
+																						newAdjs[idx] = { ...adj, amount: parseFloat((e.target as HTMLInputElement).value) || 0 };
+																						updatePayrollInput(employee.id, { adjustments: newAdjs });
+																					}}
+																				/>
+																			</div>
+																			<button
+																				class="btn-remove-adj"
+																				onclick={() => {
+																					const newAdjs = input.adjustments.filter((_, i) => i !== idx);
+																					updatePayrollInput(employee.id, { adjustments: newAdjs });
+																				}}
+																				aria-label="Remove adjustment"
+																			>
+																				<i class="fas fa-times"></i>
+																			</button>
+																		</div>
+																	{/each}
+																</div>
+															{/if}
+														</div>
+
+														<!-- Net Pay Preview -->
+														<div class="net-pay-preview">
+															<span class="net-label">Est. Net Pay</span>
+															<span class="net-value placeholder">--</span>
+															<span class="net-hint">(Start Payroll Run to calculate CPP/EI/Tax)</span>
+														</div>
+													</div>
+												</td>
+											</tr>
+										{/if}
 									{/each}
 								</tbody>
 							</table>
@@ -2074,6 +2594,444 @@
 		cursor: not-allowed;
 	}
 
+	/* Before Run Table - New Columns */
+	.before-run-table .col-overtime,
+	.before-run-table .col-leave {
+		width: 80px;
+		text-align: center;
+	}
+
+	.before-run-table .col-expand {
+		width: 50px;
+		text-align: center;
+	}
+
+	.before-run-table th.col-overtime,
+	.before-run-table th.col-leave {
+		text-align: center;
+	}
+
+	.overtime-input {
+		width: 60px;
+	}
+
+	.leave-badge {
+		display: inline-flex;
+		padding: 2px 8px;
+		background: var(--color-primary-50);
+		color: var(--color-primary-700);
+		border-radius: var(--radius-full);
+		font-size: var(--font-size-body-small);
+		font-weight: var(--font-weight-medium);
+	}
+
+	.no-leave {
+		color: var(--color-surface-400);
+	}
+
+	/* Expand Button */
+	.btn-expand {
+		width: 32px;
+		height: 32px;
+		border-radius: var(--radius-md);
+		background: var(--color-surface-100);
+		border: none;
+		color: var(--color-surface-600);
+		cursor: pointer;
+		transition: var(--transition-fast);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.btn-expand:hover {
+		background: var(--color-surface-200);
+		color: var(--color-surface-800);
+	}
+
+	.btn-expand.expanded {
+		background: var(--color-primary-100);
+		color: var(--color-primary-700);
+	}
+
+	/* Expanded Row */
+	.records-table tr.expanded > td {
+		background: var(--color-surface-50);
+	}
+
+	.expanded-row td {
+		padding: 0 !important;
+		background: var(--color-surface-50);
+	}
+
+	.expanded-content {
+		padding: var(--spacing-5);
+		border-top: 1px solid var(--color-surface-200);
+	}
+
+	.expanded-columns {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: var(--spacing-5);
+		margin-bottom: var(--spacing-5);
+	}
+
+	.expanded-col {
+		background: white;
+		border-radius: var(--radius-lg);
+		padding: var(--spacing-4);
+		box-shadow: var(--shadow-md3-1);
+	}
+
+	.col-title {
+		font-size: var(--font-size-body-small);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-surface-600);
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+		margin: 0 0 var(--spacing-3);
+		padding-bottom: var(--spacing-2);
+		border-bottom: 1px solid var(--color-surface-100);
+	}
+
+	.col-title .edit-hint {
+		font-size: var(--font-size-auxiliary-text);
+		font-weight: var(--font-weight-normal);
+		color: var(--color-surface-400);
+		text-transform: none;
+		letter-spacing: 0;
+	}
+
+	/* Earnings Column */
+	.earnings-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-2);
+		margin-bottom: var(--spacing-3);
+	}
+
+	.earnings-item,
+	.deduction-item {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		font-size: var(--font-size-body-content);
+	}
+
+	.item-label {
+		color: var(--color-surface-700);
+	}
+
+	.item-amount {
+		font-family: var(--font-mono);
+		font-weight: var(--font-weight-medium);
+		color: var(--color-surface-800);
+	}
+
+	.item-amount.negative {
+		color: var(--color-error-600);
+	}
+
+	.item-amount.placeholder {
+		color: var(--color-surface-400);
+	}
+
+	.editable-row {
+		background: var(--color-surface-50);
+		margin: 0 calc(-1 * var(--spacing-2));
+		padding: var(--spacing-1) var(--spacing-2);
+		border-radius: var(--radius-sm);
+	}
+
+	.hours-edit-wrapper {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--spacing-2);
+	}
+
+	.hours-result {
+		font-size: var(--font-size-body-small);
+		color: var(--color-surface-500);
+		font-family: var(--font-mono);
+	}
+
+	.item-detail {
+		font-size: var(--font-size-auxiliary-text);
+		color: var(--color-surface-500);
+		margin-left: var(--spacing-2);
+		margin-bottom: var(--spacing-1);
+	}
+
+	.empty-section {
+		color: var(--color-surface-400);
+		font-size: var(--font-size-body-small);
+		text-align: center;
+		padding: var(--spacing-3);
+	}
+
+	.col-total {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding-top: var(--spacing-3);
+		border-top: 1px solid var(--color-surface-200);
+		font-weight: var(--font-weight-semibold);
+	}
+
+	.total-amount {
+		font-family: var(--font-mono);
+		color: var(--color-surface-800);
+	}
+
+	.total-amount.placeholder {
+		color: var(--color-surface-400);
+	}
+
+	/* Deductions Column */
+	.deductions-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-2);
+		margin-bottom: var(--spacing-3);
+	}
+
+	.placeholder-section {
+		opacity: 0.6;
+	}
+
+	/* Leave Column */
+	.leave-inputs {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-3);
+	}
+
+	.leave-type-block {
+		padding: var(--spacing-3);
+		background: var(--color-surface-50);
+		border-radius: var(--radius-md);
+	}
+
+	.leave-type-header {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
+		margin-bottom: var(--spacing-2);
+		font-weight: var(--font-weight-medium);
+	}
+
+	.leave-icon {
+		font-size: 16px;
+	}
+
+	.leave-type-name {
+		color: var(--color-surface-700);
+	}
+
+	.leave-field {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
+		margin-top: var(--spacing-2);
+	}
+
+	.field-label {
+		font-size: var(--font-size-body-small);
+		color: var(--color-surface-500);
+		min-width: 60px;
+	}
+
+	.leave-hours-input {
+		width: 60px;
+		padding: var(--spacing-1) var(--spacing-2);
+		border: 1px solid var(--color-surface-300);
+		border-radius: var(--radius-md);
+		font-size: var(--font-size-body-content);
+		font-family: var(--font-mono);
+		text-align: center;
+	}
+
+	.leave-hours-input:focus {
+		outline: none;
+		border-color: var(--color-primary-500);
+		box-shadow: 0 0 0 3px var(--color-primary-100);
+	}
+
+	.balance-value {
+		font-family: var(--font-mono);
+		color: var(--color-surface-600);
+	}
+
+	/* One-time Adjustments Section */
+	.adjustments-section {
+		background: white;
+		border-radius: var(--radius-lg);
+		padding: var(--spacing-4);
+		box-shadow: var(--shadow-md3-1);
+		margin-bottom: var(--spacing-4);
+	}
+
+	.adjustments-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: var(--spacing-3);
+	}
+
+	.section-title {
+		font-size: var(--font-size-body-small);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-surface-600);
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+		margin: 0;
+	}
+
+	.btn-add-adjustment {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--spacing-1);
+		padding: var(--spacing-1) var(--spacing-3);
+		background: var(--color-primary-50);
+		color: var(--color-primary-600);
+		border: 1px solid var(--color-primary-200);
+		border-radius: var(--radius-md);
+		font-size: var(--font-size-body-small);
+		font-weight: var(--font-weight-medium);
+		cursor: pointer;
+		transition: var(--transition-fast);
+	}
+
+	.btn-add-adjustment:hover {
+		background: var(--color-primary-100);
+	}
+
+	.btn-add-adjustment i {
+		font-size: 10px;
+	}
+
+	.no-adjustments {
+		text-align: center;
+		padding: var(--spacing-4);
+		color: var(--color-surface-400);
+		font-size: var(--font-size-body-small);
+	}
+
+	.adjustments-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-2);
+	}
+
+	.adjustment-row {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
+		padding: var(--spacing-2);
+		background: var(--color-surface-50);
+		border-radius: var(--radius-md);
+	}
+
+	.adj-type-select {
+		padding: var(--spacing-2);
+		border: 1px solid var(--color-surface-300);
+		border-radius: var(--radius-md);
+		font-size: var(--font-size-body-small);
+		background: white;
+		min-width: 140px;
+	}
+
+	.adj-desc-input {
+		flex: 1;
+		padding: var(--spacing-2);
+		border: 1px solid var(--color-surface-300);
+		border-radius: var(--radius-md);
+		font-size: var(--font-size-body-small);
+	}
+
+	.adj-amount-wrapper {
+		display: flex;
+		align-items: center;
+		background: white;
+		border: 1px solid var(--color-surface-300);
+		border-radius: var(--radius-md);
+		padding-left: var(--spacing-2);
+	}
+
+	.currency-prefix {
+		color: var(--color-surface-500);
+		font-size: var(--font-size-body-small);
+	}
+
+	.adj-amount-input {
+		width: 80px;
+		padding: var(--spacing-2);
+		border: none;
+		font-size: var(--font-size-body-small);
+		font-family: var(--font-mono);
+		text-align: right;
+	}
+
+	.adj-amount-input:focus {
+		outline: none;
+	}
+
+	.adj-amount-wrapper:focus-within {
+		border-color: var(--color-primary-500);
+		box-shadow: 0 0 0 3px var(--color-primary-100);
+	}
+
+	.btn-remove-adj {
+		width: 28px;
+		height: 28px;
+		border-radius: var(--radius-md);
+		background: transparent;
+		border: none;
+		color: var(--color-surface-400);
+		cursor: pointer;
+		transition: var(--transition-fast);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.btn-remove-adj:hover {
+		background: var(--color-error-50);
+		color: var(--color-error-600);
+	}
+
+	/* Net Pay Preview */
+	.net-pay-preview {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--spacing-3);
+		padding: var(--spacing-4);
+		background: var(--color-surface-100);
+		border-radius: var(--radius-lg);
+	}
+
+	.net-label {
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-surface-700);
+	}
+
+	.net-value {
+		font-size: var(--font-size-title-small);
+		font-weight: var(--font-weight-bold);
+		font-family: var(--font-mono);
+		color: var(--color-surface-800);
+	}
+
+	.net-value.placeholder {
+		color: var(--color-surface-400);
+	}
+
+	.net-hint {
+		font-size: var(--font-size-body-small);
+		color: var(--color-surface-500);
+	}
+
 	@media (max-width: 1024px) {
 		.summary-cards-placeholder {
 			grid-template-columns: repeat(2, 1fr);
@@ -2106,6 +3064,24 @@
 
 		.section-header-static .stat {
 			align-items: flex-start;
+		}
+
+		/* Expanded columns stack on mobile */
+		.expanded-columns {
+			grid-template-columns: 1fr;
+		}
+
+		/* Adjustment row wraps on mobile */
+		.adjustment-row {
+			flex-wrap: wrap;
+		}
+
+		.adj-type-select {
+			min-width: 100%;
+		}
+
+		.adj-desc-input {
+			min-width: 100%;
 		}
 	}
 </style>

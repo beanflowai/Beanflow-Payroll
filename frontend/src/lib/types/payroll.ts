@@ -217,9 +217,13 @@ export interface HolidayWorkEntry {
 
 // Earnings breakdown for expanded row
 export interface EarningsBreakdown {
+	key: string;       // Unique identifier for the earning item
 	label: string;
 	amount: number;
-	detail?: string; // e.g., "5h @ $23.08"
+	detail?: string;   // e.g., "5h @ $23.08"
+	editable?: boolean;
+	editType?: 'amount' | 'hours';  // What to edit: dollar amount or hours
+	editValue?: number;  // The current value to edit (hours for overtime, amount for regular pay)
 }
 
 // Deductions breakdown for expanded row
@@ -571,6 +575,84 @@ export interface HoursInput {
 	employeeId: string;
 	regularHours: number;
 	overtimeHours?: number;
+}
+
+// ===========================================
+// One-time Adjustment Types
+// ===========================================
+
+export type AdjustmentType = 'bonus' | 'retroactive_pay' | 'taxable_benefit' | 'reimbursement' | 'deduction';
+
+export const ADJUSTMENT_TYPE_LABELS: Record<AdjustmentType, { label: string; icon: string; taxable: boolean }> = {
+	bonus: { label: 'Bonus', icon: '💰', taxable: true },
+	retroactive_pay: { label: 'Retroactive Pay', icon: '⏪', taxable: true },
+	taxable_benefit: { label: 'Taxable Benefit', icon: '🎁', taxable: true },
+	reimbursement: { label: 'Reimbursement', icon: '💵', taxable: false },
+	deduction: { label: 'Deduction', icon: '➖', taxable: false }
+};
+
+export interface Adjustment {
+	id: string;
+	type: AdjustmentType;
+	amount: number;
+	description: string;
+	taxable: boolean;
+}
+
+// ===========================================
+// Employee Payroll Input (Before Run)
+// ===========================================
+
+/**
+ * Complete employee payroll input data for Before Run state
+ * Includes hours, leave, holiday work, and one-time adjustments
+ */
+export interface EmployeePayrollInput {
+	employeeId: string;
+
+	// Hours
+	regularHours: number;          // Required for hourly employees
+	overtimeHours: number;         // Overtime hours worked
+
+	// Leave entries
+	leaveEntries: Array<{
+		type: LeaveType;
+		hours: number;
+	}>;
+
+	// Holiday work entries
+	holidayWorkEntries: Array<{
+		holidayDate: string;
+		holidayName: string;
+		hoursWorked: number;
+	}>;
+
+	// One-time adjustments
+	adjustments: Adjustment[];
+
+	// Amount overrides (from inline editing)
+	overrides?: {
+		regularPay?: number;
+		overtimePay?: number;
+		holidayPay?: number;
+	};
+}
+
+/**
+ * Create a default EmployeePayrollInput
+ */
+export function createDefaultPayrollInput(
+	employeeId: string,
+	defaultRegularHours: number = 0
+): EmployeePayrollInput {
+	return {
+		employeeId,
+		regularHours: defaultRegularHours,
+		overtimeHours: 0,
+		leaveEntries: [],
+		holidayWorkEntries: [],
+		adjustments: []
+	};
 }
 
 /**
