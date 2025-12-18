@@ -145,77 +145,86 @@
 	}
 </script>
 
-<section class="employees-section">
-	<div class="section-header">
-		<h2 class="section-title">
-			<i class="fas fa-users"></i>
+<section class="bg-white rounded-xl shadow-md3-1 overflow-hidden">
+	<div class="flex justify-between items-center p-4 px-5 bg-surface-50 border-b border-surface-100 max-sm:flex-col max-sm:gap-3 max-sm:items-start">
+		<h2 class="flex items-center gap-2 text-title-medium font-semibold text-surface-800 m-0">
+			<i class="fas fa-users text-primary-500"></i>
 			Employees
-			<span class="employee-count">({employees.length})</span>
+			<span class="text-body-content font-normal text-surface-500">({employees.length})</span>
 		</h2>
-		<button class="btn-add" onclick={openModal}>
+		<button
+			class="inline-flex items-center gap-2 py-2 px-4 bg-primary-500 text-white border-none rounded-md text-auxiliary-text font-medium cursor-pointer transition-[150ms] hover:bg-primary-600 max-sm:w-full max-sm:justify-center"
+			onclick={openModal}
+		>
 			<i class="fas fa-user-plus"></i>
 			Add Employees
 		</button>
 	</div>
 
-	<div class="section-content">
+	<div class="p-5">
 		{#if error}
-			<div class="error-message">
+			<div class="flex items-center gap-2 py-3 px-4 bg-error-50 text-error-700 rounded-md mb-4">
 				<i class="fas fa-exclamation-circle"></i>
 				{error}
-				<button class="btn-dismiss" onclick={() => (error = null)}>
+				<button
+					class="ml-auto bg-transparent border-none text-error-500 cursor-pointer"
+					onclick={() => (error = null)}
+				>
 					<i class="fas fa-times"></i>
 				</button>
 			</div>
 		{/if}
 
 		{#if isLoading}
-			<div class="loading-state">
+			<div class="flex items-center justify-center gap-2 py-8 text-surface-500">
 				<i class="fas fa-spinner fa-spin"></i>
 				Loading employees...
 			</div>
 		{:else if employees.length === 0}
-			<div class="empty-state">
-				<div class="empty-icon">
+			<div class="flex flex-col items-center py-8 px-4 text-center">
+				<div class="w-16 h-16 rounded-full bg-surface-100 text-surface-400 flex items-center justify-center text-2xl mb-4">
 					<i class="fas fa-user-plus"></i>
 				</div>
-				<p>No employees assigned to this pay group yet.</p>
-				<button class="btn-add-empty" onclick={openModal}>
+				<p class="text-surface-600 m-0 mb-4">No employees assigned to this pay group yet.</p>
+				<button
+					class="inline-flex items-center gap-2 py-3 px-5 bg-gradient-to-br from-primary-600 to-secondary-600 text-white border-none rounded-lg text-body-content font-medium cursor-pointer transition-[150ms] hover:opacity-90"
+					onclick={openModal}
+				>
 					<i class="fas fa-plus"></i>
 					Add Employees
 				</button>
 			</div>
 		{:else}
-			<div class="employees-table-wrapper">
-				<table class="employees-table">
+			<div class="overflow-x-auto">
+				<table class="w-full border-collapse">
 					<thead>
 						<tr>
-							<th>Name</th>
-							<th>Province</th>
-							<th>Compensation</th>
-							<th>Type</th>
-							<th></th>
+							<th class="py-3 px-4 text-left border-b border-surface-100 text-auxiliary-text font-medium text-surface-500 uppercase tracking-wider">Name</th>
+							<th class="py-3 px-4 text-left border-b border-surface-100 text-auxiliary-text font-medium text-surface-500 uppercase tracking-wider">Province</th>
+							<th class="py-3 px-4 text-left border-b border-surface-100 text-auxiliary-text font-medium text-surface-500 uppercase tracking-wider max-sm:hidden">Compensation</th>
+							<th class="py-3 px-4 text-left border-b border-surface-100 text-auxiliary-text font-medium text-surface-500 uppercase tracking-wider max-sm:hidden">Type</th>
+							<th class="py-3 px-4 text-left border-b border-surface-100 text-auxiliary-text font-medium text-surface-500 uppercase tracking-wider w-10"></th>
 						</tr>
 					</thead>
 					<tbody>
 						{#each employees as employee (employee.id)}
-							<tr>
-								<td class="name-cell">
-									<span class="employee-name">{employee.firstName} {employee.lastName}</span>
+							<tr class="hover:bg-surface-50">
+								<td class="py-3 px-4 text-left border-b border-surface-100 flex flex-col gap-0.5">
+									<span class="font-medium text-surface-800">{employee.firstName} {employee.lastName}</span>
 									{#if employee.email}
-										<span class="employee-email">{employee.email}</span>
+										<span class="text-auxiliary-text text-surface-500">{employee.email}</span>
 									{/if}
 								</td>
-								<td>{PROVINCE_LABELS[employee.provinceOfEmployment]}</td>
-								<td>{formatCompensation(employee)}</td>
-								<td>
-									<span class="type-badge {employee.employmentType}">
+								<td class="py-3 px-4 text-left border-b border-surface-100">{PROVINCE_LABELS[employee.provinceOfEmployment]}</td>
+								<td class="py-3 px-4 text-left border-b border-surface-100 max-sm:hidden">{formatCompensation(employee)}</td>
+								<td class="py-3 px-4 text-left border-b border-surface-100 max-sm:hidden">
+									<span class="inline-block py-1 px-2 rounded-full text-auxiliary-text font-medium {employee.employmentType === 'full_time' ? 'bg-success-50 text-success-700' : 'bg-info-50 text-info-700'}">
 										{employee.employmentType === 'full_time' ? 'Full-time' : 'Part-time'}
 									</span>
 								</td>
-								<td class="action-cell">
+								<td class="py-3 px-4 text-right border-b border-surface-100 w-10">
 									<button
-										class="btn-remove"
+										class="w-7 h-7 rounded-md bg-transparent border-none text-surface-400 cursor-pointer transition-[150ms] hover:bg-error-50 hover:text-error-600 disabled:cursor-not-allowed"
 										onclick={() => handleRemove(employee.id, `${employee.firstName} ${employee.lastName}`)}
 										disabled={isRemoving === employee.id}
 									>
@@ -239,49 +248,57 @@
 {#if showModal}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div class="modal-overlay" onclick={closeModal}>
-		<div class="modal-content" onclick={(e) => e.stopPropagation()}>
-			<div class="modal-header">
-				<h3>Add Employees to {payGroup.name}</h3>
-				<button class="btn-close" onclick={closeModal}>
+	<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] p-4" onclick={closeModal}>
+		<div class="bg-white rounded-xl w-full max-w-[500px] max-h-[80vh] flex flex-col shadow-md3-3" onclick={(e) => e.stopPropagation()}>
+			<div class="flex justify-between items-center p-4 px-5 border-b border-surface-100">
+				<h3 class="m-0 text-title-small font-semibold text-surface-800">Add Employees to {payGroup.name}</h3>
+				<button
+					class="w-8 h-8 rounded-md bg-transparent border-none text-surface-500 cursor-pointer transition-[150ms] hover:bg-surface-100"
+					onclick={closeModal}
+				>
 					<i class="fas fa-times"></i>
 				</button>
 			</div>
 
-			<div class="modal-body">
+			<div class="flex-1 overflow-y-auto p-4 px-5">
 				{#if unassignedEmployees.length === 0}
-					<div class="modal-empty">
-						<i class="fas fa-info-circle"></i>
-						<p>No unassigned employees available.</p>
-						<p class="hint">All employees are already assigned to a pay group, or you need to add employees first.</p>
-						<a href="/employees" class="btn-go-employees">
+					<div class="flex flex-col items-center text-center p-6">
+						<i class="fas fa-info-circle text-[32px] text-surface-400 mb-4"></i>
+						<p class="text-surface-600 m-0">No unassigned employees available.</p>
+						<p class="text-auxiliary-text text-surface-500 mt-2">All employees are already assigned to a pay group, or you need to add employees first.</p>
+						<a
+							href="/employees"
+							class="inline-flex items-center gap-2 mt-4 py-3 px-4 bg-primary-500 text-white rounded-md no-underline text-body-content font-medium transition-[150ms] hover:bg-primary-600"
+						>
 							<i class="fas fa-arrow-right"></i>
 							Go to Employees
 						</a>
 					</div>
 				{:else}
-					<div class="select-all-row">
-						<label class="checkbox-label">
+					<div class="pb-3 border-b border-surface-100 mb-3">
+						<label class="flex items-center gap-2 cursor-pointer">
 							<input
 								type="checkbox"
+								class="w-[18px] h-[18px] accent-primary-500"
 								checked={selectedIds.size === unassignedEmployees.length}
 								onchange={toggleSelectAll}
 							/>
-							<span>Select All ({unassignedEmployees.length})</span>
+							<span class="text-body-content text-surface-700">Select All ({unassignedEmployees.length})</span>
 						</label>
 					</div>
 
-					<div class="employees-list">
+					<div class="flex flex-col gap-2">
 						{#each unassignedEmployees as employee (employee.id)}
-							<label class="employee-row">
+							<label class="flex items-center gap-3 p-3 rounded-md cursor-pointer transition-[150ms] hover:bg-surface-50">
 								<input
 									type="checkbox"
+									class="w-[18px] h-[18px] accent-primary-500"
 									checked={selectedIds.has(employee.id)}
 									onchange={() => toggleSelect(employee.id)}
 								/>
-								<div class="employee-info">
-									<span class="name">{employee.firstName} {employee.lastName}</span>
-									<span class="details">
+								<div class="flex flex-col gap-0.5">
+									<span class="font-medium text-surface-800">{employee.firstName} {employee.lastName}</span>
+									<span class="text-auxiliary-text text-surface-500">
 										{PROVINCE_LABELS[employee.provinceOfEmployment]} · {formatCompensation(employee)}
 									</span>
 								</div>
@@ -292,10 +309,15 @@
 			</div>
 
 			{#if unassignedEmployees.length > 0}
-				<div class="modal-footer">
-					<button class="btn-cancel" onclick={closeModal}>Cancel</button>
+				<div class="flex justify-end gap-3 p-4 px-5 border-t border-surface-100">
 					<button
-						class="btn-assign"
+						class="py-2 px-4 bg-transparent text-surface-600 border border-surface-200 rounded-md text-body-content font-medium cursor-pointer transition-[150ms] hover:bg-surface-100"
+						onclick={closeModal}
+					>
+						Cancel
+					</button>
+					<button
+						class="inline-flex items-center gap-2 py-2 px-4 bg-primary-500 text-white border-none rounded-md text-body-content font-medium cursor-pointer transition-[150ms] hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
 						onclick={handleAssign}
 						disabled={selectedIds.size === 0 || isAssigning}
 					>
@@ -312,459 +334,3 @@
 		</div>
 	</div>
 {/if}
-
-<style>
-	.employees-section {
-		background: white;
-		border-radius: var(--radius-xl);
-		box-shadow: var(--shadow-md3-1);
-		overflow: hidden;
-	}
-
-	.section-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: var(--spacing-4) var(--spacing-5);
-		background: var(--color-surface-50);
-		border-bottom: 1px solid var(--color-surface-100);
-	}
-
-	.section-title {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		font-size: var(--font-size-title-medium);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-		margin: 0;
-	}
-
-	.section-title i {
-		color: var(--color-primary-500);
-	}
-
-	.employee-count {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-normal);
-		color: var(--color-surface-500);
-	}
-
-	.btn-add {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-2) var(--spacing-4);
-		background: var(--color-primary-500);
-		color: white;
-		border: none;
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-add:hover {
-		background: var(--color-primary-600);
-	}
-
-	.section-content {
-		padding: var(--spacing-5);
-	}
-
-	/* Error Message */
-	.error-message {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-3) var(--spacing-4);
-		background: var(--color-error-50);
-		color: var(--color-error-700);
-		border-radius: var(--radius-md);
-		margin-bottom: var(--spacing-4);
-	}
-
-	.error-message .btn-dismiss {
-		margin-left: auto;
-		background: none;
-		border: none;
-		color: var(--color-error-500);
-		cursor: pointer;
-	}
-
-	/* Loading State */
-	.loading-state {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-8);
-		color: var(--color-surface-500);
-	}
-
-	/* Empty State */
-	.empty-state {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		padding: var(--spacing-8) var(--spacing-4);
-		text-align: center;
-	}
-
-	.empty-icon {
-		width: 64px;
-		height: 64px;
-		border-radius: 50%;
-		background: var(--color-surface-100);
-		color: var(--color-surface-400);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 24px;
-		margin-bottom: var(--spacing-4);
-	}
-
-	.empty-state p {
-		color: var(--color-surface-600);
-		margin: 0 0 var(--spacing-4);
-	}
-
-	.btn-add-empty {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-3) var(--spacing-5);
-		background: var(--gradient-primary);
-		color: white;
-		border: none;
-		border-radius: var(--radius-lg);
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-add-empty:hover {
-		opacity: 0.9;
-	}
-
-	/* Employees Table */
-	.employees-table-wrapper {
-		overflow-x: auto;
-	}
-
-	.employees-table {
-		width: 100%;
-		border-collapse: collapse;
-	}
-
-	.employees-table th,
-	.employees-table td {
-		padding: var(--spacing-3) var(--spacing-4);
-		text-align: left;
-		border-bottom: 1px solid var(--color-surface-100);
-	}
-
-	.employees-table th {
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-500);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-	}
-
-	.employees-table tbody tr:hover {
-		background: var(--color-surface-50);
-	}
-
-	.name-cell {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.employee-name {
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-800);
-	}
-
-	.employee-email {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	.type-badge {
-		display: inline-block;
-		padding: var(--spacing-1) var(--spacing-2);
-		border-radius: var(--radius-full);
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-medium);
-	}
-
-	.type-badge.full_time {
-		background: var(--color-success-50);
-		color: var(--color-success-700);
-	}
-
-	.type-badge.part_time {
-		background: var(--color-info-50);
-		color: var(--color-info-700);
-	}
-
-	.action-cell {
-		text-align: right;
-		width: 40px;
-	}
-
-	.btn-remove {
-		width: 28px;
-		height: 28px;
-		border-radius: var(--radius-md);
-		background: transparent;
-		border: none;
-		color: var(--color-surface-400);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-remove:hover:not(:disabled) {
-		background: var(--color-error-50);
-		color: var(--color-error-600);
-	}
-
-	.btn-remove:disabled {
-		cursor: not-allowed;
-	}
-
-	/* Modal */
-	.modal-overlay {
-		position: fixed;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.5);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 1000;
-		padding: var(--spacing-4);
-	}
-
-	.modal-content {
-		background: white;
-		border-radius: var(--radius-xl);
-		width: 100%;
-		max-width: 500px;
-		max-height: 80vh;
-		display: flex;
-		flex-direction: column;
-		box-shadow: var(--shadow-md3-3);
-	}
-
-	.modal-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: var(--spacing-4) var(--spacing-5);
-		border-bottom: 1px solid var(--color-surface-100);
-	}
-
-	.modal-header h3 {
-		margin: 0;
-		font-size: var(--font-size-title-small);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-	}
-
-	.btn-close {
-		width: 32px;
-		height: 32px;
-		border-radius: var(--radius-md);
-		background: transparent;
-		border: none;
-		color: var(--color-surface-500);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-close:hover {
-		background: var(--color-surface-100);
-	}
-
-	.modal-body {
-		flex: 1;
-		overflow-y: auto;
-		padding: var(--spacing-4) var(--spacing-5);
-	}
-
-	.modal-empty {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		text-align: center;
-		padding: var(--spacing-6);
-	}
-
-	.modal-empty i {
-		font-size: 32px;
-		color: var(--color-surface-400);
-		margin-bottom: var(--spacing-4);
-	}
-
-	.modal-empty p {
-		color: var(--color-surface-600);
-		margin: 0;
-	}
-
-	.modal-empty .hint {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-		margin-top: var(--spacing-2);
-	}
-
-	.btn-go-employees {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		margin-top: var(--spacing-4);
-		padding: var(--spacing-3) var(--spacing-4);
-		background: var(--color-primary-500);
-		color: white;
-		border-radius: var(--radius-md);
-		text-decoration: none;
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		transition: var(--transition-fast);
-	}
-
-	.btn-go-employees:hover {
-		background: var(--color-primary-600);
-	}
-
-	.select-all-row {
-		padding-bottom: var(--spacing-3);
-		border-bottom: 1px solid var(--color-surface-100);
-		margin-bottom: var(--spacing-3);
-	}
-
-	.employees-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-2);
-	}
-
-	.employee-row {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-		padding: var(--spacing-3);
-		border-radius: var(--radius-md);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.employee-row:hover {
-		background: var(--color-surface-50);
-	}
-
-	.employee-row input[type='checkbox'] {
-		width: 18px;
-		height: 18px;
-		accent-color: var(--color-primary-500);
-	}
-
-	.employee-info {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.employee-info .name {
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-800);
-	}
-
-	.employee-info .details {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	.checkbox-label {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		cursor: pointer;
-	}
-
-	.checkbox-label span {
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-700);
-	}
-
-	.modal-footer {
-		display: flex;
-		justify-content: flex-end;
-		gap: var(--spacing-3);
-		padding: var(--spacing-4) var(--spacing-5);
-		border-top: 1px solid var(--color-surface-100);
-	}
-
-	.btn-cancel {
-		padding: var(--spacing-2) var(--spacing-4);
-		background: transparent;
-		color: var(--color-surface-600);
-		border: 1px solid var(--color-surface-200);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-cancel:hover {
-		background: var(--color-surface-100);
-	}
-
-	.btn-assign {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-2) var(--spacing-4);
-		background: var(--color-primary-500);
-		color: white;
-		border: none;
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-assign:hover:not(:disabled) {
-		background: var(--color-primary-600);
-	}
-
-	.btn-assign:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	@media (max-width: 640px) {
-		.section-header {
-			flex-direction: column;
-			gap: var(--spacing-3);
-			align-items: flex-start;
-		}
-
-		.btn-add {
-			width: 100%;
-			justify-content: center;
-		}
-
-		.employees-table th:nth-child(3),
-		.employees-table td:nth-child(3),
-		.employees-table th:nth-child(4),
-		.employees-table td:nth-child(4) {
-			display: none;
-		}
-	}
-</style>

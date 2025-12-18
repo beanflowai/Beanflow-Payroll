@@ -289,103 +289,99 @@
 	}
 </script>
 
-<form class="employee-form" onsubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+<form class="flex flex-col gap-6" onsubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
 	{#if submitError}
-		<div class="error-banner">
+		<div class="flex items-center gap-3 p-4 bg-error-50 border border-error-200 rounded-lg text-error-700">
 			<i class="fas fa-exclamation-circle"></i>
-			<span>{submitError}</span>
-			<button type="button" class="error-dismiss" onclick={() => submitError = null}>
+			<span class="flex-1">{submitError}</span>
+			<button type="button" class="bg-transparent border-none text-error-500 cursor-pointer p-1 opacity-70 hover:opacity-100" onclick={() => submitError = null}>
 				<i class="fas fa-times"></i>
 			</button>
 		</div>
 	{/if}
 
 	<!-- Section 1: Personal Information -->
-	<section class="form-section">
-		<h3 class="section-title">Personal Information</h3>
-		<div class="form-grid">
-			<div class="form-group">
-				<label for="firstName" class="form-label">First Name *</label>
+	<section class="bg-white rounded-xl p-6 shadow-md3-1">
+		<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">Personal Information</h3>
+		<div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+			<div class="flex flex-col gap-2">
+				<label for="firstName" class="text-body-small font-medium text-surface-700">First Name *</label>
 				<input
 					id="firstName"
 					type="text"
-					class="form-input"
-					class:error={errors.firstName}
+					class="p-3 border rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10 {errors.firstName ? 'border-error-500' : 'border-surface-300'}"
 					bind:value={firstName}
 				/>
 				{#if errors.firstName}
-					<span class="error-message">{errors.firstName}</span>
+					<span class="text-auxiliary-text text-error-600">{errors.firstName}</span>
 				{/if}
 			</div>
 
-			<div class="form-group">
-				<label for="lastName" class="form-label">Last Name *</label>
+			<div class="flex flex-col gap-2">
+				<label for="lastName" class="text-body-small font-medium text-surface-700">Last Name *</label>
 				<input
 					id="lastName"
 					type="text"
-					class="form-input"
-					class:error={errors.lastName}
+					class="p-3 border rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10 {errors.lastName ? 'border-error-500' : 'border-surface-300'}"
 					bind:value={lastName}
 				/>
 				{#if errors.lastName}
-					<span class="error-message">{errors.lastName}</span>
+					<span class="text-auxiliary-text text-error-600">{errors.lastName}</span>
 				{/if}
 			</div>
 
-			<div class="form-group">
-				<label for="sin" class="form-label">SIN {mode === 'create' ? '*' : ''}</label>
+			<div class="flex flex-col gap-2">
+				<label for="sin" class="text-body-small font-medium text-surface-700">SIN {mode === 'create' ? '*' : ''}</label>
 				{#if mode === 'create'}
 					<input
 						id="sin"
 						type="text"
-						class="form-input"
-						class:error={errors.sin}
+						class="p-3 border rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10 {errors.sin ? 'border-error-500' : 'border-surface-300'}"
 						bind:value={sin}
 						placeholder="123-456-789"
 						maxlength="11"
 					/>
 					{#if errors.sin}
-						<span class="error-message">{errors.sin}</span>
+						<span class="text-auxiliary-text text-error-600">{errors.sin}</span>
 					{/if}
 				{:else}
 					<input
 						id="sin"
 						type="text"
-						class="form-input readonly"
+						class="p-3 border border-surface-300 rounded-md text-body-content bg-surface-100 text-surface-500 cursor-not-allowed"
 						value={employee?.sin ?? '***-***-***'}
 						readonly
 						disabled
 					/>
-					<span class="field-hint">SIN cannot be changed after creation</span>
+					<span class="text-auxiliary-text text-surface-500">SIN cannot be changed after creation</span>
 				{/if}
 			</div>
 
-			<div class="form-group">
-				<label for="email" class="form-label">Email</label>
+			<div class="flex flex-col gap-2">
+				<label for="email" class="text-body-small font-medium text-surface-700">Email</label>
 				<input
 					id="email"
 					type="email"
-					class="form-input"
-					class:error={errors.email}
+					class="p-3 border rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10 {errors.email ? 'border-error-500' : 'border-surface-300'}"
 					bind:value={email}
 					placeholder="employee@company.com"
 				/>
 				{#if errors.email}
-					<span class="error-message">{errors.email}</span>
+					<span class="text-auxiliary-text text-error-600">{errors.email}</span>
 				{/if}
 			</div>
 		</div>
 	</section>
 
 	<!-- Section 2: Employment Details -->
-	<section class="form-section">
-		<h3 class="section-title">Employment Details</h3>
-		<div class="form-grid">
-			<div class="form-group">
-				<label for="payGroup" class="form-label">Pay Group</label>
+	<section class="bg-white rounded-xl p-6 shadow-md3-1">
+		<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">Employment Details</h3>
+		<div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+			<div class="flex flex-col gap-2">
+				<label for="payGroup" class="text-body-small font-medium text-surface-700">Pay Group</label>
 				<select
 					id="payGroup"
-					class="form-select"
+					class="p-3 border border-surface-300 rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10"
 					bind:value={payGroupId}
 				>
 					<option value="">No pay group (unassigned)</option>
@@ -395,12 +391,11 @@
 				</select>
 			</div>
 
-			<div class="form-group">
-				<label for="province" class="form-label">Province of Employment *</label>
+			<div class="flex flex-col gap-2">
+				<label for="province" class="text-body-small font-medium text-surface-700">Province of Employment *</label>
 				<select
 					id="province"
-					class="form-select"
-					class:error={errors.province}
+					class="p-3 border rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10 {errors.province ? 'border-error-500' : 'border-surface-300'}"
 					value={province}
 					onchange={(e) => handleProvinceChange(e.currentTarget.value as Province)}
 				>
@@ -409,69 +404,68 @@
 					{/each}
 				</select>
 				{#if errors.province}
-					<span class="error-message">{errors.province}</span>
+					<span class="text-auxiliary-text text-error-600">{errors.province}</span>
 				{/if}
 			</div>
 
 			<!-- Inherited from Pay Group (read-only) -->
 			{#if selectedPayGroup}
-				<div class="form-group">
-					<label class="form-label">Pay Frequency</label>
-					<div class="readonly-value">
+				<div class="flex flex-col gap-2">
+					<label class="text-body-small font-medium text-surface-700">Pay Frequency</label>
+					<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600">
 						{PAY_FREQUENCY_LABELS[selectedPayGroup.payFrequency]}
-						<span class="readonly-hint">(from Pay Group)</span>
+						<span class="text-auxiliary-text text-surface-400 ml-2">(from Pay Group)</span>
 					</div>
 				</div>
 
-				<div class="form-group">
-					<label class="form-label">Employment Type</label>
-					<div class="readonly-value">
+				<div class="flex flex-col gap-2">
+					<label class="text-body-small font-medium text-surface-700">Employment Type</label>
+					<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600">
 						{EMPLOYMENT_TYPE_LABELS[selectedPayGroup.employmentType]}
-						<span class="readonly-hint">(from Pay Group)</span>
+						<span class="text-auxiliary-text text-surface-400 ml-2">(from Pay Group)</span>
 					</div>
 				</div>
 			{/if}
 
-			<div class="form-group">
-				<label for="hireDate" class="form-label">Hire Date *</label>
+			<div class="flex flex-col gap-2">
+				<label for="hireDate" class="text-body-small font-medium text-surface-700">Hire Date *</label>
 				<input
 					id="hireDate"
 					type="date"
-					class="form-input"
-					class:error={errors.hireDate}
+					class="p-3 border rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10 {errors.hireDate ? 'border-error-500' : 'border-surface-300'}"
 					bind:value={hireDate}
 				/>
 				{#if errors.hireDate}
-					<span class="error-message">{errors.hireDate}</span>
+					<span class="text-auxiliary-text text-error-600">{errors.hireDate}</span>
 				{/if}
 				{#if hireDate}
-					<span class="field-hint">Years of service: {yearsOfService.toFixed(1)} years</span>
+					<span class="text-auxiliary-text text-surface-500">Years of service: {yearsOfService.toFixed(1)} years</span>
 				{/if}
 			</div>
 
-			<div class="form-group full-width">
-				<label for="tags" class="form-label">Tags</label>
-				<div class="tags-input-container">
-					<div class="tags-list">
+			<div class="flex flex-col gap-2 col-span-full">
+				<label for="tags" class="text-body-small font-medium text-surface-700">Tags</label>
+				<div class="flex flex-col gap-2">
+					<div class="flex flex-wrap gap-2">
 						{#each tags as tag}
-							<span class="tag-chip">
+							<span class="inline-flex items-center gap-1 py-1 px-3 bg-primary-100 text-primary-700 rounded-full text-body-small">
 								{tag}
-								<button type="button" class="tag-remove" onclick={() => removeTag(tag)}>
-									<i class="fas fa-times"></i>
+								<button type="button" class="flex items-center justify-center w-4 h-4 p-0 border-none bg-transparent text-primary-500 cursor-pointer rounded-full hover:bg-primary-200 hover:text-primary-700" onclick={() => removeTag(tag)}>
+									<i class="fas fa-times text-xs"></i>
 								</button>
 							</span>
 						{/each}
 					</div>
-					<div class="tag-input-wrapper">
+					<div class="flex gap-2">
 						<input
 							id="tags"
 							type="text"
-							class="form-input"
+							class="flex-1 p-3 border border-surface-300 rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10"
 							bind:value={newTag}
 							onkeydown={handleTagKeydown}
 							placeholder="Add a tag..."
 						/>
-						<button type="button" class="btn-add-tag" onclick={addTag} disabled={!newTag.trim()}>
+						<button type="button" class="py-2 px-4 border border-surface-300 rounded-md bg-white text-surface-700 text-body-small cursor-pointer transition-[150ms] hover:bg-surface-100 hover:border-surface-400 disabled:opacity-50 disabled:cursor-not-allowed" onclick={addTag} disabled={!newTag.trim()}>
 							Add
 						</button>
 					</div>
@@ -481,13 +475,13 @@
 	</section>
 
 	<!-- Section 3: Compensation -->
-	<section class="form-section">
-		<h3 class="section-title">Compensation</h3>
-		<div class="form-grid">
-			<div class="form-group full-width">
-				<label class="form-label">Compensation Type *</label>
-				<div class="radio-group">
-					<label class="radio-label">
+	<section class="bg-white rounded-xl p-6 shadow-md3-1">
+		<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">Compensation</h3>
+		<div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+			<div class="flex flex-col gap-2 col-span-full">
+				<label class="text-body-small font-medium text-surface-700">Compensation Type *</label>
+				<div class="flex gap-6 flex-wrap max-sm:flex-col max-sm:gap-3">
+					<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
 						<input
 							type="radio"
 							name="compensationType"
@@ -496,7 +490,7 @@
 						/>
 						<span>Annual Salary</span>
 					</label>
-					<label class="radio-label">
+					<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
 						<input
 							type="radio"
 							name="compensationType"
@@ -509,42 +503,40 @@
 			</div>
 
 			{#if compensationType === 'salaried'}
-				<div class="form-group">
-					<label for="annualSalary" class="form-label">Annual Salary *</label>
-					<div class="input-with-prefix">
-						<span class="input-prefix">$</span>
+				<div class="flex flex-col gap-2">
+					<label for="annualSalary" class="text-body-small font-medium text-surface-700">Annual Salary *</label>
+					<div class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10">
+						<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
 						<input
 							id="annualSalary"
 							type="number"
-							class="form-input"
-							class:error={errors.annualSalary}
+							class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
 							bind:value={annualSalary}
 							min="0"
 							step="100"
 						/>
 					</div>
 					{#if errors.annualSalary}
-						<span class="error-message">{errors.annualSalary}</span>
+						<span class="text-auxiliary-text text-error-600">{errors.annualSalary}</span>
 					{/if}
 				</div>
 			{:else}
-				<div class="form-group">
-					<label for="hourlyRate" class="form-label">Hourly Rate *</label>
-					<div class="input-with-prefix">
-						<span class="input-prefix">$</span>
+				<div class="flex flex-col gap-2">
+					<label for="hourlyRate" class="text-body-small font-medium text-surface-700">Hourly Rate *</label>
+					<div class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10">
+						<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
 						<input
 							id="hourlyRate"
 							type="number"
-							class="form-input"
-							class:error={errors.hourlyRate}
+							class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
 							bind:value={hourlyRate}
 							min="0"
 							step="0.01"
 						/>
-						<span class="input-suffix">/hr</span>
+						<span class="p-3 bg-surface-100 text-surface-500 text-body-content">/hr</span>
 					</div>
 					{#if errors.hourlyRate}
-						<span class="error-message">{errors.hourlyRate}</span>
+						<span class="text-auxiliary-text text-error-600">{errors.hourlyRate}</span>
 					{/if}
 				</div>
 			{/if}
@@ -552,68 +544,66 @@
 	</section>
 
 	<!-- Section 4: Tax Information -->
-	<section class="form-section">
-		<h3 class="section-title">Tax Information (TD1)</h3>
-		<p class="section-description">
-			<i class="fas fa-info-circle"></i>
+	<section class="bg-white rounded-xl p-6 shadow-md3-1">
+		<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">Tax Information (TD1)</h3>
+		<p class="text-body-small text-surface-500 m-0 mb-4 flex items-center gap-2">
+			<i class="fas fa-info-circle text-primary-500"></i>
 			Claim amounts are auto-filled with 2025 Basic Personal Amounts when province changes
 		</p>
-		<div class="form-grid">
-			<div class="form-group">
-				<label for="federalClaim" class="form-label">Federal Claim Amount *</label>
-				<div class="input-with-prefix">
-					<span class="input-prefix">$</span>
+		<div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+			<div class="flex flex-col gap-2">
+				<label for="federalClaim" class="text-body-small font-medium text-surface-700">Federal Claim Amount *</label>
+				<div class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10">
+					<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
 					<input
 						id="federalClaim"
 						type="number"
-						class="form-input"
-						class:error={errors.federalClaimAmount}
+						class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
 						bind:value={federalClaimAmount}
 						min="0"
 						step="1"
 					/>
 				</div>
 				{#if errors.federalClaimAmount}
-					<span class="error-message">{errors.federalClaimAmount}</span>
+					<span class="text-auxiliary-text text-error-600">{errors.federalClaimAmount}</span>
 				{/if}
-				<span class="field-hint">2025 BPA: {formatCurrency(FEDERAL_BPA_2025)}</span>
+				<span class="text-auxiliary-text text-surface-500">2025 BPA: {formatCurrency(FEDERAL_BPA_2025)}</span>
 			</div>
 
-			<div class="form-group">
-				<label for="provincialClaim" class="form-label">Provincial Claim Amount *</label>
-				<div class="input-with-prefix">
-					<span class="input-prefix">$</span>
+			<div class="flex flex-col gap-2">
+				<label for="provincialClaim" class="text-body-small font-medium text-surface-700">Provincial Claim Amount *</label>
+				<div class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10">
+					<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
 					<input
 						id="provincialClaim"
 						type="number"
-						class="form-input"
-						class:error={errors.provincialClaimAmount}
+						class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
 						bind:value={provincialClaimAmount}
 						min="0"
 						step="1"
 					/>
 				</div>
 				{#if errors.provincialClaimAmount}
-					<span class="error-message">{errors.provincialClaimAmount}</span>
+					<span class="text-auxiliary-text text-error-600">{errors.provincialClaimAmount}</span>
 				{/if}
-				<span class="field-hint">{PROVINCE_LABELS[province]} BPA: {formatCurrency(PROVINCIAL_BPA_2025[province])}</span>
+				<span class="text-auxiliary-text text-surface-500">{PROVINCE_LABELS[province]} BPA: {formatCurrency(PROVINCIAL_BPA_2025[province])}</span>
 			</div>
 
-			<div class="form-group full-width">
-				<label class="form-label">Exemptions</label>
-				<div class="checkbox-group">
-					<label class="checkbox-label">
+			<div class="flex flex-col gap-2 col-span-full">
+				<label class="text-body-small font-medium text-surface-700">Exemptions</label>
+				<div class="flex gap-6 flex-wrap max-sm:flex-col max-sm:gap-3">
+					<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
 						<input type="checkbox" bind:checked={isCppExempt} />
 						<span>CPP Exempt</span>
 					</label>
-					<label class="checkbox-label">
+					<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
 						<input type="checkbox" bind:checked={isEiExempt} />
 						<span>EI Exempt</span>
 					</label>
-					<label class="checkbox-label">
+					<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
 						<input type="checkbox" bind:checked={cpp2Exempt} />
 						<span>CPP2 Exempt</span>
-						<span class="checkbox-hint" title="CPT30 form on file - exempt from additional CPP contributions">
+						<span class="text-surface-400 cursor-help" title="CPT30 form on file - exempt from additional CPP contributions">
 							<i class="fas fa-info-circle"></i>
 						</span>
 					</label>
@@ -623,17 +613,17 @@
 	</section>
 
 	<!-- Section 5: Optional Deductions -->
-	<section class="form-section">
-		<h3 class="section-title">Optional Deductions</h3>
-		<div class="form-grid">
-			<div class="form-group">
-				<label for="rrsp" class="form-label">RRSP Per Period</label>
-				<div class="input-with-prefix">
-					<span class="input-prefix">$</span>
+	<section class="bg-white rounded-xl p-6 shadow-md3-1">
+		<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">Optional Deductions</h3>
+		<div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+			<div class="flex flex-col gap-2">
+				<label for="rrsp" class="text-body-small font-medium text-surface-700">RRSP Per Period</label>
+				<div class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10">
+					<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
 					<input
 						id="rrsp"
 						type="number"
-						class="form-input"
+						class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
 						bind:value={rrspPerPeriod}
 						min="0"
 						step="0.01"
@@ -641,14 +631,14 @@
 				</div>
 			</div>
 
-			<div class="form-group">
-				<label for="unionDues" class="form-label">Union Dues Per Period</label>
-				<div class="input-with-prefix">
-					<span class="input-prefix">$</span>
+			<div class="flex flex-col gap-2">
+				<label for="unionDues" class="text-body-small font-medium text-surface-700">Union Dues Per Period</label>
+				<div class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10">
+					<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
 					<input
 						id="unionDues"
 						type="number"
-						class="form-input"
+						class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
 						bind:value={unionDuesPerPeriod}
 						min="0"
 						step="0.01"
@@ -659,14 +649,14 @@
 	</section>
 
 	<!-- Section 6: Vacation Settings -->
-	<section class="form-section">
-		<h3 class="section-title">Vacation Settings</h3>
-		<div class="form-grid">
-			<div class="form-group">
-				<label for="vacationRate" class="form-label">Vacation Rate</label>
+	<section class="bg-white rounded-xl p-6 shadow-md3-1">
+		<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">Vacation Settings</h3>
+		<div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+			<div class="flex flex-col gap-2">
+				<label for="vacationRate" class="text-body-small font-medium text-surface-700">Vacation Rate</label>
 				<select
 					id="vacationRate"
-					class="form-select"
+					class="p-3 border border-surface-300 rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10"
 					bind:value={vacationRate}
 				>
 					{#each Object.entries(VACATION_RATE_LABELS) as [rate, label]}
@@ -674,7 +664,7 @@
 					{/each}
 				</select>
 				{#if vacationRate !== '0' && vacationRate !== suggestedRate && hireDate}
-					<span class="field-hint suggestion">
+					<span class="text-auxiliary-text text-primary-600 flex items-center gap-1">
 						<i class="fas fa-lightbulb"></i>
 						Suggested: {VACATION_RATE_LABELS[suggestedRate]} based on {yearsOfService.toFixed(1)} years of service
 					</span>
@@ -682,11 +672,11 @@
 			</div>
 
 			{#if vacationRate !== '0'}
-				<div class="form-group">
-					<label for="vacationMethod" class="form-label">Payout Method</label>
+				<div class="flex flex-col gap-2">
+					<label for="vacationMethod" class="text-body-small font-medium text-surface-700">Payout Method</label>
 					<select
 						id="vacationMethod"
-						class="form-select"
+						class="p-3 border border-surface-300 rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10"
 						bind:value={vacationPayoutMethod}
 					>
 						<option value="accrual">Accrual (pay when vacation taken)</option>
@@ -696,27 +686,27 @@
 
 				{#if vacationPayoutMethod === 'accrual'}
 					{#if mode === 'create'}
-						<div class="form-group">
-							<label for="vacationBalance" class="form-label">Initial Vacation Balance</label>
-							<div class="input-with-prefix">
-								<span class="input-prefix">$</span>
+						<div class="flex flex-col gap-2">
+							<label for="vacationBalance" class="text-body-small font-medium text-surface-700">Initial Vacation Balance</label>
+							<div class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10">
+								<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
 								<input
 									id="vacationBalance"
 									type="number"
-									class="form-input"
+									class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
 									bind:value={vacationBalance}
 									min="0"
 									step="0.01"
 								/>
 							</div>
-							<span class="field-hint">Opening balance for vacation pay accrual</span>
+							<span class="text-auxiliary-text text-surface-500">Opening balance for vacation pay accrual</span>
 						</div>
 					{:else}
-						<div class="form-group">
-							<label class="form-label">Current Balance</label>
-							<div class="readonly-value">
+						<div class="flex flex-col gap-2">
+							<label class="text-body-small font-medium text-surface-700">Current Balance</label>
+							<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600">
 								{formatCurrency(employee?.vacationBalance ?? 0)}
-								<span class="readonly-hint">(managed by payroll)</span>
+								<span class="text-auxiliary-text text-surface-400 ml-2">(managed by payroll)</span>
 							</div>
 						</div>
 					{/if}
@@ -731,290 +721,3 @@
 
 <!-- Expose submit function to parent -->
 <svelte:options accessors={true} />
-
-<style>
-	.employee-form {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-6);
-	}
-
-	.error-banner {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-		padding: var(--spacing-4);
-		background: var(--color-error-50, #fef2f2);
-		border: 1px solid var(--color-error-200, #fecaca);
-		border-radius: var(--radius-lg);
-		color: var(--color-error-700, #b91c1c);
-	}
-
-	.error-banner span {
-		flex: 1;
-	}
-
-	.error-dismiss {
-		background: none;
-		border: none;
-		color: var(--color-error-500, #ef4444);
-		cursor: pointer;
-		padding: var(--spacing-1);
-		opacity: 0.7;
-	}
-
-	.error-dismiss:hover {
-		opacity: 1;
-	}
-
-	.form-section {
-		background: white;
-		border-radius: var(--radius-xl);
-		padding: var(--spacing-6);
-		box-shadow: var(--shadow-md3-1);
-	}
-
-	.section-title {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-700);
-		margin: 0 0 var(--spacing-4);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-	}
-
-	.section-description {
-		font-size: var(--font-size-body-small);
-		color: var(--color-surface-500);
-		margin: 0 0 var(--spacing-4);
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-	}
-
-	.section-description i {
-		color: var(--color-primary-500);
-	}
-
-	.form-grid {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: var(--spacing-4);
-	}
-
-	.form-group {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-2);
-	}
-
-	.form-group.full-width {
-		grid-column: 1 / -1;
-	}
-
-	.form-label {
-		font-size: var(--font-size-body-small);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-700);
-	}
-
-	.form-input,
-	.form-select {
-		padding: var(--spacing-3);
-		border: 1px solid var(--color-surface-300);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-content);
-		transition: var(--transition-fast);
-	}
-
-	.form-input:focus,
-	.form-select:focus {
-		outline: none;
-		border-color: var(--color-primary-500);
-		box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-	}
-
-	.form-input.error,
-	.form-select.error {
-		border-color: var(--color-error-500, #ef4444);
-	}
-
-	.form-input.readonly {
-		background: var(--color-surface-100);
-		color: var(--color-surface-500);
-		cursor: not-allowed;
-	}
-
-	.error-message {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-error-600, #dc2626);
-	}
-
-	.field-hint {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	.field-hint.suggestion {
-		color: var(--color-primary-600);
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-1);
-	}
-
-	.readonly-value {
-		padding: var(--spacing-3);
-		background: var(--color-surface-100);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-600);
-	}
-
-	.readonly-hint {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-400);
-		margin-left: var(--spacing-2);
-	}
-
-	/* Input with prefix/suffix */
-	.input-with-prefix {
-		display: flex;
-		align-items: center;
-		border: 1px solid var(--color-surface-300);
-		border-radius: var(--radius-md);
-		overflow: hidden;
-		transition: var(--transition-fast);
-	}
-
-	.input-with-prefix:focus-within {
-		border-color: var(--color-primary-500);
-		box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-	}
-
-	.input-prefix,
-	.input-suffix {
-		padding: var(--spacing-3);
-		background: var(--color-surface-100);
-		color: var(--color-surface-500);
-		font-size: var(--font-size-body-content);
-	}
-
-	.input-with-prefix .form-input {
-		border: none;
-		border-radius: 0;
-		flex: 1;
-	}
-
-	.input-with-prefix .form-input:focus {
-		box-shadow: none;
-	}
-
-	/* Radio and Checkbox groups */
-	.radio-group,
-	.checkbox-group {
-		display: flex;
-		gap: var(--spacing-6);
-		flex-wrap: wrap;
-	}
-
-	.radio-label,
-	.checkbox-label {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-700);
-		cursor: pointer;
-	}
-
-	.checkbox-hint {
-		color: var(--color-surface-400);
-		cursor: help;
-	}
-
-	/* Tags */
-	.tags-input-container {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-2);
-	}
-
-	.tags-list {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--spacing-2);
-	}
-
-	.tag-chip {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-1);
-		padding: var(--spacing-1) var(--spacing-3);
-		background: var(--color-primary-100);
-		color: var(--color-primary-700);
-		border-radius: var(--radius-full);
-		font-size: var(--font-size-body-small);
-	}
-
-	.tag-remove {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 16px;
-		height: 16px;
-		padding: 0;
-		border: none;
-		background: transparent;
-		color: var(--color-primary-500);
-		cursor: pointer;
-		border-radius: var(--radius-full);
-	}
-
-	.tag-remove:hover {
-		background: var(--color-primary-200);
-		color: var(--color-primary-700);
-	}
-
-	.tag-input-wrapper {
-		display: flex;
-		gap: var(--spacing-2);
-	}
-
-	.tag-input-wrapper .form-input {
-		flex: 1;
-	}
-
-	.btn-add-tag {
-		padding: var(--spacing-2) var(--spacing-4);
-		border: 1px solid var(--color-surface-300);
-		border-radius: var(--radius-md);
-		background: white;
-		color: var(--color-surface-700);
-		font-size: var(--font-size-body-small);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-add-tag:hover:not(:disabled) {
-		background: var(--color-surface-100);
-		border-color: var(--color-surface-400);
-	}
-
-	.btn-add-tag:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	/* Responsive */
-	@media (max-width: 640px) {
-		.form-grid {
-			grid-template-columns: 1fr;
-		}
-
-		.radio-group,
-		.checkbox-group {
-			flex-direction: column;
-			gap: var(--spacing-3);
-		}
-	}
-</style>

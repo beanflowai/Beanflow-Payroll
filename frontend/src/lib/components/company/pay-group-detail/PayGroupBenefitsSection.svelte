@@ -113,19 +113,19 @@
 	] as const;
 </script>
 
-<section class="info-section">
-	<div class="section-header">
-		<h2 class="section-title">
-			<i class="fas fa-heartbeat"></i>
+<section class="bg-white rounded-xl shadow-md3-1 overflow-hidden">
+	<div class="flex justify-between items-center py-4 px-5 bg-surface-50 border-b border-surface-100 max-md:flex-col max-md:gap-3 max-md:items-start">
+		<h2 class="flex items-center gap-2 text-title-medium font-semibold text-surface-800 m-0">
+			<i class="fas fa-heartbeat text-success-500"></i>
 			Group Benefits
 		</h2>
 		{#if isEditing}
-			<div class="header-actions">
-				<button class="btn-cancel" onclick={cancelEdit}>Cancel</button>
-				<button class="btn-save" onclick={saveChanges}>Save</button>
+			<div class="flex gap-2 max-md:w-full">
+				<button class="inline-flex items-center gap-2 py-2 px-4 rounded-md text-auxiliary-text font-medium cursor-pointer transition-[150ms] bg-transparent text-surface-600 border border-surface-200 hover:bg-surface-100 max-md:flex-1" onclick={cancelEdit}>Cancel</button>
+				<button class="inline-flex items-center gap-2 py-2 px-4 rounded-md text-auxiliary-text font-medium cursor-pointer transition-[150ms] bg-primary-500 text-white border-none hover:bg-primary-600 max-md:flex-1" onclick={saveChanges}>Save</button>
 			</div>
 		{:else}
-			<button class="btn-edit" onclick={enterEditMode}>
+			<button class="inline-flex items-center gap-2 py-2 px-4 rounded-md text-auxiliary-text font-medium cursor-pointer transition-[150ms] bg-transparent text-primary-600 border border-primary-200 hover:bg-primary-50 hover:border-primary-300" onclick={enterEditMode}>
 				<i class="fas fa-pen"></i>
 				Edit
 			</button>
@@ -133,9 +133,9 @@
 	</div>
 
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="section-content" ondblclick={handleDoubleClick}>
-		<div class="section-description">
-			<i class="fas fa-info-circle"></i>
+	<div class="p-5" ondblclick={handleDoubleClick}>
+		<div class="flex items-start gap-2 py-3 px-4 bg-surface-50 rounded-md mb-4 text-body-content text-surface-600">
+			<i class="fas fa-info-circle text-primary-500 mt-0.5"></i>
 			<span>
 				Configure default benefit deductions and employer contributions for employees in this pay
 				group. Individual employees can have benefits adjusted on their profiles.
@@ -144,13 +144,13 @@
 
 		{#if isEditing}
 			<!-- Edit Mode -->
-			<div class="benefits-form">
-				<div class="toggle-card main-toggle">
-					<label class="toggle-label">
-						<input type="checkbox" bind:checked={editEnabled} />
-						<span class="toggle-content">
-							<span class="toggle-title">Enable Group Benefits</span>
-							<span class="toggle-description">
+			<div class="flex flex-col gap-4">
+				<div class="p-4 bg-success-50 rounded-lg border border-success-100">
+					<label class="flex items-start gap-3 cursor-pointer">
+						<input type="checkbox" class="w-5 h-5 mt-0.5 accent-primary-500 shrink-0" bind:checked={editEnabled} />
+						<span class="flex flex-col gap-1">
+							<span class="text-body-content font-medium text-surface-800">Enable Group Benefits</span>
+							<span class="text-auxiliary-text text-surface-500">
 								Apply benefit deductions to employees in this pay group
 							</span>
 						</span>
@@ -158,36 +158,36 @@
 				</div>
 
 				{#if editEnabled}
-					<div class="benefits-list">
+					<div class="flex flex-col gap-3">
 						<!-- Health -->
-						<div class="benefit-card" class:disabled={!editHealth.enabled}>
-							<div class="benefit-header">
-								<label class="benefit-toggle">
-									<input type="checkbox" bind:checked={editHealth.enabled} />
-									<i class="fas fa-heart"></i>
+						<div class="p-4 rounded-lg border transition-[150ms] {editHealth.enabled ? 'bg-white border-surface-200' : 'bg-surface-50 border-surface-200'}">
+							<div class="mb-3">
+								<label class="flex items-center gap-2 cursor-pointer text-body-content font-medium text-surface-800">
+									<input type="checkbox" class="w-[18px] h-[18px] accent-primary-500" bind:checked={editHealth.enabled} />
+									<i class="fas fa-heart text-primary-500"></i>
 									<span>Health</span>
 								</label>
 							</div>
 							{#if editHealth.enabled}
-								<div class="benefit-fields">
-									<div class="field-row">
-										<div class="form-field">
-											<label>Employee Deduction</label>
-											<div class="input-with-prefix">
-												<span class="prefix">$</span>
-												<input type="number" bind:value={editHealth.employeeDeduction} min="0" step="1" />
+								<div class="flex flex-col gap-3 pl-6 border-l-2 border-primary-100">
+									<div class="grid grid-cols-2 gap-3 max-md:grid-cols-1">
+										<div class="flex flex-col gap-1">
+											<label class="text-auxiliary-text text-surface-500">Employee Deduction</label>
+											<div class="flex items-stretch">
+												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
+												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editHealth.employeeDeduction} min="0" step="1" />
 											</div>
 										</div>
-										<div class="form-field">
-											<label>Employer Contribution</label>
-											<div class="input-with-prefix">
-												<span class="prefix">$</span>
-												<input type="number" bind:value={editHealth.employerContribution} min="0" step="1" />
+										<div class="flex flex-col gap-1">
+											<label class="text-auxiliary-text text-surface-500">Employer Contribution</label>
+											<div class="flex items-stretch">
+												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
+												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editHealth.employerContribution} min="0" step="1" />
 											</div>
 										</div>
 									</div>
-									<label class="taxable-toggle">
-										<input type="checkbox" bind:checked={editHealth.isTaxable} />
+									<label class="flex items-center gap-2 text-auxiliary-text text-surface-600 cursor-pointer">
+										<input type="checkbox" class="w-4 h-4 accent-warning-500" bind:checked={editHealth.isTaxable} />
 										<span>Employer portion is taxable benefit</span>
 									</label>
 								</div>
@@ -195,34 +195,34 @@
 						</div>
 
 						<!-- Dental -->
-						<div class="benefit-card" class:disabled={!editDental.enabled}>
-							<div class="benefit-header">
-								<label class="benefit-toggle">
-									<input type="checkbox" bind:checked={editDental.enabled} />
-									<i class="fas fa-tooth"></i>
+						<div class="p-4 rounded-lg border transition-[150ms] {editDental.enabled ? 'bg-white border-surface-200' : 'bg-surface-50 border-surface-200'}">
+							<div class="mb-3">
+								<label class="flex items-center gap-2 cursor-pointer text-body-content font-medium text-surface-800">
+									<input type="checkbox" class="w-[18px] h-[18px] accent-primary-500" bind:checked={editDental.enabled} />
+									<i class="fas fa-tooth text-primary-500"></i>
 									<span>Dental</span>
 								</label>
 							</div>
 							{#if editDental.enabled}
-								<div class="benefit-fields">
-									<div class="field-row">
-										<div class="form-field">
-											<label>Employee Deduction</label>
-											<div class="input-with-prefix">
-												<span class="prefix">$</span>
-												<input type="number" bind:value={editDental.employeeDeduction} min="0" step="1" />
+								<div class="flex flex-col gap-3 pl-6 border-l-2 border-primary-100">
+									<div class="grid grid-cols-2 gap-3 max-md:grid-cols-1">
+										<div class="flex flex-col gap-1">
+											<label class="text-auxiliary-text text-surface-500">Employee Deduction</label>
+											<div class="flex items-stretch">
+												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
+												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editDental.employeeDeduction} min="0" step="1" />
 											</div>
 										</div>
-										<div class="form-field">
-											<label>Employer Contribution</label>
-											<div class="input-with-prefix">
-												<span class="prefix">$</span>
-												<input type="number" bind:value={editDental.employerContribution} min="0" step="1" />
+										<div class="flex flex-col gap-1">
+											<label class="text-auxiliary-text text-surface-500">Employer Contribution</label>
+											<div class="flex items-stretch">
+												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
+												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editDental.employerContribution} min="0" step="1" />
 											</div>
 										</div>
 									</div>
-									<label class="taxable-toggle">
-										<input type="checkbox" bind:checked={editDental.isTaxable} />
+									<label class="flex items-center gap-2 text-auxiliary-text text-surface-600 cursor-pointer">
+										<input type="checkbox" class="w-4 h-4 accent-warning-500" bind:checked={editDental.isTaxable} />
 										<span>Employer portion is taxable benefit</span>
 									</label>
 								</div>
@@ -230,34 +230,34 @@
 						</div>
 
 						<!-- Vision -->
-						<div class="benefit-card" class:disabled={!editVision.enabled}>
-							<div class="benefit-header">
-								<label class="benefit-toggle">
-									<input type="checkbox" bind:checked={editVision.enabled} />
-									<i class="fas fa-eye"></i>
+						<div class="p-4 rounded-lg border transition-[150ms] {editVision.enabled ? 'bg-white border-surface-200' : 'bg-surface-50 border-surface-200'}">
+							<div class="mb-3">
+								<label class="flex items-center gap-2 cursor-pointer text-body-content font-medium text-surface-800">
+									<input type="checkbox" class="w-[18px] h-[18px] accent-primary-500" bind:checked={editVision.enabled} />
+									<i class="fas fa-eye text-primary-500"></i>
 									<span>Vision</span>
 								</label>
 							</div>
 							{#if editVision.enabled}
-								<div class="benefit-fields">
-									<div class="field-row">
-										<div class="form-field">
-											<label>Employee Deduction</label>
-											<div class="input-with-prefix">
-												<span class="prefix">$</span>
-												<input type="number" bind:value={editVision.employeeDeduction} min="0" step="1" />
+								<div class="flex flex-col gap-3 pl-6 border-l-2 border-primary-100">
+									<div class="grid grid-cols-2 gap-3 max-md:grid-cols-1">
+										<div class="flex flex-col gap-1">
+											<label class="text-auxiliary-text text-surface-500">Employee Deduction</label>
+											<div class="flex items-stretch">
+												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
+												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editVision.employeeDeduction} min="0" step="1" />
 											</div>
 										</div>
-										<div class="form-field">
-											<label>Employer Contribution</label>
-											<div class="input-with-prefix">
-												<span class="prefix">$</span>
-												<input type="number" bind:value={editVision.employerContribution} min="0" step="1" />
+										<div class="flex flex-col gap-1">
+											<label class="text-auxiliary-text text-surface-500">Employer Contribution</label>
+											<div class="flex items-stretch">
+												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
+												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editVision.employerContribution} min="0" step="1" />
 											</div>
 										</div>
 									</div>
-									<label class="taxable-toggle">
-										<input type="checkbox" bind:checked={editVision.isTaxable} />
+									<label class="flex items-center gap-2 text-auxiliary-text text-surface-600 cursor-pointer">
+										<input type="checkbox" class="w-4 h-4 accent-warning-500" bind:checked={editVision.isTaxable} />
 										<span>Employer portion is taxable benefit</span>
 									</label>
 								</div>
@@ -265,43 +265,43 @@
 						</div>
 
 						<!-- Life Insurance -->
-						<div class="benefit-card" class:disabled={!editLifeInsurance.enabled}>
-							<div class="benefit-header">
-								<label class="benefit-toggle">
-									<input type="checkbox" bind:checked={editLifeInsurance.enabled} />
-									<i class="fas fa-shield-alt"></i>
+						<div class="p-4 rounded-lg border transition-[150ms] {editLifeInsurance.enabled ? 'bg-white border-surface-200' : 'bg-surface-50 border-surface-200'}">
+							<div class="mb-3">
+								<label class="flex items-center gap-2 cursor-pointer text-body-content font-medium text-surface-800">
+									<input type="checkbox" class="w-[18px] h-[18px] accent-primary-500" bind:checked={editLifeInsurance.enabled} />
+									<i class="fas fa-shield-alt text-primary-500"></i>
 									<span>Life Insurance</span>
 								</label>
 							</div>
 							{#if editLifeInsurance.enabled}
-								<div class="benefit-fields">
-									<div class="field-row">
-										<div class="form-field">
-											<label>Employee Deduction</label>
-											<div class="input-with-prefix">
-												<span class="prefix">$</span>
-												<input type="number" bind:value={editLifeInsurance.employeeDeduction} min="0" step="1" />
+								<div class="flex flex-col gap-3 pl-6 border-l-2 border-primary-100">
+									<div class="grid grid-cols-2 gap-3 max-md:grid-cols-1">
+										<div class="flex flex-col gap-1">
+											<label class="text-auxiliary-text text-surface-500">Employee Deduction</label>
+											<div class="flex items-stretch">
+												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
+												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editLifeInsurance.employeeDeduction} min="0" step="1" />
 											</div>
 										</div>
-										<div class="form-field">
-											<label>Employer Contribution</label>
-											<div class="input-with-prefix">
-												<span class="prefix">$</span>
-												<input type="number" bind:value={editLifeInsurance.employerContribution} min="0" step="1" />
+										<div class="flex flex-col gap-1">
+											<label class="text-auxiliary-text text-surface-500">Employer Contribution</label>
+											<div class="flex items-stretch">
+												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
+												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editLifeInsurance.employerContribution} min="0" step="1" />
 											</div>
 										</div>
 									</div>
-									<div class="field-row">
-										<div class="form-field">
-											<label>Coverage Amount</label>
-											<div class="input-with-prefix">
-												<span class="prefix">$</span>
-												<input type="number" bind:value={editLifeInsurance.coverageAmount} min="0" step="1000" />
+									<div class="grid grid-cols-2 gap-3 max-md:grid-cols-1">
+										<div class="flex flex-col gap-1">
+											<label class="text-auxiliary-text text-surface-500">Coverage Amount</label>
+											<div class="flex items-stretch">
+												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
+												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editLifeInsurance.coverageAmount} min="0" step="1000" />
 											</div>
 										</div>
-										<div class="form-field">
-											<label>Coverage Multiplier</label>
-											<select bind:value={editLifeInsurance.coverageMultiplier}>
+										<div class="flex flex-col gap-1">
+											<label class="text-auxiliary-text text-surface-500">Coverage Multiplier</label>
+											<select class="py-2 px-3 border border-surface-200 rounded-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editLifeInsurance.coverageMultiplier}>
 												<option value={undefined}>Fixed Amount</option>
 												<option value={1}>1x Salary</option>
 												<option value={2}>2x Salary</option>
@@ -309,8 +309,8 @@
 											</select>
 										</div>
 									</div>
-									<label class="taxable-toggle">
-										<input type="checkbox" bind:checked={editLifeInsurance.isTaxable} />
+									<label class="flex items-center gap-2 text-auxiliary-text text-surface-600 cursor-pointer">
+										<input type="checkbox" class="w-4 h-4 accent-warning-500" bind:checked={editLifeInsurance.isTaxable} />
 										<span>Employer portion is taxable benefit</span>
 									</label>
 								</div>
@@ -318,34 +318,34 @@
 						</div>
 
 						<!-- Disability -->
-						<div class="benefit-card" class:disabled={!editDisability.enabled}>
-							<div class="benefit-header">
-								<label class="benefit-toggle">
-									<input type="checkbox" bind:checked={editDisability.enabled} />
-									<i class="fas fa-wheelchair"></i>
+						<div class="p-4 rounded-lg border transition-[150ms] {editDisability.enabled ? 'bg-white border-surface-200' : 'bg-surface-50 border-surface-200'}">
+							<div class="mb-3">
+								<label class="flex items-center gap-2 cursor-pointer text-body-content font-medium text-surface-800">
+									<input type="checkbox" class="w-[18px] h-[18px] accent-primary-500" bind:checked={editDisability.enabled} />
+									<i class="fas fa-wheelchair text-primary-500"></i>
 									<span>Disability</span>
 								</label>
 							</div>
 							{#if editDisability.enabled}
-								<div class="benefit-fields">
-									<div class="field-row">
-										<div class="form-field">
-											<label>Employee Deduction</label>
-											<div class="input-with-prefix">
-												<span class="prefix">$</span>
-												<input type="number" bind:value={editDisability.employeeDeduction} min="0" step="1" />
+								<div class="flex flex-col gap-3 pl-6 border-l-2 border-primary-100">
+									<div class="grid grid-cols-2 gap-3 max-md:grid-cols-1">
+										<div class="flex flex-col gap-1">
+											<label class="text-auxiliary-text text-surface-500">Employee Deduction</label>
+											<div class="flex items-stretch">
+												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
+												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editDisability.employeeDeduction} min="0" step="1" />
 											</div>
 										</div>
-										<div class="form-field">
-											<label>Employer Contribution</label>
-											<div class="input-with-prefix">
-												<span class="prefix">$</span>
-												<input type="number" bind:value={editDisability.employerContribution} min="0" step="1" />
+										<div class="flex flex-col gap-1">
+											<label class="text-auxiliary-text text-surface-500">Employer Contribution</label>
+											<div class="flex items-stretch">
+												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
+												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editDisability.employerContribution} min="0" step="1" />
 											</div>
 										</div>
 									</div>
-									<label class="taxable-toggle">
-										<input type="checkbox" bind:checked={editDisability.isTaxable} />
+									<label class="flex items-center gap-2 text-auxiliary-text text-surface-600 cursor-pointer">
+										<input type="checkbox" class="w-4 h-4 accent-warning-500" bind:checked={editDisability.isTaxable} />
 										<span>Employer portion is taxable benefit</span>
 									</label>
 								</div>
@@ -355,8 +355,8 @@
 				{/if}
 			</div>
 
-			<div class="info-note">
-				<i class="fas fa-calculator"></i>
+			<div class="flex items-start gap-2 mt-4 py-3 px-4 bg-info-50 border border-info-200 rounded-md text-auxiliary-text text-info-800">
+				<i class="fas fa-calculator text-info-500 mt-0.5"></i>
 				<span>
 					<strong>Taxable Benefits:</strong> Employer-paid portions of certain benefits (e.g., group
 					life insurance over $10,000) are taxable benefits that must be reported on T4s.
@@ -364,69 +364,69 @@
 			</div>
 		{:else}
 			<!-- View Mode -->
-			<div class="benefits-status" title="Double-click to edit">
-				<div class="status-card" class:enabled={payGroup.groupBenefits.enabled}>
-					<div class="status-icon">
+			<div class="cursor-pointer" title="Double-click to edit">
+				<div class="flex items-center gap-4 p-4 rounded-lg border {payGroup.groupBenefits.enabled ? 'bg-success-50 border-success-100' : 'bg-surface-50 border-surface-100'}">
+					<div class="w-12 h-12 rounded-full flex items-center justify-center {payGroup.groupBenefits.enabled ? 'bg-success-100' : 'bg-surface-200'}">
 						{#if payGroup.groupBenefits.enabled}
-							<i class="fas fa-heartbeat"></i>
+							<i class="fas fa-heartbeat text-2xl text-success-600"></i>
 						{:else}
-							<i class="fas fa-heart-broken"></i>
+							<i class="fas fa-heart-broken text-2xl text-surface-400"></i>
 						{/if}
 					</div>
-					<div class="status-content">
-						<span class="status-title">Group Benefits</span>
-						<span class="status-value">
+					<div class="flex flex-col gap-1">
+						<span class="text-auxiliary-text text-surface-500">Group Benefits</span>
+						<span class="text-title-medium font-semibold text-surface-800">
 							{payGroup.groupBenefits.enabled ? `${enabledBenefitsCount()} Active` : 'Not Enabled'}
 						</span>
 					</div>
 				</div>
 
 				{#if payGroup.groupBenefits.enabled}
-					<div class="benefits-grid">
+					<div class="grid grid-cols-2 gap-3 mt-4 max-md:grid-cols-1">
 						{#each benefitTypes as benefit}
 							{@const config = benefit.key === 'lifeInsurance'
 								? payGroup.groupBenefits.lifeInsurance
 								: payGroup.groupBenefits[benefit.key]}
-							<div class="benefit-view-card" class:enabled={config.enabled}>
-								<div class="benefit-view-header">
-									<i class="fas {benefit.icon}"></i>
-									<span class="benefit-name">{benefit.label}</span>
-									<span class="benefit-status-badge" class:active={config.enabled}>
+							<div class="p-3 rounded-md border {config.enabled ? 'bg-white border-success-200' : 'bg-surface-50 border-surface-100'}">
+								<div class="flex items-center gap-2 mb-2">
+									<i class="fas {benefit.icon} {config.enabled ? 'text-success-500' : 'text-surface-400'}"></i>
+									<span class="flex-1 text-body-content font-medium text-surface-800">{benefit.label}</span>
+									<span class="py-1 px-2 rounded-full text-[10px] uppercase font-semibold {config.enabled ? 'bg-success-100 text-success-700' : 'bg-surface-200 text-surface-500'}">
 										{config.enabled ? 'Active' : 'Inactive'}
 									</span>
 								</div>
 								{#if config.enabled}
-									<div class="benefit-amounts">
-										<div class="amount-item">
-											<span class="amount-label">Employee</span>
-											<span class="amount-value">{formatCurrency(config.employeeDeduction)}/pay</span>
+									<div class="flex gap-4 mb-2">
+										<div class="flex flex-col gap-0.5">
+											<span class="text-[10px] uppercase text-surface-400">Employee</span>
+											<span class="text-body-content font-medium text-surface-700">{formatCurrency(config.employeeDeduction)}/pay</span>
 										</div>
-										<div class="amount-item">
-											<span class="amount-label">Employer</span>
-											<span class="amount-value">{formatCurrency(config.employerContribution)}/pay</span>
+										<div class="flex flex-col gap-0.5">
+											<span class="text-[10px] uppercase text-surface-400">Employer</span>
+											<span class="text-body-content font-medium text-surface-700">{formatCurrency(config.employerContribution)}/pay</span>
 										</div>
 									</div>
 									{#if config.isTaxable}
-										<span class="taxable-badge">Taxable Benefit</span>
+										<span class="inline-block py-0.5 px-2 bg-warning-100 text-warning-700 rounded-sm text-[10px] font-medium">Taxable Benefit</span>
 									{/if}
 								{/if}
 							</div>
 						{/each}
 					</div>
 
-					<div class="totals-row">
-						<div class="total-item">
-							<span class="total-label">Total Employee Deduction</span>
-							<span class="total-value">{formatCurrency(totalEmployeeDeduction())}/pay period</span>
+					<div class="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-surface-200 max-md:grid-cols-1">
+						<div class="flex flex-col gap-1 p-3 bg-primary-50 rounded-md">
+							<span class="text-auxiliary-text text-surface-500">Total Employee Deduction</span>
+							<span class="text-title-medium font-bold text-primary-700">{formatCurrency(totalEmployeeDeduction())}/pay period</span>
 						</div>
-						<div class="total-item">
-							<span class="total-label">Total Employer Contribution</span>
-							<span class="total-value">{formatCurrency(totalEmployerContribution())}/pay period</span>
+						<div class="flex flex-col gap-1 p-3 bg-primary-50 rounded-md">
+							<span class="text-auxiliary-text text-surface-500">Total Employer Contribution</span>
+							<span class="text-title-medium font-bold text-primary-700">{formatCurrency(totalEmployerContribution())}/pay period</span>
 						</div>
 					</div>
 				{:else}
-					<div class="disabled-note">
-						<p>
+					<div class="mt-4 p-4 bg-surface-50 rounded-md border border-dashed border-surface-200">
+						<p class="m-0 text-body-content text-surface-600">
 							Group benefits are not enabled for this pay group. Employees will not have benefit
 							deductions applied.
 						</p>
@@ -434,531 +434,10 @@
 				{/if}
 			</div>
 
-			<p class="edit-hint">
+			<p class="flex items-center gap-2 mt-4 pt-4 border-t border-dashed border-surface-200 text-auxiliary-text text-surface-400 m-0">
 				<i class="fas fa-mouse-pointer"></i>
 				Double-click anywhere to edit
 			</p>
 		{/if}
 	</div>
 </section>
-
-<style>
-	.info-section {
-		background: white;
-		border-radius: var(--radius-xl);
-		box-shadow: var(--shadow-md3-1);
-		overflow: hidden;
-	}
-
-	.section-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: var(--spacing-4) var(--spacing-5);
-		background: var(--color-surface-50);
-		border-bottom: 1px solid var(--color-surface-100);
-	}
-
-	.section-title {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		font-size: var(--font-size-title-medium);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-		margin: 0;
-	}
-
-	.section-title i {
-		color: var(--color-success-500);
-	}
-
-	.header-actions {
-		display: flex;
-		gap: var(--spacing-2);
-	}
-
-	.btn-edit,
-	.btn-cancel,
-	.btn-save {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-2) var(--spacing-4);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-edit {
-		background: transparent;
-		color: var(--color-primary-600);
-		border: 1px solid var(--color-primary-200);
-	}
-
-	.btn-edit:hover {
-		background: var(--color-primary-50);
-		border-color: var(--color-primary-300);
-	}
-
-	.btn-cancel {
-		background: transparent;
-		color: var(--color-surface-600);
-		border: 1px solid var(--color-surface-200);
-	}
-
-	.btn-cancel:hover {
-		background: var(--color-surface-100);
-	}
-
-	.btn-save {
-		background: var(--color-primary-500);
-		color: white;
-		border: none;
-	}
-
-	.btn-save:hover {
-		background: var(--color-primary-600);
-	}
-
-	.section-content {
-		padding: var(--spacing-5);
-	}
-
-	.section-description {
-		display: flex;
-		align-items: flex-start;
-		gap: var(--spacing-2);
-		padding: var(--spacing-3) var(--spacing-4);
-		background: var(--color-surface-50);
-		border-radius: var(--radius-md);
-		margin-bottom: var(--spacing-4);
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-600);
-	}
-
-	.section-description i {
-		color: var(--color-primary-500);
-		margin-top: 2px;
-	}
-
-	/* Edit Mode */
-	.benefits-form {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-4);
-	}
-
-	.toggle-card {
-		padding: var(--spacing-4);
-		background: var(--color-surface-50);
-		border-radius: var(--radius-lg);
-		border: 1px solid var(--color-surface-100);
-	}
-
-	.toggle-card.main-toggle {
-		background: var(--color-success-50);
-		border-color: var(--color-success-100);
-	}
-
-	.toggle-label {
-		display: flex;
-		align-items: flex-start;
-		gap: var(--spacing-3);
-		cursor: pointer;
-	}
-
-	.toggle-label input[type='checkbox'] {
-		width: 20px;
-		height: 20px;
-		margin-top: 2px;
-		accent-color: var(--color-primary-500);
-		flex-shrink: 0;
-	}
-
-	.toggle-content {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-1);
-	}
-
-	.toggle-title {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-800);
-	}
-
-	.toggle-description {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	.benefits-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-3);
-	}
-
-	.benefit-card {
-		padding: var(--spacing-4);
-		background: white;
-		border-radius: var(--radius-lg);
-		border: 1px solid var(--color-surface-200);
-		transition: var(--transition-fast);
-	}
-
-	.benefit-card.disabled {
-		background: var(--color-surface-50);
-	}
-
-	.benefit-header {
-		margin-bottom: var(--spacing-3);
-	}
-
-	.benefit-toggle {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		cursor: pointer;
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-800);
-	}
-
-	.benefit-toggle input[type='checkbox'] {
-		width: 18px;
-		height: 18px;
-		accent-color: var(--color-primary-500);
-	}
-
-	.benefit-toggle i {
-		color: var(--color-primary-500);
-	}
-
-	.benefit-fields {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-3);
-		padding-left: var(--spacing-6);
-		border-left: 2px solid var(--color-primary-100);
-	}
-
-	.field-row {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: var(--spacing-3);
-	}
-
-	.form-field {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-1);
-	}
-
-	.form-field label {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	.input-with-prefix {
-		display: flex;
-		align-items: stretch;
-	}
-
-	.input-with-prefix .prefix {
-		display: flex;
-		align-items: center;
-		padding: 0 var(--spacing-2);
-		background: var(--color-surface-100);
-		border: 1px solid var(--color-surface-200);
-		border-right: none;
-		border-radius: var(--radius-md) 0 0 var(--radius-md);
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-500);
-	}
-
-	.input-with-prefix input {
-		border-radius: 0 var(--radius-md) var(--radius-md) 0;
-		flex: 1;
-		min-width: 0;
-	}
-
-	.form-field input,
-	.form-field select {
-		padding: var(--spacing-2) var(--spacing-3);
-		border: 1px solid var(--color-surface-200);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-800);
-		background: white;
-	}
-
-	.form-field input:focus,
-	.form-field select:focus {
-		outline: none;
-		border-color: var(--color-primary-400);
-		box-shadow: 0 0 0 2px var(--color-primary-100);
-	}
-
-	.taxable-toggle {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-600);
-		cursor: pointer;
-	}
-
-	.taxable-toggle input[type='checkbox'] {
-		width: 16px;
-		height: 16px;
-		accent-color: var(--color-warning-500);
-	}
-
-	.info-note {
-		display: flex;
-		align-items: flex-start;
-		gap: var(--spacing-2);
-		margin-top: var(--spacing-4);
-		padding: var(--spacing-3) var(--spacing-4);
-		background: var(--color-info-50);
-		border: 1px solid var(--color-info-200);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-info-800);
-	}
-
-	.info-note i {
-		color: var(--color-info-500);
-		margin-top: 2px;
-	}
-
-	/* View Mode */
-	.benefits-status {
-		cursor: pointer;
-	}
-
-	.status-card {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-4);
-		padding: var(--spacing-4);
-		background: var(--color-surface-50);
-		border-radius: var(--radius-lg);
-		border: 1px solid var(--color-surface-100);
-	}
-
-	.status-card.enabled {
-		background: var(--color-success-50);
-		border-color: var(--color-success-100);
-	}
-
-	.status-icon {
-		width: 48px;
-		height: 48px;
-		border-radius: var(--radius-full);
-		background: var(--color-surface-200);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.status-card.enabled .status-icon {
-		background: var(--color-success-100);
-	}
-
-	.status-icon i {
-		font-size: 24px;
-		color: var(--color-surface-400);
-	}
-
-	.status-card.enabled .status-icon i {
-		color: var(--color-success-600);
-	}
-
-	.status-content {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-1);
-	}
-
-	.status-title {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	.status-value {
-		font-size: var(--font-size-title-medium);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-	}
-
-	.benefits-grid {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: var(--spacing-3);
-		margin-top: var(--spacing-4);
-	}
-
-	.benefit-view-card {
-		padding: var(--spacing-3);
-		background: var(--color-surface-50);
-		border-radius: var(--radius-md);
-		border: 1px solid var(--color-surface-100);
-	}
-
-	.benefit-view-card.enabled {
-		background: white;
-		border-color: var(--color-success-200);
-	}
-
-	.benefit-view-header {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		margin-bottom: var(--spacing-2);
-	}
-
-	.benefit-view-header i {
-		color: var(--color-surface-400);
-	}
-
-	.benefit-view-card.enabled .benefit-view-header i {
-		color: var(--color-success-500);
-	}
-
-	.benefit-name {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-800);
-		flex: 1;
-	}
-
-	.benefit-status-badge {
-		padding: var(--spacing-1) var(--spacing-2);
-		border-radius: var(--radius-full);
-		font-size: 10px;
-		text-transform: uppercase;
-		font-weight: var(--font-weight-semibold);
-		background: var(--color-surface-200);
-		color: var(--color-surface-500);
-	}
-
-	.benefit-status-badge.active {
-		background: var(--color-success-100);
-		color: var(--color-success-700);
-	}
-
-	.benefit-amounts {
-		display: flex;
-		gap: var(--spacing-4);
-		margin-bottom: var(--spacing-2);
-	}
-
-	.amount-item {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.amount-label {
-		font-size: 10px;
-		text-transform: uppercase;
-		color: var(--color-surface-400);
-	}
-
-	.amount-value {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-700);
-	}
-
-	.taxable-badge {
-		display: inline-block;
-		padding: 2px var(--spacing-2);
-		background: var(--color-warning-100);
-		color: var(--color-warning-700);
-		border-radius: var(--radius-sm);
-		font-size: 10px;
-		font-weight: var(--font-weight-medium);
-	}
-
-	.totals-row {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: var(--spacing-4);
-		margin-top: var(--spacing-4);
-		padding-top: var(--spacing-4);
-		border-top: 1px solid var(--color-surface-200);
-	}
-
-	.total-item {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-1);
-		padding: var(--spacing-3);
-		background: var(--color-primary-50);
-		border-radius: var(--radius-md);
-	}
-
-	.total-label {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	.total-value {
-		font-size: var(--font-size-title-medium);
-		font-weight: var(--font-weight-bold);
-		color: var(--color-primary-700);
-	}
-
-	.disabled-note {
-		margin-top: var(--spacing-4);
-		padding: var(--spacing-4);
-		background: var(--color-surface-50);
-		border-radius: var(--radius-md);
-		border: 1px dashed var(--color-surface-200);
-	}
-
-	.disabled-note p {
-		margin: 0;
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-600);
-	}
-
-	.edit-hint {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		margin-top: var(--spacing-4);
-		padding-top: var(--spacing-4);
-		border-top: 1px dashed var(--color-surface-200);
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-400);
-	}
-
-	@media (max-width: 768px) {
-		.field-row,
-		.benefits-grid,
-		.totals-row {
-			grid-template-columns: 1fr;
-		}
-
-		.section-header {
-			flex-direction: column;
-			gap: var(--spacing-3);
-			align-items: flex-start;
-		}
-
-		.header-actions {
-			width: 100%;
-		}
-
-		.btn-cancel,
-		.btn-save {
-			flex: 1;
-		}
-	}
-</style>

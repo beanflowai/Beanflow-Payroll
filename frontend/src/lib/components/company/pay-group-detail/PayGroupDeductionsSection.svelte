@@ -131,19 +131,19 @@
 	);
 </script>
 
-<section class="info-section">
-	<div class="section-header">
-		<h2 class="section-title">
-			<i class="fas fa-receipt"></i>
+<section class="bg-white rounded-xl shadow-md3-1 overflow-hidden">
+	<div class="flex justify-between items-center py-4 px-5 bg-surface-50 border-b border-surface-100 max-md:flex-col max-md:gap-3 max-md:items-start">
+		<h2 class="flex items-center gap-2 text-title-medium font-semibold text-surface-800 m-0">
+			<i class="fas fa-receipt text-info-500"></i>
 			Custom Deductions
 		</h2>
 		{#if isEditing}
-			<div class="header-actions">
-				<button class="btn-cancel" onclick={cancelEdit}>Cancel</button>
-				<button class="btn-save" onclick={saveChanges}>Save</button>
+			<div class="flex gap-2 max-md:w-full">
+				<button class="inline-flex items-center gap-2 py-2 px-4 rounded-md text-auxiliary-text font-medium cursor-pointer transition-[150ms] bg-transparent text-surface-600 border border-surface-200 hover:bg-surface-100 max-md:flex-1" onclick={cancelEdit}>Cancel</button>
+				<button class="inline-flex items-center gap-2 py-2 px-4 rounded-md text-auxiliary-text font-medium cursor-pointer transition-[150ms] bg-primary-500 text-white border-none hover:bg-primary-600 max-md:flex-1" onclick={saveChanges}>Save</button>
 			</div>
 		{:else}
-			<button class="btn-edit" onclick={enterEditMode}>
+			<button class="inline-flex items-center gap-2 py-2 px-4 rounded-md text-auxiliary-text font-medium cursor-pointer transition-[150ms] bg-transparent text-primary-600 border border-primary-200 hover:bg-primary-50 hover:border-primary-300" onclick={enterEditMode}>
 				<i class="fas fa-pen"></i>
 				Edit
 			</button>
@@ -151,9 +151,9 @@
 	</div>
 
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="section-content" ondblclick={handleDoubleClick}>
-		<div class="section-description">
-			<i class="fas fa-info-circle"></i>
+	<div class="p-5" ondblclick={handleDoubleClick}>
+		<div class="flex items-start gap-2 py-3 px-4 bg-surface-50 rounded-md mb-4 text-body-content text-surface-600">
+			<i class="fas fa-info-circle text-primary-500 mt-0.5"></i>
 			<span>
 				Define custom deductions that can be applied to employees in this pay group. These can
 				include RRSP contributions, parking fees, charitable donations, or any other recurring
@@ -163,37 +163,37 @@
 
 		{#if isEditing}
 			<!-- Edit Mode -->
-			<div class="deductions-editor">
+			<div class="flex flex-col gap-4">
 				{#if editDeductions.length > 0}
-					<div class="deductions-table">
-						<div class="table-header">
-							<span class="col-name">Name</span>
-							<span class="col-type">Type</span>
-							<span class="col-amount">Amount</span>
-							<span class="col-employer">Employer Match</span>
-							<span class="col-default">Default</span>
-							<span class="col-actions">Actions</span>
+					<div class="border border-surface-200 rounded-lg overflow-hidden">
+						<div class="grid grid-cols-[2fr_1fr_1fr_1fr_80px_100px] gap-3 py-3 px-4 bg-surface-100 text-auxiliary-text font-semibold text-surface-600 uppercase max-md:hidden">
+							<span>Name</span>
+							<span>Type</span>
+							<span>Amount</span>
+							<span>Employer Match</span>
+							<span>Default</span>
+							<span>Actions</span>
 						</div>
 						{#each editDeductions as deduction, index}
-							<div class="table-row">
-								<span class="col-name">
-									<span class="deduction-name">{deduction.name}</span>
+							<div class="grid grid-cols-[2fr_1fr_1fr_1fr_80px_100px] gap-3 py-3 px-4 border-t border-surface-100 items-center hover:bg-surface-50 max-md:grid-cols-1 max-md:gap-2 max-md:p-4">
+								<span class="max-md:before:content-[attr(data-label)] max-md:before:font-medium max-md:before:text-surface-500 max-md:before:mr-2">
+									<span class="font-medium text-surface-800 block">{deduction.name}</span>
 									{#if deduction.description}
-										<span class="deduction-desc">{deduction.description}</span>
+										<span class="text-auxiliary-text text-surface-500">{deduction.description}</span>
 									{/if}
 								</span>
-								<span class="col-type">
-									<span class="type-badge" class:pre-tax={deduction.type === 'pre_tax'}>
+								<span>
+									<span class="inline-block py-1 px-2 rounded-full text-auxiliary-text {deduction.type === 'pre_tax' ? 'bg-primary-50 text-primary-700' : 'bg-surface-100 text-surface-600'}">
 										{formatType(deduction.type)}
 									</span>
 								</span>
-								<span class="col-amount">
+								<span>
 									{formatCalculation(deduction.calculationType, deduction.amount)}
 									{#if deduction.calculationType === 'percentage'}
-										<span class="calc-type">of gross</span>
+										<span class="text-auxiliary-text text-surface-500 ml-1">of gross</span>
 									{/if}
 								</span>
-								<span class="col-employer">
+								<span class="text-success-600 font-medium">
 									{#if deduction.isEmployerContribution && deduction.employerAmount}
 										{deduction.calculationType === 'percentage'
 											? `${deduction.employerAmount}%`
@@ -202,22 +202,18 @@
 										—
 									{/if}
 								</span>
-								<span class="col-default">
+								<span>
 									{#if deduction.isDefaultEnabled}
-										<i class="fas fa-check-circle status-yes"></i>
+										<i class="fas fa-check-circle text-success-500"></i>
 									{:else}
-										<i class="fas fa-minus-circle status-no"></i>
+										<i class="fas fa-minus-circle text-surface-400"></i>
 									{/if}
 								</span>
-								<span class="col-actions">
-									<button class="btn-icon" onclick={() => openEditModal(index)} title="Edit">
+								<span class="flex gap-1">
+									<button class="w-8 h-8 flex items-center justify-center border-none bg-transparent text-surface-500 rounded-md cursor-pointer transition-[150ms] hover:bg-surface-100 hover:text-primary-600" onclick={() => openEditModal(index)} title="Edit">
 										<i class="fas fa-pen"></i>
 									</button>
-									<button
-										class="btn-icon btn-delete"
-										onclick={() => deleteDeduction(index)}
-										title="Delete"
-									>
+									<button class="w-8 h-8 flex items-center justify-center border-none bg-transparent text-surface-500 rounded-md cursor-pointer transition-[150ms] hover:bg-error-50 hover:text-error-600" onclick={() => deleteDeduction(index)} title="Delete">
 										<i class="fas fa-trash"></i>
 									</button>
 								</span>
@@ -225,60 +221,60 @@
 						{/each}
 					</div>
 				{:else}
-					<div class="empty-state">
-						<i class="fas fa-receipt"></i>
-						<p>No custom deductions defined</p>
+					<div class="text-center py-8 px-4 text-surface-500">
+						<i class="fas fa-receipt text-[32px] mb-3 text-surface-300"></i>
+						<p class="text-body-content m-0 mb-2">No custom deductions defined</p>
 					</div>
 				{/if}
 
-				<button class="btn-add" onclick={openAddModal}>
+				<button class="inline-flex items-center gap-2 py-3 px-4 bg-primary-50 text-primary-600 border border-dashed border-primary-300 rounded-md text-body-content font-medium cursor-pointer transition-[150ms] hover:bg-primary-100 hover:border-solid" onclick={openAddModal}>
 					<i class="fas fa-plus"></i>
 					Add Deduction
 				</button>
 			</div>
 		{:else}
 			<!-- View Mode -->
-			<div class="deductions-view" title="Double-click to edit">
+			<div class="cursor-pointer" title="Double-click to edit">
 				{#if payGroup.customDeductions.length > 0}
-					<div class="deductions-list">
+					<div class="grid grid-cols-2 gap-4 max-md:grid-cols-1">
 						{#each payGroup.customDeductions as deduction}
-							<div class="deduction-card">
-								<div class="deduction-header">
-									<span class="deduction-name">{deduction.name}</span>
-									<span class="type-badge" class:pre-tax={deduction.type === 'pre_tax'}>
+							<div class="p-4 bg-surface-50 rounded-lg border border-surface-100">
+								<div class="flex justify-between items-start mb-2">
+									<span class="text-body-content font-semibold text-surface-800">{deduction.name}</span>
+									<span class="inline-block py-1 px-2 rounded-full text-auxiliary-text {deduction.type === 'pre_tax' ? 'bg-primary-50 text-primary-700' : 'bg-surface-100 text-surface-600'}">
 										{formatType(deduction.type)}
 									</span>
 								</div>
 								{#if deduction.description}
-									<p class="deduction-description">{deduction.description}</p>
+									<p class="text-auxiliary-text text-surface-500 m-0 mb-3">{deduction.description}</p>
 								{/if}
-								<div class="deduction-details">
-									<div class="detail-row">
-										<span class="detail-label">Amount</span>
-										<span class="detail-value">
+								<div class="flex flex-col gap-2">
+									<div class="flex justify-between items-center">
+										<span class="text-auxiliary-text text-surface-500">Amount</span>
+										<span class="text-body-content font-medium text-surface-800">
 											{formatCalculation(deduction.calculationType, deduction.amount)}
 											{#if deduction.calculationType === 'percentage'}
-												<span class="calc-note">of gross pay</span>
+												<span class="text-auxiliary-text text-surface-500 font-normal">of gross pay</span>
 											{/if}
 										</span>
 									</div>
 									{#if deduction.isEmployerContribution && deduction.employerAmount}
-										<div class="detail-row">
-											<span class="detail-label">Employer Match</span>
-											<span class="detail-value employer">
+										<div class="flex justify-between items-center">
+											<span class="text-auxiliary-text text-surface-500">Employer Match</span>
+											<span class="text-body-content font-medium text-success-600">
 												{deduction.calculationType === 'percentage'
 													? `${deduction.employerAmount}%`
 													: formatCurrency(deduction.employerAmount)}
 											</span>
 										</div>
 									{/if}
-									<div class="detail-row">
-										<span class="detail-label">Default Enabled</span>
-										<span class="detail-value">
+									<div class="flex justify-between items-center">
+										<span class="text-auxiliary-text text-surface-500">Default Enabled</span>
+										<span class="text-body-content font-medium">
 											{#if deduction.isDefaultEnabled}
-												<span class="badge-yes">Yes</span>
+												<span class="text-success-600">Yes</span>
 											{:else}
-												<span class="badge-no">No (opt-in)</span>
+												<span class="text-surface-500">No (opt-in)</span>
 											{/if}
 										</span>
 									</div>
@@ -287,10 +283,10 @@
 						{/each}
 					</div>
 				{:else}
-					<div class="empty-state">
-						<i class="fas fa-receipt"></i>
-						<p>No custom deductions defined for this pay group</p>
-						<span class="empty-hint">
+					<div class="text-center py-8 px-4 text-surface-500">
+						<i class="fas fa-receipt text-[32px] mb-3 text-surface-300"></i>
+						<p class="text-body-content m-0 mb-2">No custom deductions defined for this pay group</p>
+						<span class="text-auxiliary-text">
 							Custom deductions can include RRSP contributions, parking fees, charitable donations,
 							and more.
 						</span>
@@ -298,7 +294,7 @@
 				{/if}
 			</div>
 
-			<p class="edit-hint">
+			<p class="flex items-center gap-2 mt-4 pt-4 border-t border-dashed border-surface-200 text-auxiliary-text text-surface-400 m-0">
 				<i class="fas fa-mouse-pointer"></i>
 				Double-click anywhere to edit
 			</p>
@@ -310,73 +306,76 @@
 {#if showDeductionModal}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div class="modal-overlay" onclick={closeModal}>
-		<div class="modal" onclick={(e) => e.stopPropagation()}>
-			<div class="modal-header">
-				<h3>{editingDeductionIndex !== null ? 'Edit' : 'Add'} Deduction</h3>
-				<button class="btn-close" onclick={closeModal}>
+	<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000]" onclick={closeModal}>
+		<div class="bg-white rounded-xl w-full max-w-[500px] max-h-[90vh] overflow-y-auto shadow-md3-3" onclick={(e) => e.stopPropagation()}>
+			<div class="flex justify-between items-center py-4 px-5 border-b border-surface-100">
+				<h3 class="m-0 text-title-medium font-semibold text-surface-800">{editingDeductionIndex !== null ? 'Edit' : 'Add'} Deduction</h3>
+				<button class="w-8 h-8 flex items-center justify-center border-none bg-transparent text-surface-500 rounded-md cursor-pointer hover:bg-surface-100" onclick={closeModal}>
 					<i class="fas fa-times"></i>
 				</button>
 			</div>
 
-			<div class="modal-body">
-				<div class="form-group">
-					<label for="deduction-name">Name *</label>
+			<div class="p-5 flex flex-col gap-4">
+				<div class="flex flex-col gap-1">
+					<label for="deduction-name" class="text-auxiliary-text font-medium text-surface-600">Name *</label>
 					<input
 						type="text"
 						id="deduction-name"
+						class="p-3 border border-surface-200 rounded-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-[3px] focus:ring-primary-100"
 						bind:value={modalDeduction.name}
 						placeholder="e.g., RRSP Contribution"
 					/>
 				</div>
 
-				<div class="form-group">
-					<label for="deduction-description">Description</label>
+				<div class="flex flex-col gap-1">
+					<label for="deduction-description" class="text-auxiliary-text font-medium text-surface-600">Description</label>
 					<input
 						type="text"
 						id="deduction-description"
+						class="p-3 border border-surface-200 rounded-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-[3px] focus:ring-primary-100"
 						bind:value={modalDeduction.description}
 						placeholder="Optional description"
 					/>
 				</div>
 
-				<div class="form-row">
-					<div class="form-group">
-						<label for="deduction-type">Deduction Type</label>
-						<select id="deduction-type" bind:value={modalDeduction.type}>
+				<div class="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+					<div class="flex flex-col gap-1">
+						<label for="deduction-type" class="text-auxiliary-text font-medium text-surface-600">Deduction Type</label>
+						<select id="deduction-type" class="p-3 border border-surface-200 rounded-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-[3px] focus:ring-primary-100" bind:value={modalDeduction.type}>
 							<option value="pre_tax">Pre-Tax</option>
 							<option value="post_tax">Post-Tax</option>
 						</select>
-						<p class="field-hint">
+						<p class="text-auxiliary-text text-surface-500 mt-1 m-0">
 							{modalDeduction.type === 'pre_tax'
 								? 'Deducted before tax calculations (reduces taxable income)'
 								: 'Deducted after tax calculations'}
 						</p>
 					</div>
 
-					<div class="form-group">
-						<label for="calc-type">Calculation Type</label>
-						<select id="calc-type" bind:value={modalDeduction.calculationType}>
+					<div class="flex flex-col gap-1">
+						<label for="calc-type" class="text-auxiliary-text font-medium text-surface-600">Calculation Type</label>
+						<select id="calc-type" class="p-3 border border-surface-200 rounded-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-[3px] focus:ring-primary-100" bind:value={modalDeduction.calculationType}>
 							<option value="fixed">Fixed Amount</option>
 							<option value="percentage">Percentage of Gross</option>
 						</select>
 					</div>
 				</div>
 
-				<div class="form-group">
-					<label for="amount">
+				<div class="flex flex-col gap-1">
+					<label for="amount" class="text-auxiliary-text font-medium text-surface-600">
 						Amount *
 						{#if modalDeduction.calculationType === 'percentage'}
 							(%)
 						{/if}
 					</label>
-					<div class="input-with-prefix">
-						<span class="prefix">
+					<div class="flex items-stretch">
+						<span class="flex items-center px-3 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">
 							{modalDeduction.calculationType === 'percentage' ? '%' : '$'}
 						</span>
 						<input
 							type="number"
 							id="amount"
+							class="flex-1 p-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-[3px] focus:ring-primary-100"
 							bind:value={modalDeduction.amount}
 							min="0"
 							step={modalDeduction.calculationType === 'percentage' ? '0.5' : '1'}
@@ -384,23 +383,24 @@
 					</div>
 				</div>
 
-				<div class="form-group">
-					<label class="checkbox-label">
-						<input type="checkbox" bind:checked={modalDeduction.isEmployerContribution} />
+				<div class="flex flex-col gap-1">
+					<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
+						<input type="checkbox" class="w-[18px] h-[18px] accent-primary-500" bind:checked={modalDeduction.isEmployerContribution} />
 						<span>Employer contributes to this deduction</span>
 					</label>
 				</div>
 
 				{#if modalDeduction.isEmployerContribution}
-					<div class="form-group indented">
-						<label for="employer-amount">Employer Contribution Amount</label>
-						<div class="input-with-prefix">
-							<span class="prefix">
+					<div class="flex flex-col gap-1 ml-6 pl-4 border-l-2 border-primary-100">
+						<label for="employer-amount" class="text-auxiliary-text font-medium text-surface-600">Employer Contribution Amount</label>
+						<div class="flex items-stretch">
+							<span class="flex items-center px-3 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">
 								{modalDeduction.calculationType === 'percentage' ? '%' : '$'}
 							</span>
 							<input
 								type="number"
 								id="employer-amount"
+								class="flex-1 p-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-[3px] focus:ring-primary-100"
 								bind:value={modalDeduction.employerAmount}
 								min="0"
 								step={modalDeduction.calculationType === 'percentage' ? '0.5' : '1'}
@@ -409,12 +409,12 @@
 					</div>
 				{/if}
 
-				<div class="form-group">
-					<label class="checkbox-label">
-						<input type="checkbox" bind:checked={modalDeduction.isDefaultEnabled} />
+				<div class="flex flex-col gap-1">
+					<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
+						<input type="checkbox" class="w-[18px] h-[18px] accent-primary-500" bind:checked={modalDeduction.isDefaultEnabled} />
 						<span>Enabled by default for new employees</span>
 					</label>
-					<p class="field-hint">
+					<p class="text-auxiliary-text text-surface-500 mt-1 m-0">
 						{modalDeduction.isDefaultEnabled
 							? 'New employees will have this deduction applied automatically'
 							: 'Employees must opt-in to this deduction'}
@@ -422,584 +422,12 @@
 				</div>
 			</div>
 
-			<div class="modal-footer">
-				<button class="btn-cancel" onclick={closeModal}>Cancel</button>
-				<button class="btn-primary" onclick={saveDeduction} disabled={!isModalValid}>
+			<div class="flex justify-end gap-3 py-4 px-5 border-t border-surface-100">
+				<button class="inline-flex items-center gap-2 py-2 px-4 rounded-md text-auxiliary-text font-medium cursor-pointer transition-[150ms] bg-transparent text-surface-600 border border-surface-200 hover:bg-surface-100" onclick={closeModal}>Cancel</button>
+				<button class="inline-flex items-center gap-2 py-3 px-5 bg-primary-500 text-white border-none rounded-md text-body-content font-medium cursor-pointer transition-[150ms] hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed" onclick={saveDeduction} disabled={!isModalValid}>
 					{editingDeductionIndex !== null ? 'Save Changes' : 'Add Deduction'}
 				</button>
 			</div>
 		</div>
 	</div>
 {/if}
-
-<style>
-	.info-section {
-		background: white;
-		border-radius: var(--radius-xl);
-		box-shadow: var(--shadow-md3-1);
-		overflow: hidden;
-	}
-
-	.section-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: var(--spacing-4) var(--spacing-5);
-		background: var(--color-surface-50);
-		border-bottom: 1px solid var(--color-surface-100);
-	}
-
-	.section-title {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		font-size: var(--font-size-title-medium);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-		margin: 0;
-	}
-
-	.section-title i {
-		color: var(--color-info-500);
-	}
-
-	.header-actions {
-		display: flex;
-		gap: var(--spacing-2);
-	}
-
-	.btn-edit,
-	.btn-cancel,
-	.btn-save {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-2) var(--spacing-4);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-edit {
-		background: transparent;
-		color: var(--color-primary-600);
-		border: 1px solid var(--color-primary-200);
-	}
-
-	.btn-edit:hover {
-		background: var(--color-primary-50);
-		border-color: var(--color-primary-300);
-	}
-
-	.btn-cancel {
-		background: transparent;
-		color: var(--color-surface-600);
-		border: 1px solid var(--color-surface-200);
-	}
-
-	.btn-cancel:hover {
-		background: var(--color-surface-100);
-	}
-
-	.btn-save {
-		background: var(--color-primary-500);
-		color: white;
-		border: none;
-	}
-
-	.btn-save:hover {
-		background: var(--color-primary-600);
-	}
-
-	.section-content {
-		padding: var(--spacing-5);
-	}
-
-	.section-description {
-		display: flex;
-		align-items: flex-start;
-		gap: var(--spacing-2);
-		padding: var(--spacing-3) var(--spacing-4);
-		background: var(--color-surface-50);
-		border-radius: var(--radius-md);
-		margin-bottom: var(--spacing-4);
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-600);
-	}
-
-	.section-description i {
-		color: var(--color-primary-500);
-		margin-top: 2px;
-	}
-
-	/* Edit Mode Table */
-	.deductions-editor {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-4);
-	}
-
-	.deductions-table {
-		border: 1px solid var(--color-surface-200);
-		border-radius: var(--radius-lg);
-		overflow: hidden;
-	}
-
-	.table-header {
-		display: grid;
-		grid-template-columns: 2fr 1fr 1fr 1fr 80px 100px;
-		gap: var(--spacing-3);
-		padding: var(--spacing-3) var(--spacing-4);
-		background: var(--color-surface-100);
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-600);
-		text-transform: uppercase;
-	}
-
-	.table-row {
-		display: grid;
-		grid-template-columns: 2fr 1fr 1fr 1fr 80px 100px;
-		gap: var(--spacing-3);
-		padding: var(--spacing-3) var(--spacing-4);
-		border-top: 1px solid var(--color-surface-100);
-		align-items: center;
-	}
-
-	.table-row:hover {
-		background: var(--color-surface-50);
-	}
-
-	.col-name .deduction-name {
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-800);
-		display: block;
-	}
-
-	.col-name .deduction-desc {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	.type-badge {
-		display: inline-block;
-		padding: var(--spacing-1) var(--spacing-2);
-		border-radius: var(--radius-full);
-		font-size: var(--font-size-auxiliary-text);
-		background: var(--color-surface-100);
-		color: var(--color-surface-600);
-	}
-
-	.type-badge.pre-tax {
-		background: var(--color-primary-50);
-		color: var(--color-primary-700);
-	}
-
-	.col-amount .calc-type {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-		margin-left: var(--spacing-1);
-	}
-
-	.col-employer {
-		color: var(--color-success-600);
-		font-weight: var(--font-weight-medium);
-	}
-
-	.status-yes {
-		color: var(--color-success-500);
-	}
-
-	.status-no {
-		color: var(--color-surface-400);
-	}
-
-	.col-actions {
-		display: flex;
-		gap: var(--spacing-1);
-	}
-
-	.btn-icon {
-		width: 32px;
-		height: 32px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border: none;
-		background: transparent;
-		color: var(--color-surface-500);
-		border-radius: var(--radius-md);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-icon:hover {
-		background: var(--color-surface-100);
-		color: var(--color-primary-600);
-	}
-
-	.btn-icon.btn-delete:hover {
-		background: var(--color-error-50);
-		color: var(--color-error-600);
-	}
-
-	.btn-add {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-3) var(--spacing-4);
-		background: var(--color-primary-50);
-		color: var(--color-primary-600);
-		border: 1px dashed var(--color-primary-300);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-add:hover {
-		background: var(--color-primary-100);
-		border-style: solid;
-	}
-
-	/* View Mode */
-	.deductions-view {
-		cursor: pointer;
-	}
-
-	.deductions-list {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: var(--spacing-4);
-	}
-
-	.deduction-card {
-		padding: var(--spacing-4);
-		background: var(--color-surface-50);
-		border-radius: var(--radius-lg);
-		border: 1px solid var(--color-surface-100);
-	}
-
-	.deduction-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: flex-start;
-		margin-bottom: var(--spacing-2);
-	}
-
-	.deduction-card .deduction-name {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-	}
-
-	.deduction-description {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-		margin: 0 0 var(--spacing-3);
-	}
-
-	.deduction-details {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-2);
-	}
-
-	.detail-row {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-	}
-
-	.detail-label {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	.detail-value {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-800);
-	}
-
-	.detail-value.employer {
-		color: var(--color-success-600);
-	}
-
-	.detail-value .calc-note {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-		font-weight: normal;
-	}
-
-	.badge-yes {
-		color: var(--color-success-600);
-	}
-
-	.badge-no {
-		color: var(--color-surface-500);
-	}
-
-	/* Empty State */
-	.empty-state {
-		text-align: center;
-		padding: var(--spacing-8) var(--spacing-4);
-		color: var(--color-surface-500);
-	}
-
-	.empty-state i {
-		font-size: 32px;
-		margin-bottom: var(--spacing-3);
-		color: var(--color-surface-300);
-	}
-
-	.empty-state p {
-		font-size: var(--font-size-body-content);
-		margin: 0 0 var(--spacing-2);
-	}
-
-	.empty-hint {
-		font-size: var(--font-size-auxiliary-text);
-	}
-
-	.edit-hint {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		margin-top: var(--spacing-4);
-		padding-top: var(--spacing-4);
-		border-top: 1px dashed var(--color-surface-200);
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-400);
-	}
-
-	/* Modal */
-	.modal-overlay {
-		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		background: rgba(0, 0, 0, 0.5);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 1000;
-	}
-
-	.modal {
-		background: white;
-		border-radius: var(--radius-xl);
-		width: 100%;
-		max-width: 500px;
-		max-height: 90vh;
-		overflow-y: auto;
-		box-shadow: var(--shadow-md3-3);
-	}
-
-	.modal-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: var(--spacing-4) var(--spacing-5);
-		border-bottom: 1px solid var(--color-surface-100);
-	}
-
-	.modal-header h3 {
-		margin: 0;
-		font-size: var(--font-size-title-medium);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-	}
-
-	.btn-close {
-		width: 32px;
-		height: 32px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border: none;
-		background: transparent;
-		color: var(--color-surface-500);
-		border-radius: var(--radius-md);
-		cursor: pointer;
-	}
-
-	.btn-close:hover {
-		background: var(--color-surface-100);
-	}
-
-	.modal-body {
-		padding: var(--spacing-5);
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-4);
-	}
-
-	.modal-footer {
-		display: flex;
-		justify-content: flex-end;
-		gap: var(--spacing-3);
-		padding: var(--spacing-4) var(--spacing-5);
-		border-top: 1px solid var(--color-surface-100);
-	}
-
-	.btn-primary {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-3) var(--spacing-5);
-		background: var(--color-primary-500);
-		color: white;
-		border: none;
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-primary:hover:not(:disabled) {
-		background: var(--color-primary-600);
-	}
-
-	.btn-primary:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	/* Modal Form */
-	.form-group {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-1);
-	}
-
-	.form-group.indented {
-		margin-left: var(--spacing-6);
-		padding-left: var(--spacing-4);
-		border-left: 2px solid var(--color-primary-100);
-	}
-
-	.form-group label:not(.checkbox-label) {
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-600);
-	}
-
-	.form-group input[type='text'],
-	.form-group input[type='number'],
-	.form-group select {
-		padding: var(--spacing-3);
-		border: 1px solid var(--color-surface-200);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-800);
-		background: white;
-	}
-
-	.form-group input:focus,
-	.form-group select:focus {
-		outline: none;
-		border-color: var(--color-primary-400);
-		box-shadow: 0 0 0 3px var(--color-primary-100);
-	}
-
-	.form-row {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: var(--spacing-4);
-	}
-
-	.input-with-prefix {
-		display: flex;
-		align-items: stretch;
-	}
-
-	.input-with-prefix .prefix {
-		display: flex;
-		align-items: center;
-		padding: 0 var(--spacing-3);
-		background: var(--color-surface-100);
-		border: 1px solid var(--color-surface-200);
-		border-right: none;
-		border-radius: var(--radius-md) 0 0 var(--radius-md);
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-500);
-	}
-
-	.input-with-prefix input {
-		border-radius: 0 var(--radius-md) var(--radius-md) 0;
-		flex: 1;
-	}
-
-	.checkbox-label {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-700);
-		cursor: pointer;
-	}
-
-	.checkbox-label input[type='checkbox'] {
-		width: 18px;
-		height: 18px;
-		accent-color: var(--color-primary-500);
-	}
-
-	.field-hint {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-		margin: var(--spacing-1) 0 0;
-	}
-
-	@media (max-width: 768px) {
-		.table-header,
-		.table-row {
-			grid-template-columns: 1fr;
-			gap: var(--spacing-2);
-		}
-
-		.table-header {
-			display: none;
-		}
-
-		.table-row {
-			padding: var(--spacing-4);
-		}
-
-		.table-row span::before {
-			content: attr(data-label);
-			font-weight: var(--font-weight-medium);
-			color: var(--color-surface-500);
-			margin-right: var(--spacing-2);
-		}
-
-		.deductions-list {
-			grid-template-columns: 1fr;
-		}
-
-		.form-row {
-			grid-template-columns: 1fr;
-		}
-
-		.section-header {
-			flex-direction: column;
-			gap: var(--spacing-3);
-			align-items: flex-start;
-		}
-
-		.header-actions {
-			width: 100%;
-		}
-
-		.btn-cancel,
-		.btn-save {
-			flex: 1;
-		}
-	}
-</style>

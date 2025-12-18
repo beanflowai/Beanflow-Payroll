@@ -77,19 +77,33 @@
 	const isValid = $derived(!editEnabled || (editIndustryClassCode.length > 0 && editAssessmentRate > 0));
 </script>
 
-<section class="info-section">
-	<div class="section-header">
-		<h2 class="section-title">
-			<i class="fas fa-hard-hat"></i>
+<section class="bg-white rounded-xl shadow-md3-1 overflow-hidden">
+	<div class="flex justify-between items-center p-4 px-5 bg-surface-50 border-b border-surface-100 max-md:flex-col max-md:gap-3 max-md:items-start">
+		<h2 class="flex items-center gap-2 text-title-medium font-semibold text-surface-800 m-0">
+			<i class="fas fa-hard-hat text-warning-500"></i>
 			Workers' Compensation (WCB)
 		</h2>
 		{#if isEditing}
-			<div class="header-actions">
-				<button class="btn-cancel" onclick={cancelEdit}>Cancel</button>
-				<button class="btn-save" onclick={saveChanges} disabled={!isValid}>Save</button>
+			<div class="flex gap-2 max-md:w-full">
+				<button
+					class="inline-flex items-center gap-2 py-2 px-4 rounded-md text-auxiliary-text font-medium cursor-pointer transition-[150ms] bg-transparent text-surface-600 border border-surface-200 hover:bg-surface-100 max-md:flex-1"
+					onclick={cancelEdit}
+				>
+					Cancel
+				</button>
+				<button
+					class="inline-flex items-center gap-2 py-2 px-4 rounded-md text-auxiliary-text font-medium cursor-pointer transition-[150ms] bg-primary-500 text-white border-none hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed max-md:flex-1"
+					onclick={saveChanges}
+					disabled={!isValid}
+				>
+					Save
+				</button>
 			</div>
 		{:else}
-			<button class="btn-edit" onclick={enterEditMode}>
+			<button
+				class="inline-flex items-center gap-2 py-2 px-4 rounded-md text-auxiliary-text font-medium cursor-pointer transition-[150ms] bg-transparent text-primary-600 border border-primary-200 hover:bg-primary-50 hover:border-primary-300"
+				onclick={enterEditMode}
+			>
 				<i class="fas fa-pen"></i>
 				Edit
 			</button>
@@ -97,9 +111,9 @@
 	</div>
 
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="section-content" ondblclick={handleDoubleClick}>
-		<div class="section-description">
-			<i class="fas fa-info-circle"></i>
+	<div class="p-5" ondblclick={handleDoubleClick}>
+		<div class="flex items-start gap-2 py-3 px-4 bg-surface-50 rounded-md mb-4 text-body-content text-surface-600">
+			<i class="fas fa-info-circle text-primary-500 mt-0.5"></i>
 			<span>
 				Workers' Compensation Board (WCB) coverage provides insurance for workplace injuries.
 				Employers pay premiums based on their industry classification code and assessment rate.
@@ -108,13 +122,17 @@
 
 		{#if isEditing}
 			<!-- Edit Mode -->
-			<div class="wcb-form">
-				<div class="toggle-card main-toggle">
-					<label class="toggle-label">
-						<input type="checkbox" bind:checked={editEnabled} />
-						<span class="toggle-content">
-							<span class="toggle-title">Enable WCB for this Pay Group</span>
-							<span class="toggle-description">
+			<div class="flex flex-col gap-4">
+				<div class="p-4 bg-warning-50 rounded-lg border border-warning-100">
+					<label class="flex items-start gap-3 cursor-pointer">
+						<input
+							type="checkbox"
+							class="w-5 h-5 mt-0.5 accent-primary-500 shrink-0"
+							bind:checked={editEnabled}
+						/>
+						<span class="flex flex-col gap-1">
+							<span class="text-body-content font-medium text-surface-800">Enable WCB for this Pay Group</span>
+							<span class="text-auxiliary-text text-surface-500">
 								Calculate and remit WCB premiums for employees in this group
 							</span>
 						</span>
@@ -122,39 +140,40 @@
 				</div>
 
 				{#if editEnabled}
-					<div class="sub-settings">
-						<div class="form-row">
-							<div class="form-group">
-								<label for="industryClassCode">Industry Class Code *</label>
+					<div class="flex flex-col gap-4 pl-4 border-l-[3px] border-warning-200">
+						<div class="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+							<div class="flex flex-col gap-1">
+								<label for="industryClassCode" class="text-auxiliary-text font-medium text-surface-600">Industry Class Code *</label>
 								<input
 									type="text"
 									id="industryClassCode"
 									bind:value={editIndustryClassCode}
 									placeholder="e.g., 72300"
-									class:error={editIndustryClassCode.length === 0}
+									class="p-3 border border-surface-200 rounded-md text-body-content text-surface-800 bg-white transition-[150ms] focus:outline-none focus:border-primary-400 focus:ring-[3px] focus:ring-primary-100 {editIndustryClassCode.length === 0 ? 'border-error-400' : ''}"
 								/>
-								<p class="field-hint">
+								<p class="text-auxiliary-text text-surface-500 mt-1">
 									Your WCB industry classification code (contact your provincial WCB)
 								</p>
 							</div>
 
-							<div class="form-group">
-								<label for="industryName">Industry Name</label>
+							<div class="flex flex-col gap-1">
+								<label for="industryName" class="text-auxiliary-text font-medium text-surface-600">Industry Name</label>
 								<input
 									type="text"
 									id="industryName"
 									bind:value={editIndustryName}
 									placeholder="e.g., Office Administrative Services"
+									class="p-3 border border-surface-200 rounded-md text-body-content text-surface-800 bg-white transition-[150ms] focus:outline-none focus:border-primary-400 focus:ring-[3px] focus:ring-primary-100"
 								/>
-								<p class="field-hint">Description of your industry classification</p>
+								<p class="text-auxiliary-text text-surface-500 mt-1">Description of your industry classification</p>
 							</div>
 						</div>
 
-						<div class="form-row">
-							<div class="form-group">
-								<label for="assessmentRate">Assessment Rate (per $100) *</label>
-								<div class="input-with-prefix">
-									<span class="prefix">$</span>
+						<div class="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+							<div class="flex flex-col gap-1">
+								<label for="assessmentRate" class="text-auxiliary-text font-medium text-surface-600">Assessment Rate (per $100) *</label>
+								<div class="flex items-stretch">
+									<span class="flex items-center px-3 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
 									<input
 										type="number"
 										id="assessmentRate"
@@ -162,18 +181,18 @@
 										min="0"
 										step="0.01"
 										placeholder="0.00"
-										class:error={editAssessmentRate <= 0}
+										class="flex-1 p-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white transition-[150ms] focus:outline-none focus:border-primary-400 focus:ring-[3px] focus:ring-primary-100 {editAssessmentRate <= 0 ? 'border-error-400' : ''}"
 									/>
 								</div>
-								<p class="field-hint">
+								<p class="text-auxiliary-text text-surface-500 mt-1">
 									Premium rate per $100 of assessable earnings (check your WCB rate sheet)
 								</p>
 							</div>
 
-							<div class="form-group">
-								<label for="maxEarnings">Maximum Assessable Earnings</label>
-								<div class="input-with-prefix">
-									<span class="prefix">$</span>
+							<div class="flex flex-col gap-1">
+								<label for="maxEarnings" class="text-auxiliary-text font-medium text-surface-600">Maximum Assessable Earnings</label>
+								<div class="flex items-stretch">
+									<span class="flex items-center px-3 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
 									<input
 										type="number"
 										id="maxEarnings"
@@ -181,9 +200,10 @@
 										min="0"
 										step="1"
 										placeholder="Optional"
+										class="flex-1 p-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white transition-[150ms] focus:outline-none focus:border-primary-400 focus:ring-[3px] focus:ring-primary-100"
 									/>
 								</div>
-								<p class="field-hint">
+								<p class="text-auxiliary-text text-surface-500 mt-1">
 									Annual cap on assessable earnings (set by your province)
 								</p>
 							</div>
@@ -192,8 +212,8 @@
 				{/if}
 			</div>
 
-			<div class="info-note">
-				<i class="fas fa-map-marker-alt"></i>
+			<div class="flex items-start gap-2 mt-4 py-3 px-4 bg-info-50 border border-info-200 rounded-md text-auxiliary-text text-info-800">
+				<i class="fas fa-map-marker-alt text-info-500 mt-0.5"></i>
 				<span>
 					<strong>Provincial Variations:</strong> WCB is administered provincially. In Ontario it's
 					called WSIB, in BC it's WorkSafeBC, etc. Rates and maximum assessable earnings vary by
@@ -202,48 +222,48 @@
 			</div>
 		{:else}
 			<!-- View Mode -->
-			<div class="wcb-status" title="Double-click to edit">
-				<div class="status-card" class:enabled={payGroup.wcbConfig.enabled}>
-					<div class="status-icon">
+			<div class="cursor-pointer" title="Double-click to edit">
+				<div class="flex items-center gap-4 p-4 rounded-lg border {payGroup.wcbConfig.enabled ? 'bg-warning-50 border-warning-100' : 'bg-surface-50 border-surface-100'}">
+					<div class="w-12 h-12 rounded-full flex items-center justify-center {payGroup.wcbConfig.enabled ? 'bg-warning-100' : 'bg-surface-200'}">
 						{#if payGroup.wcbConfig.enabled}
-							<i class="fas fa-shield-alt"></i>
+							<i class="fas fa-shield-alt text-2xl text-warning-600"></i>
 						{:else}
-							<i class="fas fa-shield-virus"></i>
+							<i class="fas fa-shield-virus text-2xl text-surface-400"></i>
 						{/if}
 					</div>
-					<div class="status-content">
-						<span class="status-title">WCB Coverage</span>
-						<span class="status-value">
+					<div class="flex flex-col gap-1">
+						<span class="text-auxiliary-text text-surface-500">WCB Coverage</span>
+						<span class="text-title-medium font-semibold text-surface-800">
 							{payGroup.wcbConfig.enabled ? 'Enabled' : 'Not Enabled'}
 						</span>
 					</div>
 				</div>
 
 				{#if payGroup.wcbConfig.enabled}
-					<div class="config-details">
-						<div class="detail-card industry">
-							<div class="detail-header">
-								<span class="detail-label">Industry Classification</span>
+					<div class="mt-4 flex flex-col gap-4">
+						<div class="py-3 px-4 bg-primary-50 rounded-md flex flex-col gap-1">
+							<div class="flex justify-between items-center">
+								<span class="text-auxiliary-text text-surface-500">Industry Classification</span>
 							</div>
-							<div class="detail-body">
-								<span class="detail-code">{payGroup.wcbConfig.industryClassCode ?? '—'}</span>
+							<div class="flex flex-col gap-1">
+								<span class="text-title-medium font-bold text-primary-700 font-mono">{payGroup.wcbConfig.industryClassCode ?? '—'}</span>
 								{#if payGroup.wcbConfig.industryName}
-									<span class="detail-name">{payGroup.wcbConfig.industryName}</span>
+									<span class="text-body-content text-surface-700">{payGroup.wcbConfig.industryName}</span>
 								{/if}
 							</div>
 						</div>
 
-						<div class="rate-cards">
-							<div class="detail-card">
-								<span class="detail-label">Assessment Rate</span>
-								<span class="detail-value highlight">
+						<div class="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+							<div class="py-3 px-4 bg-surface-50 rounded-md flex flex-col gap-1">
+								<span class="text-auxiliary-text text-surface-500">Assessment Rate</span>
+								<span class="text-body-content font-semibold text-warning-700">
 									{formatRate(payGroup.wcbConfig.assessmentRate)}
 								</span>
 							</div>
 
-							<div class="detail-card">
-								<span class="detail-label">Max Assessable Earnings</span>
-								<span class="detail-value">
+							<div class="py-3 px-4 bg-surface-50 rounded-md flex flex-col gap-1">
+								<span class="text-auxiliary-text text-surface-500">Max Assessable Earnings</span>
+								<span class="text-body-content font-semibold text-surface-800">
 									{payGroup.wcbConfig.maxAssessableEarnings
 										? formatCurrency(payGroup.wcbConfig.maxAssessableEarnings)
 										: 'Not Set'}
@@ -251,8 +271,8 @@
 							</div>
 						</div>
 
-						<div class="estimate-note">
-							<i class="fas fa-calculator"></i>
+						<div class="flex items-center gap-2 py-3 px-4 bg-surface-100 rounded-md text-auxiliary-text text-surface-600">
+							<i class="fas fa-calculator text-primary-500"></i>
 							<span>
 								Estimated annual premium for an employee earning $50,000:
 								<strong>
@@ -262,14 +282,14 @@
 						</div>
 					</div>
 				{:else}
-					<div class="disabled-note">
-						<i class="fas fa-exclamation-triangle"></i>
+					<div class="flex items-start gap-3 mt-4 p-4 bg-surface-50 rounded-md border border-dashed border-surface-200">
+						<i class="fas fa-exclamation-triangle text-warning-500 text-xl"></i>
 						<div>
-							<p>
+							<p class="m-0 text-body-content text-surface-600">
 								WCB coverage is not enabled for this pay group. Employees will not have WCB
 								premiums calculated.
 							</p>
-							<p class="note-secondary">
+							<p class="mt-2 text-auxiliary-text text-surface-500">
 								Note: Most employers are required by law to register with their provincial WCB.
 								Exemptions may apply to certain industries or ownership structures.
 							</p>
@@ -278,462 +298,10 @@
 				{/if}
 			</div>
 
-			<p class="edit-hint">
+			<p class="flex items-center gap-2 mt-4 pt-4 border-t border-dashed border-surface-200 text-auxiliary-text text-surface-400">
 				<i class="fas fa-mouse-pointer"></i>
 				Double-click anywhere to edit
 			</p>
 		{/if}
 	</div>
 </section>
-
-<style>
-	.info-section {
-		background: white;
-		border-radius: var(--radius-xl);
-		box-shadow: var(--shadow-md3-1);
-		overflow: hidden;
-	}
-
-	.section-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: var(--spacing-4) var(--spacing-5);
-		background: var(--color-surface-50);
-		border-bottom: 1px solid var(--color-surface-100);
-	}
-
-	.section-title {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		font-size: var(--font-size-title-medium);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-		margin: 0;
-	}
-
-	.section-title i {
-		color: var(--color-warning-500);
-	}
-
-	.header-actions {
-		display: flex;
-		gap: var(--spacing-2);
-	}
-
-	.btn-edit,
-	.btn-cancel,
-	.btn-save {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-2) var(--spacing-4);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-edit {
-		background: transparent;
-		color: var(--color-primary-600);
-		border: 1px solid var(--color-primary-200);
-	}
-
-	.btn-edit:hover {
-		background: var(--color-primary-50);
-		border-color: var(--color-primary-300);
-	}
-
-	.btn-cancel {
-		background: transparent;
-		color: var(--color-surface-600);
-		border: 1px solid var(--color-surface-200);
-	}
-
-	.btn-cancel:hover {
-		background: var(--color-surface-100);
-	}
-
-	.btn-save {
-		background: var(--color-primary-500);
-		color: white;
-		border: none;
-	}
-
-	.btn-save:hover:not(:disabled) {
-		background: var(--color-primary-600);
-	}
-
-	.btn-save:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.section-content {
-		padding: var(--spacing-5);
-	}
-
-	.section-description {
-		display: flex;
-		align-items: flex-start;
-		gap: var(--spacing-2);
-		padding: var(--spacing-3) var(--spacing-4);
-		background: var(--color-surface-50);
-		border-radius: var(--radius-md);
-		margin-bottom: var(--spacing-4);
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-600);
-	}
-
-	.section-description i {
-		color: var(--color-primary-500);
-		margin-top: 2px;
-	}
-
-	/* Edit Mode */
-	.wcb-form {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-4);
-	}
-
-	.toggle-card {
-		padding: var(--spacing-4);
-		background: var(--color-surface-50);
-		border-radius: var(--radius-lg);
-		border: 1px solid var(--color-surface-100);
-	}
-
-	.toggle-card.main-toggle {
-		background: var(--color-warning-50);
-		border-color: var(--color-warning-100);
-	}
-
-	.toggle-label {
-		display: flex;
-		align-items: flex-start;
-		gap: var(--spacing-3);
-		cursor: pointer;
-	}
-
-	.toggle-label input[type='checkbox'] {
-		width: 20px;
-		height: 20px;
-		margin-top: 2px;
-		accent-color: var(--color-primary-500);
-		flex-shrink: 0;
-	}
-
-	.toggle-content {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-1);
-	}
-
-	.toggle-title {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-800);
-	}
-
-	.toggle-description {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	.sub-settings {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-4);
-		padding-left: var(--spacing-4);
-		border-left: 3px solid var(--color-warning-200);
-	}
-
-	.form-row {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: var(--spacing-4);
-	}
-
-	.form-group {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-1);
-	}
-
-	.form-group label {
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-600);
-	}
-
-	.form-group input {
-		padding: var(--spacing-3);
-		border: 1px solid var(--color-surface-200);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-800);
-		background: white;
-		transition: var(--transition-fast);
-	}
-
-	.form-group input:focus {
-		outline: none;
-		border-color: var(--color-primary-400);
-		box-shadow: 0 0 0 3px var(--color-primary-100);
-	}
-
-	.form-group input.error {
-		border-color: var(--color-error-400);
-	}
-
-	.input-with-prefix {
-		display: flex;
-		align-items: stretch;
-	}
-
-	.input-with-prefix .prefix {
-		display: flex;
-		align-items: center;
-		padding: 0 var(--spacing-3);
-		background: var(--color-surface-100);
-		border: 1px solid var(--color-surface-200);
-		border-right: none;
-		border-radius: var(--radius-md) 0 0 var(--radius-md);
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-500);
-	}
-
-	.input-with-prefix input {
-		border-radius: 0 var(--radius-md) var(--radius-md) 0;
-		flex: 1;
-	}
-
-	.field-hint {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-		margin: var(--spacing-1) 0 0;
-	}
-
-	.info-note {
-		display: flex;
-		align-items: flex-start;
-		gap: var(--spacing-2);
-		margin-top: var(--spacing-4);
-		padding: var(--spacing-3) var(--spacing-4);
-		background: var(--color-info-50);
-		border: 1px solid var(--color-info-200);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-info-800);
-	}
-
-	.info-note i {
-		color: var(--color-info-500);
-		margin-top: 2px;
-	}
-
-	/* View Mode */
-	.wcb-status {
-		cursor: pointer;
-	}
-
-	.status-card {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-4);
-		padding: var(--spacing-4);
-		background: var(--color-surface-50);
-		border-radius: var(--radius-lg);
-		border: 1px solid var(--color-surface-100);
-	}
-
-	.status-card.enabled {
-		background: var(--color-warning-50);
-		border-color: var(--color-warning-100);
-	}
-
-	.status-icon {
-		width: 48px;
-		height: 48px;
-		border-radius: var(--radius-full);
-		background: var(--color-surface-200);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.status-card.enabled .status-icon {
-		background: var(--color-warning-100);
-	}
-
-	.status-icon i {
-		font-size: 24px;
-		color: var(--color-surface-400);
-	}
-
-	.status-card.enabled .status-icon i {
-		color: var(--color-warning-600);
-	}
-
-	.status-content {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-1);
-	}
-
-	.status-title {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	.status-value {
-		font-size: var(--font-size-title-medium);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-	}
-
-	.config-details {
-		margin-top: var(--spacing-4);
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-4);
-	}
-
-	.detail-card {
-		padding: var(--spacing-3) var(--spacing-4);
-		background: var(--color-surface-50);
-		border-radius: var(--radius-md);
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-1);
-	}
-
-	.detail-card.industry {
-		background: var(--color-primary-50);
-	}
-
-	.detail-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-	}
-
-	.detail-label {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	.detail-body {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-1);
-	}
-
-	.detail-code {
-		font-size: var(--font-size-title-medium);
-		font-weight: var(--font-weight-bold);
-		color: var(--color-primary-700);
-		font-family: monospace;
-	}
-
-	.detail-name {
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-700);
-	}
-
-	.rate-cards {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: var(--spacing-4);
-	}
-
-	.detail-value {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-	}
-
-	.detail-value.highlight {
-		color: var(--color-warning-700);
-	}
-
-	.estimate-note {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-3) var(--spacing-4);
-		background: var(--color-surface-100);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-600);
-	}
-
-	.estimate-note i {
-		color: var(--color-primary-500);
-	}
-
-	.disabled-note {
-		display: flex;
-		align-items: flex-start;
-		gap: var(--spacing-3);
-		margin-top: var(--spacing-4);
-		padding: var(--spacing-4);
-		background: var(--color-surface-50);
-		border-radius: var(--radius-md);
-		border: 1px dashed var(--color-surface-200);
-	}
-
-	.disabled-note i {
-		color: var(--color-warning-500);
-		font-size: 20px;
-	}
-
-	.disabled-note p {
-		margin: 0;
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-600);
-	}
-
-	.disabled-note .note-secondary {
-		margin-top: var(--spacing-2);
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	.edit-hint {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		margin-top: var(--spacing-4);
-		padding-top: var(--spacing-4);
-		border-top: 1px dashed var(--color-surface-200);
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-400);
-	}
-
-	@media (max-width: 768px) {
-		.form-row,
-		.rate-cards {
-			grid-template-columns: 1fr;
-		}
-
-		.section-header {
-			flex-direction: column;
-			gap: var(--spacing-3);
-			align-items: flex-start;
-		}
-
-		.header-actions {
-			width: 100%;
-		}
-
-		.btn-cancel,
-		.btn-save {
-			flex: 1;
-		}
-	}
-</style>

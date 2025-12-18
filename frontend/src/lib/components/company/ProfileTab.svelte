@@ -151,13 +151,13 @@
 	}
 </script>
 
-<div class="profile-tab">
+<div class="flex flex-col gap-8">
 	<!-- Error Message -->
 	{#if error}
-		<div class="error-banner">
-			<i class="fas fa-exclamation-circle"></i>
-			<span>{error}</span>
-			<button class="error-dismiss" onclick={() => error = null}>
+		<div class="flex items-center gap-3 p-4 bg-error-50 border border-error-200 rounded-lg text-error-700">
+			<i class="fas fa-exclamation-circle text-xl"></i>
+			<span class="flex-1">{error}</span>
+			<button class="bg-transparent border-none text-error-500 cursor-pointer p-1 opacity-70 hover:opacity-100" onclick={() => error = null}>
 				<i class="fas fa-times"></i>
 			</button>
 		</div>
@@ -165,716 +165,223 @@
 
 	<!-- Loading State -->
 	{#if isLoading}
-		<div class="loading-container">
-			<div class="loading-spinner"></div>
-			<p>Loading company profile...</p>
+		<div class="flex flex-col items-center justify-center py-12 px-6 gap-4">
+			<div class="w-10 h-10 border-[3px] border-surface-200 border-t-primary-500 rounded-full animate-spin"></div>
+			<p class="text-surface-500 m-0">Loading company profile...</p>
 		</div>
 	{:else}
 		<!-- New Company Notice -->
 		{#if isNewCompany}
-			<div class="info-banner">
-				<i class="fas fa-info-circle"></i>
+			<div class="flex items-center gap-3 p-4 bg-primary-50 border border-primary-200 rounded-lg text-primary-700">
+				<i class="fas fa-info-circle text-xl"></i>
 				<span>No company profile found. Fill in the details below to create your company.</span>
 			</div>
 		{/if}
 
 		<!-- Company Information -->
-		<section class="settings-section">
-		<div class="section-header">
-			<div class="section-icon">
-				<i class="fas fa-building"></i>
+		<section class="flex flex-col gap-4">
+			<div class="flex items-start gap-4">
+				<div class="w-10 h-10 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center text-lg shrink-0">
+					<i class="fas fa-building"></i>
+				</div>
+				<div class="flex-1">
+					<h2 class="text-title-medium font-semibold text-surface-800 m-0 mb-1">Company Information</h2>
+					<p class="text-body-content text-surface-600 m-0">Basic company details for payroll processing</p>
+				</div>
 			</div>
-			<div class="section-info">
-				<h2 class="section-title">Company Information</h2>
-				<p class="section-description">Basic company details for payroll processing</p>
+
+			<div class="bg-white rounded-xl shadow-md3-1 p-6">
+				<div class="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-5">
+					<div class="flex flex-col gap-2">
+						<label class="text-body-content font-medium text-surface-700" for="company-name">Company Name *</label>
+						<input
+							type="text"
+							id="company-name"
+							class="py-3 px-4 bg-white border border-surface-200 rounded-lg text-body-content text-surface-800 transition-[150ms] focus:outline-none focus:border-primary-400 focus:ring-[3px] focus:ring-primary-100"
+							bind:value={companyName}
+							placeholder="Enter company name"
+						/>
+						<span class="text-auxiliary-text text-surface-500">Legal name of your business</span>
+					</div>
+
+					<div class="flex flex-col gap-2">
+						<label class="text-body-content font-medium text-surface-700" for="business-number">Business Number (BN) *</label>
+						<input
+							type="text"
+							id="business-number"
+							class="py-3 px-4 bg-white border border-surface-200 rounded-lg text-body-content text-surface-800 transition-[150ms] focus:outline-none focus:border-primary-400 focus:ring-[3px] focus:ring-primary-100"
+							bind:value={businessNumber}
+							placeholder="9 digits"
+						/>
+						<span class="text-auxiliary-text text-surface-500">Your 9-digit CRA business number</span>
+					</div>
+
+					<div class="flex flex-col gap-2">
+						<label class="text-body-content font-medium text-surface-700" for="payroll-account">Payroll Account Number *</label>
+						<input
+							type="text"
+							id="payroll-account"
+							class="py-3 px-4 bg-white border border-surface-200 rounded-lg text-body-content text-surface-800 transition-[150ms] focus:outline-none focus:border-primary-400 focus:ring-[3px] focus:ring-primary-100"
+							bind:value={payrollAccountNumber}
+							placeholder="123456789RP0001"
+						/>
+						<span class="text-auxiliary-text text-surface-500">15-character CRA payroll account (e.g., 123456789RP0001)</span>
+					</div>
+
+					<div class="flex flex-col gap-2">
+						<label class="text-body-content font-medium text-surface-700" for="province">Province/Territory *</label>
+						<select id="province" class="py-3 px-4 bg-white border border-surface-200 rounded-lg text-body-content text-surface-800 transition-[150ms] focus:outline-none focus:border-primary-400 focus:ring-[3px] focus:ring-primary-100" bind:value={province}>
+							{#each PROVINCES as prov (prov.code)}
+								<option value={prov.code}>{prov.name}</option>
+							{/each}
+						</select>
+						<span class="text-auxiliary-text text-surface-500">Company's primary location</span>
+					</div>
+				</div>
 			</div>
-		</div>
+		</section>
 
-		<div class="settings-card">
-			<div class="form-grid">
-				<div class="form-group">
-					<label class="form-label" for="company-name">Company Name *</label>
-					<input
-						type="text"
-						id="company-name"
-						class="form-input"
-						bind:value={companyName}
-						placeholder="Enter company name"
-					/>
-					<span class="form-hint">Legal name of your business</span>
+		<!-- CRA Remittance Configuration -->
+		<section class="flex flex-col gap-4">
+			<div class="flex items-start gap-4">
+				<div class="w-10 h-10 rounded-lg bg-secondary-100 text-secondary-600 flex items-center justify-center text-lg shrink-0">
+					<i class="fas fa-landmark"></i>
 				</div>
-
-				<div class="form-group">
-					<label class="form-label" for="business-number">Business Number (BN) *</label>
-					<input
-						type="text"
-						id="business-number"
-						class="form-input"
-						bind:value={businessNumber}
-						placeholder="9 digits"
-					/>
-					<span class="form-hint">Your 9-digit CRA business number</span>
+				<div class="flex-1">
+					<h2 class="text-title-medium font-semibold text-surface-800 m-0 mb-1">CRA Remittance</h2>
+					<p class="text-body-content text-surface-600 m-0">Configure how you remit payroll deductions to CRA</p>
 				</div>
+			</div>
 
-				<div class="form-group">
-					<label class="form-label" for="payroll-account">Payroll Account Number *</label>
-					<input
-						type="text"
-						id="payroll-account"
-						class="form-input"
-						bind:value={payrollAccountNumber}
-						placeholder="123456789RP0001"
-					/>
-					<span class="form-hint">15-character CRA payroll account (e.g., 123456789RP0001)</span>
-				</div>
-
-				<div class="form-group">
-					<label class="form-label" for="province">Province/Territory *</label>
-					<select id="province" class="form-select" bind:value={province}>
-						{#each PROVINCES as prov (prov.code)}
-							<option value={prov.code}>{prov.name}</option>
+			<div class="bg-white rounded-xl shadow-md3-1 p-6">
+				<div class="flex flex-col gap-2 mb-4">
+					<label class="text-body-content font-medium text-surface-700" for="remitter-type">Remitter Type *</label>
+					<select id="remitter-type" class="py-3 px-4 bg-white border border-surface-200 rounded-lg text-body-content text-surface-800 transition-[150ms] focus:outline-none focus:border-primary-400 focus:ring-[3px] focus:ring-primary-100 max-w-[400px]" bind:value={remitterType}>
+						{#each Object.entries(REMITTER_TYPE_INFO) as [value, info] (value)}
+							<option {value}>{info.label}</option>
 						{/each}
 					</select>
-					<span class="form-hint">Company's primary location</span>
+					<span class="text-auxiliary-text text-surface-500">Based on your Average Monthly Withholding Amount (AMWA)</span>
 				</div>
-			</div>
-		</div>
-	</section>
 
-	<!-- CRA Remittance Configuration -->
-	<section class="settings-section">
-		<div class="section-header">
-			<div class="section-icon remittance">
-				<i class="fas fa-landmark"></i>
-			</div>
-			<div class="section-info">
-				<h2 class="section-title">CRA Remittance</h2>
-				<p class="section-description">Configure how you remit payroll deductions to CRA</p>
-			</div>
-		</div>
+				<!-- Remitter Type Info Box -->
+				<button
+					type="button"
+					class="flex items-center gap-2 py-3 bg-transparent border-none text-primary-600 text-auxiliary-text cursor-pointer transition-[150ms] hover:text-primary-700"
+					onclick={() => (showRemitterInfo = !showRemitterInfo)}
+				>
+					<i class="fas fa-info-circle"></i>
+					<span>What is Remitter Type?</span>
+					<i class="fas fa-chevron-{showRemitterInfo ? 'up' : 'down'} ml-auto text-xs"></i>
+				</button>
 
-		<div class="settings-card">
-			<div class="form-group" style="margin-bottom: var(--spacing-4);">
-				<label class="form-label" for="remitter-type">Remitter Type *</label>
-				<select id="remitter-type" class="form-select remitter-select" bind:value={remitterType}>
-					{#each Object.entries(REMITTER_TYPE_INFO) as [value, info] (value)}
-						<option {value}>{info.label}</option>
-					{/each}
-				</select>
-				<span class="form-hint">Based on your Average Monthly Withholding Amount (AMWA)</span>
-			</div>
-
-			<!-- Remitter Type Info Box -->
-			<button
-				type="button"
-				class="info-toggle"
-				onclick={() => (showRemitterInfo = !showRemitterInfo)}
-			>
-				<i class="fas fa-info-circle"></i>
-				<span>What is Remitter Type?</span>
-				<i class="fas fa-chevron-{showRemitterInfo ? 'up' : 'down'} chevron"></i>
-			</button>
-
-			{#if showRemitterInfo}
-				<div class="info-box">
-					<p class="info-intro">
-						Your remitter type determines how often you must send payroll deductions (CPP, EI,
-						Income Tax) to the CRA.
-					</p>
-					<div class="remitter-options">
-						{#each Object.entries(REMITTER_TYPE_INFO) as [value, info] (value)}
-							<div class="remitter-option" class:active={remitterType === value}>
-								<div class="option-header">
-									<span class="option-label">{info.label}</span>
-									<span class="option-amwa">{info.amwaRange}</span>
+				{#if showRemitterInfo}
+					<div class="bg-surface-50 rounded-lg p-4 mb-4">
+						<p class="text-body-content text-surface-700 m-0 mb-4">
+							Your remitter type determines how often you must send payroll deductions (CPP, EI,
+							Income Tax) to the CRA.
+						</p>
+						<div class="flex flex-col gap-2 mb-4">
+							{#each Object.entries(REMITTER_TYPE_INFO) as [value, info] (value)}
+								<div class="bg-white border rounded-md p-3 transition-[150ms] {remitterType === value ? 'border-primary-400 bg-primary-50' : 'border-surface-200'}">
+									<div class="flex justify-between items-center mb-1">
+										<span class="text-body-content font-medium text-surface-800">{info.label}</span>
+										<span class="text-auxiliary-text text-surface-500">{info.amwaRange}</span>
+									</div>
+									<p class="text-auxiliary-text text-surface-600 m-0">{info.description}</p>
 								</div>
-								<p class="option-desc">{info.description}</p>
-							</div>
-						{/each}
+							{/each}
+						</div>
+						<p class="flex items-start gap-2 text-auxiliary-text text-surface-600 m-0">
+							<i class="fas fa-clipboard-list mt-0.5 text-primary-500"></i>
+							Check your CRA My Business Account or the letter CRA sent you to confirm your remitter
+							type.
+						</p>
 					</div>
-					<p class="info-note">
-						<i class="fas fa-clipboard-list"></i>
-						Check your CRA My Business Account or the letter CRA sent you to confirm your remitter
-						type.
-					</p>
-				</div>
-			{/if}
+				{/if}
 
-			<!-- Current Status -->
-			<div class="status-section">
-				<h3 class="status-title">Current Status</h3>
-				<div class="status-cards">
-					<div class="status-card">
-						<span class="status-label">Frequency</span>
-						<span class="status-value">{REMITTER_TYPE_INFO[remitterType].frequency}</span>
-						<span class="status-subtext">
-							{REMITTER_TYPE_INFO[remitterType].periodsPerYear} times/year
+				<!-- Current Status -->
+				<div class="border-t border-surface-100 pt-4 mt-4">
+					<h3 class="text-auxiliary-text font-medium text-surface-500 uppercase tracking-wider m-0 mb-3">Current Status</h3>
+					<div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+						<div class="bg-surface-50 rounded-lg p-4 flex flex-col gap-1">
+							<span class="text-auxiliary-text text-surface-500">Frequency</span>
+							<span class="text-title-medium font-semibold text-surface-800">{REMITTER_TYPE_INFO[remitterType].frequency}</span>
+							<span class="text-auxiliary-text text-surface-600">
+								{REMITTER_TYPE_INFO[remitterType].periodsPerYear} times/year
+							</span>
+						</div>
+						<div class="bg-surface-50 rounded-lg p-4 flex flex-col gap-1">
+							<span class="text-auxiliary-text text-surface-500">Next Due Date</span>
+							<span class="text-title-medium font-semibold text-surface-800">{dueDateInfo().formatted}</span>
+							<span class="text-auxiliary-text flex items-center gap-1 {dueDateInfo().daysRemaining <= 7 ? 'text-warning-600' : 'text-surface-600'}">
+								{#if dueDateInfo().isOverdue}
+									<i class="fas fa-exclamation-circle"></i>
+									{Math.abs(dueDateInfo().daysRemaining)} days overdue
+								{:else}
+									<i class="fas fa-clock"></i>
+									in {dueDateInfo().daysRemaining} days
+								{/if}
+							</span>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- Preferences -->
+		<section class="flex flex-col gap-4">
+			<div class="flex items-start gap-4">
+				<div class="w-10 h-10 rounded-lg bg-tertiary-100 text-tertiary-600 flex items-center justify-center text-lg shrink-0">
+					<i class="fas fa-cog"></i>
+				</div>
+				<div class="flex-1">
+					<h2 class="text-title-medium font-semibold text-surface-800 m-0 mb-1">Preferences</h2>
+					<p class="text-body-content text-surface-600 m-0">Payroll processing preferences</p>
+				</div>
+			</div>
+
+			<div class="bg-white rounded-xl shadow-md3-1 p-6">
+				<div class="flex items-center justify-between py-4 border-b border-surface-100">
+					<div class="flex-1">
+						<span class="block text-body-content font-medium text-surface-800 mb-1">Auto-calculate deductions</span>
+						<span class="text-auxiliary-text text-surface-600">
+							Automatically calculate CPP, EI, and income tax based on current CRA tables
 						</span>
 					</div>
-					<div class="status-card">
-						<span class="status-label">Next Due Date</span>
-						<span class="status-value">{dueDateInfo().formatted}</span>
-						<span class="status-subtext" class:warning={dueDateInfo().daysRemaining <= 7}>
-							{#if dueDateInfo().isOverdue}
-								<i class="fas fa-exclamation-circle"></i>
-								{Math.abs(dueDateInfo().daysRemaining)} days overdue
-							{:else}
-								<i class="fas fa-clock"></i>
-								in {dueDateInfo().daysRemaining} days
-							{/if}
+					<label class="relative inline-block w-12 h-7 shrink-0">
+						<input type="checkbox" class="opacity-0 w-0 h-0" bind:checked={autoCalculate} />
+						<span class="absolute cursor-pointer inset-0 bg-surface-300 transition-[150ms] rounded-full before:absolute before:content-[''] before:h-5 before:w-5 before:left-1 before:bottom-1 before:bg-white before:transition-[150ms] before:rounded-full {autoCalculate ? 'bg-primary-500 before:translate-x-5' : ''}"></span>
+					</label>
+				</div>
+
+				<div class="flex items-center justify-between py-4">
+					<div class="flex-1">
+						<span class="block text-body-content font-medium text-surface-800 mb-1">Send paystub emails</span>
+						<span class="text-auxiliary-text text-surface-600">
+							Automatically email digital paystubs to employees after each payroll run is approved
 						</span>
 					</div>
+					<label class="relative inline-block w-12 h-7 shrink-0">
+						<input type="checkbox" class="opacity-0 w-0 h-0" bind:checked={sendPaystubs} />
+						<span class="absolute cursor-pointer inset-0 bg-surface-300 transition-[150ms] rounded-full before:absolute before:content-[''] before:h-5 before:w-5 before:left-1 before:bottom-1 before:bg-white before:transition-[150ms] before:rounded-full {sendPaystubs ? 'bg-primary-500 before:translate-x-5' : ''}"></span>
+					</label>
 				</div>
 			</div>
+		</section>
+
+		<!-- Save Button -->
+		<div class="flex justify-end gap-3 pt-6 border-t border-surface-200 max-sm:flex-col">
+			<button class="inline-flex items-center justify-center gap-2 py-3 px-5 border border-surface-200 rounded-lg text-body-content font-medium cursor-pointer transition-[150ms] bg-white text-surface-700 hover:bg-surface-50 hover:border-surface-300 disabled:opacity-60 disabled:cursor-not-allowed max-sm:w-full" onclick={onCancel} disabled={isSaving}>Cancel</button>
+			<button class="inline-flex items-center justify-center gap-2 py-3 px-5 border-none rounded-lg text-body-content font-medium cursor-pointer transition-[150ms] bg-gradient-to-br from-primary-600 to-secondary-600 text-white shadow-md3-1 hover:opacity-90 hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed max-sm:w-full" onclick={handleSave} disabled={isSaving}>
+				{#if isSaving}
+					<i class="fas fa-spinner fa-spin"></i>
+					<span>Saving...</span>
+				{:else}
+					<i class="fas fa-save"></i>
+					<span>Save Changes</span>
+				{/if}
+			</button>
 		</div>
-	</section>
-
-	<!-- Preferences -->
-	<section class="settings-section">
-		<div class="section-header">
-			<div class="section-icon preferences">
-				<i class="fas fa-cog"></i>
-			</div>
-			<div class="section-info">
-				<h2 class="section-title">Preferences</h2>
-				<p class="section-description">Payroll processing preferences</p>
-			</div>
-		</div>
-
-		<div class="settings-card">
-			<div class="setting-toggle">
-				<div class="toggle-info">
-					<span class="toggle-label">Auto-calculate deductions</span>
-					<span class="toggle-description">
-						Automatically calculate CPP, EI, and income tax based on current CRA tables
-					</span>
-				</div>
-				<label class="toggle-switch">
-					<input type="checkbox" bind:checked={autoCalculate} />
-					<span class="toggle-slider"></span>
-				</label>
-			</div>
-
-			<div class="setting-toggle">
-				<div class="toggle-info">
-					<span class="toggle-label">Send paystub emails</span>
-					<span class="toggle-description">
-						Automatically email digital paystubs to employees after each payroll run is approved
-					</span>
-				</div>
-				<label class="toggle-switch">
-					<input type="checkbox" bind:checked={sendPaystubs} />
-					<span class="toggle-slider"></span>
-				</label>
-			</div>
-		</div>
-	</section>
-
-	<!-- Save Button -->
-	<div class="actions-bar">
-		<button class="btn-secondary" onclick={onCancel} disabled={isSaving}>Cancel</button>
-		<button class="btn-primary" onclick={handleSave} disabled={isSaving}>
-			{#if isSaving}
-				<i class="fas fa-spinner fa-spin"></i>
-				<span>Saving...</span>
-			{:else}
-				<i class="fas fa-save"></i>
-				<span>Save Changes</span>
-			{/if}
-		</button>
-	</div>
 	{/if}
 </div>
-
-<style>
-	.profile-tab {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-8);
-	}
-
-	/* Error Banner */
-	.error-banner {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-		padding: var(--spacing-4);
-		background: var(--color-danger-50, #fef2f2);
-		border: 1px solid var(--color-danger-200, #fecaca);
-		border-radius: var(--radius-lg);
-		color: var(--color-danger-700, #b91c1c);
-	}
-
-	.error-banner i:first-child {
-		font-size: 1.25rem;
-	}
-
-	.error-banner span {
-		flex: 1;
-	}
-
-	.error-dismiss {
-		background: none;
-		border: none;
-		color: var(--color-danger-500, #ef4444);
-		cursor: pointer;
-		padding: var(--spacing-1);
-		opacity: 0.7;
-	}
-
-	.error-dismiss:hover {
-		opacity: 1;
-	}
-
-	/* Info Banner */
-	.info-banner {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-		padding: var(--spacing-4);
-		background: var(--color-primary-50, #eff6ff);
-		border: 1px solid var(--color-primary-200, #bfdbfe);
-		border-radius: var(--radius-lg);
-		color: var(--color-primary-700, #1d4ed8);
-	}
-
-	.info-banner i {
-		font-size: 1.25rem;
-	}
-
-	/* Loading State */
-	.loading-container {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: var(--spacing-12) var(--spacing-6);
-		gap: var(--spacing-4);
-	}
-
-	.loading-spinner {
-		width: 40px;
-		height: 40px;
-		border: 3px solid var(--color-surface-200);
-		border-top-color: var(--color-primary-500, #3b82f6);
-		border-radius: 50%;
-		animation: spin 1s linear infinite;
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
-
-	.loading-container p {
-		color: var(--color-surface-500);
-		margin: 0;
-	}
-
-	/* Section */
-	.settings-section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-4);
-	}
-
-	.section-header {
-		display: flex;
-		align-items: flex-start;
-		gap: var(--spacing-4);
-	}
-
-	.section-icon {
-		width: 40px;
-		height: 40px;
-		border-radius: var(--radius-lg);
-		background: var(--color-primary-100);
-		color: var(--color-primary-600);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 18px;
-		flex-shrink: 0;
-	}
-
-	.section-icon.remittance {
-		background: var(--color-secondary-100);
-		color: var(--color-secondary-600);
-	}
-
-	.section-icon.preferences {
-		background: var(--color-tertiary-100);
-		color: var(--color-tertiary-600);
-	}
-
-	.section-info {
-		flex: 1;
-	}
-
-	.section-title {
-		font-size: var(--font-size-title-medium);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-		margin: 0 0 var(--spacing-1);
-	}
-
-	.section-description {
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-600);
-		margin: 0;
-	}
-
-	/* Settings Card */
-	.settings-card {
-		background: white;
-		border-radius: var(--radius-xl);
-		box-shadow: var(--shadow-md3-1);
-		padding: var(--spacing-6);
-	}
-
-	/* Form */
-	.form-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-		gap: var(--spacing-5);
-	}
-
-	.form-group {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-2);
-	}
-
-	.form-label {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-700);
-	}
-
-	.form-input,
-	.form-select {
-		padding: var(--spacing-3) var(--spacing-4);
-		background: white;
-		border: 1px solid var(--color-surface-200);
-		border-radius: var(--radius-lg);
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-800);
-		transition: var(--transition-fast);
-	}
-
-	.form-input:focus,
-	.form-select:focus {
-		outline: none;
-		border-color: var(--color-primary-400);
-		box-shadow: 0 0 0 3px var(--color-primary-100);
-	}
-
-	.form-hint {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	/* Remitter Type Section */
-	.remitter-select {
-		max-width: 400px;
-	}
-
-	.info-toggle {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-3) 0;
-		background: none;
-		border: none;
-		color: var(--color-primary-600);
-		font-size: var(--font-size-auxiliary-text);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.info-toggle:hover {
-		color: var(--color-primary-700);
-	}
-
-	.info-toggle .chevron {
-		margin-left: auto;
-		font-size: 12px;
-	}
-
-	.info-box {
-		background: var(--color-surface-50);
-		border-radius: var(--radius-lg);
-		padding: var(--spacing-4);
-		margin-bottom: var(--spacing-4);
-	}
-
-	.info-intro {
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-700);
-		margin: 0 0 var(--spacing-4);
-	}
-
-	.remitter-options {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-2);
-		margin-bottom: var(--spacing-4);
-	}
-
-	.remitter-option {
-		background: white;
-		border: 1px solid var(--color-surface-200);
-		border-radius: var(--radius-md);
-		padding: var(--spacing-3);
-		transition: var(--transition-fast);
-	}
-
-	.remitter-option.active {
-		border-color: var(--color-primary-400);
-		background: var(--color-primary-50);
-	}
-
-	.option-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: var(--spacing-1);
-	}
-
-	.option-label {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-800);
-	}
-
-	.option-amwa {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	.option-desc {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-600);
-		margin: 0;
-	}
-
-	.info-note {
-		display: flex;
-		align-items: flex-start;
-		gap: var(--spacing-2);
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-600);
-		margin: 0;
-	}
-
-	.info-note i {
-		margin-top: 2px;
-		color: var(--color-primary-500);
-	}
-
-	/* Status Section */
-	.status-section {
-		border-top: 1px solid var(--color-surface-100);
-		padding-top: var(--spacing-4);
-		margin-top: var(--spacing-4);
-	}
-
-	.status-title {
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-500);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		margin: 0 0 var(--spacing-3);
-	}
-
-	.status-cards {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: var(--spacing-4);
-	}
-
-	.status-card {
-		background: var(--color-surface-50);
-		border-radius: var(--radius-lg);
-		padding: var(--spacing-4);
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-1);
-	}
-
-	.status-label {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	.status-value {
-		font-size: var(--font-size-title-medium);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-	}
-
-	.status-subtext {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-600);
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-1);
-	}
-
-	.status-subtext.warning {
-		color: var(--color-warning-600);
-	}
-
-	/* Toggle */
-	.setting-toggle {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--spacing-4) 0;
-		border-bottom: 1px solid var(--color-surface-100);
-	}
-
-	.setting-toggle:last-child {
-		border-bottom: none;
-	}
-
-	.toggle-info {
-		flex: 1;
-	}
-
-	.toggle-label {
-		display: block;
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-800);
-		margin-bottom: var(--spacing-1);
-	}
-
-	.toggle-description {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-600);
-	}
-
-	.toggle-switch {
-		position: relative;
-		display: inline-block;
-		width: 48px;
-		height: 28px;
-		flex-shrink: 0;
-	}
-
-	.toggle-switch input {
-		opacity: 0;
-		width: 0;
-		height: 0;
-	}
-
-	.toggle-slider {
-		position: absolute;
-		cursor: pointer;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		background-color: var(--color-surface-300);
-		transition: var(--transition-fast);
-		border-radius: var(--radius-full);
-	}
-
-	.toggle-slider:before {
-		position: absolute;
-		content: '';
-		height: 20px;
-		width: 20px;
-		left: 4px;
-		bottom: 4px;
-		background-color: white;
-		transition: var(--transition-fast);
-		border-radius: 50%;
-	}
-
-	.toggle-switch input:checked + .toggle-slider {
-		background-color: var(--color-primary-500);
-	}
-
-	.toggle-switch input:checked + .toggle-slider:before {
-		transform: translateX(20px);
-	}
-
-	/* Buttons */
-	.btn-primary,
-	.btn-secondary {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-3) var(--spacing-5);
-		border: none;
-		border-radius: var(--radius-lg);
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-primary {
-		background: var(--gradient-primary);
-		color: white;
-		box-shadow: var(--shadow-md3-1);
-	}
-
-	.btn-primary:hover:not(:disabled) {
-		opacity: 0.9;
-		transform: translateY(-1px);
-	}
-
-	.btn-primary:disabled {
-		opacity: 0.6;
-		cursor: not-allowed;
-	}
-
-	.btn-secondary {
-		background: white;
-		color: var(--color-surface-700);
-		border: 1px solid var(--color-surface-200);
-	}
-
-	.btn-secondary:hover:not(:disabled) {
-		background: var(--color-surface-50);
-		border-color: var(--color-surface-300);
-	}
-
-	.btn-secondary:disabled {
-		opacity: 0.6;
-		cursor: not-allowed;
-	}
-
-	/* Actions Bar */
-	.actions-bar {
-		display: flex;
-		justify-content: flex-end;
-		gap: var(--spacing-3);
-		padding-top: var(--spacing-6);
-		border-top: 1px solid var(--color-surface-200);
-	}
-
-	@media (max-width: 640px) {
-		.form-grid {
-			grid-template-columns: 1fr;
-		}
-
-		.status-cards {
-			grid-template-columns: 1fr;
-		}
-
-		.actions-bar {
-			flex-direction: column;
-		}
-
-		.actions-bar button {
-			width: 100%;
-		}
-	}
-</style>
