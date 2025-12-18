@@ -279,18 +279,18 @@
 		return `${startStr} - ${endStr}`;
 	}
 
-	function getStatusClass(status: PayrollRunStatus): string {
+	function getStatusBadgeClass(status: PayrollRunStatus): string {
 		switch (status) {
 			case 'paid':
-				return 'status-paid';
+				return 'bg-success-100 text-success-700';
 			case 'approved':
-				return 'status-approved';
+				return 'bg-info-100 text-info-700';
 			case 'pending_approval':
-				return 'status-pending';
+				return 'bg-warning-100 text-warning-700';
 			case 'draft':
-				return 'status-draft';
+				return 'bg-surface-100 text-surface-600';
 			case 'cancelled':
-				return 'status-cancelled';
+				return 'bg-error-100 text-error-700';
 			default:
 				return '';
 		}
@@ -301,16 +301,16 @@
 	<title>Payroll History - BeanFlow Payroll</title>
 </svelte:head>
 
-<div class="history-page" class:panel-open={selectedRun !== null}>
+<div class="flex gap-6 max-w-[1400px] max-lg:flex-col">
 	<!-- Main Content -->
-	<div class="main-content">
-		<header class="page-header">
-			<div class="header-content">
-				<h1 class="page-title">Payroll History</h1>
-				<p class="page-subtitle">View past payroll runs and details</p>
+	<div class="flex-1 min-w-0 {selectedRun ? 'max-lg:max-w-full max-w-[calc(100%-400px-1.5rem)]' : ''}">
+		<header class="flex items-start justify-between mb-6 max-md:flex-col max-md:gap-4">
+			<div class="flex-1">
+				<h1 class="text-headline-minimum font-semibold text-surface-800 m-0 mb-1">Payroll History</h1>
+				<p class="text-body-content text-surface-600 m-0">View past payroll runs and details</p>
 			</div>
-			<div class="header-actions">
-				<button class="btn-secondary">
+			<div>
+				<button class="flex items-center gap-2 py-3 px-5 bg-white text-surface-700 border border-surface-200 rounded-lg text-body-content font-medium cursor-pointer transition-[150ms] hover:bg-surface-50 hover:border-surface-300">
 					<i class="fas fa-download"></i>
 					<span>Export</span>
 				</button>
@@ -318,72 +318,72 @@
 		</header>
 
 		<!-- Summary Stats -->
-		<div class="stats-grid">
-			<div class="stat-card">
-				<div class="stat-icon">
+		<div class="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4 mb-6">
+			<div class="flex items-center gap-4 p-5 bg-white rounded-xl shadow-md3-1">
+				<div class="w-12 h-12 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center text-xl">
 					<i class="fas fa-calendar-check"></i>
 				</div>
-				<div class="stat-content">
-					<span class="stat-value">{mockPayrollRuns.length}</span>
-					<span class="stat-label">Payroll Runs (YTD)</span>
+				<div class="flex flex-col">
+					<span class="text-title-large font-semibold text-surface-800">{mockPayrollRuns.length}</span>
+					<span class="text-auxiliary-text text-surface-600">Payroll Runs (YTD)</span>
 				</div>
 			</div>
-			<div class="stat-card">
-				<div class="stat-icon">
+			<div class="flex items-center gap-4 p-5 bg-white rounded-xl shadow-md3-1">
+				<div class="w-12 h-12 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center text-xl">
 					<i class="fas fa-dollar-sign"></i>
 				</div>
-				<div class="stat-content">
-					<span class="stat-value">{formatCurrency(ytdTotalPaid)}</span>
-					<span class="stat-label">Total Paid (YTD)</span>
+				<div class="flex flex-col">
+					<span class="text-title-large font-semibold text-surface-800">{formatCurrency(ytdTotalPaid)}</span>
+					<span class="text-auxiliary-text text-surface-600">Total Paid (YTD)</span>
 				</div>
 			</div>
-			<div class="stat-card">
-				<div class="stat-icon">
+			<div class="flex items-center gap-4 p-5 bg-white rounded-xl shadow-md3-1">
+				<div class="w-12 h-12 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center text-xl">
 					<i class="fas fa-users"></i>
 				</div>
-				<div class="stat-content">
-					<span class="stat-value">4</span>
-					<span class="stat-label">Active Employees</span>
+				<div class="flex flex-col">
+					<span class="text-title-large font-semibold text-surface-800">4</span>
+					<span class="text-auxiliary-text text-surface-600">Active Employees</span>
 				</div>
 			</div>
 		</div>
 
 		<!-- History Table -->
-		<div class="table-container">
-			<table class="history-table">
+		<div class="bg-white rounded-xl shadow-md3-1 overflow-hidden mb-4 max-md:overflow-x-auto">
+			<table class="w-full border-collapse max-md:min-w-[700px]">
 				<thead>
 					<tr>
-						<th>Pay Period</th>
-						<th>Pay Date</th>
-						<th>Employees</th>
-						<th>Gross Pay</th>
-						<th>Net Pay</th>
-						<th>Status</th>
-						<th></th>
+						<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Pay Period</th>
+						<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Pay Date</th>
+						<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Employees</th>
+						<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Gross Pay</th>
+						<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Net Pay</th>
+						<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Status</th>
+						<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200"></th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each mockPayrollRuns as run (run.id)}
 						<tr
-							class:selected={selectedRun?.id === run.id}
+							class="cursor-pointer transition-[150ms] {selectedRun?.id === run.id ? '[&>td]:bg-primary-50' : ''} hover:[&>td]:bg-surface-50"
 							onclick={() => selectRun(run)}
 							role="button"
 							tabindex="0"
 							onkeydown={(e) => e.key === 'Enter' && selectRun(run)}
 						>
-							<td class="period">{formatPeriod(run.periodStart, run.periodEnd)}</td>
-							<td class="pay-date">{formatDate(run.payDate)}</td>
-							<td>{run.totalEmployees}</td>
-							<td class="amount">{formatCurrency(run.totalGross)}</td>
-							<td class="amount net">{formatCurrency(run.totalNetPay)}</td>
-							<td>
-								<span class="status-badge {getStatusClass(run.status)}">
+							<td class="p-4 px-5 text-body-content border-b border-surface-100 font-medium text-surface-800 last:border-b-0">{formatPeriod(run.periodStart, run.periodEnd)}</td>
+							<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-600 last:border-b-0">{formatDate(run.payDate)}</td>
+							<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-700 last:border-b-0">{run.totalEmployees}</td>
+							<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-700 font-mono last:border-b-0">{formatCurrency(run.totalGross)}</td>
+							<td class="p-4 px-5 text-body-content border-b border-surface-100 font-mono font-semibold text-surface-800 last:border-b-0">{formatCurrency(run.totalNetPay)}</td>
+							<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-700 last:border-b-0">
+								<span class="inline-flex items-center gap-2 py-1 px-3 rounded-full text-auxiliary-text font-medium {getStatusBadgeClass(run.status)}">
 									{PAYROLL_STATUS_LABELS[run.status]}
 								</span>
 							</td>
-							<td>
+							<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-700 last:border-b-0">
 								<button
-									class="action-btn"
+									class="p-2 bg-transparent border-none rounded-md text-surface-400 cursor-pointer transition-[150ms] hover:bg-surface-100 hover:text-primary-600"
 									title="View details"
 									onclick={(e) => {
 										e.stopPropagation();
@@ -400,14 +400,14 @@
 		</div>
 
 		<!-- Pagination -->
-		<div class="pagination">
-			<span class="pagination-info">Showing 1-{mockPayrollRuns.length} of {mockPayrollRuns.length} payroll runs</span>
-			<div class="pagination-controls">
-				<button class="pagination-btn" disabled aria-label="Previous page">
+		<div class="flex items-center justify-between max-md:flex-col max-md:gap-3">
+			<span class="text-body-content text-surface-600">Showing 1-{mockPayrollRuns.length} of {mockPayrollRuns.length} payroll runs</span>
+			<div class="flex gap-2">
+				<button class="min-w-9 h-9 px-3 bg-white border border-surface-200 rounded-md text-body-content text-surface-700 cursor-pointer transition-[150ms] hover:bg-surface-50 hover:border-primary-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled aria-label="Previous page">
 					<i class="fas fa-chevron-left"></i>
 				</button>
-				<button class="pagination-btn active">1</button>
-				<button class="pagination-btn" aria-label="Next page">
+				<button class="min-w-9 h-9 px-3 bg-primary-500 border border-primary-500 rounded-md text-body-content text-white cursor-pointer transition-[150ms]">1</button>
+				<button class="min-w-9 h-9 px-3 bg-white border border-surface-200 rounded-md text-body-content text-surface-700 cursor-pointer transition-[150ms] hover:bg-surface-50 hover:border-primary-300" aria-label="Next page">
 					<i class="fas fa-chevron-right"></i>
 				</button>
 			</div>
@@ -423,306 +423,3 @@
 		/>
 	{/if}
 </div>
-
-<style>
-	.history-page {
-		display: flex;
-		gap: var(--spacing-6);
-		max-width: 1400px;
-	}
-
-	.main-content {
-		flex: 1;
-		min-width: 0;
-	}
-
-	.history-page.panel-open .main-content {
-		max-width: calc(100% - 400px - var(--spacing-6));
-	}
-
-	.page-header {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		margin-bottom: var(--spacing-6);
-	}
-
-	.header-content {
-		flex: 1;
-	}
-
-	.page-title {
-		font-size: var(--font-size-headline-minimum);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-		margin: 0 0 var(--spacing-1);
-	}
-
-	.page-subtitle {
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-600);
-		margin: 0;
-	}
-
-	.btn-secondary {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-3) var(--spacing-5);
-		background: white;
-		color: var(--color-surface-700);
-		border: 1px solid var(--color-surface-200);
-		border-radius: var(--radius-lg);
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-secondary:hover {
-		background: var(--color-surface-50);
-		border-color: var(--color-surface-300);
-	}
-
-	/* Stats Grid */
-	.stats-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-		gap: var(--spacing-4);
-		margin-bottom: var(--spacing-6);
-	}
-
-	.stat-card {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-4);
-		padding: var(--spacing-5);
-		background: white;
-		border-radius: var(--radius-xl);
-		box-shadow: var(--shadow-md3-1);
-	}
-
-	.stat-icon {
-		width: 48px;
-		height: 48px;
-		border-radius: var(--radius-lg);
-		background: var(--color-primary-100);
-		color: var(--color-primary-600);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 20px;
-	}
-
-	.stat-content {
-		display: flex;
-		flex-direction: column;
-	}
-
-	.stat-value {
-		font-size: var(--font-size-title-large);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-	}
-
-	.stat-label {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-600);
-	}
-
-	/* Table */
-	.table-container {
-		background: white;
-		border-radius: var(--radius-xl);
-		box-shadow: var(--shadow-md3-1);
-		overflow: hidden;
-		margin-bottom: var(--spacing-4);
-	}
-
-	.history-table {
-		width: 100%;
-		border-collapse: collapse;
-	}
-
-	.history-table th {
-		text-align: left;
-		padding: var(--spacing-4) var(--spacing-5);
-		background: var(--color-surface-50);
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-600);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-		border-bottom: 1px solid var(--color-surface-200);
-	}
-
-	.history-table td {
-		padding: var(--spacing-4) var(--spacing-5);
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-700);
-		border-bottom: 1px solid var(--color-surface-100);
-	}
-
-	.history-table tr:last-child td {
-		border-bottom: none;
-	}
-
-	.history-table tbody tr {
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.history-table tbody tr:hover td {
-		background: var(--color-surface-50);
-	}
-
-	.history-table tbody tr.selected td {
-		background: var(--color-primary-50);
-	}
-
-	.period {
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-800);
-	}
-
-	.pay-date {
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-600);
-	}
-
-	.amount {
-		font-family: monospace;
-	}
-
-	.amount.net {
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-	}
-
-	/* Status Badge */
-	.status-badge {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-1) var(--spacing-3);
-		border-radius: var(--radius-full);
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-medium);
-	}
-
-	.status-badge.status-paid {
-		background: var(--color-success-100);
-		color: var(--color-success-700);
-	}
-
-	.status-badge.status-approved {
-		background: var(--color-info-100);
-		color: var(--color-info-700);
-	}
-
-	.status-badge.status-pending {
-		background: var(--color-warning-100);
-		color: var(--color-warning-700);
-	}
-
-	.status-badge.status-draft {
-		background: var(--color-surface-100);
-		color: var(--color-surface-600);
-	}
-
-	.status-badge.status-cancelled {
-		background: var(--color-error-100);
-		color: var(--color-error-700);
-	}
-
-	.action-btn {
-		padding: var(--spacing-2);
-		background: none;
-		border: none;
-		border-radius: var(--radius-md);
-		color: var(--color-surface-400);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.action-btn:hover {
-		background: var(--color-surface-100);
-		color: var(--color-primary-600);
-	}
-
-	/* Pagination */
-	.pagination {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-
-	.pagination-info {
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-600);
-	}
-
-	.pagination-controls {
-		display: flex;
-		gap: var(--spacing-2);
-	}
-
-	.pagination-btn {
-		min-width: 36px;
-		height: 36px;
-		padding: 0 var(--spacing-3);
-		background: white;
-		border: 1px solid var(--color-surface-200);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-700);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.pagination-btn:hover:not(:disabled) {
-		background: var(--color-surface-50);
-		border-color: var(--color-primary-300);
-	}
-
-	.pagination-btn.active {
-		background: var(--color-primary-500);
-		border-color: var(--color-primary-500);
-		color: white;
-	}
-
-	.pagination-btn:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	@media (max-width: 1024px) {
-		.history-page {
-			flex-direction: column;
-		}
-
-		.history-page.panel-open .main-content {
-			max-width: 100%;
-		}
-	}
-
-	@media (max-width: 768px) {
-		.page-header {
-			flex-direction: column;
-			gap: var(--spacing-4);
-		}
-
-		.table-container {
-			overflow-x: auto;
-		}
-
-		.history-table {
-			min-width: 700px;
-		}
-
-		.pagination {
-			flex-direction: column;
-			gap: var(--spacing-3);
-		}
-	}
-</style>

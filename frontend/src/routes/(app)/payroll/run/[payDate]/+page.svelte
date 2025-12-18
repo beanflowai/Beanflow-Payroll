@@ -37,7 +37,8 @@
 		PayrollErrorState,
 		PayrollNotFound,
 		PayrollPageHeader,
-		PayrollInfoMessage
+		PayrollInfoMessage,
+		DraftPayrollView
 	} from '$lib/components/payroll';
 	import {
 		getPayrollRunByPayDate,
@@ -45,10 +46,14 @@
 		getPayGroupsForPayDate,
 		getPayGroupsWithEmployeesForPayDate,
 		startPayrollRun,
+		updatePayrollRecord,
+		recalculatePayrollRun,
+		finalizePayrollRun,
+		checkHasModifiedRecords,
 		type BeforeRunData,
 		type EmployeeHoursInput,
 		type EmployeeForPayroll
-	} from '$lib/services/payrollService';
+	} from '$lib/services/payroll';
 	import { getDefaultRegularHours } from '$lib/types/payroll';
 	import {
 		getUnassignedEmployees,
@@ -87,6 +92,11 @@
 	// Payroll Input State - tracks all payroll input data for each employee
 	let payrollInputMap = $state<Map<string, EmployeePayrollInput>>(new Map());
 
+	// Draft State Variables
+	let hasModifiedRecords = $state(false);
+	let isRecalculating = $state(false);
+	let isFinalizing = $state(false);
+
 	// ===========================================
 	// Load Data
 	// ===========================================
@@ -112,6 +122,14 @@
 				return;
 			}
 			payrollRun = result.data;
+
+			// Check for modified records if in draft state
+			if (payrollRun && payrollRun.status === 'draft') {
+				const modifiedResult = await checkHasModifiedRecords(payrollRun.id);
+				if (!modifiedResult.error) {
+					hasModifiedRecords = modifiedResult.data ?? false;
+				}
+			}
 
 			// If no payroll run exists, load employees for the "before run" view
 			if (!payrollRun && payDateInfo) {
@@ -652,6 +670,76 @@
 			isAssigning = false;
 		}
 	}
+
+	// ===========================================
+	// Draft State Handlers
+	// ===========================================
+	async function handleUpdateDraftRecord(
+		recordId: string,
+		employeeId: string,
+		updates: Partial<EmployeePayrollInput>
+	) {
+		if (!payrollRun || payrollRun.status !== 'draft') return;
+
+		try {
+			const result = await updatePayrollRecord(payrollRun.id, recordId, updates);
+			if (result.error) {
+				console.error('Failed to update record:', result.error);
+				return;
+			}
+			// Mark that we have modified records
+			hasModifiedRecords = true;
+		} catch (err) {
+			console.error('Failed to update record:', err);
+		}
+	}
+
+	async function handleRecalculate() {
+		if (!payrollRun || payrollRun.status !== 'draft') return;
+
+		isRecalculating = true;
+		try {
+			const result = await recalculatePayrollRun(payrollRun.id);
+			if (result.error) {
+				alert(`Failed to recalculate: ${result.error}`);
+				return;
+			}
+			// Update local state with recalculated data
+			payrollRun = result.data;
+			hasModifiedRecords = false;
+		} catch (err) {
+			alert(`Failed to recalculate: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		} finally {
+			isRecalculating = false;
+		}
+	}
+
+	async function handleFinalize() {
+		if (!payrollRun || payrollRun.status !== 'draft') return;
+
+		if (hasModifiedRecords) {
+			alert('Please recalculate before finalizing. There are unsaved changes.');
+			return;
+		}
+
+		isFinalizing = true;
+		try {
+			const result = await finalizePayrollRun(payrollRun.id);
+			if (result.error) {
+				alert(`Failed to finalize: ${result.error}`);
+				return;
+			}
+			// Update local state - status should now be pending_approval
+			payrollRun = result.data;
+		} catch (err) {
+			alert(`Failed to finalize: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		} finally {
+			isFinalizing = false;
+		}
+	}
+
+	// Check if payroll run is in draft state
+	const isDraft = $derived(payrollRun?.status === 'draft');
 </script>
 
 <svelte:head>
@@ -745,8 +833,21 @@
 			/>
 		{/if}
 	</div>
+{:else if payrollRun && isDraft}
+	<!-- Draft View - Editable Payroll Run -->
+	<div class="max-w-[1200px]">
+		<DraftPayrollView
+			{payrollRun}
+			{hasModifiedRecords}
+			{isRecalculating}
+			{isFinalizing}
+			onRecalculate={handleRecalculate}
+			onFinalize={handleFinalize}
+			onUpdateRecord={handleUpdateDraftRecord}
+		/>
+	</div>
 {:else if payrollRun}
-	<!-- Payroll Run View -->
+	<!-- Payroll Run View (pending_approval, approved, paid) -->
 	<div class="max-w-[1200px]">
 		<PayrollPageHeader
 			payDateFormatted={formatDate(payrollRun.payDate)}
