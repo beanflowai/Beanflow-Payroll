@@ -484,6 +484,7 @@ export function getPayGroupPolicySummary(payGroup: PayGroup): {
 	benefits: boolean;
 	bankTime: boolean;
 	cppExempt: boolean;
+	cpp2Exempt: boolean;
 	eiExempt: boolean;
 } {
 	return {
@@ -491,6 +492,7 @@ export function getPayGroupPolicySummary(payGroup: PayGroup): {
 		benefits: payGroup.groupBenefits.enabled,
 		bankTime: payGroup.overtimePolicy.bankTimeEnabled,
 		cppExempt: payGroup.statutoryDefaults.cppExemptByDefault,
+		cpp2Exempt: payGroup.statutoryDefaults.cpp2ExemptByDefault,
 		eiExempt: payGroup.statutoryDefaults.eiExemptByDefault
 	};
 }

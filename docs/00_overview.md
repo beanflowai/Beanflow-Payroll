@@ -115,7 +115,7 @@ See `14_standalone_architecture.md` for detailed frontend architecture.
 - ❌ ROE (Record of Employment) (Phase 7)
 - ❌ Direct CRA e-filing
 - ❌ Quebec payroll (requires separate system)
-- ❌ Direct deposit / payment processing
+- 📋 **Payment processing** - See `15_payment_integration.md` (Plooto API 集成规划中)
 
 ---
 
@@ -140,7 +140,8 @@ See `14_standalone_architecture.md` for detailed frontend architecture.
 | `10_remittance_reporting.md` | CRA remittance calculations |
 | `12_garnishments_deductions.md` | Garnishment handling |
 | `13_database_schema.md` | Complete Supabase schema |
-| `14_standalone_architecture.md` | **NEW** - Standalone frontend architecture |
+| `14_standalone_architecture.md` | Standalone frontend architecture |
+| `15_payment_integration.md` | **NEW** - Plooto API 支付集成 (PAD/EFT/CRA) |
 | `implementation_checklist.md` | Master progress tracker |
 
 ---

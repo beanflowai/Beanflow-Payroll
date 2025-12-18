@@ -309,8 +309,13 @@ CREATE TABLE IF NOT EXISTS payroll_records (
     user_id TEXT NOT NULL,
     ledger_id TEXT NOT NULL,
 
+    -- Hours Worked (for hourly employees)
+    regular_hours_worked NUMERIC(6, 2),  -- NULL for salaried employees
+    overtime_hours_worked NUMERIC(6, 2) DEFAULT 0,
+    hourly_rate_snapshot NUMERIC(10, 2),  -- Snapshot of hourly rate at time of payroll
+
     -- Earnings
-    gross_regular NUMERIC(12, 2) NOT NULL,
+    gross_regular NUMERIC(12, 2) NOT NULL,  -- For salary: annual/periods; For hourly: hours × rate
     gross_overtime NUMERIC(10, 2) DEFAULT 0,
     holiday_pay NUMERIC(10, 2) DEFAULT 0,
     holiday_premium_pay NUMERIC(10, 2) DEFAULT 0,
@@ -418,6 +423,15 @@ CREATE POLICY "Users can access own payroll records"
 
 ```json
 {
+  "gross_calculation": {
+    "type": "hourly",           // "salary" | "hourly"
+    "regular_hours": 40.0,      // Only for hourly employees
+    "overtime_hours": 5.0,      // Overtime hours worked
+    "hourly_rate": "25.00",     // Snapshot of hourly rate
+    "overtime_rate": "37.50",   // 1.5x hourly rate
+    "regular_pay": "1000.00",   // hours × rate
+    "overtime_pay": "187.50"    // OT hours × OT rate
+  },
   "cpp": {
     "pensionable_earnings": "2307.69",
     "prorated_exemption": "134.62",

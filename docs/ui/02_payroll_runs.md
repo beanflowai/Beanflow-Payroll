@@ -526,39 +526,60 @@ When user navigates to `/payroll/run/2025-12-20` and no payroll run exists:
 │ ┌─ Bi-weekly Full-time ─────────────────────────────────────────────┐  │
 │ │ Bi-weekly · Full-time · Dec 1 - Dec 14    6 Emp  --  --    [Add]  │  │
 │ ├───────────────────────────────────────────────────────────────────┤  │
-│ │ Employee       │ Province │ Gross │ Leave │ OT │ Deduct │ Net Pay │  │
-│ │ Sarah Johnson  │   ON     │   --  │   -   │  - │   --   │    --   │  │
-│ │ Michael Chen   │   BC     │   --  │   -   │  - │   --   │    --   │  │
-│ │ ...            │          │       │       │    │        │         │  │
+│ │ Employee       │ Type   │ Rate/Salary │ Hours │ Gross │ ... │ Net │  │
+│ │ Sarah Johnson  │ Salary │ $60,000/yr  │   -   │   --  │     │ --  │  │
+│ │ Michael Chen   │ Hourly │ $25.00/hr   │ [40]  │   --  │     │ --  │  │
+│ │ Lisa Wong      │ Hourly │ $22.50/hr   │ [32]  │   --  │     │ --  │  │
+│ │ ...            │        │             │       │       │     │     │  │
 │ └───────────────────────────────────────────────────────────────────┘  │
 ├─────────────────────────────────────────────────────────────────────────┤
-│ ℹ️ Click "Start Payroll Run" to calculate gross, deductions, net pay   │
+│ ⚠️ Enter hours for hourly employees before starting payroll run        │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Key Features**:
 - Summary cards show `--` placeholder
-- Employee table shows names and provinces, amounts are `--`
+- Employee table shows:
+  - **Type column**: "Salary" or "Hourly" based on compensation type
+  - **Rate/Salary column**: Shows `$XX,XXX/yr` for salary, `$XX.XX/hr` for hourly
+  - **Hours column**:
+    - Salaried employees: Shows `-` (not applicable)
+    - Hourly employees: Shows editable input field `[40]`
 - "Add" button in each pay group header to add employees
-- "Start Payroll Run" button is primary action
+- "Start Payroll Run" button is primary action (disabled if hourly employees have no hours)
+- Warning message appears if hourly employees have missing hours
+
+**Hourly Employee Hours Input Rules**:
+1. Hours input field appears only for employees with `hourly_rate` (no `annual_salary`)
+2. Default value can be pre-filled based on pay period (e.g., 80 hours for bi-weekly)
+3. Input allows decimals (e.g., 37.5 hours)
+4. Validation: Hours must be > 0 for all hourly employees before Start
+5. Hours are saved locally until "Start Payroll Run" is clicked
 
 ### 8.2 Start Payroll Run
 
 When user clicks "Start Payroll Run":
 
-1. **Create Records**:
+1. **Validation**:
+   - Check all hourly employees have hours entered (> 0)
+   - If validation fails, show error and prevent start
+
+2. **Create Records**:
    - Create `payroll_runs` record with status = `pending_approval`
    - For each employee in pay groups:
-     - Calculate gross pay (salary/periods or hours × rate)
+     - **Salaried employees**: `gross_regular = annual_salary / pay_periods_per_year`
+     - **Hourly employees**: `gross_regular = regular_hours_worked × hourly_rate`
+     - Store `regular_hours_worked` and `hourly_rate_snapshot` in payroll_records
      - Calculate CPP (5.95% employee, 5.95% employer)
      - Calculate EI (1.66% employee, 1.4× employer)
      - Calculate Federal Tax (simplified)
      - Calculate Provincial Tax (simplified)
    - Create `payroll_records` for each employee
 
-2. **Update UI**:
+3. **Update UI**:
    - Summary cards show calculated totals
    - Employee table shows calculated amounts
+   - Hours column becomes read-only (shows actual hours used)
    - Button changes to "Approve & Send Paystubs"
    - Status badge shows "Pending Approval"
 

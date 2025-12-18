@@ -1177,6 +1177,101 @@ Configuration architecture is considered successfully implemented when:
 - Update Phase 1 and Phase 2 planning documents to reference this architecture
 - Begin creating JSON schemas and `TaxYearConfigLoader` class
 
-**Document Version**: 1.0
+**Document Version**: 1.1
 **Created**: 2025-10-08
-**Status**: Planning - Awaiting Approval
+**Updated**: 2025-12-17
+**Status**: Implemented (with deviations from original design)
+
+---
+
+## 📋 Actual Implementation Notes (December 2025)
+
+The configuration architecture was implemented with some simplifications from the original design. This section documents the actual implementation.
+
+### Implemented Directory Structure
+
+```
+backend/
+├── config/
+│   └── tax_tables/
+│       └── 2025/
+│           ├── federal.json
+│           ├── cpp_ei.json
+│           └── provinces.json
+```
+
+**Key Differences from Design:**
+- Uses flat year directory (`2025/`) instead of edition subdirectories (`2025/jan/`, `2025/jul/`)
+- Simplified file naming without year/edition suffix (e.g., `federal.json` instead of `federal_2025_jul.json`)
+- Special taxes (Ontario surtax, BC tax reduction) are embedded in `provinces.json` instead of separate file
+
+### Configuration Loader Implementation
+
+**File**: `backend/app/services/payroll/tax_tables.py`
+
+The implementation uses module-level functions with LRU caching instead of the `TaxYearConfigLoader` class:
+
+```python
+# Actual API (module functions)
+from backend.app.services.payroll.tax_tables import (
+    get_federal_config,
+    get_cpp_config,
+    get_ei_config,
+    get_province_config,
+    calculate_dynamic_bpa
+)
+
+# Usage
+federal = get_federal_config(year=2025)
+bpaf = Decimal(str(federal["bpaf"]))
+
+cpp = get_cpp_config(year=2025)
+ympe = Decimal(str(cpp["ympe"]))
+
+province = get_province_config("ON", year=2025)
+bpa = Decimal(str(province["bpa"]))
+```
+
+### Field Naming Conventions
+
+| Design Document | Actual Implementation |
+|-----------------|----------------------|
+| `basic_personal_amount` | `bpa` |
+| `bpaf` | `bpaf` (same) |
+| `employer_matches_employee: true` | `employer_rate_multiplier: 1.0` |
+| `tax_brackets` | `brackets` |
+
+### Features Implemented
+
+- [x] JSON configuration files for federal, CPP/EI, and provincial taxes
+- [x] Decimal precision for monetary values
+- [x] LRU caching for configuration files
+- [x] Dynamic BPA calculation (Manitoba, Nova Scotia, Yukon)
+- [x] Tax bracket lookup utilities
+- [x] Configuration validation
+
+### Features Deferred
+
+- [ ] Edition subdirectories (jan/jul) - Using single annual config
+- [ ] Separate `special_taxes.json` - Embedded in provinces.json
+- [ ] Multi-year support (2024 configs) - Only 2025 implemented
+- [ ] Automatic edition detection based on date - Hardcoded to 2025
+- [ ] `TaxYearConfigLoader` class API - Using simpler module functions
+
+### Why the Simplifications?
+
+1. **Single Annual Config**: CRA T4127 July 2025 edition covers the full year for most values. CPP/EI rates are annual (January). Separating by edition added complexity without immediate benefit.
+
+2. **Module Functions vs Class**: Python module functions with `@lru_cache` provide the same benefits (caching, lazy loading) with simpler API.
+
+3. **Embedded Special Taxes**: Ontario and BC special tax rules are tightly coupled to their province configs. Embedding them reduces file count and simplifies loading.
+
+### Migration Path (if needed)
+
+To add edition support in the future:
+1. Create `2025/jul/` subdirectory
+2. Move current files into `2025/jul/`
+3. Update `_get_config_path()` to accept edition parameter
+4. Add `get_current_edition()` helper based on date
+
+The current implementation is sufficient for 2025 payroll processing. Enhanced historical calculation support can be added when multi-year requirements emerge.

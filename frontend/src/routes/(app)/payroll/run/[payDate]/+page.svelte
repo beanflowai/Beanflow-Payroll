@@ -30,8 +30,11 @@
 		getPayGroupsForPayDate,
 		getPayGroupsWithEmployeesForPayDate,
 		startPayrollRun,
-		type BeforeRunData
+		type BeforeRunData,
+		type EmployeeHoursInput,
+		type EmployeeForPayroll
 	} from '$lib/services/payrollService';
+	import { getDefaultRegularHours } from '$lib/types/payroll';
 	import {
 		getUnassignedEmployees,
 		assignEmployeesToPayGroup
@@ -67,6 +70,10 @@
 	let selectedEmployeeIds = $state<Set<string>>(new Set());
 	let isAssigning = $state(false);
 
+	// Hours Input State - tracks hours for each hourly employee
+	// Map of employeeId -> { regularHours, overtimeHours }
+	let hoursInputMap = $state<Map<string, { regularHours: number; overtimeHours: number }>>(new Map());
+
 	// ===========================================
 	// Load Data
 	// ===========================================
@@ -101,6 +108,23 @@
 					return;
 				}
 				beforeRunData = beforeResult.data;
+
+				// Initialize hours input for hourly employees
+				if (beforeRunData) {
+					const newHoursMap = new Map<string, { regularHours: number; overtimeHours: number }>();
+					for (const payGroup of beforeRunData.payGroups) {
+						const defaultHours = getDefaultRegularHours(payGroup.payFrequency);
+						for (const employee of payGroup.employees) {
+							if (employee.compensationType === 'hourly') {
+								newHoursMap.set(employee.id, {
+									regularHours: defaultHours,
+									overtimeHours: 0
+								});
+							}
+						}
+					}
+					hoursInputMap = newHoursMap;
+				}
 			}
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load payroll run';
@@ -124,6 +148,34 @@
 	const isApprovedOrPaid = $derived(
 		payrollRun?.status === 'approved' || payrollRun?.status === 'paid'
 	);
+
+	// Count of hourly employees and those with missing hours
+	const hourlyEmployeesCount = $derived(() => {
+		if (!beforeRunData) return 0;
+		let count = 0;
+		for (const pg of beforeRunData.payGroups) {
+			for (const emp of pg.employees) {
+				if (emp.compensationType === 'hourly') count++;
+			}
+		}
+		return count;
+	});
+
+	// Check if all hourly employees have valid hours input
+	const allHourlyEmployeesHaveHours = $derived(() => {
+		if (!beforeRunData) return true;
+		for (const pg of beforeRunData.payGroups) {
+			for (const emp of pg.employees) {
+				if (emp.compensationType === 'hourly') {
+					const hoursData = hoursInputMap.get(emp.id);
+					if (!hoursData || hoursData.regularHours <= 0) {
+						return false;
+					}
+				}
+			}
+		}
+		return true;
+	});
 
 	// Create a compatible PayrollRun object for existing components
 	const payrollRunCompat = $derived(
@@ -167,6 +219,96 @@
 			day: 'numeric'
 		});
 	}
+
+	function formatCurrency(amount: number): string {
+		return new Intl.NumberFormat('en-CA', {
+			style: 'currency',
+			currency: 'CAD'
+		}).format(amount);
+	}
+
+	function formatCompensation(employee: { annualSalary?: number | null; hourlyRate?: number | null }): string {
+		if (employee.annualSalary) {
+			return `${formatCurrency(employee.annualSalary)}/yr`;
+		} else if (employee.hourlyRate) {
+			return `${formatCurrency(employee.hourlyRate)}/hr`;
+		}
+		return '--';
+	}
+
+	function updateHoursInput(employeeId: string, field: 'regularHours' | 'overtimeHours', value: number) {
+		const current = hoursInputMap.get(employeeId) || { regularHours: 0, overtimeHours: 0 };
+		const updated = { ...current, [field]: value };
+		hoursInputMap = new Map(hoursInputMap).set(employeeId, updated);
+	}
+
+	function getHoursInput(employeeId: string): { regularHours: number; overtimeHours: number } {
+		return hoursInputMap.get(employeeId) || { regularHours: 0, overtimeHours: 0 };
+	}
+
+	/**
+	 * Calculate estimated gross pay for an employee before payroll run
+	 * - Salaried: annual_salary / pay_periods_per_year
+	 * - Hourly: hours × hourly_rate
+	 */
+	function calculateEstimatedGross(
+		employee: EmployeeForPayroll,
+		payFrequency: 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly'
+	): number | null {
+		if (employee.compensationType === 'salaried' && employee.annualSalary) {
+			const periodsPerYear = payFrequency === 'weekly' ? 52 :
+				payFrequency === 'bi_weekly' ? 26 :
+				payFrequency === 'semi_monthly' ? 24 : 12;
+			return employee.annualSalary / periodsPerYear;
+		} else if (employee.compensationType === 'hourly' && employee.hourlyRate) {
+			const hoursData = hoursInputMap.get(employee.id);
+			if (hoursData && hoursData.regularHours > 0) {
+				const regularPay = hoursData.regularHours * employee.hourlyRate;
+				const overtimePay = (hoursData.overtimeHours || 0) * employee.hourlyRate * 1.5;
+				return regularPay + overtimePay;
+			}
+			return null; // No hours entered yet
+		}
+		return null;
+	}
+
+	/**
+	 * Calculate total estimated gross for a pay group
+	 */
+	function calculatePayGroupEstimatedGross(
+		payGroup: { employees: EmployeeForPayroll[]; payFrequency: 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly' }
+	): number | null {
+		let total = 0;
+		let hasAllData = true;
+		for (const emp of payGroup.employees) {
+			const gross = calculateEstimatedGross(emp, payGroup.payFrequency);
+			if (gross === null) {
+				hasAllData = false;
+			} else {
+				total += gross;
+			}
+		}
+		// Return total if we have at least some data, null if no employees or all null
+		return payGroup.employees.length > 0 && total > 0 ? total : (hasAllData ? 0 : null);
+	}
+
+	/**
+	 * Calculate total estimated gross for all pay groups (for summary cards)
+	 */
+	const totalEstimatedGross = $derived(() => {
+		if (!beforeRunData) return null;
+		let total = 0;
+		let hasAllData = true;
+		for (const pg of beforeRunData.payGroups) {
+			const pgGross = calculatePayGroupEstimatedGross(pg);
+			if (pgGross === null) {
+				hasAllData = false;
+			} else {
+				total += pgGross;
+			}
+		}
+		return total > 0 ? total : (hasAllData ? 0 : null);
+	});
 
 	// ===========================================
 	// Actions
@@ -227,11 +369,34 @@
 	async function handleStartPayrollRun() {
 		if (!beforeRunData || isStartingRun) return;
 
+		// Validate that all hourly employees have hours entered
+		if (!allHourlyEmployeesHaveHours()) {
+			alert('Please enter hours for all hourly employees before starting the payroll run.');
+			return;
+		}
+
 		isStartingRun = true;
 		error = null;
 
 		try {
-			const result = await startPayrollRun(payDate);
+			// Build hours input array for hourly employees
+			const hoursInput: EmployeeHoursInput[] = [];
+			for (const pg of beforeRunData.payGroups) {
+				for (const emp of pg.employees) {
+					if (emp.compensationType === 'hourly') {
+						const hoursData = hoursInputMap.get(emp.id);
+						if (hoursData) {
+							hoursInput.push({
+								employeeId: emp.id,
+								regularHours: hoursData.regularHours,
+								overtimeHours: hoursData.overtimeHours
+							});
+						}
+					}
+				}
+			}
+
+			const result = await startPayrollRun(payDate, hoursInput);
 			if (result.error) {
 				error = result.error;
 				alert(`Failed to start payroll run: ${result.error}`);
@@ -362,16 +527,6 @@
 			isAssigning = false;
 		}
 	}
-
-	function formatCompensation(employee: Employee): string {
-		if (employee.annualSalary) {
-			return `$${employee.annualSalary.toLocaleString()}/yr`;
-		}
-		if (employee.hourlyRate) {
-			return `$${employee.hourlyRate.toFixed(2)}/hr`;
-		}
-		return '—';
-	}
 </script>
 
 <svelte:head>
@@ -433,7 +588,7 @@
 					<button
 						class="btn-primary"
 						onclick={handleStartPayrollRun}
-						disabled={isStartingRun || beforeRunData.totalEmployees === 0}
+						disabled={isStartingRun || beforeRunData.totalEmployees === 0 || (hourlyEmployeesCount() > 0 && !allHourlyEmployeesHaveHours())}
 					>
 						{#if isStartingRun}
 							<i class="fas fa-spinner fa-spin"></i>
@@ -452,14 +607,18 @@
 			<HolidayAlert holidays={beforeRunData.holidays} onManageHolidayHours={openHolidayModal} />
 		{/if}
 
-		<!-- Summary Cards - Show placeholder values -->
+		<!-- Summary Cards - Show estimated values where available -->
 		<div class="summary-cards-placeholder">
 			<div class="summary-card">
-				<div class="summary-label">Total Gross</div>
-				<div class="summary-value placeholder">--</div>
+				<div class="summary-label">Est. Gross</div>
+				{#if totalEstimatedGross() !== null}
+					<div class="summary-value estimated">{formatCurrency(totalEstimatedGross()!)}</div>
+				{:else}
+					<div class="summary-value placeholder">--</div>
+				{/if}
 			</div>
 			<div class="summary-card">
-				<div class="summary-label">Total Deductions</div>
+				<div class="summary-label">Deductions</div>
 				<div class="summary-value placeholder deduction">--</div>
 			</div>
 			<div class="summary-card highlight">
@@ -491,6 +650,7 @@
 		<!-- Pay Group Sections with Employee List -->
 		<div class="pay-groups-container">
 			{#each beforeRunData.payGroups as payGroup (payGroup.id)}
+				{@const pgEstimatedGross = calculatePayGroupEstimatedGross(payGroup)}
 				<div class="pay-group-section">
 					<!-- Section Header -->
 					<div class="section-header-static">
@@ -522,8 +682,12 @@
 									<span class="stat-label">Employees</span>
 								</div>
 								<div class="stat">
-									<span class="stat-value placeholder">--</span>
-									<span class="stat-label">Gross</span>
+									{#if pgEstimatedGross !== null}
+										<span class="stat-value estimated">{formatCurrency(pgEstimatedGross)}</span>
+									{:else}
+										<span class="stat-value placeholder">--</span>
+									{/if}
+									<span class="stat-label">Est. Gross</span>
 								</div>
 								<div class="stat">
 									<span class="stat-value placeholder">--</span>
@@ -574,10 +738,10 @@
 								<thead>
 									<tr>
 										<th class="col-employee">Employee</th>
-										<th class="col-province">Province</th>
+										<th class="col-type">Type</th>
+										<th class="col-rate">Rate/Salary</th>
+										<th class="col-hours">Hours</th>
 										<th class="col-gross">Gross</th>
-										<th class="col-leave">Leave</th>
-										<th class="col-overtime">Overtime</th>
 										<th class="col-deductions">Deductions</th>
 										<th class="col-net">Net Pay</th>
 										<th class="col-actions"></th>
@@ -585,21 +749,46 @@
 								</thead>
 								<tbody>
 									{#each payGroup.employees as employee (employee.id)}
+										{@const hoursData = getHoursInput(employee.id)}
+										{@const estimatedGross = calculateEstimatedGross(employee, payGroup.payFrequency)}
 										<tr>
 											<td class="col-employee">
 												<div class="employee-info">
 													<span class="employee-name">{employee.firstName} {employee.lastName}</span>
 												</div>
 											</td>
-											<td class="col-province">
-												<span class="province-badge">{employee.province}</span>
+											<td class="col-type">
+												<span class="type-badge {employee.compensationType}">
+													{employee.compensationType === 'salaried' ? 'Salary' : 'Hourly'}
+												</span>
 											</td>
-											<td class="col-gross placeholder-cell">--</td>
-											<td class="col-leave">
-												<span class="no-leave">-</span>
+											<td class="col-rate">
+												<span class="rate-value">{formatCompensation(employee)}</span>
 											</td>
-											<td class="col-overtime">
-												<span class="no-overtime">-</span>
+											<td class="col-hours">
+												{#if employee.compensationType === 'hourly'}
+													<div class="hours-input-group">
+														<input
+															type="number"
+															class="hours-input"
+															min="0"
+															max="200"
+															step="0.5"
+															value={hoursData.regularHours}
+															onchange={(e) => updateHoursInput(employee.id, 'regularHours', parseFloat((e.target as HTMLInputElement).value) || 0)}
+															placeholder="Hrs"
+														/>
+													</div>
+												{:else}
+													<span class="no-hours">-</span>
+												{/if}
+											</td>
+											<td class="col-gross">
+												{#if estimatedGross !== null}
+													<span class="estimated-gross">{formatCurrency(estimatedGross)}</span>
+												{:else}
+													<span class="placeholder-cell">--</span>
+												{/if}
 											</td>
 											<td class="col-deductions placeholder-cell">--</td>
 											<td class="col-net">
@@ -616,11 +805,18 @@
 			{/each}
 		</div>
 
-		<!-- Info Message -->
-		<div class="info-message">
-			<i class="fas fa-info-circle"></i>
-			<span>Click "Start Payroll Run" to calculate gross pay, deductions, and net pay for all employees.</span>
-		</div>
+		<!-- Info/Warning Message -->
+		{#if hourlyEmployeesCount() > 0 && !allHourlyEmployeesHaveHours()}
+			<div class="warning-message">
+				<i class="fas fa-exclamation-triangle"></i>
+				<span>Enter hours for all hourly employees before starting the payroll run.</span>
+			</div>
+		{:else}
+			<div class="info-message">
+				<i class="fas fa-info-circle"></i>
+				<span>Click "Start Payroll Run" to calculate gross pay, deductions, and net pay for all employees.</span>
+			</div>
+		{/if}
 	</div>
 {:else if payrollRun}
 	<div class="payroll-run-page">
@@ -1704,6 +1900,12 @@
 		text-align: right;
 	}
 
+	.records-table th.col-type,
+	.records-table th.col-hours {
+		text-align: center;
+	}
+
+	.records-table th.col-rate,
 	.records-table th.col-gross,
 	.records-table th.col-deductions,
 	.records-table th.col-net,
@@ -1756,6 +1958,115 @@
 
 	.info-message i {
 		font-size: 18px;
+	}
+
+	/* Warning Message */
+	.warning-message {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-3);
+		padding: var(--spacing-4);
+		background: var(--color-warning-50);
+		border-radius: var(--radius-lg);
+		color: var(--color-warning-700);
+		font-size: var(--font-size-body-content);
+		margin-top: var(--spacing-6);
+		border: 1px solid var(--color-warning-200);
+	}
+
+	.warning-message i {
+		font-size: 18px;
+		color: var(--color-warning-500);
+	}
+
+	/* Type Badge */
+	.type-badge {
+		display: inline-flex;
+		align-items: center;
+		padding: 2px 8px;
+		border-radius: var(--radius-full);
+		font-size: var(--font-size-body-small);
+		font-weight: var(--font-weight-medium);
+	}
+
+	.type-badge.salaried {
+		background: var(--color-primary-50);
+		color: var(--color-primary-700);
+	}
+
+	.type-badge.hourly {
+		background: var(--color-success-50);
+		color: var(--color-success-700);
+	}
+
+	/* Rate Value */
+	.rate-value {
+		font-family: var(--font-mono);
+		font-size: var(--font-size-body-content);
+		color: var(--color-surface-700);
+	}
+
+	/* Hours Input */
+	.hours-input-group {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
+	}
+
+	.hours-input {
+		width: 70px;
+		padding: var(--spacing-2) var(--spacing-3);
+		border: 1px solid var(--color-surface-300);
+		border-radius: var(--radius-md);
+		font-size: var(--font-size-body-content);
+		font-family: var(--font-mono);
+		text-align: center;
+		transition: var(--transition-fast);
+	}
+
+	.hours-input:focus {
+		outline: none;
+		border-color: var(--color-primary-500);
+		box-shadow: 0 0 0 3px var(--color-primary-100);
+	}
+
+	.hours-input::-webkit-inner-spin-button,
+	.hours-input::-webkit-outer-spin-button {
+		opacity: 1;
+	}
+
+	.no-hours {
+		color: var(--color-surface-400);
+	}
+
+	/* Estimated Gross */
+	.estimated-gross {
+		font-family: var(--font-mono);
+		font-weight: var(--font-weight-medium);
+		color: var(--color-surface-700);
+	}
+
+	/* Estimated values (summary cards and stats) */
+	.summary-value.estimated,
+	.stat-value.estimated {
+		color: var(--color-primary-600);
+		font-weight: var(--font-weight-semibold);
+	}
+
+	/* Column widths for before run table */
+	.col-type {
+		width: 80px;
+		text-align: center;
+	}
+
+	.col-rate {
+		width: 120px;
+		text-align: right;
+	}
+
+	.col-hours {
+		width: 90px;
+		text-align: center;
 	}
 
 	.btn-primary:disabled {

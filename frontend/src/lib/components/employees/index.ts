@@ -1,6 +1,7 @@
 export { default as EmployeeTable } from './EmployeeTable.svelte';
 export { default as EmployeeDetailSidebar } from './EmployeeDetailSidebar.svelte';
 export { default as EmployeeFilters } from './EmployeeFilters.svelte';
+export { default as EmployeeForm } from './EmployeeForm.svelte';
 
 // Portal Management Components
 export { default as PortalStatusBadge } from './PortalStatusBadge.svelte';

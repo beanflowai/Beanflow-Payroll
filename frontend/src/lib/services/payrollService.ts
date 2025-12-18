@@ -629,7 +629,7 @@ export async function getPayGroupsForPayDate(
 			.from('payroll_runs')
 			.select('id, status')
 			.eq('pay_date', payDate)
-			.single();
+			.maybeSingle();
 
 		if (runs) {
 			result.runId = runs.id;
@@ -649,6 +649,11 @@ export async function getPayGroupsForPayDate(
 // ===========================================
 
 /**
+ * Compensation type based on whether employee has salary or hourly rate
+ */
+export type EmployeeCompensationType = 'salaried' | 'hourly';
+
+/**
  * Employee info for "before run" state (no payroll calculations yet)
  */
 export interface EmployeeForPayroll {
@@ -659,6 +664,17 @@ export interface EmployeeForPayroll {
 	payGroupId: string;
 	annualSalary: number | null;
 	hourlyRate: number | null;
+	// Computed compensation type
+	compensationType: EmployeeCompensationType;
+}
+
+/**
+ * Hours input for a single employee when starting payroll run
+ */
+export interface EmployeeHoursInput {
+	employeeId: string;
+	regularHours: number;
+	overtimeHours?: number;
 }
 
 /**
@@ -740,15 +756,22 @@ export async function getPayGroupsWithEmployeesForPayDate(
 				continue;
 			}
 
-			const employeeList: EmployeeForPayroll[] = (employees ?? []).map((emp) => ({
-				id: emp.id,
-				firstName: emp.first_name,
-				lastName: emp.last_name,
-				province: emp.province_of_employment,
-				payGroupId: emp.pay_group_id,
-				annualSalary: emp.annual_salary ? Number(emp.annual_salary) : null,
-				hourlyRate: emp.hourly_rate ? Number(emp.hourly_rate) : null
-			}));
+			const employeeList: EmployeeForPayroll[] = (employees ?? []).map((emp) => {
+				const hourlyRate = emp.hourly_rate ? Number(emp.hourly_rate) : null;
+				const annualSalary = emp.annual_salary ? Number(emp.annual_salary) : null;
+				// Employee is hourly if they have hourly_rate and no annual_salary
+				const compensationType: EmployeeCompensationType = (hourlyRate !== null && annualSalary === null) ? 'hourly' : 'salaried';
+				return {
+					id: emp.id,
+					firstName: emp.first_name,
+					lastName: emp.last_name,
+					province: emp.province_of_employment,
+					payGroupId: emp.pay_group_id,
+					annualSalary,
+					hourlyRate,
+					compensationType
+				};
+			});
 
 			payGroupsWithEmployees.push({
 				id: pg.id,
@@ -874,9 +897,13 @@ interface BatchCalculationResponse {
  * Start a payroll run for a specific pay date
  * Creates the payroll_runs record and payroll_records for all employees
  * Calls backend API for accurate CRA-compliant tax calculations
+ *
+ * @param payDate - The pay date in ISO format
+ * @param hoursInput - Hours worked for each hourly employee. Required for hourly employees.
  */
 export async function startPayrollRun(
-	payDate: string
+	payDate: string,
+	hoursInput: EmployeeHoursInput[] = []
 ): Promise<PayrollServiceResult<PayrollRunWithGroups>> {
 	try {
 		const userId = getCurrentUserId();
@@ -898,6 +925,15 @@ export async function startPayrollRun(
 		const periodStart = payGroups[0].periodStart;
 		const periodEnd = payGroups[0].periodEnd;
 
+		// Create a map of hours input by employee ID for quick lookup
+		const hoursMap = new Map<string, EmployeeHoursInput>();
+		for (const h of hoursInput) {
+			hoursMap.set(h.employeeId, h);
+		}
+
+		// Track hours used for each employee (to store in payroll_records)
+		const employeeHoursUsed = new Map<string, { regularHours: number; overtimeHours: number; hourlyRate: number | null }>();
+
 		// Build calculation requests for all employees
 		const calculationRequests: EmployeeCalculationRequest[] = [];
 
@@ -910,23 +946,44 @@ export async function startPayrollRun(
 			for (const employee of payGroup.employees) {
 				// Calculate gross pay based on salary or hourly rate
 				let grossRegular = 0;
-				if (employee.annualSalary) {
+				let grossOvertime = 0;
+				let regularHoursUsed = 0;
+				let overtimeHoursUsed = 0;
+
+				if (employee.compensationType === 'salaried' && employee.annualSalary) {
+					// Salaried employee: calculate from annual salary
 					const periodsPerYear = payGroup.payFrequency === 'weekly' ? 52 :
 						payGroup.payFrequency === 'bi_weekly' ? 26 :
 						payGroup.payFrequency === 'semi_monthly' ? 24 : 12;
 					grossRegular = employee.annualSalary / periodsPerYear;
-				} else if (employee.hourlyRate) {
-					const hoursPerPeriod = payGroup.payFrequency === 'weekly' ? 40 :
-						payGroup.payFrequency === 'bi_weekly' ? 80 :
-						payGroup.payFrequency === 'semi_monthly' ? 86.67 : 173.33;
-					grossRegular = employee.hourlyRate * hoursPerPeriod;
+				} else if (employee.compensationType === 'hourly' && employee.hourlyRate) {
+					// Hourly employee: use provided hours
+					const hoursForEmployee = hoursMap.get(employee.id);
+					if (!hoursForEmployee) {
+						return {
+							data: null,
+							error: `Missing hours input for hourly employee: ${employee.firstName} ${employee.lastName}`
+						};
+					}
+					regularHoursUsed = hoursForEmployee.regularHours;
+					overtimeHoursUsed = hoursForEmployee.overtimeHours ?? 0;
+					grossRegular = employee.hourlyRate * regularHoursUsed;
+					grossOvertime = employee.hourlyRate * 1.5 * overtimeHoursUsed; // Standard 1.5x overtime
 				}
+
+				// Track hours used
+				employeeHoursUsed.set(employee.id, {
+					regularHours: regularHoursUsed,
+					overtimeHours: overtimeHoursUsed,
+					hourlyRate: employee.hourlyRate
+				});
 
 				calculationRequests.push({
 					employee_id: employee.id,
 					province: employee.province,
 					pay_frequency: payFrequency,
 					gross_regular: grossRegular.toFixed(2),
+					gross_overtime: grossOvertime.toFixed(2),
 					// Use default BPA values - would be from employee TD1 in production
 					federal_claim_amount: '16129.00',
 					provincial_claim_amount: getProvincialBpa(employee.province),
@@ -987,36 +1044,45 @@ export async function startPayrollRun(
 		const runId = runData.id;
 
 		// Create payroll records from calculation results
-		const payrollRecords = calculationResponse.results.map((result) => ({
-			payroll_run_id: runId,
-			employee_id: result.employee_id,
-			user_id: userId,
-			ledger_id: ledgerId,
-			gross_regular: parseFloat(result.gross_regular),
-			gross_overtime: parseFloat(result.gross_overtime),
-			holiday_pay: parseFloat(result.holiday_pay),
-			holiday_premium_pay: parseFloat(result.holiday_premium_pay),
-			vacation_pay_paid: parseFloat(result.vacation_pay),
-			other_earnings: parseFloat(result.other_earnings),
-			cpp_employee: parseFloat(result.cpp_base),
-			cpp_additional: parseFloat(result.cpp_additional),
-			ei_employee: parseFloat(result.ei_employee),
-			federal_tax: parseFloat(result.federal_tax),
-			provincial_tax: parseFloat(result.provincial_tax),
-			rrsp: parseFloat(result.rrsp),
-			union_dues: parseFloat(result.union_dues),
-			garnishments: parseFloat(result.garnishments),
-			other_deductions: parseFloat(result.other_deductions),
-			cpp_employer: parseFloat(result.cpp_employer),
-			ei_employer: parseFloat(result.ei_employer),
-			ytd_gross: parseFloat(result.new_ytd_gross),
-			ytd_cpp: parseFloat(result.new_ytd_cpp),
-			ytd_ei: parseFloat(result.new_ytd_ei),
-			ytd_federal_tax: 0, // Would be updated from result
-			ytd_provincial_tax: 0, // Would be updated from result
-			vacation_accrued: 0,
-			vacation_hours_taken: 0
-		}));
+		const payrollRecords = calculationResponse.results.map((result) => {
+			// Get hours data for this employee
+			const hoursData = employeeHoursUsed.get(result.employee_id);
+			return {
+				payroll_run_id: runId,
+				employee_id: result.employee_id,
+				user_id: userId,
+				ledger_id: ledgerId,
+				// Hours worked (for hourly employees)
+				regular_hours_worked: hoursData?.regularHours || null,
+				overtime_hours_worked: hoursData?.overtimeHours || 0,
+				hourly_rate_snapshot: hoursData?.hourlyRate || null,
+				// Earnings
+				gross_regular: parseFloat(result.gross_regular),
+				gross_overtime: parseFloat(result.gross_overtime),
+				holiday_pay: parseFloat(result.holiday_pay),
+				holiday_premium_pay: parseFloat(result.holiday_premium_pay),
+				vacation_pay_paid: parseFloat(result.vacation_pay),
+				other_earnings: parseFloat(result.other_earnings),
+				cpp_employee: parseFloat(result.cpp_base),
+				cpp_additional: parseFloat(result.cpp_additional),
+				ei_employee: parseFloat(result.ei_employee),
+				federal_tax: parseFloat(result.federal_tax),
+				provincial_tax: parseFloat(result.provincial_tax),
+				rrsp: parseFloat(result.rrsp),
+				union_dues: parseFloat(result.union_dues),
+				garnishments: parseFloat(result.garnishments),
+				other_deductions: parseFloat(result.other_deductions),
+				cpp_employer: parseFloat(result.cpp_employer),
+				ei_employer: parseFloat(result.ei_employer),
+				ytd_gross: parseFloat(result.new_ytd_gross),
+				ytd_cpp: parseFloat(result.new_ytd_cpp),
+				ytd_ei: parseFloat(result.new_ytd_ei),
+				ytd_federal_tax: 0, // Would be updated from result
+				ytd_provincial_tax: 0, // Would be updated from result
+				vacation_accrued: 0,
+				vacation_hours_taken: 0
+			};
+		});
 
 		// Insert all payroll records
 		const { error: recordsError } = await supabase

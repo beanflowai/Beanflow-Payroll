@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import type { Employee } from '$lib/types/employee';
 	import {
 		PROVINCE_LABELS,
@@ -15,6 +16,10 @@
 	}
 
 	let { employee, showSIN, onToggleSIN, onClose }: Props = $props();
+
+	function handleEdit() {
+		goto(`/employees/${employee.id}`);
+	}
 
 	// Pay periods per year based on frequency
 	const PAY_PERIODS_MAP: Record<string, number> = {
@@ -213,7 +218,7 @@
 
 		<!-- Actions -->
 		<div class="sidebar-actions">
-			<button class="btn-secondary full-width">
+			<button class="btn-primary full-width" onclick={handleEdit}>
 				<i class="fas fa-edit"></i>
 				Edit Employee
 			</button>
@@ -387,6 +392,7 @@
 		margin-top: var(--spacing-4);
 	}
 
+	.btn-primary,
 	.btn-secondary {
 		display: flex;
 		align-items: center;
@@ -398,6 +404,19 @@
 		font-weight: var(--font-weight-medium);
 		cursor: pointer;
 		transition: var(--transition-fast);
+	}
+
+	.btn-primary {
+		background: var(--gradient-primary);
+		color: white;
+		box-shadow: var(--shadow-md3-1);
+	}
+
+	.btn-primary:hover {
+		opacity: 0.9;
+	}
+
+	.btn-secondary {
 		background: white;
 		color: var(--color-surface-700);
 		border: 1px solid var(--color-surface-200);
@@ -408,6 +427,7 @@
 		border-color: var(--color-surface-300);
 	}
 
+	.btn-primary.full-width,
 	.btn-secondary.full-width {
 		width: 100%;
 		justify-content: center;

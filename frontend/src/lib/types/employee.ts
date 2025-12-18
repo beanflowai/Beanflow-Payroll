@@ -38,8 +38,8 @@ export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
 	casual: 'Casual'
 };
 
-export type VacationPayoutMethod = 'accrual' | 'pay_as_you_go' | 'lump_sum';
-export type VacationRate = '0.04' | '0.06' | '0.08';
+export type VacationPayoutMethod = 'accrual' | 'pay_as_you_go';
+export type VacationRate = '0' | '0.04' | '0.06' | '0.08';
 export type CompensationType = 'salaried' | 'hourly';
 export type EmployeeStatus = 'draft' | 'active' | 'terminated';
 
@@ -50,6 +50,7 @@ export const EMPLOYEE_STATUS_LABELS: Record<EmployeeStatus, string> = {
 };
 
 export const VACATION_RATE_LABELS: Record<VacationRate, string> = {
+	'0': 'None (Owner/Contractor)',
 	'0.04': '4% (< 5 years)',
 	'0.06': '6% (5+ years)',
 	'0.08': '8% (Federal 10+)'
@@ -83,6 +84,8 @@ export interface Employee {
 	unionDuesPerPeriod: number;
 	vacationConfig: VacationConfig;
 	vacationBalance: number;  // Read-only, updated by payroll system
+	sickBalance: number;  // Read-only, updated by payroll system
+	tags: string[];  // Employee categorization tags
 	payGroupId?: string | null;  // Pay group assignment
 }
 
@@ -107,6 +110,7 @@ export interface EmployeeFilters {
 	payFrequency: PayFrequency | 'all';
 	employmentType: EmploymentType | 'all';
 	compensationType: CompensationType | 'all';
+	payGroupId: string | 'all';  // Filter by pay group assignment
 	searchQuery: string;
 }
 
@@ -116,6 +120,7 @@ export const DEFAULT_EMPLOYEE_FILTERS: EmployeeFilters = {
 	payFrequency: 'all',
 	employmentType: 'all',
 	compensationType: 'all',
+	payGroupId: 'all',
 	searchQuery: ''
 };
 
@@ -212,6 +217,8 @@ export interface DbEmployee {
 		vacation_rate: string;
 	};
 	vacation_balance: number;
+	sick_balance: number;
+	tags: string[];
 	pay_group_id: string | null;
 	created_at: string;
 	updated_at: string;
@@ -281,6 +288,8 @@ export function dbEmployeeToUi(db: DbEmployee, maskedSin: string): Employee {
 			vacationRate: db.vacation_config.vacation_rate as VacationRate
 		},
 		vacationBalance: db.vacation_balance,
+		sickBalance: db.sick_balance ?? 0,
+		tags: db.tags ?? [],
 		payGroupId: db.pay_group_id
 	};
 }

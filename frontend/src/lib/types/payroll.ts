@@ -111,12 +111,25 @@ export interface PayrollRun {
 	holidays?: Holiday[];
 }
 
+// Compensation type for determining how gross pay is calculated
+export type CompensationType = 'salaried' | 'hourly';
+
 // Individual employee payroll record
 export interface PayrollRecord {
 	id: string;
 	employeeId: string;
 	employeeName: string;
 	employeeProvince: string;
+
+	// Compensation info (for display and calculation)
+	compensationType: CompensationType;
+	annualSalary?: number;  // For salaried employees
+	hourlyRate?: number;    // For hourly employees
+
+	// Hours worked (for hourly employees)
+	regularHoursWorked?: number;   // NULL for salaried employees
+	overtimeHoursWorked?: number;
+	hourlyRateSnapshot?: number;   // Rate at time of payroll
 
 	// Earnings
 	grossRegular: number;
@@ -373,6 +386,10 @@ export interface DbPayrollRecord {
 	employee_id: string;
 	user_id: string;
 	ledger_id: string;
+	// Hours worked (for hourly employees)
+	regular_hours_worked: number | null;
+	overtime_hours_worked: number;
+	hourly_rate_snapshot: number | null;
 	// Earnings
 	gross_regular: number;
 	gross_overtime: number;
@@ -426,6 +443,8 @@ export interface DbPayrollRecordWithEmployee extends DbPayrollRecord {
 		province_of_employment: string;
 		pay_group_id: string | null;
 		email: string | null;
+		annual_salary: number | null;
+		hourly_rate: number | null;
 		pay_groups: {
 			id: string;
 			name: string;
@@ -468,11 +487,22 @@ export function dbPayrollRunToUi(db: DbPayrollRun): PayrollRun {
  */
 export function dbPayrollRecordToUi(db: DbPayrollRecordWithEmployee): PayrollRecord {
 	const employee = db.employees;
+	// Determine compensation type based on employee salary/rate
+	const compensationType: CompensationType = employee.hourly_rate != null ? 'hourly' : 'salaried';
+
 	return {
 		id: db.id,
 		employeeId: db.employee_id,
 		employeeName: `${employee.first_name} ${employee.last_name}`,
 		employeeProvince: employee.province_of_employment,
+		// Compensation info
+		compensationType,
+		annualSalary: employee.annual_salary ?? undefined,
+		hourlyRate: employee.hourly_rate ?? undefined,
+		// Hours worked (for hourly employees)
+		regularHoursWorked: db.regular_hours_worked ?? undefined,
+		overtimeHoursWorked: db.overtime_hours_worked ?? undefined,
+		hourlyRateSnapshot: db.hourly_rate_snapshot ?? undefined,
 		// Earnings
 		grossRegular: Number(db.gross_regular),
 		grossOvertime: Number(db.gross_overtime),
@@ -527,4 +557,45 @@ export function dbPayrollRecordToUiWithGroup(db: DbPayrollRecordWithEmployee): P
 		payGroupId: payGroup?.id ?? 'unknown',
 		payGroupName: payGroup?.name ?? 'Unknown Pay Group'
 	};
+}
+
+// ===========================================
+// Before Run State Types
+// ===========================================
+
+/**
+ * Hours input entry for hourly employees before starting payroll run
+ * Maps employee ID to their hours worked for this pay period
+ */
+export interface HoursInput {
+	employeeId: string;
+	regularHours: number;
+	overtimeHours?: number;
+}
+
+/**
+ * Validation result for hours input before starting payroll run
+ */
+export interface HoursInputValidation {
+	isValid: boolean;
+	missingHoursEmployees: string[]; // Employee names with missing hours
+	errors: string[];
+}
+
+/**
+ * Helper function to get default regular hours based on pay frequency
+ */
+export function getDefaultRegularHours(payFrequency: 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly'): number {
+	switch (payFrequency) {
+		case 'weekly':
+			return 40;
+		case 'bi_weekly':
+			return 80;
+		case 'semi_monthly':
+			return 86.67; // Approximate
+		case 'monthly':
+			return 173.33; // Approximate
+		default:
+			return 80;
+	}
 }

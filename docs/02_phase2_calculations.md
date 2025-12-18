@@ -1,5 +1,7 @@
 # Phase 2: Core Calculation Engine
 
+> **Note:** 本文档中的税率和金额基于 CRA T4127 121st Edition (July 2025)
+
 **Duration**: 3 weeks
 **Complexity**: Medium
 **Prerequisites**: Phase 1 completed
@@ -78,7 +80,7 @@ class CPPCalculator:
         Where:
         - PI = Pensionable earnings for the period
         - P = Pay periods per year
-        - Maximum annual contribution: $3,356.10
+        - Maximum annual contribution: $4,034.10
 
         Args:
             pensionable_earnings: Gross earnings for this period
@@ -122,7 +124,7 @@ class CPPCalculator:
         Where:
         - YMPE = Year's Maximum Pensionable Earnings ($71,200)
         - YAMPE = Year's Additional Maximum ($76,000)
-        - Maximum annual CPP2: $480.00
+        - Maximum annual CPP2: $396.00
 
         Args:
             pensionable_earnings: Gross earnings for this period
@@ -368,7 +370,7 @@ class EICalculator:
     Employment Insurance premium calculator
 
     Reference: CRA T4127 Chapter 7
-    Formula: EI = IE × 0.0170 (1.70%)
+    Formula: EI = IE × 0.0164 (1.64%)
     """
 
     def __init__(self, pay_periods_per_year: int = 26):
@@ -384,8 +386,8 @@ class EICalculator:
         """
         Calculate EI premium for the pay period
 
-        Formula: EI = IE × 0.0170
-        Maximum insurable earnings: $65,000
+        Formula: EI = IE × 0.0164
+        Maximum insurable earnings: $65,700
         Maximum annual premium: $1,077.48
 
         Args:
@@ -441,11 +443,11 @@ calc = EICalculator(pay_periods_per_year=26)
 
 # Test regular premium
 ei = calc.calculate_ei_premium(Decimal("2000.00"))
-assert ei == Decimal("34.00")  # 2000 * 0.017
+assert ei == Decimal("32.80")  # 2000 * 0.0164
 
 # Test employer premium
 employer_ei = calc.get_employer_premium(ei)
-assert employer_ei == Decimal("47.60")  # 34.00 * 1.4
+assert employer_ei == Decimal("45.92")  # 32.80 * 1.4
 ```
 ```
 
@@ -511,11 +513,11 @@ class FederalTaxCalculator:
         """
         Calculate K1 (personal tax credits)
 
-        Formula: K1 = 0.14 × TC
+        Formula: K1 = 0.15 × TC
 
         Where TC = Total claim amount from TD1 form
         """
-        return Decimal("0.14") * total_claim_amount
+        return Decimal("0.15") * total_claim_amount
 
     def calculate_k2(
         self,
@@ -525,13 +527,13 @@ class FederalTaxCalculator:
         """
         Calculate K2 (CPP and EI tax credits)
 
-        Formula: K2 = [0.14 × (P × C × (0.0495/0.0595))] + [0.14 × (P × EI)]
+        Formula: K2 = [0.15 × (P × C × (0.0495/0.0595))] + [0.15 × (P × EI)]
 
         Note: CPP credit uses base rate only (0.0495), not total rate (0.0595)
         """
         # CPP credit (using base rate proportion)
         cpp_credit_base = self.P * cpp_per_period * (Decimal("0.0495") / Decimal("0.0595"))
-        max_cpp_credit = Decimal("3356.10")  # Annual maximum
+        max_cpp_credit = Decimal("4034.10")  # Annual maximum (2025)
         cpp_credit = min(cpp_credit_base, max_cpp_credit)
 
         # EI credit
@@ -540,18 +542,18 @@ class FederalTaxCalculator:
         ei_credit = min(ei_credit_base, max_ei_credit)
 
         # Total K2
-        k2 = Decimal("0.14") * (cpp_credit + ei_credit)
+        k2 = Decimal("0.15") * (cpp_credit + ei_credit)
         return k2
 
     def calculate_k4(self, annual_income: Decimal) -> Decimal:
         """
         Calculate K4 (Canada Employment Amount credit)
 
-        Formula: K4 = lesser of (0.14 × A) or (0.14 × CEA)
+        Formula: K4 = lesser of (0.15 × A) or (0.15 × CEA)
         CEA = $1,471 for 2025
         """
         cea = Decimal(str(self.config["cea"]))
-        k4 = min(Decimal("0.14") * annual_income, Decimal("0.14") * cea)
+        k4 = min(Decimal("0.15") * annual_income, Decimal("0.15") * cea)
         return k4
 
     def calculate_federal_tax(
@@ -738,7 +740,7 @@ class ProvincialTaxCalculator:
         """
         # CPP credit
         cpp_credit_base = self.P * cpp_per_period * (Decimal("0.0495") / Decimal("0.0595"))
-        max_cpp = Decimal("3356.10")
+        max_cpp = Decimal("4034.10")  # 2025 Annual maximum
         cpp_credit = min(cpp_credit_base, max_cpp)
 
         # EI credit
@@ -1048,7 +1050,7 @@ result = engine.calculate_payroll(request)
 
 # Verify calculations
 assert result.cpp_employee > Decimal("0")
-assert result.ei_employee == round(Decimal("2307.69") * Decimal("0.017"), 2)
+assert result.ei_employee == round(Decimal("2307.69") * Decimal("0.0164"), 2)
 assert result.federal_tax > Decimal("0")
 assert result.provincial_tax > Decimal("0")
 assert result.net_pay == result.gross_pay - result.total_employee_deductions

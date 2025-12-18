@@ -1,33 +1,27 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import type { Employee, ColumnGroup, EmployeeFilters, EmployeeStatusCounts } from '$lib/types/employee';
 	import {
 		PROVINCE_LABELS,
-		DEFAULT_EMPLOYEE_FILTERS,
-		FEDERAL_BPA_2025,
-		PROVINCIAL_BPA_2025
+		DEFAULT_EMPLOYEE_FILTERS
 	} from '$lib/types/employee';
+	import type { PayGroup } from '$lib/types/pay-group';
 	import { EmployeeTable, EmployeeDetailSidebar, EmployeeFilters as EmployeeFiltersComponent } from '$lib/components/employees';
-	import {
-		listEmployees,
-		createEmployee,
-		updateEmployee,
-		deleteEmployee as deleteEmployeeService
-	} from '$lib/services/employeeService';
-	import type { EmployeeCreateInput, EmployeeUpdateInput } from '$lib/types/employee';
+	import { listEmployees } from '$lib/services/employeeService';
+	import { listPayGroups } from '$lib/services/payGroupService';
 
 	// ===========================================
 	// State
 	// ===========================================
 	let employees = $state<Employee[]>([]);
+	let payGroups = $state<PayGroup[]>([]);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
-	let isSaving = $state(false);
 	let selectedIds = $state<Set<string>>(new Set());
 	let filters = $state<EmployeeFilters>({ ...DEFAULT_EMPLOYEE_FILTERS });
 	let activeColumnGroup = $state<ColumnGroup>('personal');
-	let showSINMap = $state<Record<string, boolean>>({});
-	let editingCell = $state<{ id: string; field: string } | null>(null);
 	let selectedEmployeeId = $state<string | null>(null);
+	let showSidebarSIN = $state(false);
 
 	// ===========================================
 	// Data Loading
@@ -49,9 +43,21 @@
 		}
 	}
 
-	// Load employees on mount
+	async function loadPayGroups() {
+		try {
+			const result = await listPayGroups();
+			if (!result.error) {
+				payGroups = result.data;
+			}
+		} catch (err) {
+			console.warn('Failed to load pay groups for filter:', err);
+		}
+	}
+
+	// Load employees and pay groups on mount
 	$effect(() => {
 		loadEmployees();
+		loadPayGroups();
 	});
 
 	// ===========================================
@@ -76,6 +82,17 @@
 				const isSalaried = emp.annualSalary !== null && emp.annualSalary !== undefined;
 				if (filters.compensationType === 'salaried' && !isSalaried) return false;
 				if (filters.compensationType === 'hourly' && isSalaried) return false;
+			}
+
+			// Pay group filter
+			if (filters.payGroupId !== 'all') {
+				if (filters.payGroupId === 'unassigned') {
+					// Show only employees without a pay group
+					if (emp.payGroupId) return false;
+				} else {
+					// Show only employees in the selected pay group
+					if (emp.payGroupId !== filters.payGroupId) return false;
+				}
 			}
 
 			// Search filter (enhanced)
@@ -104,6 +121,15 @@
 		terminated: employees.filter((e) => e.status === 'terminated').length
 	});
 
+	// Summary statistics for cards
+	const summaryCounts = $derived({
+		total: employees.length,
+		active: employees.filter((e) => e.status === 'active').length,
+		salaried: employees.filter((e) => e.annualSalary !== null && e.annualSalary !== undefined).length,
+		hourly: employees.filter((e) => e.hourlyRate !== null && e.hourlyRate !== undefined).length,
+		unassigned: employees.filter((e) => !e.payGroupId).length
+	});
+
 	const selectedEmployee = $derived(() => {
 		if (!selectedEmployeeId) return null;
 		return employees.find((e) => e.id === selectedEmployeeId) || null;
@@ -112,10 +138,6 @@
 	// ===========================================
 	// Actions
 	// ===========================================
-	function toggleSIN(id: string) {
-		showSINMap[id] = !showSINMap[id];
-	}
-
 	function toggleSelectAll() {
 		const filtered = filteredEmployees();
 		if (selectedIds.size === filtered.length) {
@@ -135,105 +157,21 @@
 		selectedIds = newSet;
 	}
 
-	function startEdit(id: string, field: string) {
-		editingCell = { id, field };
-	}
-
-	function stopEdit() {
-		editingCell = null;
-	}
-
-	function openDetails(id: string) {
+	function handleRowClick(id: string) {
 		selectedEmployeeId = id;
 	}
 
 	function closeDetails() {
 		selectedEmployeeId = null;
+		showSidebarSIN = false;
 	}
 
-	function addNewRow() {
-		const newEmployee: Employee = {
-			id: `new-${Date.now()}`,
-			firstName: '',
-			lastName: '',
-			sin: '',
-			email: '',
-			provinceOfEmployment: 'ON',
-			payFrequency: 'bi_weekly',
-			employmentType: 'full_time',
-			status: 'draft',
-			hireDate: new Date().toISOString().split('T')[0],
-			terminationDate: null,
-			annualSalary: 0,
-			hourlyRate: null,
-			federalClaimAmount: 16129,
-			provincialClaimAmount: 12399,
-			isCppExempt: false,
-			isEiExempt: false,
-			cpp2Exempt: false,
-			rrspPerPeriod: 0,
-			unionDuesPerPeriod: 0,
-			vacationConfig: { payoutMethod: 'accrual', vacationRate: '0.04' },
-			vacationBalance: 0
-		};
-		employees = [...employees, newEmployee];
+	function toggleSidebarSIN() {
+		showSidebarSIN = !showSidebarSIN;
 	}
 
-	function toggleCompensationType(id: string) {
-		employees = employees.map((emp) => {
-			if (emp.id === id) {
-				// Switch between salary and hourly
-				const isCurrentlyHourly = emp.hourlyRate !== null && emp.hourlyRate !== undefined;
-				if (isCurrentlyHourly) {
-					// Currently hourly -> switch to salary
-					const salary = Math.round((emp.hourlyRate || 0) * 2080);
-					return { ...emp, annualSalary: salary, hourlyRate: null };
-				} else {
-					// Currently salary -> switch to hourly
-					const hourly = Number(((emp.annualSalary || 0) / 2080).toFixed(2));
-					return { ...emp, hourlyRate: hourly, annualSalary: null };
-				}
-			}
-			return emp;
-		});
-	}
-
-	async function handleDeleteEmployee(id: string) {
-		const emp = employees.find((e) => e.id === id);
-		if (!emp) return;
-
-		if (!confirm(`Are you sure you want to delete ${emp.firstName} ${emp.lastName}?`)) return;
-
-		// For new (unsaved) employees, just remove locally
-		if (id.startsWith('new-')) {
-			employees = employees.filter((e) => e.id !== id);
-			return;
-		}
-
-		// Delete from Supabase
-		isSaving = true;
-		const result = await deleteEmployeeService(id);
-		isSaving = false;
-
-		if (result.error) {
-			alert(`Failed to delete employee: ${result.error}`);
-			return;
-		}
-
-		// Remove from local state
-		employees = employees.filter((e) => e.id !== id);
-
-		// Also remove from selection if selected
-		if (selectedIds.has(id)) {
-			const newSet = new Set(selectedIds);
-			newSet.delete(id);
-			selectedIds = newSet;
-		}
-
-		// Close detail sidebar if this employee was selected
-		if (selectedEmployeeId === id) {
-			selectedEmployeeId = null;
-		}
+	function handleAddEmployee() {
+		goto('/employees/new');
 	}
 </script>
 
@@ -255,7 +193,7 @@
 					<i class="fas fa-file-import"></i>
 					<span>Import</span>
 				</button>
-				<button class="btn-primary" onclick={addNewRow} disabled={isSaving}>
+				<button class="btn-primary" onclick={handleAddEmployee}>
 					<i class="fas fa-plus"></i>
 					<span>Add Employee</span>
 				</button>
@@ -273,6 +211,59 @@
 			</div>
 		{/if}
 
+		<!-- Summary Cards -->
+		{#if !isLoading}
+			<div class="summary-cards">
+				<div class="summary-card">
+					<div class="summary-icon total">
+						<i class="fas fa-users"></i>
+					</div>
+					<div class="summary-content">
+						<span class="summary-value">{summaryCounts.total}</span>
+						<span class="summary-label">Total Employees</span>
+					</div>
+				</div>
+				<div class="summary-card">
+					<div class="summary-icon active">
+						<i class="fas fa-user-check"></i>
+					</div>
+					<div class="summary-content">
+						<span class="summary-value">{summaryCounts.active}</span>
+						<span class="summary-label">Active</span>
+					</div>
+				</div>
+				<div class="summary-card">
+					<div class="summary-icon salaried">
+						<i class="fas fa-money-bill-wave"></i>
+					</div>
+					<div class="summary-content">
+						<span class="summary-value">{summaryCounts.salaried}</span>
+						<span class="summary-label">Salaried</span>
+					</div>
+				</div>
+				<div class="summary-card">
+					<div class="summary-icon hourly">
+						<i class="fas fa-clock"></i>
+					</div>
+					<div class="summary-content">
+						<span class="summary-value">{summaryCounts.hourly}</span>
+						<span class="summary-label">Hourly</span>
+					</div>
+				</div>
+				{#if summaryCounts.unassigned > 0}
+					<div class="summary-card warning">
+						<div class="summary-icon unassigned">
+							<i class="fas fa-exclamation-triangle"></i>
+						</div>
+						<div class="summary-content">
+							<span class="summary-value">{summaryCounts.unassigned}</span>
+							<span class="summary-label">Unassigned</span>
+						</div>
+					</div>
+				{/if}
+			</div>
+		{/if}
+
 		<!-- Loading State -->
 		{#if isLoading}
 			<div class="loading-container">
@@ -284,6 +275,7 @@
 			<EmployeeFiltersComponent
 				{filters}
 				{statusCounts}
+				{payGroups}
 				onFiltersChange={(newFilters) => (filters = newFilters)}
 			/>
 
@@ -292,17 +284,9 @@
 				employees={filteredEmployees()}
 				{selectedIds}
 				{activeColumnGroup}
-				{showSINMap}
-				{editingCell}
 				onToggleSelectAll={toggleSelectAll}
 				onToggleSelect={toggleSelect}
-				onToggleSIN={toggleSIN}
-				onStartEdit={startEdit}
-				onStopEdit={stopEdit}
-				onOpenDetails={openDetails}
-				onAddNewRow={addNewRow}
-				onToggleCompensationType={toggleCompensationType}
-				onDeleteEmployee={handleDeleteEmployee}
+				onRowClick={handleRowClick}
 			/>
 
 			<!-- Results Summary -->
@@ -310,11 +294,6 @@
 				<span class="results-count">
 					Showing {filteredEmployees().length} of {employees.length} employee{employees.length !== 1 ? 's' : ''}
 				</span>
-				{#if isSaving}
-					<span class="saving-indicator">
-						<i class="fas fa-spinner fa-spin"></i> Saving...
-					</span>
-				{/if}
 			</div>
 		{/if}
 	</div>
@@ -323,8 +302,8 @@
 	{#if selectedEmployee()}
 		<EmployeeDetailSidebar
 			employee={selectedEmployee()!}
-			showSIN={showSINMap[selectedEmployee()?.id || ''] || false}
-			onToggleSIN={() => toggleSIN(selectedEmployee()?.id || '')}
+			showSIN={showSidebarSIN}
+			onToggleSIN={toggleSidebarSIN}
 			onClose={closeDetails}
 		/>
 	{/if}
@@ -344,6 +323,85 @@
 
 	.employees-page.has-sidebar .main-content {
 		max-width: calc(100% - 380px);
+	}
+
+	/* Summary Cards */
+	.summary-cards {
+		display: flex;
+		gap: var(--spacing-4);
+		margin-bottom: var(--spacing-5);
+		flex-wrap: wrap;
+	}
+
+	.summary-card {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-3);
+		padding: var(--spacing-4);
+		background: white;
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-md3-1);
+		min-width: 140px;
+		flex: 1;
+		max-width: 200px;
+	}
+
+	.summary-card.warning {
+		background: var(--color-warning-50);
+		border: 1px solid var(--color-warning-200);
+	}
+
+	.summary-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		border-radius: var(--radius-md);
+		font-size: 1rem;
+	}
+
+	.summary-icon.total {
+		background: var(--color-primary-100);
+		color: var(--color-primary-600);
+	}
+
+	.summary-icon.active {
+		background: var(--color-success-100);
+		color: var(--color-success-600);
+	}
+
+	.summary-icon.salaried {
+		background: var(--color-info-100, #e0f2fe);
+		color: var(--color-info-600, #0284c7);
+	}
+
+	.summary-icon.hourly {
+		background: var(--color-secondary-100, #f5f3ff);
+		color: var(--color-secondary-600, #7c3aed);
+	}
+
+	.summary-icon.unassigned {
+		background: var(--color-warning-100);
+		color: var(--color-warning-600);
+	}
+
+	.summary-content {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-1);
+	}
+
+	.summary-value {
+		font-size: var(--font-size-title-medium);
+		font-weight: var(--font-weight-bold);
+		color: var(--color-surface-800);
+		line-height: 1;
+	}
+
+	.summary-label {
+		font-size: var(--font-size-auxiliary-text);
+		color: var(--color-surface-500);
 	}
 
 	/* Header */
@@ -478,13 +536,6 @@
 	.loading-container p {
 		color: var(--color-surface-500);
 		margin: 0;
-	}
-
-	/* Saving Indicator */
-	.saving-indicator {
-		font-size: var(--font-size-body-small);
-		color: var(--color-primary-600, #2563eb);
-		margin-left: var(--spacing-4);
 	}
 
 	/* Results Summary */

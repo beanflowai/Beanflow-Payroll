@@ -14,14 +14,16 @@
 		EMPLOYMENT_TYPE_LABELS,
 		DEFAULT_EMPLOYEE_FILTERS
 	} from '$lib/types/employee';
+	import type { PayGroup } from '$lib/types/pay-group';
 
 	interface Props {
 		filters: EmployeeFilters;
 		statusCounts: EmployeeStatusCounts;
+		payGroups?: PayGroup[];  // Available pay groups for filtering
 		onFiltersChange: (filters: EmployeeFilters) => void;
 	}
 
-	let { filters, statusCounts, onFiltersChange }: Props = $props();
+	let { filters, statusCounts, payGroups = [], onFiltersChange }: Props = $props();
 
 	// Province options
 	const provinces: Province[] = ['AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'SK', 'YT'];
@@ -46,6 +48,7 @@
 		if (filters.payFrequency !== 'all') count++;
 		if (filters.employmentType !== 'all') count++;
 		if (filters.compensationType !== 'all') count++;
+		if (filters.payGroupId !== 'all') count++;
 		return count;
 	});
 
@@ -157,6 +160,24 @@
 					{/each}
 				</select>
 			</div>
+
+			<!-- Pay Group Filter -->
+			{#if payGroups.length > 0}
+				<div class="filter-dropdown">
+					<label for="pay-group-filter">Pay Group</label>
+					<select
+						id="pay-group-filter"
+						value={filters.payGroupId}
+						onchange={(e) => updateFilter('payGroupId', e.currentTarget.value)}
+					>
+						<option value="all">All Pay Groups</option>
+						<option value="unassigned">Unassigned</option>
+						{#each payGroups as pg}
+							<option value={pg.id}>{pg.name}</option>
+						{/each}
+					</select>
+				</div>
+			{/if}
 		</div>
 
 		<!-- Clear Filters Button -->
