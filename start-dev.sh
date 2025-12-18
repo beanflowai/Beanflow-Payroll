@@ -81,7 +81,7 @@ if [ ! -d ".venv" ]; then
     uv sync
 fi
 
-uv run uvicorn app.main:app --host 0.0.0.0 --port $BACKEND_PORT --reload &
+PYTHONUNBUFFERED=1 uv run uvicorn app.main:app --host 0.0.0.0 --port $BACKEND_PORT --reload &
 BACKEND_PID=$!
 echo $BACKEND_PID > "$BACKEND_PID_FILE"
 echo -e "${GREEN}Backend started (PID: $BACKEND_PID)${NC}"
