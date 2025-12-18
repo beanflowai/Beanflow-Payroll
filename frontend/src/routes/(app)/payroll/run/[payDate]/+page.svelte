@@ -23,7 +23,7 @@
 		createDefaultPayrollInput
 	} from '$lib/types/payroll';
 	import { PROVINCE_LABELS } from '$lib/types/employee';
-	import { StatusBadge, InlineEditField } from '$lib/components/shared';
+	import { StatusBadge } from '$lib/components/shared';
 	import {
 		PayGroupSection,
 		PayrollSummaryCards,
@@ -31,7 +31,9 @@
 		HolidayWorkModal,
 		LeaveAlert,
 		LeaveModal,
-		OvertimeModal
+		OvertimeModal,
+		BeforeRunPayGroupSection,
+		AddEmployeesModal
 	} from '$lib/components/payroll';
 	import {
 		getPayrollRunByPayDate,
@@ -76,7 +78,6 @@
 	let showAddEmployeesModal = $state(false);
 	let selectedPayGroup = $state<PayGroupSummary | null>(null);
 	let unassignedEmployees = $state<Employee[]>([]);
-	let selectedEmployeeIds = $state<Set<string>>(new Set());
 	let isAssigning = $state(false);
 
 	// Payroll Input State - tracks all payroll input data for each employee
@@ -237,15 +238,6 @@
 		}).format(amount);
 	}
 
-	function formatCompensation(employee: { annualSalary?: number | null; hourlyRate?: number | null }): string {
-		if (employee.annualSalary) {
-			return `${formatCurrency(employee.annualSalary)}/yr`;
-		} else if (employee.hourlyRate) {
-			return `${formatCurrency(employee.hourlyRate)}/hr`;
-		}
-		return '--';
-	}
-
 	/**
 	 * Get payroll input for an employee
 	 */
@@ -259,21 +251,6 @@
 	function updatePayrollInput(employeeId: string, updates: Partial<EmployeePayrollInput>) {
 		const current = getPayrollInput(employeeId);
 		payrollInputMap = new Map(payrollInputMap).set(employeeId, { ...current, ...updates });
-	}
-
-	/**
-	 * Update hours input (convenience wrapper for template compatibility)
-	 */
-	function updateHoursInput(employeeId: string, field: 'regularHours' | 'overtimeHours', value: number) {
-		updatePayrollInput(employeeId, { [field]: value });
-	}
-
-	/**
-	 * Get hours input (convenience wrapper for template compatibility)
-	 */
-	function getHoursInput(employeeId: string): { regularHours: number; overtimeHours: number } {
-		const input = getPayrollInput(employeeId);
-		return { regularHours: input.regularHours, overtimeHours: input.overtimeHours };
 	}
 
 	/**
@@ -525,28 +502,6 @@
 		return breakdown;
 	}
 
-	/**
-	 * Handle inline edit of earnings items
-	 */
-	function handleEarningsEdit(employeeId: string, key: string, newValue: number) {
-		const current = getPayrollInput(employeeId);
-
-		if (key === 'regular_pay') {
-			// Save to overrides.regularPay (only for Salaried)
-			updatePayrollInput(employeeId, {
-				overrides: {
-					...current.overrides,
-					regularPay: newValue
-				}
-			});
-		} else if (key === 'overtime') {
-			// Overtime: directly edit hours
-			updatePayrollInput(employeeId, {
-				overtimeHours: newValue
-			});
-		}
-	}
-
 	// ===========================================
 	// Actions
 	// ===========================================
@@ -704,7 +659,6 @@
 	// ===========================================
 	async function openAddEmployeesModal(payGroup: PayGroupSummary) {
 		selectedPayGroup = payGroup;
-		selectedEmployeeIds = new Set();
 
 		// Load unassigned employees
 		try {
@@ -723,33 +677,14 @@
 	function closeAddEmployeesModal() {
 		showAddEmployeesModal = false;
 		selectedPayGroup = null;
-		selectedEmployeeIds = new Set();
 	}
 
-	function toggleEmployeeSelect(id: string) {
-		const newSet = new Set(selectedEmployeeIds);
-		if (newSet.has(id)) {
-			newSet.delete(id);
-		} else {
-			newSet.add(id);
-		}
-		selectedEmployeeIds = newSet;
-	}
-
-	function toggleSelectAllEmployees() {
-		if (selectedEmployeeIds.size === unassignedEmployees.length) {
-			selectedEmployeeIds = new Set();
-		} else {
-			selectedEmployeeIds = new Set(unassignedEmployees.map((e) => e.id));
-		}
-	}
-
-	async function handleAssignEmployees() {
-		if (!selectedPayGroup || selectedEmployeeIds.size === 0) return;
+	async function handleAssignEmployeesFromModal(employeeIds: string[]) {
+		if (!selectedPayGroup || employeeIds.length === 0) return;
 
 		isAssigning = true;
 		try {
-			const result = await assignEmployeesToPayGroup(Array.from(selectedEmployeeIds), selectedPayGroup.id);
+			const result = await assignEmployeesToPayGroup(employeeIds, selectedPayGroup.id);
 			if (result.error) {
 				alert(`Failed to assign employees: ${result.error}`);
 				return;
@@ -888,440 +823,26 @@
 		<div class="pay-groups-container">
 			{#each beforeRunData.payGroups as payGroup (payGroup.id)}
 				{@const pgEstimatedGross = calculatePayGroupEstimatedGross(payGroup)}
-				<div class="pay-group-section">
-					<!-- Section Header -->
-					<div class="section-header-static">
-						<div class="header-left">
-							<div class="group-badge">
-								<i class="fas fa-tag"></i>
-							</div>
-							<div class="group-info">
-								<h3 class="group-name">{payGroup.name}</h3>
-								<div class="group-meta">
-									<span class="meta-item">
-										{PAY_FREQUENCY_LABELS[payGroup.payFrequency] || payGroup.payFrequency}
-									</span>
-									<span class="meta-divider"></span>
-									<span class="meta-item">
-										{EMPLOYMENT_TYPE_LABELS[payGroup.employmentType] || payGroup.employmentType}
-									</span>
-									<span class="meta-divider"></span>
-									<span class="meta-item">
-										{formatDateRange(payGroup.periodStart, payGroup.periodEnd)}
-									</span>
-								</div>
-							</div>
-						</div>
-						<div class="header-right">
-							<div class="header-stats">
-								<div class="stat">
-									<span class="stat-value">{payGroup.employees.length}</span>
-									<span class="stat-label">Employees</span>
-								</div>
-								<div class="stat">
-									{#if pgEstimatedGross !== null}
-										<span class="stat-value estimated">{formatCurrency(pgEstimatedGross)}</span>
-									{:else}
-										<span class="stat-value placeholder">--</span>
-									{/if}
-									<span class="stat-label">Est. Gross</span>
-								</div>
-								<div class="stat">
-									<span class="stat-value placeholder">--</span>
-									<span class="stat-label">Net Pay</span>
-								</div>
-							</div>
-							<button
-								class="btn-add-more-header"
-								onclick={() => openAddEmployeesModal({
-									id: payGroup.id,
-									name: payGroup.name,
-									payFrequency: payGroup.payFrequency,
-									employmentType: payGroup.employmentType,
-									employeeCount: payGroup.employees.length,
-									estimatedGross: 0,
-									periodStart: payGroup.periodStart,
-									periodEnd: payGroup.periodEnd
-								})}
-							>
-								<i class="fas fa-user-plus"></i>
-								<span>Add</span>
-							</button>
-						</div>
-					</div>
-
-					<!-- Employee Table -->
-					<div class="section-content">
-						{#if payGroup.employees.length === 0}
-							<div class="empty-employees">
-								<i class="fas fa-user-plus"></i>
-								<span>No employees assigned to this pay group</span>
-								<button class="btn-add-employees" onclick={() => openAddEmployeesModal({
-									id: payGroup.id,
-									name: payGroup.name,
-									payFrequency: payGroup.payFrequency,
-									employmentType: payGroup.employmentType,
-									employeeCount: 0,
-									estimatedGross: 0,
-									periodStart: payGroup.periodStart,
-									periodEnd: payGroup.periodEnd
-								})}>
-									<i class="fas fa-plus"></i>
-									Add Employees
-								</button>
-							</div>
-						{:else}
-							<table class="records-table before-run-table">
-								<thead>
-									<tr>
-										<th class="col-employee">Employee</th>
-										<th class="col-type">Type</th>
-										<th class="col-rate">Rate/Salary</th>
-										<th class="col-hours">Hours</th>
-										<th class="col-overtime">Overtime</th>
-										<th class="col-leave">Leave</th>
-										<th class="col-gross">Est. Gross</th>
-										<th class="col-expand"></th>
-									</tr>
-								</thead>
-								<tbody>
-									{#each payGroup.employees as employee (employee.id)}
-										{@const input = getPayrollInput(employee.id)}
-										{@const estimatedGross = calculateEstimatedGross(employee, payGroup.payFrequency)}
-										{@const isExpanded = expandedRecordId === employee.id}
-										{@const totalLeaveHours = input.leaveEntries.reduce((sum, l) => sum + l.hours, 0)}
-										<tr class:expanded={isExpanded}>
-											<td class="col-employee">
-												<div class="employee-info">
-													<span class="employee-name">{employee.firstName} {employee.lastName}</span>
-												</div>
-											</td>
-											<td class="col-type">
-												<span class="type-badge {employee.compensationType}">
-													{employee.compensationType === 'salaried' ? 'Salary' : 'Hourly'}
-												</span>
-											</td>
-											<td class="col-rate">
-												<span class="rate-value">{formatCompensation(employee)}</span>
-											</td>
-											<td class="col-hours">
-												{#if employee.compensationType === 'hourly'}
-													<div class="hours-input-group">
-														<input
-															type="number"
-															class="hours-input"
-															min="0"
-															max="200"
-															step="0.5"
-															value={input.regularHours}
-															onchange={(e) => updateHoursInput(employee.id, 'regularHours', parseFloat((e.target as HTMLInputElement).value) || 0)}
-															placeholder="Hrs"
-														/>
-													</div>
-												{:else}
-													<span class="no-hours">-</span>
-												{/if}
-											</td>
-											<td class="col-overtime">
-												<div class="hours-input-group">
-													<input
-														type="number"
-														class="hours-input overtime-input"
-														min="0"
-														max="100"
-														step="0.5"
-														value={input.overtimeHours}
-														onchange={(e) => updateHoursInput(employee.id, 'overtimeHours', parseFloat((e.target as HTMLInputElement).value) || 0)}
-														placeholder="OT"
-													/>
-												</div>
-											</td>
-											<td class="col-leave">
-												{#if totalLeaveHours > 0}
-													<span class="leave-badge">{totalLeaveHours}h</span>
-												{:else}
-													<span class="no-leave">-</span>
-												{/if}
-											</td>
-											<td class="col-gross">
-												{#if estimatedGross !== null}
-													<span class="estimated-gross">{formatCurrency(estimatedGross)}</span>
-												{:else}
-													<span class="placeholder-cell">--</span>
-												{/if}
-											</td>
-											<td class="col-expand">
-												<button
-													class="btn-expand"
-													class:expanded={isExpanded}
-													onclick={() => toggleExpand(employee.id)}
-													aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
-												>
-													<i class="fas fa-chevron-{isExpanded ? 'up' : 'down'}"></i>
-												</button>
-											</td>
-										</tr>
-										{#if isExpanded}
-											<tr class="expanded-row">
-												<td colspan="8">
-													<div class="expanded-content">
-														<!-- Three Column Layout -->
-														<div class="expanded-columns">
-															<!-- Earnings Column -->
-															<div class="expanded-col earnings-col">
-																<h4 class="col-title">Earnings <span class="edit-hint">(double-click to edit)</span></h4>
-																<div class="earnings-list">
-																	{#each getEarningsBreakdown(employee, payGroup.payFrequency) as item (item.key)}
-																		<div class="earnings-item" class:editable-row={item.editable}>
-																			<span class="item-label">{item.label}</span>
-																			{#if item.editable && item.editType === 'amount'}
-																				<!-- Editable amount (Regular Pay for salaried) -->
-																				<InlineEditField
-																					value={item.editValue ?? item.amount}
-																					formatValue={formatCurrency}
-																					onSave={(newValue) => handleEarningsEdit(employee.id, item.key, newValue)}
-																					step={0.01}
-																				/>
-																			{:else if item.editable && item.editType === 'hours'}
-																				<!-- Editable hours (Overtime) -->
-																				<div class="hours-edit-wrapper">
-																					<InlineEditField
-																						value={item.editValue ?? 0}
-																						formatValue={(h) => `${h}h`}
-																						onSave={(newValue) => handleEarningsEdit(employee.id, item.key, newValue)}
-																						step={0.5}
-																						suffix="h"
-																					/>
-																					{#if item.amount > 0}
-																						<span class="hours-result">= {formatCurrency(item.amount)}</span>
-																					{/if}
-																				</div>
-																			{:else}
-																				<!-- Non-editable display -->
-																				<span class="item-amount" class:negative={item.amount < 0}>
-																					{item.amount !== 0 ? formatCurrency(Math.abs(item.amount)) : '--'}
-																				</span>
-																			{/if}
-																		</div>
-																		{#if item.detail && !item.editable}
-																			<div class="item-detail">{item.detail}</div>
-																		{/if}
-																	{/each}
-																	{#if getEarningsBreakdown(employee, payGroup.payFrequency).length === 0}
-																		<div class="empty-section">No earnings data</div>
-																	{/if}
-																</div>
-																<div class="col-total">
-																	<span>Est. Gross</span>
-																	<span class="total-amount">
-																		{estimatedGross !== null ? formatCurrency(estimatedGross) : '--'}
-																	</span>
-																</div>
-															</div>
-
-															<!-- Deductions Column (Placeholder) -->
-															<div class="expanded-col deductions-col">
-																<h4 class="col-title">Deductions</h4>
-																<div class="deductions-list placeholder-section">
-																	<div class="deduction-item">
-																		<span class="item-label">CPP</span>
-																		<span class="item-amount placeholder">--</span>
-																	</div>
-																	<div class="deduction-item">
-																		<span class="item-label">EI</span>
-																		<span class="item-amount placeholder">--</span>
-																	</div>
-																	<div class="deduction-item">
-																		<span class="item-label">Federal Tax</span>
-																		<span class="item-amount placeholder">--</span>
-																	</div>
-																	<div class="deduction-item">
-																		<span class="item-label">Provincial Tax</span>
-																		<span class="item-amount placeholder">--</span>
-																	</div>
-																</div>
-																<div class="col-total">
-																	<span>Total Deductions</span>
-																	<span class="total-amount placeholder">--</span>
-																</div>
-															</div>
-
-															<!-- Leave Column -->
-															<div class="expanded-col leave-col">
-																<h4 class="col-title">Leave</h4>
-																<div class="leave-inputs">
-																	<!-- Vacation Block -->
-																	<div class="leave-type-block">
-																		<div class="leave-type-header">
-																			<span class="leave-icon">🏖️</span>
-																			<span class="leave-type-name">Vacation</span>
-																		</div>
-																		<div class="leave-field">
-																			<span class="field-label">Hours:</span>
-																			<input
-																				type="number"
-																				class="leave-hours-input"
-																				min="0"
-																				max="200"
-																				step="0.5"
-																				value={input.leaveEntries.find(l => l.type === 'vacation')?.hours ?? 0}
-																				onchange={(e) => {
-																					const hours = parseFloat((e.target as HTMLInputElement).value) || 0;
-																					const newLeaveEntries = input.leaveEntries.filter(l => l.type !== 'vacation');
-																					if (hours > 0) {
-																						newLeaveEntries.push({ type: 'vacation', hours });
-																					}
-																					updatePayrollInput(employee.id, { leaveEntries: newLeaveEntries });
-																				}}
-																				placeholder="0"
-																			/>
-																		</div>
-																		<div class="leave-field balance">
-																			<span class="field-label">Balance:</span>
-																			<span class="balance-value">-- h</span>
-																		</div>
-																	</div>
-																	<!-- Sick Block -->
-																	<div class="leave-type-block">
-																		<div class="leave-type-header">
-																			<span class="leave-icon">🏥</span>
-																			<span class="leave-type-name">Sick</span>
-																		</div>
-																		<div class="leave-field">
-																			<span class="field-label">Hours:</span>
-																			<input
-																				type="number"
-																				class="leave-hours-input"
-																				min="0"
-																				max="200"
-																				step="0.5"
-																				value={input.leaveEntries.find(l => l.type === 'sick')?.hours ?? 0}
-																				onchange={(e) => {
-																					const hours = parseFloat((e.target as HTMLInputElement).value) || 0;
-																					const newLeaveEntries = input.leaveEntries.filter(l => l.type !== 'sick');
-																					if (hours > 0) {
-																						newLeaveEntries.push({ type: 'sick', hours });
-																					}
-																					updatePayrollInput(employee.id, { leaveEntries: newLeaveEntries });
-																				}}
-																				placeholder="0"
-																			/>
-																		</div>
-																		<div class="leave-field balance">
-																			<span class="field-label">Balance:</span>
-																			<span class="balance-value">-- h</span>
-																		</div>
-																	</div>
-																</div>
-															</div>
-														</div>
-
-														<!-- One-time Adjustments Section -->
-														<div class="adjustments-section">
-															<div class="adjustments-header">
-																<h4 class="section-title">One-time Adjustments</h4>
-																<button
-																	class="btn-add-adjustment"
-																	onclick={() => {
-																		const newAdj = {
-																			id: crypto.randomUUID(),
-																			type: 'bonus' as const,
-																			amount: 0,
-																			description: '',
-																			taxable: true
-																		};
-																		updatePayrollInput(employee.id, {
-																			adjustments: [...input.adjustments, newAdj]
-																		});
-																	}}
-																>
-																	<i class="fas fa-plus"></i>
-																	Add
-																</button>
-															</div>
-															{#if input.adjustments.length === 0}
-																<div class="no-adjustments">
-																	<span>No adjustments added</span>
-																</div>
-															{:else}
-																<div class="adjustments-list">
-																	{#each input.adjustments as adj, idx (adj.id)}
-																		<div class="adjustment-row">
-																			<select
-																				class="adj-type-select"
-																				value={adj.type}
-																				onchange={(e) => {
-																					const newType = (e.target as HTMLSelectElement).value as typeof adj.type;
-																					const newTaxable = ADJUSTMENT_TYPE_LABELS[newType].taxable;
-																					const newAdjs = [...input.adjustments];
-																					newAdjs[idx] = { ...adj, type: newType, taxable: newTaxable };
-																					updatePayrollInput(employee.id, { adjustments: newAdjs });
-																				}}
-																			>
-																				<option value="bonus">Bonus</option>
-																				<option value="retroactive_pay">Retroactive Pay</option>
-																				<option value="taxable_benefit">Taxable Benefit</option>
-																				<option value="reimbursement">Reimbursement</option>
-																				<option value="deduction">Deduction</option>
-																			</select>
-																			<input
-																				type="text"
-																				class="adj-desc-input"
-																				placeholder="Description"
-																				value={adj.description}
-																				onchange={(e) => {
-																					const newAdjs = [...input.adjustments];
-																					newAdjs[idx] = { ...adj, description: (e.target as HTMLInputElement).value };
-																					updatePayrollInput(employee.id, { adjustments: newAdjs });
-																				}}
-																			/>
-																			<div class="adj-amount-wrapper">
-																				<span class="currency-prefix">$</span>
-																				<input
-																					type="number"
-																					class="adj-amount-input"
-																					min="0"
-																					step="0.01"
-																					value={adj.amount}
-																					onchange={(e) => {
-																						const newAdjs = [...input.adjustments];
-																						newAdjs[idx] = { ...adj, amount: parseFloat((e.target as HTMLInputElement).value) || 0 };
-																						updatePayrollInput(employee.id, { adjustments: newAdjs });
-																					}}
-																				/>
-																			</div>
-																			<button
-																				class="btn-remove-adj"
-																				onclick={() => {
-																					const newAdjs = input.adjustments.filter((_, i) => i !== idx);
-																					updatePayrollInput(employee.id, { adjustments: newAdjs });
-																				}}
-																				aria-label="Remove adjustment"
-																			>
-																				<i class="fas fa-times"></i>
-																			</button>
-																		</div>
-																	{/each}
-																</div>
-															{/if}
-														</div>
-
-														<!-- Net Pay Preview -->
-														<div class="net-pay-preview">
-															<span class="net-label">Est. Net Pay</span>
-															<span class="net-value placeholder">--</span>
-															<span class="net-hint">(Start Payroll Run to calculate CPP/EI/Tax)</span>
-														</div>
-													</div>
-												</td>
-											</tr>
-										{/if}
-									{/each}
-								</tbody>
-							</table>
-						{/if}
-					</div>
-				</div>
+				<BeforeRunPayGroupSection
+					{payGroup}
+					{payrollInputMap}
+					{expandedRecordId}
+					estimatedGross={pgEstimatedGross}
+					onToggleExpand={toggleExpand}
+					onAddEmployees={() => openAddEmployeesModal({
+						id: payGroup.id,
+						name: payGroup.name,
+						payFrequency: payGroup.payFrequency,
+						employmentType: payGroup.employmentType,
+						employeeCount: payGroup.employees.length,
+						estimatedGross: 0,
+						periodStart: payGroup.periodStart,
+						periodEnd: payGroup.periodEnd
+					})}
+					onUpdatePayrollInput={updatePayrollInput}
+					getEarningsBreakdown={(emp) => getEarningsBreakdown(emp, payGroup.payFrequency)}
+					calculateEstimatedGross={(emp) => calculateEstimatedGross(emp, payGroup.payFrequency)}
+				/>
 			{/each}
 		</div>
 
@@ -1454,80 +975,13 @@
 
 <!-- Add Employees Modal (shared between setup and run views) -->
 {#if showAddEmployeesModal && selectedPayGroup}
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div class="modal-overlay" onclick={closeAddEmployeesModal}>
-		<div class="modal-content" onclick={(e) => e.stopPropagation()}>
-			<div class="modal-header">
-				<h3>Add Employees to {selectedPayGroup.name}</h3>
-				<button class="btn-close" onclick={closeAddEmployeesModal}>
-					<i class="fas fa-times"></i>
-				</button>
-			</div>
-
-			<div class="modal-body">
-				{#if unassignedEmployees.length === 0}
-					<div class="modal-empty">
-						<i class="fas fa-info-circle"></i>
-						<p>No unassigned employees available.</p>
-						<p class="hint">All employees are already assigned to a pay group, or you need to add employees first.</p>
-						<a href="/employees" class="btn-go-employees">
-							<i class="fas fa-arrow-right"></i>
-							Go to Employees
-						</a>
-					</div>
-				{:else}
-					<div class="select-all-row">
-						<label class="checkbox-label">
-							<input
-								type="checkbox"
-								checked={selectedEmployeeIds.size === unassignedEmployees.length}
-								onchange={toggleSelectAllEmployees}
-							/>
-							<span>Select All ({unassignedEmployees.length})</span>
-						</label>
-					</div>
-
-					<div class="employees-list">
-						{#each unassignedEmployees as employee (employee.id)}
-							<label class="employee-row">
-								<input
-									type="checkbox"
-									checked={selectedEmployeeIds.has(employee.id)}
-									onchange={() => toggleEmployeeSelect(employee.id)}
-								/>
-								<div class="employee-info">
-									<span class="name">{employee.firstName} {employee.lastName}</span>
-									<span class="details">
-										{PROVINCE_LABELS[employee.provinceOfEmployment]} · {formatCompensation(employee)}
-									</span>
-								</div>
-							</label>
-						{/each}
-					</div>
-				{/if}
-			</div>
-
-			{#if unassignedEmployees.length > 0}
-				<div class="modal-footer">
-					<button class="btn-cancel" onclick={closeAddEmployeesModal}>Cancel</button>
-					<button
-						class="btn-assign"
-						onclick={handleAssignEmployees}
-						disabled={selectedEmployeeIds.size === 0 || isAssigning}
-					>
-						{#if isAssigning}
-							<i class="fas fa-spinner fa-spin"></i>
-							Assigning...
-						{:else}
-							<i class="fas fa-check"></i>
-							Add {selectedEmployeeIds.size} Employee{selectedEmployeeIds.size !== 1 ? 's' : ''}
-						{/if}
-					</button>
-				</div>
-			{/if}
-		</div>
-	</div>
+	<AddEmployeesModal
+		payGroup={selectedPayGroup}
+		{unassignedEmployees}
+		{isAssigning}
+		onClose={closeAddEmployeesModal}
+		onAssign={handleAssignEmployeesFromModal}
+	/>
 {/if}
 
 <style>
