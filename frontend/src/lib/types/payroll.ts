@@ -583,6 +583,9 @@ export interface HoursInput {
 
 export type AdjustmentType = 'bonus' | 'retroactive_pay' | 'taxable_benefit' | 'reimbursement' | 'deduction';
 
+// Overtime choice when bank time is enabled
+export type OvertimeChoice = 'pay_out' | 'bank_time';
+
 export const ADJUSTMENT_TYPE_LABELS: Record<AdjustmentType, { label: string; icon: string; taxable: boolean }> = {
 	bonus: { label: 'Bonus', icon: '💰', taxable: true },
 	retroactive_pay: { label: 'Retroactive Pay', icon: '⏪', taxable: true },
@@ -613,6 +616,9 @@ export interface EmployeePayrollInput {
 	// Hours
 	regularHours: number;          // Required for hourly employees
 	overtimeHours: number;         // Overtime hours worked
+
+	// Overtime choice (when bank time is enabled)
+	overtimeChoice?: OvertimeChoice;
 
 	// Leave entries
 	leaveEntries: Array<{

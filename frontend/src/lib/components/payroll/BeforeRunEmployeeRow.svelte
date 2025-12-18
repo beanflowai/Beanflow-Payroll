@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { EmployeePayrollInput, EarningsBreakdown, Adjustment } from '$lib/types/payroll';
-	import type { EmployeeForPayroll } from '$lib/services/payrollService';
+	import type { EmployeeForPayroll } from '$lib/services/payroll';
+	import type { OvertimePolicy, GroupBenefits, CustomDeduction, StatutoryDefaults } from '$lib/types/pay-group';
 	import { BeforeRunEmployeeExpandedRow } from '$lib/components/payroll';
 
 	interface Props {
@@ -9,10 +10,18 @@
 		estimatedGross: number | null;
 		earningsBreakdown: EarningsBreakdown[];
 		isExpanded: boolean;
+		// Pay Group configuration
+		leaveEnabled: boolean;
+		overtimePolicy: OvertimePolicy;
+		groupBenefits: GroupBenefits;
+		customDeductions: CustomDeduction[];
+		statutoryDefaults: StatutoryDefaults;
+		// Callbacks
 		onToggleExpand: () => void;
 		onHoursChange: (field: 'regularHours' | 'overtimeHours', value: number) => void;
 		onEarningsEdit: (key: string, value: number) => void;
 		onLeaveChange: (type: 'vacation' | 'sick', hours: number) => void;
+		onOvertimeChoiceChange: (choice: 'pay_out' | 'bank_time') => void;
 		onAddAdjustment: () => void;
 		onUpdateAdjustment: (idx: number, updates: Partial<Adjustment>) => void;
 		onRemoveAdjustment: (idx: number) => void;
@@ -24,10 +33,16 @@
 		estimatedGross,
 		earningsBreakdown,
 		isExpanded,
+		leaveEnabled,
+		overtimePolicy,
+		groupBenefits,
+		customDeductions,
+		statutoryDefaults,
 		onToggleExpand,
 		onHoursChange,
 		onEarningsEdit,
 		onLeaveChange,
+		onOvertimeChoiceChange,
 		onAddAdjustment,
 		onUpdateAdjustment,
 		onRemoveAdjustment
@@ -105,13 +120,15 @@
 			/>
 		</div>
 	</td>
-	<td class="py-3 px-4 border-b border-surface-100 align-middle min-w-[70px]">
-		{#if totalLeaveHours > 0}
-			<span class="inline-block py-1 px-2 bg-warning-100 text-warning-700 rounded-full text-caption font-medium">{totalLeaveHours}h</span>
-		{:else}
-			<span class="text-surface-400 text-body-content">-</span>
-		{/if}
-	</td>
+	{#if leaveEnabled}
+		<td class="py-3 px-4 border-b border-surface-100 align-middle min-w-[70px]">
+			{#if totalLeaveHours > 0}
+				<span class="inline-block py-1 px-2 bg-warning-100 text-warning-700 rounded-full text-caption font-medium">{totalLeaveHours}h</span>
+			{:else}
+				<span class="text-surface-400 text-body-content">-</span>
+			{/if}
+		</td>
+	{/if}
 	<td class="py-3 px-4 border-b border-surface-100 align-middle min-w-[110px] text-right">
 		{#if estimatedGross !== null}
 			<span class="text-body-content font-semibold text-success-600">{formatCurrency(estimatedGross)}</span>
@@ -137,13 +154,19 @@
 </tr>
 {#if isExpanded}
 	<tr>
-		<td colspan="8" class="p-0 bg-surface-50">
+		<td colspan={leaveEnabled ? 8 : 7} class="p-0 bg-surface-50">
 			<BeforeRunEmployeeExpandedRow
 				{input}
 				{earningsBreakdown}
 				{estimatedGross}
+				{leaveEnabled}
+				{overtimePolicy}
+				{groupBenefits}
+				{customDeductions}
+				{statutoryDefaults}
 				{onEarningsEdit}
 				{onLeaveChange}
+				{onOvertimeChoiceChange}
 				{onAddAdjustment}
 				{onUpdateAdjustment}
 				{onRemoveAdjustment}

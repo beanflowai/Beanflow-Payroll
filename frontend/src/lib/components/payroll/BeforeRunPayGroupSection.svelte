@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { EmployeePayrollInput, EarningsBreakdown, Adjustment } from '$lib/types/payroll';
 	import { PAY_FREQUENCY_LABELS, EMPLOYMENT_TYPE_LABELS, ADJUSTMENT_TYPE_LABELS, createDefaultPayrollInput } from '$lib/types/payroll';
-	import type { EmployeeForPayroll, PayGroupWithEmployees } from '$lib/services/payrollService';
+	import type { EmployeeForPayroll, PayGroupWithEmployees } from '$lib/services/payroll';
 	import { BeforeRunEmployeeRow } from '$lib/components/payroll';
 
 	interface Props {
@@ -98,6 +98,10 @@
 		const newAdjs = input.adjustments.filter((_, i) => i !== idx);
 		onUpdatePayrollInput(employeeId, { adjustments: newAdjs });
 	}
+
+	function handleOvertimeChoiceChange(employeeId: string, choice: 'pay_out' | 'bank_time') {
+		onUpdatePayrollInput(employeeId, { overtimeChoice: choice });
+	}
 </script>
 
 <div class="bg-white rounded-xl shadow-md3-1 overflow-hidden">
@@ -170,7 +174,9 @@
 						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-left uppercase tracking-wider border-b border-surface-200">Rate/Salary</th>
 						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-left uppercase tracking-wider border-b border-surface-200">Hours</th>
 						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-left uppercase tracking-wider border-b border-surface-200">Overtime</th>
+						{#if payGroup.leaveEnabled}
 						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-left uppercase tracking-wider border-b border-surface-200">Leave</th>
+					{/if}
 						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-right uppercase tracking-wider border-b border-surface-200">Est. Gross</th>
 						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-left uppercase tracking-wider border-b border-surface-200 w-[50px]"></th>
 					</tr>
@@ -186,10 +192,16 @@
 							estimatedGross={empEstimatedGross}
 							earningsBreakdown={empEarningsBreakdown}
 							isExpanded={expandedRecordId === employee.id}
+							leaveEnabled={payGroup.leaveEnabled}
+							overtimePolicy={payGroup.overtimePolicy}
+							groupBenefits={payGroup.groupBenefits}
+							customDeductions={payGroup.customDeductions}
+							statutoryDefaults={payGroup.statutoryDefaults}
 							onToggleExpand={() => onToggleExpand(employee.id)}
 							onHoursChange={(field, value) => handleHoursChange(employee.id, field, value)}
 							onEarningsEdit={(key, value) => handleEarningsEdit(employee.id, key, value)}
 							onLeaveChange={(type, hours) => handleLeaveChange(employee.id, type, hours)}
+							onOvertimeChoiceChange={(choice) => handleOvertimeChoiceChange(employee.id, choice)}
 							onAddAdjustment={() => handleAddAdjustment(employee.id)}
 							onUpdateAdjustment={(idx, updates) => handleUpdateAdjustment(employee.id, idx, updates)}
 							onRemoveAdjustment={(idx) => handleRemoveAdjustment(employee.id, idx)}

@@ -339,61 +339,62 @@
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
-<div class="modal-overlay" onclick={onClose} role="presentation">
+<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] p-4" onclick={onClose} role="presentation">
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<div
-		class="modal"
+		class="bg-white rounded-xl shadow-md3-3 w-full flex flex-col {isSingleEmployeeMode ? 'max-w-[450px]' : 'max-w-[750px]'} max-h-[90vh]"
 		onclick={(e) => e.stopPropagation()}
 		role="dialog"
 		aria-modal="true"
 		tabindex="-1"
 	>
-		<div class="modal-header">
+		<div class="flex items-center justify-between p-5 border-b border-surface-100">
 			{#if isSingleEmployeeMode && selectedEmployee}
-				<div class="header-with-employee">
+				<div class="flex items-center gap-3">
 					<Avatar name={selectedEmployee.employeeName} size="medium" />
-					<div class="header-text">
-						<h2>{selectedEmployee.employeeName}</h2>
-						<span class="header-subtitle">Record Leave - {formatDateRange(periodStart, periodEnd)}</span>
+					<div class="flex flex-col">
+						<h2 class="text-title-medium font-semibold text-surface-800 m-0">{selectedEmployee.employeeName}</h2>
+						<span class="text-auxiliary-text text-surface-500">Record Leave - {formatDateRange(periodStart, periodEnd)}</span>
 					</div>
 				</div>
 			{:else}
-				<h2>Leave Hours - {formatDateRange(periodStart, periodEnd)}</h2>
+				<h2 class="text-title-medium font-semibold text-surface-800 m-0">Leave Hours - {formatDateRange(periodStart, periodEnd)}</h2>
 			{/if}
-			<button class="close-btn" onclick={onClose} aria-label="Close modal">
+			<button class="p-2 border-none bg-transparent text-surface-400 cursor-pointer rounded-md transition-[150ms] hover:bg-surface-100 hover:text-surface-700" onclick={onClose} aria-label="Close modal">
 				<i class="fas fa-times"></i>
 			</button>
 		</div>
 
-		<div class="modal-content">
+		<div class="flex-1 overflow-y-auto p-5">
 			{#if isSingleEmployeeMode && selectedEmployee}
 				<!-- Single Employee Mode -->
 				{@const balanceInfo = singleBalanceDisplay()}
-				<div class="single-employee-form">
-					<div class="form-row">
-						<label class="form-label">Leave Type</label>
-						<div class="leave-type-buttons">
+				<div class="flex flex-col gap-5">
+					<div class="flex flex-col gap-2">
+						<label class="text-body-content font-medium text-surface-700">Leave Type</label>
+						<div class="flex gap-3">
 							{#each leaveTypes as lt}
 								<button
-									class="leave-type-btn"
-									class:active={singleLeaveType === lt}
-									class:vacation={lt === 'vacation'}
-									class:sick={lt === 'sick'}
+									class="flex-1 flex items-center justify-center gap-2 p-4 border-2 rounded-lg bg-white cursor-pointer transition-[150ms] {singleLeaveType === lt
+										? lt === 'vacation'
+											? 'border-blue-400 bg-blue-50'
+											: 'border-orange-400 bg-orange-50'
+										: 'border-surface-200 hover:border-surface-300 hover:bg-surface-50'}"
 									onclick={() => (singleLeaveType = lt)}
 								>
-									<span class="type-icon">{LEAVE_TYPE_LABELS[lt].icon}</span>
-									<span class="type-label">{LEAVE_TYPE_LABELS[lt].full}</span>
+									<span class="text-title-medium">{LEAVE_TYPE_LABELS[lt].icon}</span>
+									<span class="text-body-content font-medium text-surface-700">{LEAVE_TYPE_LABELS[lt].full}</span>
 								</button>
 							{/each}
 						</div>
 					</div>
 
-					<div class="form-row">
-						<label class="form-label" for="leave-hours">Hours</label>
+					<div class="flex flex-col gap-2">
+						<label class="text-body-content font-medium text-surface-700" for="leave-hours">Hours</label>
 						<input
 							id="leave-hours"
 							type="number"
-							class="hours-input-large"
+							class="w-full p-4 border border-surface-200 rounded-lg text-title-medium text-center transition-[150ms] focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
 							placeholder="0.0"
 							min="0"
 							max="80"
@@ -402,36 +403,36 @@
 						/>
 					</div>
 
-					<div class="balance-card">
-						<div class="balance-header">
-							<span class="balance-icon">{LEAVE_TYPE_LABELS[singleLeaveType].icon}</span>
-							<span class="balance-title">{LEAVE_TYPE_LABELS[singleLeaveType].full} Balance</span>
+					<div class="bg-surface-50 rounded-lg p-4">
+						<div class="flex items-center gap-2 mb-3 pb-3 border-b border-surface-200">
+							<span class="text-body-content">{LEAVE_TYPE_LABELS[singleLeaveType].icon}</span>
+							<span class="text-body-content font-semibold text-surface-700">{LEAVE_TYPE_LABELS[singleLeaveType].full} Balance</span>
 						</div>
 						{#if typeof balanceInfo === 'object'}
-							<div class="balance-row">
-								<span class="balance-label">Current Balance:</span>
-								<span class="balance-value">{balanceInfo.before}</span>
+							<div class="flex justify-between items-center py-2">
+								<span class="text-body-content text-surface-600">Current Balance:</span>
+								<span class="text-body-content font-medium text-surface-800">{balanceInfo.before}</span>
 							</div>
-							<div class="balance-row">
-								<span class="balance-label">After This Leave:</span>
-								<span class="balance-value highlight">{balanceInfo.after}</span>
+							<div class="flex justify-between items-center py-2">
+								<span class="text-body-content text-surface-600">After This Leave:</span>
+								<span class="text-body-content font-semibold text-primary-600">{balanceInfo.after}</span>
 							</div>
 						{/if}
 					</div>
 				</div>
 			{:else}
 				<!-- Multi-Employee Mode -->
-				<p class="modal-description">Record leave taken during this pay period:</p>
+				<p class="text-body-content text-surface-600 m-0 mb-4">Record leave taken during this pay period:</p>
 
 				{#if leaveRows.length > 0}
-					<table class="leave-table">
+					<table class="w-full border-collapse mb-0">
 						<thead>
 							<tr>
-								<th class="col-employee">Employee</th>
-								<th class="col-type">Leave Type</th>
-								<th class="col-hours">Hours</th>
-								<th class="col-balance">Balance</th>
-								<th class="col-actions"></th>
+								<th class="text-left p-3 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase border-b border-surface-200 w-[35%]">Employee</th>
+								<th class="text-left p-3 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase border-b border-surface-200 w-[25%]">Leave Type</th>
+								<th class="text-left p-3 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase border-b border-surface-200 w-[15%]">Hours</th>
+								<th class="text-left p-3 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase border-b border-surface-200 w-[20%]">Balance</th>
+								<th class="text-right p-3 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase border-b border-surface-200 w-[5%]"></th>
 							</tr>
 						</thead>
 						<tbody>
@@ -440,27 +441,27 @@
 								{@const filteredEmployees = getFilteredEmployees(row.rowId)}
 								{@const displayValue = searchTexts.get(row.rowId) ?? row.employeeName}
 								<tr>
-									<td class="col-employee">
-										<div class="combobox" class:open={isDropdownOpen}>
-											<div class="combobox-input-wrapper">
+									<td class="p-3 border-b border-surface-100 align-middle">
+										<div class="relative {isDropdownOpen ? 'open' : ''}">
+											<div class="relative">
 												<input
 													type="text"
-													class="combobox-input"
+													class="w-full py-2 px-3 pr-8 border border-surface-200 rounded-md text-body-content bg-white transition-[150ms] focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 placeholder:text-surface-400"
 													placeholder="Select employee..."
 													value={displayValue}
 													onfocus={() => openDropdown(row.rowId)}
 													onblur={() => handleComboboxBlur(row.rowId)}
 													oninput={(e) => handleSearchInput(row.rowId, e.currentTarget.value)}
 												/>
-												<i class="fas fa-chevron-down combobox-icon"></i>
+												<i class="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 pointer-events-none text-auxiliary-text transition-[150ms] {isDropdownOpen ? 'rotate-180' : ''}"></i>
 											</div>
 
 											{#if isDropdownOpen}
-												<ul class="combobox-dropdown">
+												<ul class="absolute top-full left-0 right-0 max-h-[200px] overflow-y-auto bg-white border border-surface-200 rounded-md shadow-md3-1 z-10 mt-1 list-none p-0 mb-0">
 													{#each filteredEmployees as emp}
 														<!-- svelte-ignore a11y_click_events_have_key_events -->
 														<li
-															class="combobox-option"
+															class="flex items-center gap-2 py-2 px-3 cursor-pointer transition-[150ms] hover:bg-surface-50"
 															onmousedown={() => selectEmployee(row.rowId, emp)}
 															role="option"
 															aria-selected={row.employeeId === emp.id}
@@ -471,15 +472,15 @@
 														</li>
 													{/each}
 													{#if filteredEmployees.length === 0}
-														<li class="combobox-no-results">No employees found</li>
+														<li class="p-3 text-surface-500 text-body-content text-center">No employees found</li>
 													{/if}
 												</ul>
 											{/if}
 										</div>
 									</td>
-									<td class="col-type">
+									<td class="p-3 border-b border-surface-100 align-middle">
 										<select
-											class="type-select"
+											class="w-full py-2 px-3 border border-surface-200 rounded-md text-body-content bg-white cursor-pointer transition-[150ms] focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 disabled:bg-surface-50 disabled:text-surface-400 disabled:cursor-not-allowed"
 											value={row.leaveType}
 											disabled={!row.employeeId}
 											onchange={(e) => handleLeaveTypeChange(row.rowId, e.currentTarget.value)}
@@ -492,10 +493,10 @@
 											{/each}
 										</select>
 									</td>
-									<td class="col-hours">
+									<td class="p-3 border-b border-surface-100 align-middle">
 										<input
 											type="number"
-											class="hours-input"
+											class="w-20 p-2 border border-surface-200 rounded-md text-body-content text-center transition-[150ms] focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 disabled:bg-surface-50 disabled:text-surface-400 disabled:cursor-not-allowed"
 											data-hours-input={row.rowId}
 											placeholder="0.0"
 											min="0"
@@ -506,12 +507,12 @@
 											oninput={(e) => handleHoursChange(row.rowId, e.currentTarget.value)}
 										/>
 									</td>
-									<td class="col-balance">
-										<span class="balance-text">{getBalanceDisplay(row)}</span>
+									<td class="p-3 border-b border-surface-100 align-middle">
+										<span class="text-auxiliary-text text-surface-600">{getBalanceDisplay(row)}</span>
 									</td>
-									<td class="col-actions">
+									<td class="p-3 border-b border-surface-100 align-middle text-right">
 										<button
-											class="delete-btn"
+											class="p-2 border-none bg-transparent text-surface-400 cursor-pointer rounded-md transition-[150ms] hover:bg-error-50 hover:text-error-600"
 											onclick={() => removeRow(row.rowId)}
 											aria-label="Remove leave entry"
 										>
@@ -524,541 +525,27 @@
 					</table>
 				{/if}
 
-				<button class="add-row-btn" onclick={addRow}>
+				<button class="flex items-center justify-center gap-2 w-full p-3 border-none bg-transparent text-surface-500 text-body-content cursor-pointer border-t border-dashed border-surface-200 transition-[150ms] hover:bg-surface-50 hover:text-primary-600" onclick={addRow}>
 					<i class="fas fa-plus"></i>
 					<span>Add Row</span>
 				</button>
 
-				<div class="modal-info">
-					<i class="fas fa-info-circle"></i>
+				<div class="flex gap-3 p-4 bg-primary-50 rounded-lg text-body-content text-surface-700 mt-4">
+					<i class="fas fa-info-circle text-primary-600 mt-0.5"></i>
 					<span>
 						Leave Types:
-						<ul>
-							<li><strong>Vacation:</strong> Paid from accrued balance</li>
-							<li><strong>Sick:</strong> Paid per provincial requirements</li>
+						<ul class="mt-2 pl-5 mb-0">
+							<li class="mb-1"><strong>Vacation:</strong> Paid from accrued balance</li>
+							<li class="mb-1"><strong>Sick:</strong> Paid per provincial requirements</li>
 						</ul>
 					</span>
 				</div>
 			{/if}
 		</div>
 
-		<div class="modal-footer">
-			<button class="btn-secondary" onclick={onClose}>Cancel</button>
-			<button class="btn-primary" onclick={handleSave}>Save Leave</button>
+		<div class="flex justify-end gap-3 py-4 px-5 border-t border-surface-100">
+			<button class="flex items-center gap-2 py-3 px-5 bg-white text-surface-700 border border-surface-200 rounded-lg text-body-content font-medium cursor-pointer transition-[150ms] hover:bg-surface-50 hover:border-surface-300" onclick={onClose}>Cancel</button>
+			<button class="flex items-center gap-2 py-3 px-5 bg-gradient-to-br from-primary-600 to-secondary-600 text-white border-none rounded-lg text-body-content font-medium cursor-pointer shadow-md3-1 transition-[150ms] hover:opacity-90 hover:-translate-y-px" onclick={handleSave}>Save Leave</button>
 		</div>
 	</div>
 </div>
-
-<style>
-	/* Modal */
-	.modal-overlay {
-		position: fixed;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.5);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 1000;
-		padding: var(--spacing-4);
-	}
-
-	.modal {
-		background: white;
-		border-radius: var(--radius-xl);
-		box-shadow: var(--shadow-md3-3);
-		width: 100%;
-		max-width: 750px;
-		max-height: 90vh;
-		display: flex;
-		flex-direction: column;
-	}
-
-	/* Single employee mode - smaller modal */
-	.modal:has(.single-employee-form) {
-		max-width: 450px;
-	}
-
-	.modal-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--spacing-5);
-		border-bottom: 1px solid var(--color-surface-100);
-	}
-
-	.modal-header h2 {
-		font-size: var(--font-size-title-medium);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-		margin: 0;
-	}
-
-	/* Header with employee avatar */
-	.header-with-employee {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-	}
-
-	.header-text {
-		display: flex;
-		flex-direction: column;
-	}
-
-	.header-text h2 {
-		font-size: var(--font-size-title-medium);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-		margin: 0;
-	}
-
-	.header-subtitle {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	/* Single Employee Form */
-	.single-employee-form {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-5);
-	}
-
-	.form-row {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-2);
-	}
-
-	.form-label {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-700);
-	}
-
-	.leave-type-buttons {
-		display: flex;
-		gap: var(--spacing-3);
-	}
-
-	.leave-type-btn {
-		flex: 1;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-4);
-		border: 2px solid var(--color-surface-200);
-		border-radius: var(--radius-lg);
-		background: white;
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.leave-type-btn:hover {
-		border-color: var(--color-surface-300);
-		background: var(--color-surface-50);
-	}
-
-	.leave-type-btn.active.vacation {
-		border-color: var(--color-info-400, #60a5fa);
-		background: var(--color-info-50, #eff6ff);
-	}
-
-	.leave-type-btn.active.sick {
-		border-color: var(--color-warning-400, #fb923c);
-		background: var(--color-warning-50, #fff7ed);
-	}
-
-	.type-icon {
-		font-size: var(--font-size-title-medium);
-	}
-
-	.type-label {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-700);
-	}
-
-	.hours-input-large {
-		width: 100%;
-		padding: var(--spacing-4);
-		border: 1px solid var(--color-surface-200);
-		border-radius: var(--radius-lg);
-		font-size: var(--font-size-title-medium);
-		text-align: center;
-		transition: var(--transition-fast);
-	}
-
-	.hours-input-large:focus {
-		outline: none;
-		border-color: var(--color-primary-400);
-		box-shadow: 0 0 0 2px var(--color-primary-100);
-	}
-
-	/* Balance Card */
-	.balance-card {
-		background: var(--color-surface-50);
-		border-radius: var(--radius-lg);
-		padding: var(--spacing-4);
-	}
-
-	.balance-header {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		margin-bottom: var(--spacing-3);
-		padding-bottom: var(--spacing-3);
-		border-bottom: 1px solid var(--color-surface-200);
-	}
-
-	.balance-icon {
-		font-size: var(--font-size-body-content);
-	}
-
-	.balance-title {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-700);
-	}
-
-	.balance-row {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: var(--spacing-2) 0;
-	}
-
-	.balance-label {
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-600);
-	}
-
-	.balance-value {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-800);
-	}
-
-	.balance-value.highlight {
-		color: var(--color-primary-600);
-		font-weight: var(--font-weight-semibold);
-	}
-
-	.close-btn {
-		padding: var(--spacing-2);
-		border: none;
-		background: transparent;
-		color: var(--color-surface-400);
-		cursor: pointer;
-		border-radius: var(--radius-md);
-		transition: var(--transition-fast);
-	}
-
-	.close-btn:hover {
-		background: var(--color-surface-100);
-		color: var(--color-surface-700);
-	}
-
-	.modal-content {
-		flex: 1;
-		overflow-y: auto;
-		padding: var(--spacing-5);
-	}
-
-	.modal-description {
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-600);
-		margin: 0 0 var(--spacing-4);
-	}
-
-	/* Table */
-	.leave-table {
-		width: 100%;
-		border-collapse: collapse;
-		margin-bottom: 0;
-	}
-
-	.leave-table th {
-		text-align: left;
-		padding: var(--spacing-3);
-		background: var(--color-surface-50);
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-600);
-		text-transform: uppercase;
-		border-bottom: 1px solid var(--color-surface-200);
-	}
-
-	.leave-table td {
-		padding: var(--spacing-3);
-		border-bottom: 1px solid var(--color-surface-100);
-		vertical-align: middle;
-	}
-
-	.col-employee {
-		width: 35%;
-	}
-
-	.col-type {
-		width: 25%;
-	}
-
-	.col-hours {
-		width: 15%;
-	}
-
-	.col-balance {
-		width: 20%;
-	}
-
-	.col-actions {
-		width: 5%;
-		text-align: right;
-	}
-
-	/* Combobox */
-	.combobox {
-		position: relative;
-	}
-
-	.combobox-input-wrapper {
-		position: relative;
-	}
-
-	.combobox-input {
-		width: 100%;
-		padding: var(--spacing-2) var(--spacing-3);
-		padding-right: var(--spacing-8);
-		border: 1px solid var(--color-surface-200);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-content);
-		background: white;
-		transition: var(--transition-fast);
-	}
-
-	.combobox-input:focus {
-		outline: none;
-		border-color: var(--color-primary-400);
-		box-shadow: 0 0 0 2px var(--color-primary-100);
-	}
-
-	.combobox-input::placeholder {
-		color: var(--color-surface-400);
-	}
-
-	.combobox-icon {
-		position: absolute;
-		right: var(--spacing-3);
-		top: 50%;
-		transform: translateY(-50%);
-		color: var(--color-surface-400);
-		pointer-events: none;
-		font-size: var(--font-size-auxiliary-text);
-		transition: var(--transition-fast);
-	}
-
-	.combobox.open .combobox-icon {
-		transform: translateY(-50%) rotate(180deg);
-	}
-
-	.combobox-dropdown {
-		position: absolute;
-		top: 100%;
-		left: 0;
-		right: 0;
-		max-height: 200px;
-		overflow-y: auto;
-		background: white;
-		border: 1px solid var(--color-surface-200);
-		border-radius: var(--radius-md);
-		box-shadow: var(--shadow-md3-1);
-		z-index: 10;
-		margin-top: var(--spacing-1);
-		list-style: none;
-		padding: 0;
-		margin-bottom: 0;
-	}
-
-	.combobox-option {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-2) var(--spacing-3);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.combobox-option:hover {
-		background: var(--color-surface-50);
-	}
-
-	.combobox-no-results {
-		padding: var(--spacing-3);
-		color: var(--color-surface-500);
-		font-size: var(--font-size-body-content);
-		text-align: center;
-	}
-
-	/* Type Select */
-	.type-select {
-		width: 100%;
-		padding: var(--spacing-2) var(--spacing-3);
-		border: 1px solid var(--color-surface-200);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-content);
-		background: white;
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.type-select:focus {
-		outline: none;
-		border-color: var(--color-primary-400);
-		box-shadow: 0 0 0 2px var(--color-primary-100);
-	}
-
-	.type-select:disabled {
-		background: var(--color-surface-50);
-		color: var(--color-surface-400);
-		cursor: not-allowed;
-	}
-
-	/* Hours Input */
-	.hours-input {
-		width: 80px;
-		padding: var(--spacing-2);
-		border: 1px solid var(--color-surface-200);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-content);
-		text-align: center;
-		transition: var(--transition-fast);
-	}
-
-	.hours-input:focus {
-		outline: none;
-		border-color: var(--color-primary-400);
-		box-shadow: 0 0 0 2px var(--color-primary-100);
-	}
-
-	.hours-input:disabled {
-		background: var(--color-surface-50);
-		color: var(--color-surface-400);
-		cursor: not-allowed;
-	}
-
-	/* Balance */
-	.balance-text {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-600);
-	}
-
-	/* Delete Button */
-	.delete-btn {
-		padding: var(--spacing-2);
-		border: none;
-		background: transparent;
-		color: var(--color-surface-400);
-		cursor: pointer;
-		border-radius: var(--radius-md);
-		transition: var(--transition-fast);
-	}
-
-	.delete-btn:hover {
-		background: var(--color-error-50);
-		color: var(--color-error-600);
-	}
-
-	/* Add Row Button */
-	.add-row-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: var(--spacing-2);
-		width: 100%;
-		padding: var(--spacing-3);
-		border: none;
-		background: transparent;
-		color: var(--color-surface-500);
-		font-size: var(--font-size-body-content);
-		cursor: pointer;
-		border-top: 1px dashed var(--color-surface-200);
-		transition: var(--transition-fast);
-	}
-
-	.add-row-btn:hover {
-		background: var(--color-surface-50);
-		color: var(--color-primary-600);
-	}
-
-	/* Info Box */
-	.modal-info {
-		display: flex;
-		gap: var(--spacing-3);
-		padding: var(--spacing-4);
-		background: var(--color-primary-50);
-		border-radius: var(--radius-lg);
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-700);
-		margin-top: var(--spacing-4);
-	}
-
-	.modal-info i {
-		color: var(--color-primary-600);
-		margin-top: 2px;
-	}
-
-	.modal-info ul {
-		margin: var(--spacing-2) 0 0;
-		padding-left: var(--spacing-5);
-	}
-
-	.modal-info li {
-		margin-bottom: var(--spacing-1);
-	}
-
-	/* Footer */
-	.modal-footer {
-		display: flex;
-		justify-content: flex-end;
-		gap: var(--spacing-3);
-		padding: var(--spacing-4) var(--spacing-5);
-		border-top: 1px solid var(--color-surface-100);
-	}
-
-	.btn-primary,
-	.btn-secondary {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-3) var(--spacing-5);
-		border: none;
-		border-radius: var(--radius-lg);
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn-primary {
-		background: var(--gradient-primary);
-		color: white;
-		box-shadow: var(--shadow-md3-1);
-	}
-
-	.btn-primary:hover {
-		opacity: 0.9;
-		transform: translateY(-1px);
-	}
-
-	.btn-secondary {
-		background: white;
-		color: var(--color-surface-700);
-		border: 1px solid var(--color-surface-200);
-	}
-
-	.btn-secondary:hover {
-		background: var(--color-surface-50);
-		border-color: var(--color-surface-300);
-	}
-</style>
