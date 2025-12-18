@@ -6,8 +6,8 @@
 **Difficulty**: 5/10
 **Timeline**: 8-10 weeks
 
-> **Last Updated**: 2025-12-07
-> **Architecture Version**: v3.0 (Standalone Product)
+> **Last Updated**: 2025-12-18
+> **Architecture Version**: v3.1 (Standalone Product)
 
 ---
 
@@ -246,6 +246,18 @@ payroll-frontend/                    # NEW: Standalone Payroll Frontend
 │   │   ├── stores/                 # Svelte stores
 │   │   ├── types/                  # TypeScript interfaces
 │   │   ├── api/                    # API client (shared backend)
+│   │   ├── services/               # Service layer
+│   │   │   ├── employeeService.ts  # Employee CRUD
+│   │   │   ├── companyService.ts   # Company CRUD
+│   │   │   ├── payGroupService.ts  # Pay Group CRUD
+│   │   │   └── payroll/            # Payroll service module (refactored)
+│   │   │       ├── index.ts        # Unified exports
+│   │   │       ├── types.ts        # Type definitions
+│   │   │       ├── helpers.ts      # Utility functions
+│   │   │       ├── dashboard.ts    # Dashboard/status checks
+│   │   │       ├── payroll-runs.ts # Payroll run CRUD
+│   │   │       ├── pay-groups.ts   # Pay group queries
+│   │   │       └── calculation.ts  # Payroll calculation (backend API)
 │   │   └── shared/                 # Symlink or copy from main frontend
 │   └── app.css                     # Shared design system import
 ├── static/

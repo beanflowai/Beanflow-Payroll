@@ -1,6 +1,6 @@
 # BeanFlow Payroll - 架构概览
 
-**最后更新**: 2025-12-16
+**最后更新**: 2025-12-18
 **版本**: v3.1 (Hybrid Architecture)
 
 ---
@@ -194,7 +194,15 @@ BeanFlow-Payroll/
 │       └── services/
 │           ├── employeeService.ts   # 员工 CRUD ✅
 │           ├── companyService.ts    # 公司 CRUD ✅
-│           └── payGroupService.ts   # 薪资组 CRUD ✅
+│           ├── payGroupService.ts   # 薪资组 CRUD ✅
+│           └── payroll/             # 薪资服务模块 ✅ (重构)
+│               ├── index.ts         # 统一导出
+│               ├── types.ts         # 类型定义
+│               ├── helpers.ts       # 工具函数
+│               ├── dashboard.ts     # 仪表板/状态检查
+│               ├── payroll-runs.ts  # 薪资运行 CRUD
+│               ├── pay-groups.ts    # 薪资组查询
+│               └── calculation.ts   # 薪资计算 (调用后端)
 │
 └── docs/
     ├── 00_architecture_overview.md  # 本文档
@@ -279,6 +287,7 @@ CREATE POLICY "Users can access own data"
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
+| 2025-12-18 | v3.2 | 重构 payrollService.ts 为模块化结构 (payroll/) |
 | 2025-12-16 | v3.1 | 创建架构概览；采用混合架构 (前端直连 + API) |
 | 2025-12-16 | v3.0 | 添加 Company/Pay Groups 实体 |
 | 2025-12-07 | v2.0 | 迁移到 Supabase 架构 |

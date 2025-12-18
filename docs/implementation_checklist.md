@@ -4,8 +4,8 @@
 **Scope**: All provinces/territories except Quebec
 **Timeline**: 8-10 weeks
 
-> **Last Updated**: 2025-12-07
-> **Architecture Version**: v3.0 (Standalone Product)
+> **Last Updated**: 2025-12-18
+> **Architecture Version**: v3.2 (Standalone Product)
 
 ---
 
@@ -73,6 +73,14 @@ This checklist has been updated to reflect standalone product architecture:
 - ✅ **Company/PayGroup Pydantic models** - 后端模型
 - ✅ **company.ts / pay-group.ts** - 前端类型
 - ✅ **companyService.ts / payGroupService.ts** - 前端服务
+- ✅ **payroll/ 服务模块重构** (2025-12-18) - 将 payrollService.ts (1155行) 拆分为模块化结构:
+  - `payroll/index.ts` - 统一导出
+  - `payroll/types.ts` - 类型定义
+  - `payroll/helpers.ts` - 工具函数
+  - `payroll/dashboard.ts` - 仪表板/状态检查
+  - `payroll/payroll-runs.ts` - 薪资运行 CRUD
+  - `payroll/pay-groups.ts` - 薪资组查询
+  - `payroll/calculation.ts` - 薪资计算 (调用后端 API)
 
 ---
 

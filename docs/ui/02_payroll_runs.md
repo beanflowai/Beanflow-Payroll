@@ -1,8 +1,8 @@
 # Payroll Runs UI Design
 
-> **Last Updated**: 2025-12-09
+> **Last Updated**: 2025-12-18
 > **Source**: Consolidated from `binary-enchanting-ritchie.md` (latest design)
-> **Updated**: Added Pay Group support for separate payroll runs
+> **Updated**: Added Draft state editing with Recalculate/Finalize workflow
 
 ---
 
@@ -483,32 +483,44 @@ export interface PayrollSummary {
 
 ```
 payroll-frontend/src/lib/components/payroll/
-├── PayrollRunsTable.svelte      # List of payroll runs
-├── PayrollRunDetail.svelte      # Single run detail view
-├── PayrollRecordRow.svelte      # Employee row in run
-├── PayrollRecordExpanded.svelte # Expanded breakdown
-├── HolidayWorkModal.svelte      # Holiday hours entry
-├── PayrollSummaryCards.svelte   # Summary statistics
-└── PayrollStatusBadge.svelte    # Status indicator
+├── PayrollRunsTable.svelte           # List of payroll runs
+├── PayrollRunDetail.svelte           # Single run detail view
+├── PayrollRecordRow.svelte           # Employee row in run
+├── PayrollRecordExpanded.svelte      # Expanded breakdown
+├── HolidayWorkModal.svelte           # Holiday hours entry
+├── PayrollSummaryCards.svelte        # Summary statistics
+├── PayrollStatusBadge.svelte         # Status indicator
+├── DraftPayrollView.svelte           # Draft state main view with Recalculate/Finalize
+├── DraftPayGroupSection.svelte       # Editable pay group section for Draft state
+├── BeforeRunPayGroupSection.svelte   # Before Run pay group with input fields
+├── BeforeRunEmployeeRow.svelte       # Before Run employee row (editable)
+└── BeforeRunEmployeeExpandedRow.svelte # Before Run expanded row details
 ```
 
 ---
 
 ## 8. Run Payroll Workflow
 
-> **Updated**: 2025-12-17
-> **Major Change**: Before Run now supports complete data input (Hours, Overtime, Leave, Adjustments)
-> **Design Principle**: All data affecting payroll calculations should be entered BEFORE starting the run
+> **Updated**: 2025-12-18
+> **Major Change**: Added Draft state editing with Recalculate/Finalize workflow
+> **Design Principle**: All data affecting payroll calculations should be entered BEFORE starting the run, but can be edited in Draft state
 
 ### Overview
 
-The payroll run page (`/payroll/run/[payDate]`) supports three states:
+The payroll run page (`/payroll/run/[payDate]`) supports multiple states:
 
-| State | Data Input | Calculation |
-|-------|-----------|-------------|
-| **Before Run** | Hours, Overtime, Leave, Holiday Work, Adjustments | Frontend estimation (Est.) |
-| **After Run (Draft)** | Same as above, can modify | Backend precise calculation, needs Recalculate after changes |
-| **After Run (Approved)** | Read-only | Locked |
+| State | Data Input | Calculation | Next Action |
+|-------|-----------|-------------|-------------|
+| **Before Run** | Hours, Overtime, Leave, Holiday Work, Adjustments | Frontend estimation (Est.) | Start Payroll Run |
+| **Draft** | Same as above, can modify | Backend precise calculation | Recalculate → Finalize |
+| **Pending Approval** | Read-only | Locked | Approve & Send |
+| **Approved** | Read-only | Locked | Mark as Paid |
+| **Paid** | Read-only | Locked | - |
+
+**Key Workflow Change (2025-12-18)**:
+- Start Payroll Run now creates a `draft` status (not `pending_approval`)
+- Draft state allows editing with Recalculate/Finalize workflow
+- Finalize transitions draft → pending_approval (read-only)
 
 ### 8.1 Before Run State (No payroll_runs record)
 
@@ -703,38 +715,69 @@ When user clicks "Start Payroll Run":
      - Calculate Federal Tax
      - Calculate Provincial Tax
    - Create `payroll_records` for each employee
+   - Store original input data in `input_data` JSONB column for each record
 
 4. **Update UI**:
+   - Status badge changes to "Draft" (editable state)
    - Summary cards show calculated totals (including Deductions and Net Pay)
    - Employee table shows all calculated amounts
-   - Button changes to "Approve & Send Paystubs"
-   - Status badge shows "Draft"
+   - Header shows "Recalculate" and "Finalize" buttons
+   - All input fields remain editable in Draft state
 
-### 8.6 Review & Edit (After Run)
+### 8.6 Review & Edit (Draft State)
 
-After Start, the UI transitions to "After Run" state:
+After Start, the UI transitions to "Draft" state where all data remains editable:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ Pay Date: Friday, December 20, 2025                    [Draft]          │
-│ 2 Pay Groups · 8 Employees            [Recalculate] [Approve & Send]    │
+│ [Draft Badge]                                                           │
+│ Pay Date: Friday, December 20, 2025                                     │
+│                                          [Recalculate] [Finalize]       │
 ├─────────────────────────────────────────────────────────────────────────┤
-│ ⚠️ Data has been modified. Click "Recalculate" to update deductions.   │
+│ ⚠️ Unsaved Changes: You have modified employee data. Click              │
+│    Recalculate to update CPP, EI, and tax calculations.                │
 ├─────────────────────────────────────────────────────────────────────────┤
 │ ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐            │
-│ │Total Gross │ │ Deductions │ │ Net Pay    │ │ Employees  │            │
-│ │ $18,615    │ │  $4,289    │ │ $14,326    │ │     8      │            │
+│ │ Employees  │ │Total Gross │ │ Deductions │ │ Net Pay    │            │
+│ │     8      │ │ $18,615    │ │  $4,289    │ │ $14,326    │            │
 │ └────────────┘ └────────────┘ └────────────┘ └────────────┘            │
 ├─────────────────────────────────────────────────────────────────────────┤
-│ Employee table shows full calculated data...                            │
+│ Deduction Breakdown                                                     │
+│ ┌──────────────┬──────────────┬──────────────┐                         │
+│ │CPP Employee  │CPP Employer  │EI Employee   │                         │
+│ │  $856.24     │  $856.24     │  $238.40     │                         │
+│ ├──────────────┼──────────────┼──────────────┤                         │
+│ │EI Employer   │Federal Tax   │Provincial Tax│                         │
+│ │  $333.76     │  $1,892.36   │  $1,302.00   │                         │
+│ └──────────────┴──────────────┴──────────────┘                         │
+│                          Total Employer Cost: $1,190.00                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│ [Pay Group Sections with editable employee data]                        │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
+**Draft State Features**:
+- **Status Badge**: Yellow "Draft" badge indicates editable state
+- **Editable Fields**: Hours, Overtime, Leave, Adjustments can all be modified
+- **Warning Banner**: Appears when any record is modified, prompts user to Recalculate
+- **Recalculate Button**: Disabled when no changes; enabled when records modified
+- **Finalize Button**: Disabled when records are modified (must Recalculate first)
+
+**Editable Items in Draft State**:
+| Field | Description | Location |
+|-------|-------------|----------|
+| Regular Hours | Hourly employee regular hours | Inline in row |
+| Overtime Hours | OT hours for all employees | Inline in row |
+| Leave Hours | Vacation/Sick hours taken | Leave column or modal |
+| Adjustments | Bonus, Retro Pay, Benefits, etc. | Expanded row |
+| Salaried Override | Override salary calculation | Expanded row |
+
 **Key Differences from Before Run**:
-- All fields (Hours, OT, Leave, Adjustments) are still editable
-- Deductions column shows calculated values
+- Deductions column shows actual calculated values (CPP, EI, Tax)
 - Net Pay shows calculated values
-- Changes trigger "modified" warning banner
+- Deduction Breakdown section shows employer/employee contributions
+- Changes set `is_modified` flag on affected records
+- Warning banner appears until Recalculate is clicked
 
 ### 8.7 Recalculate
 
@@ -758,24 +801,51 @@ When user modifies any data after Start:
    - Changing any earnings item affects all deductions
    - Frontend cannot accurately calculate these
 
-### 8.8 Approve
+### 8.8 Finalize (Draft → Pending Approval)
 
-1. User reviews totals
-2. **Validation**: Cannot approve if there are unsaved modifications (must Recalculate first)
-3. Clicks "Approve & Send Paystubs" → Opens confirmation modal (see Section 10)
-4. System generates paystubs for all employees
-5. System sends paystubs via email (PDF attachment)
-6. Status changes to "Approved"
-7. **All fields become read-only**
+The "Finalize" action transitions the payroll run from Draft (editable) to Pending Approval (read-only):
 
-### 8.9 Mark as Paid
+1. **Pre-conditions**:
+   - Status must be `draft`
+   - No modified records (`hasModifiedRecords === false`)
+   - If records are modified, user must click "Recalculate" first
+
+2. **Finalize Action**:
+   - User clicks "Finalize" button
+   - System validates no pending modifications
+   - Status changes from `draft` to `pending_approval`
+   - **All fields become read-only**
+
+3. **Post-Finalize UI**:
+   - Status badge changes to "Pending Approval"
+   - Edit capabilities are disabled
+   - "Approve & Send Paystubs" button appears
+
+**Button States**:
+| State | Recalculate | Finalize |
+|-------|-------------|----------|
+| Draft, no changes | Disabled | Enabled |
+| Draft, has changes | Enabled | Disabled |
+| Pending Approval | Hidden | Hidden |
+
+### 8.9 Approve
+
+After Finalize, the payroll run can be approved:
+
+1. User reviews totals in read-only mode
+2. Clicks "Approve & Send Paystubs" → Opens confirmation modal (see Section 10)
+3. System generates paystubs for all employees
+4. System sends paystubs via email (PDF attachment)
+5. Status changes to "Approved"
+
+### 8.10 Mark as Paid
 
 1. After bank transfer complete
 2. User clicks "Mark as Paid"
 3. Status changes to "Paid"
 4. Locked from further edits
 
-### 8.10 Route Structure
+### 8.11 Route Structure
 
 ```
 /payroll                    → Payroll Dashboard (upcoming pay dates)
@@ -783,7 +853,7 @@ When user modifies any data after Start:
 /payroll/history            → Past payroll runs
 ```
 
-### 8.11 State Machine Summary
+### 8.12 State Machine Summary
 
 ```
                     ┌─────────────┐
@@ -794,12 +864,20 @@ When user modifies any data after Start:
                            ▼
                     ┌─────────────┐
               ┌────►│    Draft    │◄────┐
+              │     │ (editable)  │     │
               │     └──────┬──────┘     │
               │            │            │
          Recalculate       │       Edit Data
               │            │            │
               └────────────┴────────────┘
-                           │ Approve
+                           │ Finalize
+                           ▼
+                    ┌─────────────┐
+                    │  Pending    │
+                    │  Approval   │
+                    │ (read-only) │
+                    └──────┬──────┘
+                           │ Approve & Send
                            ▼
                     ┌─────────────┐
                     │  Approved   │
@@ -810,6 +888,15 @@ When user modifies any data after Start:
                     │    Paid     │
                     └─────────────┘
 ```
+
+**State Descriptions**:
+| State | Editable | Actions Available |
+|-------|----------|-------------------|
+| Before Run | Yes | Start Payroll Run |
+| Draft | Yes | Edit, Recalculate, Finalize |
+| Pending Approval | No | Approve & Send Paystubs |
+| Approved | No | Mark as Paid, Download/Resend Paystubs |
+| Paid | No | Download/Resend Paystubs |
 
 ---
 
@@ -1691,3 +1778,230 @@ payroll-frontend/src/lib/components/payroll/
 ├── OneTimeAdjustmentModal.svelte   # NEW: One-time adjustment entry
 └── AdjustmentBadge.svelte          # NEW: Badge for adjustment type
 ```
+
+---
+
+## 15. Pay Group 配置对 Before Run UI 的影响
+
+Before Run 界面根据 Pay Group 的配置动态显示不同的内容。本节说明各配置字段如何驱动 UI 渲染。
+
+### 15.1 配置字段概览
+
+Pay Group 配置直接影响 Before Run 展开行的显示：
+
+| 配置字段 | 类型 | UI 影响 |
+|---------|------|--------|
+| `leaveEnabled` | `boolean` | 控制 Leave 列的显示/隐藏 |
+| `overtimePolicy.bankTimeEnabled` | `boolean` | 控制 Bank Time 选项的显示 |
+| `groupBenefits` | `GroupBenefits` | Deductions 列显示 Group Benefits 预览 |
+| `customDeductions` | `CustomDeduction[]` | Deductions 列显示默认启用的自定义扣款 |
+| `statutoryDefaults.cppExemptByDefault` | `boolean` | 显示 "CPP Exempt" 徽章 |
+| `statutoryDefaults.eiExemptByDefault` | `boolean` | 显示 "EI Exempt" 徽章 |
+
+### 15.2 leaveEnabled 条件渲染
+
+**配置**: `payGroup.leaveEnabled: boolean`
+
+**影响范围**:
+- 表头 Leave 列 (`<th>`)
+- 员工行 Leave 列 (`<td>`)
+- 展开行 Leave 区块
+
+**渲染逻辑**:
+```svelte
+<!-- 表头 -->
+{#if payGroup.leaveEnabled}
+  <th>Leave</th>
+{/if}
+
+<!-- 员工行 -->
+{#if leaveEnabled}
+  <td><!-- Leave 输入 --></td>
+{/if}
+
+<!-- 展开行网格 -->
+<div class={leaveEnabled ? 'grid-cols-3' : 'grid-cols-2'}>
+  <div>Earnings</div>
+  {#if leaveEnabled}
+    <div>Leave</div>
+  {/if}
+  <div>Deductions</div>
+</div>
+```
+
+**colspan 调整**:
+- `leaveEnabled: true` → 展开行 `colspan=8`
+- `leaveEnabled: false` → 展开行 `colspan=7`
+
+### 15.3 Bank Time 支持
+
+**配置**: `payGroup.overtimePolicy.bankTimeEnabled: boolean`
+
+**显示条件**:
+- `overtimePolicy.bankTimeEnabled === true`
+- `input.overtimeHours > 0`
+
+**UI 组件**:
+```
+┌─────────────────────────────────────┐
+│ How would you like to handle OT?   │
+│                                     │
+│ (●) Pay Out: $187.50 (1.5×)        │
+│ ( ) Bank Time: 7.5 hours           │
+└─────────────────────────────────────┘
+```
+
+**数据字段**: `EmployeePayrollInput.overtimeChoice: 'pay_out' | 'bank_time'`
+
+**计算逻辑**:
+- Pay Out 金额: `overtimeHours × hourlyRate × 1.5`
+- Bank Time 小时: `overtimeHours × 1.5` (按 1.5 倍计入时间银行)
+
+### 15.4 Deductions 预览
+
+**配置**:
+- `payGroup.groupBenefits: GroupBenefits`
+- `payGroup.customDeductions: CustomDeduction[]`
+
+**显示内容**:
+
+1. **Group Benefits** (仅显示启用的):
+   ```
+   Health:    $50.00/period
+   Dental:    $25.00/period
+   Vision:    $10.00/period
+   ```
+   - 读取 `groupBenefits.{type}.enabled` 判断是否显示
+   - 显示 `groupBenefits.{type}.employeeDeduction` 金额
+
+2. **Custom Deductions** (仅显示 `isDefaultEnabled: true`):
+   ```
+   RRSP Match:   $100.00  (fixed)
+   Union Dues:   2.5%     (percentage)
+   ```
+   - `calculationType: 'fixed'` → 显示固定金额
+   - `calculationType: 'percentage'` → 显示百分比值
+
+3. **Est. Total**:
+   ```
+   Est. Deductions: $185.00
+   ```
+   - 计算公式: `Σ(Group Benefits) + Σ(Custom Deductions)`
+   - Percentage 类型根据 `estimatedGross` 计算: `grossPay × percentage / 100`
+
+**注意**: Before Run 阶段的 Deductions 为预估值，实际扣款在 Calculate 后确定。
+
+### 15.5 Statutory Defaults 显示
+
+**配置**:
+- `payGroup.statutoryDefaults.cppExemptByDefault: boolean`
+- `payGroup.statutoryDefaults.eiExemptByDefault: boolean`
+
+**显示位置**: Deductions 列标题旁
+
+**UI 样式**:
+```svelte
+<div class="flex items-center gap-2">
+  <h4>Deductions (Est.)</h4>
+  {#if statutoryDefaults.cppExemptByDefault}
+    <span class="px-2 py-0.5 text-xs font-medium bg-warning-100
+                 text-warning-700 rounded-full border border-warning-200">
+      CPP Exempt
+    </span>
+  {/if}
+  {#if statutoryDefaults.eiExemptByDefault}
+    <span class="px-2 py-0.5 text-xs font-medium bg-warning-100
+                 text-warning-700 rounded-full border border-warning-200">
+      EI Exempt
+    </span>
+  {/if}
+</div>
+```
+
+**用途**: 提醒用户该 Pay Group 的员工默认豁免 CPP/EI，避免意外扣款。
+
+### 15.6 组件 Props 传递链
+
+配置数据从 Pay Group 向下传递：
+
+```
+BeforeRunPayGroupSection
+├─ payGroup.leaveEnabled ──────────────┐
+├─ payGroup.overtimePolicy ────────────┤
+├─ payGroup.groupBenefits ─────────────┤
+├─ payGroup.customDeductions ──────────┤
+├─ payGroup.statutoryDefaults ─────────┤
+│                                      │
+└─► BeforeRunEmployeeRow               │
+    ├─ leaveEnabled ◄──────────────────┤
+    ├─ overtimePolicy ◄────────────────┤
+    ├─ groupBenefits ◄─────────────────┤
+    ├─ customDeductions ◄──────────────┤
+    ├─ statutoryDefaults ◄─────────────┤
+    │                                  │
+    └─► BeforeRunEmployeeExpandedRow   │
+        ├─ leaveEnabled ◄──────────────┤
+        ├─ overtimePolicy ◄────────────┤
+        ├─ groupBenefits ◄─────────────┤
+        ├─ customDeductions ◄──────────┤
+        └─ statutoryDefaults ◄─────────┘
+```
+
+### 15.7 数据类型定义
+
+```typescript
+// Pay Group 配置类型 (来自 pay-group.ts)
+interface OvertimePolicy {
+  multiplier: number;        // 1.5
+  bankTimeEnabled: boolean;  // 是否允许 Bank Time
+}
+
+interface GroupBenefits {
+  health: BenefitConfig;
+  dental: BenefitConfig;
+  vision: BenefitConfig;
+  life: BenefitConfig;
+  disability: BenefitConfig;
+  other: BenefitConfig;
+}
+
+interface BenefitConfig {
+  enabled: boolean;
+  employerContribution: number;
+  employeeDeduction: number;
+}
+
+interface CustomDeduction {
+  id: string;
+  name: string;
+  calculationType: 'fixed' | 'percentage';
+  amount: number;
+  isDefaultEnabled: boolean;
+}
+
+interface StatutoryDefaults {
+  cppExemptByDefault: boolean;
+  eiExemptByDefault: boolean;
+}
+
+// Payroll Input 类型 (来自 payroll.ts)
+type OvertimeChoice = 'pay_out' | 'bank_time';
+
+interface EmployeePayrollInput {
+  // ... 其他字段 ...
+  overtimeChoice?: OvertimeChoice;  // 默认 'pay_out'
+}
+```
+
+### 15.8 配置与 UI 状态对照表
+
+| Pay Group 配置 | Before Run UI 状态 |
+|---------------|-------------------|
+| `leaveEnabled: false` | Leave 列隐藏，grid 为 2 列 |
+| `leaveEnabled: true` | Leave 列显示，grid 为 3 列 |
+| `overtimePolicy.bankTimeEnabled: false` | 无 Bank Time 选项 |
+| `overtimePolicy.bankTimeEnabled: true` | OT > 0 时显示选择 UI |
+| `groupBenefits.health.enabled: true` | Deductions 显示 Health 行 |
+| `customDeductions[].isDefaultEnabled: true` | Deductions 显示该扣款 |
+| `statutoryDefaults.cppExemptByDefault: true` | 显示 "CPP Exempt" 徽章 |
+| `statutoryDefaults.eiExemptByDefault: true` | 显示 "EI Exempt" 徽章 |

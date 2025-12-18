@@ -4,8 +4,10 @@
 **Complexity**: Medium
 **Prerequisites**: None
 
-> **Last Updated**: 2025-12-07
-> **Architecture Version**: v3.0 (Standalone Product)
+> **Last Updated**: 2025-12-18
+> **Architecture Version**: v3.1 (Standalone Product)
+
+> **Note**: This document describes the planned standalone architecture. Current implementation is in `frontend/` directory with modular service structure.
 
 ---
 
@@ -175,14 +177,27 @@ payroll-frontend/
 │   │   │
 │   │   ├── api/
 │   │   │   ├── client.ts               # Base API client
-│   │   │   ├── auth.ts                 # Auth API
-│   │   │   ├── employees.ts            # Employee API
-│   │   │   └── payroll.ts              # Payroll API
+│   │   │   ├── supabase.ts             # Supabase client
+│   │   │   └── auth.ts                 # Auth API
+│   │   │
+│   │   ├── services/                   # Service layer (refactored 2025-12-18)
+│   │   │   ├── employeeService.ts      # Employee CRUD
+│   │   │   ├── companyService.ts       # Company CRUD
+│   │   │   ├── payGroupService.ts      # Pay Group CRUD
+│   │   │   └── payroll/                # Payroll service module
+│   │   │       ├── index.ts            # Unified exports
+│   │   │       ├── types.ts            # Type definitions
+│   │   │       ├── helpers.ts          # Utility functions
+│   │   │       ├── dashboard.ts        # Dashboard/status checks
+│   │   │       ├── payroll-runs.ts     # Payroll run CRUD
+│   │   │       ├── pay-groups.ts       # Pay group queries
+│   │   │       └── calculation.ts      # Payroll calculation (backend API)
 │   │   │
 │   │   ├── types/
 │   │   │   ├── employee.ts
 │   │   │   ├── payroll.ts
-│   │   │   └── api.ts
+│   │   │   ├── pay-group.ts
+│   │   │   └── company.ts
 │   │   │
 │   │   └── utils/
 │   │       ├── formatters.ts           # Currency, date formatters
