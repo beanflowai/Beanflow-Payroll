@@ -38,14 +38,19 @@ export async function initializeAuth(): Promise<void> {
 
 		// Listen for auth state changes
 		supabase.auth.onAuthStateChange((_event, session) => {
-			if (session?.user) {
-				_user = session.user;
-				_isAuthenticated = true;
-			} else {
-				_user = null;
-				_isAuthenticated = false;
+			// Only update state if it actually changed to avoid unnecessary re-renders
+			const newUser = session?.user ?? null;
+			const newIsAuthenticated = !!session?.user;
+
+			if (_user?.id !== newUser?.id) {
+				_user = newUser;
 			}
-			_isLoading = false;
+			if (_isAuthenticated !== newIsAuthenticated) {
+				_isAuthenticated = newIsAuthenticated;
+			}
+			if (_isLoading) {
+				_isLoading = false;
+			}
 		});
 	} catch (err) {
 		_error = err instanceof Error ? err.message : 'Failed to initialize authentication';

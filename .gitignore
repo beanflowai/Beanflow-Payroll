@@ -1,6 +1,5 @@
 node_modules
 beancount-LLM
-.claude
 .DS_Store
 .env
 .env.local
