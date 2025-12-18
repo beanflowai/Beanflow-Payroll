@@ -460,3 +460,288 @@ async def get_all_tax_config(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error getting tax configuration: {str(e)}",
         )
+
+
+# =============================================================================
+# Payroll Run Management Endpoints (Draft State Editing)
+# =============================================================================
+
+
+class LeaveEntryInput(BaseModel):
+    """Leave entry input for payroll record update."""
+
+    type: str = Field(..., description="Leave type: 'vacation' or 'sick'")
+    hours: float = Field(..., description="Hours of leave taken")
+
+
+class HolidayWorkInput(BaseModel):
+    """Holiday work entry input for payroll record update."""
+
+    holidayDate: str = Field(..., description="Holiday date in YYYY-MM-DD format")
+    holidayName: str = Field(..., description="Name of the holiday")
+    hoursWorked: float = Field(..., description="Hours worked on the holiday")
+
+
+class AdjustmentInput(BaseModel):
+    """Adjustment input for payroll record update."""
+
+    type: str = Field(
+        ..., description="Adjustment type: 'bonus', 'deduction', 'reimbursement', etc."
+    )
+    amount: float = Field(..., description="Adjustment amount")
+    description: str = Field(default="", description="Description of the adjustment")
+    taxable: bool = Field(default=True, description="Whether the adjustment is taxable")
+
+
+class PayrollOverrides(BaseModel):
+    """Override values for automatic calculations."""
+
+    regularPay: float | None = Field(default=None, description="Override regular pay")
+    overtimePay: float | None = Field(default=None, description="Override overtime pay")
+    holidayPay: float | None = Field(default=None, description="Override holiday pay")
+
+
+class UpdatePayrollRecordRequest(BaseModel):
+    """Request to update a payroll record's input data."""
+
+    regularHours: float | None = Field(default=None, description="Regular hours worked")
+    overtimeHours: float | None = Field(
+        default=None, description="Overtime hours worked"
+    )
+    leaveEntries: list[LeaveEntryInput] | None = Field(
+        default=None, description="Leave entries"
+    )
+    holidayWorkEntries: list[HolidayWorkInput] | None = Field(
+        default=None, description="Holiday work entries"
+    )
+    adjustments: list[AdjustmentInput] | None = Field(
+        default=None, description="One-time adjustments"
+    )
+    overrides: PayrollOverrides | None = Field(
+        default=None, description="Manual override values"
+    )
+
+
+class PayrollRecordResponse(BaseModel):
+    """Response from payroll record update."""
+
+    id: str
+    employeeId: str = Field(alias="employee_id")
+    inputData: dict[str, Any] | None = Field(alias="input_data")
+    isModified: bool = Field(alias="is_modified")
+
+    model_config = {"populate_by_name": True}
+
+
+class PayrollRunResponse(BaseModel):
+    """Response from payroll run operations."""
+
+    id: str
+    payDate: str = Field(alias="pay_date")
+    status: str
+    totalEmployees: int = Field(alias="total_employees")
+    totalGross: float = Field(alias="total_gross")
+    totalCppEmployee: float = Field(alias="total_cpp_employee")
+    totalCppEmployer: float = Field(alias="total_cpp_employer")
+    totalEiEmployee: float = Field(alias="total_ei_employee")
+    totalEiEmployer: float = Field(alias="total_ei_employer")
+    totalFederalTax: float = Field(alias="total_federal_tax")
+    totalProvincialTax: float = Field(alias="total_provincial_tax")
+    totalNetPay: float = Field(alias="total_net_pay")
+    totalEmployerCost: float = Field(alias="total_employer_cost")
+
+    model_config = {"populate_by_name": True}
+
+
+@router.patch(
+    "/runs/{run_id}/records/{record_id}",
+    response_model=PayrollRecordResponse,
+    summary="Update a payroll record",
+    description="Update input data for a payroll record in draft status.",
+)
+async def update_payroll_record(
+    run_id: UUID,
+    record_id: UUID,
+    request: UpdatePayrollRecordRequest,
+    current_user: CurrentUser,
+) -> PayrollRecordResponse:
+    """
+    Update a payroll record's input data while in draft status.
+
+    This allows editing:
+    - Regular hours (hourly employees only)
+    - Overtime hours
+    - Leave entries (vacation, sick)
+    - Holiday work entries
+    - One-time adjustments (bonus, deduction, reimbursement)
+    - Manual override values
+
+    The record will be marked as modified, requiring recalculation.
+    """
+    from app.services.payroll_run_service import get_payroll_run_service
+
+    try:
+        service = get_payroll_run_service(current_user.id, current_user.id)
+
+        # Build input_data from request
+        input_data: dict[str, Any] = {}
+        if request.regularHours is not None:
+            input_data["regularHours"] = request.regularHours
+        if request.overtimeHours is not None:
+            input_data["overtimeHours"] = request.overtimeHours
+        if request.leaveEntries is not None:
+            input_data["leaveEntries"] = [
+                {"type": e.type, "hours": e.hours} for e in request.leaveEntries
+            ]
+        if request.holidayWorkEntries is not None:
+            input_data["holidayWorkEntries"] = [
+                {
+                    "holidayDate": e.holidayDate,
+                    "holidayName": e.holidayName,
+                    "hoursWorked": e.hoursWorked,
+                }
+                for e in request.holidayWorkEntries
+            ]
+        if request.adjustments is not None:
+            input_data["adjustments"] = [
+                {
+                    "type": a.type,
+                    "amount": a.amount,
+                    "description": a.description,
+                    "taxable": a.taxable,
+                }
+                for a in request.adjustments
+            ]
+        if request.overrides is not None:
+            input_data["overrides"] = {
+                "regularPay": request.overrides.regularPay,
+                "overtimePay": request.overrides.overtimePay,
+                "holidayPay": request.overrides.holidayPay,
+            }
+
+        result = await service.update_record(run_id, record_id, input_data)
+
+        return PayrollRecordResponse(
+            id=result["id"],
+            employee_id=result["employee_id"],
+            input_data=result.get("input_data"),
+            is_modified=result.get("is_modified", False),
+        )
+
+    except ValueError as e:
+        logger.error(f"Update record error: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.exception("Unexpected error updating payroll record")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal error updating payroll record",
+        )
+
+
+@router.post(
+    "/runs/{run_id}/recalculate",
+    response_model=PayrollRunResponse,
+    summary="Recalculate payroll run",
+    description="Recalculate all records in a draft payroll run.",
+)
+async def recalculate_payroll_run(
+    run_id: UUID,
+    current_user: CurrentUser,
+) -> PayrollRunResponse:
+    """
+    Recalculate all payroll deductions for a draft run.
+
+    This:
+    1. Reads input_data from all payroll_records
+    2. Recalculates CPP, EI, federal tax, and provincial tax
+    3. Updates all payroll_records with new values
+    4. Updates payroll_runs summary totals
+    5. Clears all is_modified flags
+
+    Only works on runs in 'draft' status.
+    """
+    from app.services.payroll_run_service import get_payroll_run_service
+
+    try:
+        service = get_payroll_run_service(current_user.id, current_user.id)
+        result = await service.recalculate_run(run_id)
+
+        return PayrollRunResponse(
+            id=result["id"],
+            pay_date=result["pay_date"],
+            status=result["status"],
+            total_employees=result.get("total_employees", 0),
+            total_gross=float(result.get("total_gross", 0)),
+            total_cpp_employee=float(result.get("total_cpp_employee", 0)),
+            total_cpp_employer=float(result.get("total_cpp_employer", 0)),
+            total_ei_employee=float(result.get("total_ei_employee", 0)),
+            total_ei_employer=float(result.get("total_ei_employer", 0)),
+            total_federal_tax=float(result.get("total_federal_tax", 0)),
+            total_provincial_tax=float(result.get("total_provincial_tax", 0)),
+            total_net_pay=float(result.get("total_net_pay", 0)),
+            total_employer_cost=float(result.get("total_employer_cost", 0)),
+        )
+
+    except ValueError as e:
+        logger.error(f"Recalculate error: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.exception("Unexpected error recalculating payroll run")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal error recalculating payroll run",
+        )
+
+
+@router.post(
+    "/runs/{run_id}/finalize",
+    response_model=PayrollRunResponse,
+    summary="Finalize payroll run",
+    description="Transition payroll run from draft to pending_approval.",
+)
+async def finalize_payroll_run(
+    run_id: UUID,
+    current_user: CurrentUser,
+) -> PayrollRunResponse:
+    """
+    Finalize a draft payroll run.
+
+    This transitions the run from 'draft' to 'pending_approval' status.
+    After finalization, the run becomes read-only.
+
+    Prerequisites:
+    - Run must be in 'draft' status
+    - No records can have is_modified = True (must recalculate first)
+    """
+    from app.services.payroll_run_service import get_payroll_run_service
+
+    try:
+        service = get_payroll_run_service(current_user.id, current_user.id)
+        result = await service.finalize_run(run_id)
+
+        return PayrollRunResponse(
+            id=result["id"],
+            pay_date=result["pay_date"],
+            status=result["status"],
+            total_employees=result.get("total_employees", 0),
+            total_gross=float(result.get("total_gross", 0)),
+            total_cpp_employee=float(result.get("total_cpp_employee", 0)),
+            total_cpp_employer=float(result.get("total_cpp_employer", 0)),
+            total_ei_employee=float(result.get("total_ei_employee", 0)),
+            total_ei_employer=float(result.get("total_ei_employer", 0)),
+            total_federal_tax=float(result.get("total_federal_tax", 0)),
+            total_provincial_tax=float(result.get("total_provincial_tax", 0)),
+            total_net_pay=float(result.get("total_net_pay", 0)),
+            total_employer_cost=float(result.get("total_employer_cost", 0)),
+        )
+
+    except ValueError as e:
+        logger.error(f"Finalize error: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.exception("Unexpected error finalizing payroll run")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal error finalizing payroll run",
+        )
