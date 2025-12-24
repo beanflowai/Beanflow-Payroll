@@ -763,7 +763,7 @@ CREATE TABLE IF NOT EXISTS companies (
 
 ---
 
-## Table: pay_groups (Added 2025-12-16)
+## Table: pay_groups (Updated 2025-12-24)
 
 Pay Group "Policy Template" - defines payroll configuration for groups of employees.
 
@@ -796,23 +796,26 @@ CREATE TABLE IF NOT EXISTS pay_groups (
 
     -- Policy Configurations (JSONB)
     statutory_defaults JSONB DEFAULT '{
-        "cpp_exempt_by_default": false,
-        "cpp2_exempt_by_default": false,
-        "ei_exempt_by_default": false
+        "cppExemptByDefault": false,
+        "cpp2ExemptByDefault": false,
+        "eiExemptByDefault": false
     }'::JSONB,
 
     overtime_policy JSONB DEFAULT '{
-        "bank_time_enabled": false,
-        "bank_time_rate": 1.5,
-        "bank_time_expiry_months": 3,
-        "require_written_agreement": true
+        "bankTimeEnabled": false,
+        "bankTimeRate": 1.5,
+        "bankTimeExpiryMonths": 3,
+        "requireWrittenAgreement": true
     }'::JSONB,
 
-    wcb_config JSONB DEFAULT '{"enabled": false, "assessment_rate": 0}'::JSONB,
+    wcb_config JSONB DEFAULT '{"enabled": false, "assessmentRate": 0}'::JSONB,
 
     group_benefits JSONB DEFAULT '{"enabled": false}'::JSONB,
 
-    custom_deductions JSONB DEFAULT '[]'::JSONB,
+    -- === Structured Configurations (CRA Compliant) - Added 2025-12-24 ===
+    earnings_config JSONB DEFAULT '{...}'::JSONB,           -- See EarningsConfig below
+    taxable_benefits_config JSONB DEFAULT '{...}'::JSONB,   -- See TaxableBenefitsConfig below
+    deductions_config JSONB DEFAULT '{...}'::JSONB,         -- See DeductionsConfig below
 
     -- Timestamps
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -822,6 +825,18 @@ CREATE TABLE IF NOT EXISTS pay_groups (
     CONSTRAINT unique_pay_group_name_per_company UNIQUE (company_id, name)
 );
 ```
+
+### New JSONB Configuration Columns (Added 2025-12-24)
+
+These structured configuration columns replace the former `custom_deductions` column and provide CRA-compliant categorization:
+
+| Column | Description |
+|--------|-------------|
+| `earnings_config` | Bonus, commission, allowances, custom earnings configuration |
+| `taxable_benefits_config` | Automobile, housing, travel assistance, other taxable benefits |
+| `deductions_config` | RRSP, union dues, garnishments, custom deductions |
+
+See [docs/15_earnings_deductions_config.md](./15_earnings_deductions_config.md) for complete type definitions and CRA compliance details.
 
 ### Employee Foreign Keys
 

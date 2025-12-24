@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { EmployeePayrollInput, EarningsBreakdown, Adjustment } from '$lib/types/payroll';
 	import type { EmployeeForPayroll } from '$lib/services/payroll';
-	import type { OvertimePolicy, GroupBenefits, CustomDeduction, StatutoryDefaults } from '$lib/types/pay-group';
+	import type { OvertimePolicy, GroupBenefits, DeductionsConfig, StatutoryDefaults } from '$lib/types/pay-group';
 	import { BeforeRunEmployeeExpandedRow } from '$lib/components/payroll';
 
 	interface Props {
@@ -14,7 +14,7 @@
 		leaveEnabled: boolean;
 		overtimePolicy: OvertimePolicy;
 		groupBenefits: GroupBenefits;
-		customDeductions: CustomDeduction[];
+		deductionsConfig: DeductionsConfig;
 		statutoryDefaults: StatutoryDefaults;
 		// Callbacks
 		onToggleExpand: () => void;
@@ -36,7 +36,7 @@
 		leaveEnabled,
 		overtimePolicy,
 		groupBenefits,
-		customDeductions,
+		deductionsConfig,
 		statutoryDefaults,
 		onToggleExpand,
 		onHoursChange,
@@ -162,7 +162,7 @@
 				{leaveEnabled}
 				{overtimePolicy}
 				{groupBenefits}
-				{customDeductions}
+				{deductionsConfig}
 				{statutoryDefaults}
 				{onEarningsEdit}
 				{onLeaveChange}

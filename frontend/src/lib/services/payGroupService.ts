@@ -15,7 +15,14 @@ import type {
 	OvertimePolicy,
 	WcbConfig,
 	GroupBenefits,
-	CustomDeduction
+	EarningsConfig,
+	TaxableBenefitsConfig,
+	DeductionsConfig
+} from '$lib/types/pay-group';
+import {
+	DEFAULT_EARNINGS_CONFIG,
+	DEFAULT_TAXABLE_BENEFITS_CONFIG,
+	DEFAULT_DEDUCTIONS_CONFIG
 } from '$lib/types/pay-group';
 import { authState } from '$lib/stores/auth.svelte';
 
@@ -38,7 +45,9 @@ export interface DbPayGroup {
 	overtime_policy: OvertimePolicy;
 	wcb_config: WcbConfig;
 	group_benefits: GroupBenefits;
-	custom_deductions: CustomDeduction[];
+	earnings_config: EarningsConfig;
+	taxable_benefits_config: TaxableBenefitsConfig;
+	deductions_config: DeductionsConfig;
 	created_at: string;
 	updated_at: string;
 }
@@ -59,7 +68,9 @@ export interface PayGroupCreateInput {
 	overtime_policy?: OvertimePolicy;
 	wcb_config?: WcbConfig;
 	group_benefits?: GroupBenefits;
-	custom_deductions?: CustomDeduction[];
+	earnings_config?: EarningsConfig;
+	taxable_benefits_config?: TaxableBenefitsConfig;
+	deductions_config?: DeductionsConfig;
 }
 
 /**
@@ -77,7 +88,9 @@ export interface PayGroupUpdateInput {
 	overtime_policy?: OvertimePolicy;
 	wcb_config?: WcbConfig;
 	group_benefits?: GroupBenefits;
-	custom_deductions?: CustomDeduction[];
+	earnings_config?: EarningsConfig;
+	taxable_benefits_config?: TaxableBenefitsConfig;
+	deductions_config?: DeductionsConfig;
 }
 
 /**
@@ -98,7 +111,9 @@ export function dbPayGroupToUi(db: DbPayGroup): PayGroup {
 		overtimePolicy: db.overtime_policy,
 		wcbConfig: db.wcb_config,
 		groupBenefits: db.group_benefits,
-		customDeductions: db.custom_deductions,
+		earningsConfig: db.earnings_config ?? DEFAULT_EARNINGS_CONFIG,
+		taxableBenefitsConfig: db.taxable_benefits_config ?? DEFAULT_TAXABLE_BENEFITS_CONFIG,
+		deductionsConfig: db.deductions_config ?? DEFAULT_DEDUCTIONS_CONFIG,
 		createdAt: db.created_at,
 		updatedAt: db.updated_at
 	};
@@ -285,7 +300,9 @@ export async function createPayGroup(
 				lifeInsurance: { enabled: false, employeeDeduction: 0, employerContribution: 0, isTaxable: false, coverageAmount: 0 },
 				disability: { enabled: false, employeeDeduction: 0, employerContribution: 0, isTaxable: false }
 			},
-			custom_deductions: input.custom_deductions ?? []
+			earnings_config: input.earnings_config ?? DEFAULT_EARNINGS_CONFIG,
+			taxable_benefits_config: input.taxable_benefits_config ?? DEFAULT_TAXABLE_BENEFITS_CONFIG,
+			deductions_config: input.deductions_config ?? DEFAULT_DEDUCTIONS_CONFIG
 		};
 
 		const { data, error } = await supabase.from(TABLE_NAME).insert(record).select().single();
@@ -330,8 +347,12 @@ export async function updatePayGroup(
 		if (input.overtime_policy !== undefined) updateData.overtime_policy = input.overtime_policy;
 		if (input.wcb_config !== undefined) updateData.wcb_config = input.wcb_config;
 		if (input.group_benefits !== undefined) updateData.group_benefits = input.group_benefits;
-		if (input.custom_deductions !== undefined)
-			updateData.custom_deductions = input.custom_deductions;
+		if (input.earnings_config !== undefined)
+			updateData.earnings_config = input.earnings_config;
+		if (input.taxable_benefits_config !== undefined)
+			updateData.taxable_benefits_config = input.taxable_benefits_config;
+		if (input.deductions_config !== undefined)
+			updateData.deductions_config = input.deductions_config;
 
 		const { data, error } = await supabase
 			.from(TABLE_NAME)
@@ -461,7 +482,9 @@ export async function duplicatePayGroup(
 			overtime_policy: original.overtimePolicy,
 			wcb_config: original.wcbConfig,
 			group_benefits: original.groupBenefits,
-			custom_deductions: original.customDeductions
+			earnings_config: original.earningsConfig,
+			taxable_benefits_config: original.taxableBenefitsConfig,
+			deductions_config: original.deductionsConfig
 		});
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Failed to duplicate pay group';

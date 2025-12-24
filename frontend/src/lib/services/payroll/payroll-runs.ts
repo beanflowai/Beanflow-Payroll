@@ -14,6 +14,14 @@ import type {
 	EmployeePayrollInput
 } from '$lib/types/payroll';
 import { dbPayrollRecordToUi } from '$lib/types/payroll';
+import {
+	DEFAULT_EARNINGS_CONFIG,
+	DEFAULT_TAXABLE_BENEFITS_CONFIG,
+	DEFAULT_DEDUCTIONS_CONFIG,
+	type EarningsConfig,
+	type TaxableBenefitsConfig,
+	type DeductionsConfig
+} from '$lib/types/pay-group';
 import { getCurrentUserId, getCurrentLedgerId } from './helpers';
 import type { PayrollServiceResult, PayrollRunListOptions, PayrollRunListResult } from './types';
 
@@ -67,7 +75,10 @@ export async function getPayrollRunByPayDate(
 						id,
 						name,
 						pay_frequency,
-						employment_type
+						employment_type,
+						earnings_config,
+						taxable_benefits_config,
+						deductions_config
 					)
 				)
 			`)
@@ -109,7 +120,10 @@ export async function getPayrollRunByPayDate(
 					totalDeductions: uiRecord.totalDeductions,
 					totalNetPay: uiRecord.netPay,
 					totalEmployerCost: uiRecord.totalEmployerCost,
-					records: [uiRecord]
+					records: [uiRecord],
+					earningsConfig: (payGroup?.earnings_config as EarningsConfig | undefined) ?? DEFAULT_EARNINGS_CONFIG,
+					taxableBenefitsConfig: (payGroup?.taxable_benefits_config as TaxableBenefitsConfig | undefined) ?? DEFAULT_TAXABLE_BENEFITS_CONFIG,
+					deductionsConfig: (payGroup?.deductions_config as DeductionsConfig | undefined) ?? DEFAULT_DEDUCTIONS_CONFIG
 				});
 			}
 		}

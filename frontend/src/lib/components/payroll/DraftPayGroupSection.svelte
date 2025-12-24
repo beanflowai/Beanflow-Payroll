@@ -13,6 +13,7 @@
 		ADJUSTMENT_TYPE_LABELS,
 		createDefaultPayrollInput
 	} from '$lib/types/payroll';
+	import type { CustomDeduction } from '$lib/types/pay-group';
 
 	// Adjustment type options for dropdown menus
 	const EARNINGS_TYPES: AdjustmentType[] = ['bonus', 'retroactive_pay', 'taxable_benefit', 'reimbursement', 'other'];
@@ -80,7 +81,7 @@
 
 	function handleAddAdjustment(record: PayrollRecord, type: AdjustmentType) {
 		const current = getLocalInput(record.id);
-		const existingAdjs = current.adjustments ?? record.inputData?.adjustments ?? [];
+		const existingAdjs = getAdjustments(record);
 		const typeInfo = ADJUSTMENT_TYPE_LABELS[type];
 		const newAdj: Adjustment = {
 			id: crypto.randomUUID(),
@@ -98,9 +99,39 @@
 		showDeductionsMenu = null;
 	}
 
+	function handleAddCustomDeduction(record: PayrollRecord, customDeduction: CustomDeduction) {
+		const current = getLocalInput(record.id);
+		const existingAdjs = getAdjustments(record);
+
+		// Calculate amount based on calculation type
+		let amount = customDeduction.amount;
+		if (customDeduction.calculationType === 'percentage') {
+			// Calculate from gross pay
+			amount = (record.totalGross * customDeduction.amount) / 100;
+			// Round to 2 decimal places
+			amount = Math.round(amount * 100) / 100;
+		}
+
+		const newAdj: Adjustment = {
+			id: crypto.randomUUID(),
+			type: 'deduction',
+			amount: amount,
+			description: customDeduction.name,
+			taxable: false, // Deductions are not taxable income additions
+			customDeductionId: customDeduction.id,
+			isPreTax: customDeduction.taxTreatment === 'pre_tax'
+		};
+		const newAdjs = [...existingAdjs, newAdj];
+		const updated = { ...current, adjustments: newAdjs };
+		localInputMap = new Map(localInputMap).set(record.id, updated);
+		onUpdateRecord(record.id, record.employeeId, { adjustments: newAdjs });
+		// Close menu
+		showDeductionsMenu = null;
+	}
+
 	function handleUpdateAdjustment(record: PayrollRecord, idx: number, updates: Partial<Adjustment>) {
 		const current = getLocalInput(record.id);
-		const existingAdjs = current.adjustments ?? record.inputData?.adjustments ?? [];
+		const existingAdjs = getAdjustments(record);
 		const newAdjs = [...existingAdjs];
 		newAdjs[idx] = { ...newAdjs[idx], ...updates };
 		const updated = { ...current, adjustments: newAdjs };
@@ -110,7 +141,7 @@
 
 	function handleRemoveAdjustment(record: PayrollRecord, idx: number) {
 		const current = getLocalInput(record.id);
-		const existingAdjs = current.adjustments ?? record.inputData?.adjustments ?? [];
+		const existingAdjs = getAdjustments(record);
 		const newAdjs = existingAdjs.filter((_: Adjustment, i: number) => i !== idx);
 		const updated = { ...current, adjustments: newAdjs };
 		localInputMap = new Map(localInputMap).set(record.id, updated);
@@ -136,7 +167,12 @@
 		if (local.adjustments !== undefined) {
 			return local.adjustments;
 		}
-		return record.inputData?.adjustments ?? [];
+		// Ensure all adjustments have IDs (for backward compatibility with old data)
+		const rawAdjs = record.inputData?.adjustments ?? [];
+		return rawAdjs.map((adj, idx) => ({
+			...adj,
+			id: adj.id ?? `legacy-${record.id}-${idx}`
+		}));
 	}
 
 	function getEarningsAdjustments(record: PayrollRecord): Adjustment[] {
@@ -149,6 +185,21 @@
 		return getAdjustments(record).filter(adj =>
 			DEDUCTIONS_TYPES.includes(adj.type)
 		);
+	}
+
+	function getDeductionLabel(adj: Adjustment): string {
+		// If it's a custom deduction with a description, use that
+		if (adj.description) {
+			return adj.description;
+		}
+		// Otherwise use the generic "Deduction" label
+		return ADJUSTMENT_TYPE_LABELS[adj.type]?.label ?? 'Deduction';
+	}
+
+	function getDeductionTaxType(adj: Adjustment): string | null {
+		if (adj.isPreTax === true) return 'Pre-tax';
+		if (adj.isPreTax === false) return 'Post-tax';
+		return null;
 	}
 
 	// Format HOURS/RATE column display
@@ -286,18 +337,62 @@
 												<h4 class="text-caption font-semibold text-surface-600 uppercase tracking-wider m-0 pb-2 border-b border-surface-200">Earnings</h4>
 												<div class="flex flex-col gap-2">
 													<!-- Regular Pay -->
-													<div class="flex justify-between items-center">
-														<span class="text-body-content text-surface-600">Regular Pay</span>
-														<span class="text-body-content text-surface-800">{formatCurrency(record.grossRegular)}</span>
+													<div class="flex flex-col gap-1">
+														<div class="flex justify-between items-center">
+															<span class="text-body-content text-surface-600">Regular Pay</span>
+															<span class="text-body-content text-surface-800">{formatCurrency(record.grossRegular)}</span>
+														</div>
+														<!-- Regular Hours input (only for hourly employees) -->
+														{#if record.compensationType === 'hourly'}
+															<div class="flex justify-between items-center gap-2 pl-4" onclick={(e) => e.stopPropagation()}>
+																<span class="text-body-small text-surface-500">Regular Hours</span>
+																<div class="flex items-center gap-1">
+																	<input
+																		type="number"
+																		class="amount-input w-16 py-1 px-2 border border-surface-300 rounded text-body-small text-center focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+																		value={record.regularHoursWorked ?? 0}
+																		min="0"
+																		step="0.5"
+																		onchange={(e) => {
+																			let val = parseFloat(e.currentTarget.value) || 0;
+																			if (val < 0) val = 0;
+																			e.currentTarget.value = val.toString();
+																			handleHoursChange(record, 'regularHours', val);
+																		}}
+																	/>
+																	<span class="text-caption text-surface-500">hrs</span>
+																</div>
+															</div>
+														{/if}
 													</div>
 
-													<!-- Overtime (if any) -->
-													{#if record.grossOvertime > 0}
+													<!-- Overtime -->
+													<div class="flex flex-col gap-1">
 														<div class="flex justify-between items-center">
 															<span class="text-body-content text-surface-600">Overtime</span>
 															<span class="text-body-content text-surface-800">{formatCurrency(record.grossOvertime)}</span>
 														</div>
-													{/if}
+														<!-- Overtime Hours input (for both hourly and salaried) -->
+														<div class="flex justify-between items-center gap-2 pl-4" onclick={(e) => e.stopPropagation()}>
+															<span class="text-body-small text-surface-500">Overtime Hours</span>
+															<div class="flex items-center gap-1">
+																<input
+																	type="number"
+																	class="amount-input w-16 py-1 px-2 border border-surface-300 rounded text-body-small text-center focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+																	value={record.overtimeHoursWorked ?? 0}
+																	min="0"
+																	step="0.5"
+																	onchange={(e) => {
+																		let val = parseFloat(e.currentTarget.value) || 0;
+																		if (val < 0) val = 0;
+																		e.currentTarget.value = val.toString();
+																		handleHoursChange(record, 'overtimeHours', val);
+																	}}
+																/>
+																<span class="text-caption text-surface-500">hrs</span>
+															</div>
+														</div>
+													</div>
 
 													<!-- Holiday Pay (if any) -->
 													{#if record.holidayPay > 0}
@@ -358,10 +453,17 @@
 																/>
 																<input
 																	type="number"
-																	class="w-24 py-1 px-2 border border-surface-300 rounded text-body-small text-right focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+																	class="amount-input w-24 py-1 px-2 border border-surface-300 rounded text-body-small text-right focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
 																	value={adj.amount}
 																	step="0.01"
-																	onchange={(e) => handleUpdateAdjustment(record, adjIdx, { amount: parseFloat(e.currentTarget.value) || 0 })}
+																	min={adj.type === 'other' ? undefined : 0}
+																	onchange={(e) => {
+																		let val = parseFloat(e.currentTarget.value) || 0;
+																		// Only 'other' type allows negative values
+																		if (adj.type !== 'other' && val < 0) val = 0;
+																		e.currentTarget.value = val.toString();
+																		handleUpdateAdjustment(record, adjIdx, { amount: val });
+																	}}
 																/>
 															</div>
 														</div>
@@ -436,11 +538,19 @@
 													<!-- User-added deduction adjustments -->
 													{#each getDeductionAdjustments(record) as adj, idx (adj.id)}
 														{@const adjIdx = getAdjustments(record).indexOf(adj)}
-														{@const typeInfo = ADJUSTMENT_TYPE_LABELS[adj.type]}
+														{@const deductionLabel = getDeductionLabel(adj)}
+														{@const taxType = getDeductionTaxType(adj)}
 														<div class="flex flex-col gap-1 py-2" onclick={(e) => e.stopPropagation()}>
-															<!-- Row 1: Type label + Delete -->
+															<!-- Row 1: Deduction name + Tax type badge + Delete -->
 															<div class="flex items-center justify-between">
-																<span class="text-body-content text-surface-700">{typeInfo?.label}</span>
+																<div class="flex items-center gap-2">
+																	<span class="text-body-content text-surface-700">{deductionLabel}</span>
+																	{#if taxType}
+																		<span class="text-caption px-1.5 py-0.5 rounded {taxType === 'Pre-tax' ? 'bg-primary-100 text-primary-700' : 'bg-surface-100 text-surface-600'}">
+																			{taxType}
+																		</span>
+																	{/if}
+																</div>
 																<button
 																	class="p-1 bg-transparent border-none text-error-500 cursor-pointer rounded hover:bg-error-50 hover:text-error-600"
 																	title="Remove"
@@ -449,34 +559,84 @@
 																	<i class="fas fa-times text-xs"></i>
 																</button>
 															</div>
-															<!-- Row 2: Note + Amount (indented) -->
+															<!-- Row 2: Note (if custom deduction, show readonly) + Amount -->
 															<div class="flex items-center gap-2 pl-4">
-																<input
-																	type="text"
-																	class="flex-1 py-1 px-2 border border-surface-200 rounded text-body-small focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
-																	value={adj.description}
-																	placeholder="Note"
-																	onchange={(e) => handleUpdateAdjustment(record, adjIdx, { description: e.currentTarget.value })}
-																/>
+																{#if adj.customDeductionId}
+																	<!-- For custom deductions, show a simple amount input -->
+																	<span class="flex-1 text-body-small text-surface-500">Amount</span>
+																{:else}
+																	<!-- For ad-hoc deductions, allow note editing -->
+																	<input
+																		type="text"
+																		class="flex-1 py-1 px-2 border border-surface-200 rounded text-body-small focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+																		value={adj.description}
+																		placeholder="Note"
+																		onchange={(e) => handleUpdateAdjustment(record, adjIdx, { description: e.currentTarget.value })}
+																	/>
+																{/if}
 																<input
 																	type="number"
-																	class="w-24 py-1 px-2 border border-surface-300 rounded text-body-small text-right focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+																	class="amount-input w-24 py-1 px-2 border border-surface-300 rounded text-body-small text-right focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
 																	value={adj.amount}
 																	step="0.01"
-																	onchange={(e) => handleUpdateAdjustment(record, adjIdx, { amount: parseFloat(e.currentTarget.value) || 0 })}
+																	min="0"
+																	onchange={(e) => {
+																		let val = parseFloat(e.currentTarget.value) || 0;
+																		// Deductions cannot be negative
+																		if (val < 0) val = 0;
+																		e.currentTarget.value = val.toString();
+																		handleUpdateAdjustment(record, adjIdx, { amount: val });
+																	}}
 																/>
 															</div>
 														</div>
 													{/each}
 
-													<!-- Add Deduction Button (single type, no dropdown needed) -->
-													<button
-														class="flex items-center justify-center gap-2 py-2 bg-surface-50 border border-dashed border-surface-300 rounded text-body-small text-surface-600 cursor-pointer transition-all duration-150 hover:bg-primary-50 hover:border-primary-300 hover:text-primary-600"
-														onclick={(e) => { e.stopPropagation(); handleAddAdjustment(record, 'deduction'); }}
-													>
-														<i class="fas fa-plus text-xs"></i>
-														Add
-													</button>
+													<!-- Add Deduction Button with Dropdown -->
+													<div class="relative" onclick={(e) => e.stopPropagation()}>
+														<button
+															class="w-full flex items-center justify-center gap-2 py-2 bg-surface-50 border border-dashed border-surface-300 rounded text-body-small text-surface-600 cursor-pointer transition-all duration-150 hover:bg-primary-50 hover:border-primary-300 hover:text-primary-600"
+															onclick={() => {
+																showDeductionsMenu = showDeductionsMenu === record.id ? null : record.id;
+																showEarningsMenu = null;
+															}}
+														>
+															<i class="fas fa-plus text-xs"></i>
+															Add
+															<i class="fas fa-chevron-up text-xs"></i>
+														</button>
+
+														{#if showDeductionsMenu === record.id}
+															<div class="absolute left-0 bottom-full mb-1 bg-white border border-surface-200 rounded-lg shadow-lg z-20 min-w-[200px] py-1">
+																<!-- Custom deductions from pay group -->
+																{#if payGroup.deductionsConfig?.customDeductions && payGroup.deductionsConfig.customDeductions.length > 0}
+																	{#each payGroup.deductionsConfig.customDeductions as customDed}
+																		<button
+																			class="w-full px-3 py-2 text-left text-body-small text-surface-700 hover:bg-surface-50 flex items-center justify-between border-none bg-transparent cursor-pointer"
+																			onclick={() => handleAddCustomDeduction(record, customDed)}
+																		>
+																			<div class="flex items-center gap-2">
+																				<span>➖</span>
+																				<span>{customDed.name}</span>
+																			</div>
+																			<span class="text-caption px-1.5 py-0.5 rounded {customDed.taxTreatment === 'pre_tax' ? 'bg-primary-100 text-primary-700' : 'bg-surface-100 text-surface-500'}">
+																				{customDed.taxTreatment === 'pre_tax' ? 'Pre' : 'Post'}
+																			</span>
+																		</button>
+																	{/each}
+																	<div class="border-t border-surface-100 my-1"></div>
+																{/if}
+																<!-- Other/Ad-hoc deduction option -->
+																<button
+																	class="w-full px-3 py-2 text-left text-body-small text-surface-700 hover:bg-surface-50 flex items-center gap-2 border-none bg-transparent cursor-pointer"
+																	onclick={() => handleAddAdjustment(record, 'deduction')}
+																>
+																	<span>📝</span>
+																	<span>Other Deduction</span>
+																</button>
+															</div>
+														{/if}
+													</div>
 
 													<!-- Total Deductions -->
 													<div class="flex justify-between items-center pt-2 border-t border-surface-200 font-semibold">
@@ -549,3 +709,15 @@
 		</div>
 	{/if}
 </div>
+
+<style>
+	/* Hide number input spinners */
+	.amount-input::-webkit-inner-spin-button,
+	.amount-input::-webkit-outer-spin-button {
+		-webkit-appearance: none;
+		margin: 0;
+	}
+	.amount-input {
+		-moz-appearance: textfield;
+	}
+</style>

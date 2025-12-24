@@ -2,6 +2,12 @@
  * Payroll types for UI
  */
 
+import type {
+	EarningsConfig,
+	TaxableBenefitsConfig,
+	DeductionsConfig
+} from './pay-group';
+
 // Leave types
 export type LeaveType = 'vacation' | 'sick';
 
@@ -297,6 +303,10 @@ export interface PayrollRunPayGroup {
 	totalEmployerCost: number;
 	// Employee records for this pay group
 	records: PayrollRecord[];
+	// Structured configurations from pay group
+	earningsConfig?: EarningsConfig;
+	taxableBenefitsConfig?: TaxableBenefitsConfig;
+	deductionsConfig?: DeductionsConfig;
 }
 
 /**
@@ -463,6 +473,9 @@ export interface DbPayrollRecordWithEmployee extends DbPayrollRecord {
 			name: string;
 			pay_frequency: string;
 			employment_type: string;
+			earnings_config?: EarningsConfig;
+			taxable_benefits_config?: TaxableBenefitsConfig;
+			deductions_config?: DeductionsConfig;
 		} | null;
 	};
 }
@@ -613,6 +626,10 @@ export interface Adjustment {
 	amount: number;
 	description: string;
 	taxable: boolean;
+	/** Reference to pay group's custom deduction (for deduction type) */
+	customDeductionId?: string;
+	/** For deductions: pre_tax vs post_tax */
+	isPreTax?: boolean;
 }
 
 // ===========================================

@@ -31,9 +31,10 @@
 	});
 
 	const deductionsSummary = $derived(() => {
-		const count = payGroup.customDeductions.length;
+		const customDeductions = payGroup.deductionsConfig?.customDeductions ?? [];
+		const count = customDeductions.length;
 		if (count === 0) return 'None';
-		const defaultEnabled = payGroup.customDeductions.filter((d) => d.isDefaultEnabled).length;
+		const defaultEnabled = customDeductions.filter((d) => d.isDefaultEnabled).length;
 		return `${count} Total (${defaultEnabled} Default)`;
 	});
 </script>
@@ -70,7 +71,7 @@
 	</div>
 
 	<div class="summary-card">
-		<div class="card-icon deductions" class:disabled={payGroup.customDeductions.length === 0}>
+		<div class="card-icon deductions" class:disabled={(payGroup.deductionsConfig?.customDeductions ?? []).length === 0}>
 			<i class="fas fa-receipt"></i>
 		</div>
 		<div class="card-content">

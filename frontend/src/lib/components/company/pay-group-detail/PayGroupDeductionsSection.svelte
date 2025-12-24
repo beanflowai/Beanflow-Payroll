@@ -1,6 +1,6 @@
 <script lang="ts">
 	// PayGroupDeductionsSection - Custom Deductions table with add/edit/delete
-	import type { PayGroup, CustomDeduction, DeductionType, CalculationType } from '$lib/types/pay-group';
+	import type { PayGroup, CustomDeduction, DeductionType, CalculationType, DeductionCategory } from '$lib/types/pay-group';
 
 	interface Props {
 		payGroup: PayGroup;
@@ -21,7 +21,8 @@
 	let modalDeduction = $state<CustomDeduction>({
 		id: '',
 		name: '',
-		type: 'post_tax',
+		category: 'other',
+		taxTreatment: 'post_tax',
 		calculationType: 'fixed',
 		amount: 0,
 		isEmployerContribution: false,
@@ -30,7 +31,8 @@
 
 	// Enter edit mode
 	function enterEditMode() {
-		editDeductions = payGroup.customDeductions.map((d) => ({ ...d }));
+		const customDeductions = payGroup.deductionsConfig?.customDeductions ?? [];
+		editDeductions = customDeductions.map((d) => ({ ...d }));
 		isEditing = true;
 	}
 
@@ -45,7 +47,10 @@
 	function saveChanges() {
 		const updated: PayGroup = {
 			...payGroup,
-			customDeductions: editDeductions,
+			deductionsConfig: {
+				...payGroup.deductionsConfig,
+				customDeductions: editDeductions
+			},
 			updatedAt: new Date().toISOString()
 		};
 		onUpdate(updated);
@@ -65,7 +70,8 @@
 		modalDeduction = {
 			id: `cd-${Date.now()}`,
 			name: '',
-			type: 'post_tax',
+			category: 'other',
+			taxTreatment: 'post_tax',
 			calculationType: 'fixed',
 			amount: 0,
 			isEmployerContribution: false,
@@ -115,9 +121,9 @@
 		}).format(amount);
 	}
 
-	// Format deduction type
-	function formatType(type: DeductionType): string {
-		return type === 'pre_tax' ? 'Pre-Tax' : 'Post-Tax';
+	// Format deduction tax treatment
+	function formatTaxTreatment(taxTreatment: DeductionType): string {
+		return taxTreatment === 'pre_tax' ? 'Pre-Tax' : 'Post-Tax';
 	}
 
 	// Format calculation type
@@ -183,8 +189,8 @@
 									{/if}
 								</span>
 								<span>
-									<span class="inline-block py-1 px-2 rounded-full text-auxiliary-text {deduction.type === 'pre_tax' ? 'bg-primary-50 text-primary-700' : 'bg-surface-100 text-surface-600'}">
-										{formatType(deduction.type)}
+									<span class="inline-block py-1 px-2 rounded-full text-auxiliary-text {deduction.taxTreatment === 'pre_tax' ? 'bg-primary-50 text-primary-700' : 'bg-surface-100 text-surface-600'}">
+										{formatTaxTreatment(deduction.taxTreatment)}
 									</span>
 								</span>
 								<span>
@@ -235,14 +241,14 @@
 		{:else}
 			<!-- View Mode -->
 			<div class="cursor-pointer" title="Double-click to edit">
-				{#if payGroup.customDeductions.length > 0}
+				{#if (payGroup.deductionsConfig?.customDeductions ?? []).length > 0}
 					<div class="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-						{#each payGroup.customDeductions as deduction}
+						{#each payGroup.deductionsConfig?.customDeductions ?? [] as deduction}
 							<div class="p-4 bg-surface-50 rounded-lg border border-surface-100">
 								<div class="flex justify-between items-start mb-2">
 									<span class="text-body-content font-semibold text-surface-800">{deduction.name}</span>
-									<span class="inline-block py-1 px-2 rounded-full text-auxiliary-text {deduction.type === 'pre_tax' ? 'bg-primary-50 text-primary-700' : 'bg-surface-100 text-surface-600'}">
-										{formatType(deduction.type)}
+									<span class="inline-block py-1 px-2 rounded-full text-auxiliary-text {deduction.taxTreatment === 'pre_tax' ? 'bg-primary-50 text-primary-700' : 'bg-surface-100 text-surface-600'}">
+										{formatTaxTreatment(deduction.taxTreatment)}
 									</span>
 								</div>
 								{#if deduction.description}
@@ -340,13 +346,13 @@
 
 				<div class="grid grid-cols-2 gap-4 max-md:grid-cols-1">
 					<div class="flex flex-col gap-1">
-						<label for="deduction-type" class="text-auxiliary-text font-medium text-surface-600">Deduction Type</label>
-						<select id="deduction-type" class="p-3 border border-surface-200 rounded-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-[3px] focus:ring-primary-100" bind:value={modalDeduction.type}>
+						<label for="deduction-type" class="text-auxiliary-text font-medium text-surface-600">Tax Treatment</label>
+						<select id="deduction-type" class="p-3 border border-surface-200 rounded-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-[3px] focus:ring-primary-100" bind:value={modalDeduction.taxTreatment}>
 							<option value="pre_tax">Pre-Tax</option>
 							<option value="post_tax">Post-Tax</option>
 						</select>
 						<p class="text-auxiliary-text text-surface-500 mt-1 m-0">
-							{modalDeduction.type === 'pre_tax'
+							{modalDeduction.taxTreatment === 'pre_tax'
 								? 'Deducted before tax calculations (reduces taxable income)'
 								: 'Deducted after tax calculations'}
 						</p>

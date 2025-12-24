@@ -10,8 +10,10 @@ import type {
 import type {
 	OvertimePolicy,
 	GroupBenefits,
-	CustomDeduction,
-	StatutoryDefaults
+	StatutoryDefaults,
+	EarningsConfig,
+	TaxableBenefitsConfig,
+	DeductionsConfig
 } from '$lib/types/pay-group';
 
 // ===========================================
@@ -97,8 +99,11 @@ export interface PayGroupWithEmployees {
 	leaveEnabled: boolean;
 	overtimePolicy: OvertimePolicy;
 	groupBenefits: GroupBenefits;
-	customDeductions: CustomDeduction[];
 	statutoryDefaults: StatutoryDefaults;
+	// Structured configurations
+	earningsConfig: EarningsConfig;
+	taxableBenefitsConfig: TaxableBenefitsConfig;
+	deductionsConfig: DeductionsConfig;
 }
 
 /**

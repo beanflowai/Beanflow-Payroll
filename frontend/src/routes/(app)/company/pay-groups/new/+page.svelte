@@ -118,7 +118,9 @@
 			overtime_policy: payGroup.overtimePolicy,
 			wcb_config: payGroup.wcbConfig,
 			group_benefits: payGroup.groupBenefits,
-			custom_deductions: payGroup.customDeductions
+			earnings_config: payGroup.earningsConfig,
+			taxable_benefits_config: payGroup.taxableBenefitsConfig,
+			deductions_config: payGroup.deductionsConfig
 		};
 
 		try {

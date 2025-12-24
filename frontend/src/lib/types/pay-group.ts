@@ -7,7 +7,9 @@
  * - Overtime & bank time policies
  * - WCB/workers compensation configuration
  * - Group benefits (health, dental, vision, life, disability)
- * - Custom deductions
+ * - Earnings configuration (bonus, commission, allowances)
+ * - Taxable benefits configuration (automobile, housing)
+ * - Deductions configuration (RRSP, union dues, custom)
  */
 
 // Pay frequency options
@@ -22,8 +24,275 @@ export type BankTimeExpiryMonths = 3 | 6 | 12;
 // Deduction type for custom deductions
 export type DeductionType = 'pre_tax' | 'post_tax';
 
-// Calculation type for deductions
+// Calculation type for deductions/earnings
 export type CalculationType = 'fixed' | 'percentage';
+
+// ============================================
+// EARNINGS CONFIG TYPES (CRA Compliant)
+// ============================================
+
+/** Bonus type - affects overtime/vacation pay calculation per CRA rules */
+export type BonusType = 'discretionary' | 'non_discretionary';
+
+/** Commission calculation methods */
+export type CommissionCalculationType =
+	| 'percentage_gross' // % of gross pay
+	| 'sales_percentage' // % of sales (requires input)
+	| 'fixed'; // Fixed amount
+
+/** Allowance types with specific tax rules per CRA */
+export type AllowanceType =
+	| 'meal' // Non-taxable if <= $23 + overtime + occasional
+	| 'travel' // Non-taxable if reasonable (70c/km)
+	| 'housing' // Always taxable
+	| 'moving' // Non-taxable if <= $650
+	| 'northern_zone' // $11/day northern, $5.50/day intermediate
+	| 'tool' // Tradesperson tools
+	| 'uniform' // Non-taxable if employer-required
+	| 'cell_phone' // Non-taxable if business use
+	| 'other';
+
+/** Individual allowance configuration */
+export interface AllowanceConfig {
+	id: string;
+	type: AllowanceType;
+	name: string;
+	enabled: boolean;
+	calculationType: 'fixed' | 'per_diem' | 'per_km';
+	defaultAmount: number;
+	ratePerKm?: number;
+	requiresOvertime?: boolean; // For meal allowance
+	taxableOverride?: boolean;
+	description?: string;
+}
+
+/** Bonus configuration with CRA discretionary/non-discretionary distinction */
+export interface BonusConfig {
+	enabled: boolean;
+	/** Discretionary bonuses are NOT included in overtime/vacation base */
+	discretionaryEnabled: boolean;
+	/** Non-discretionary bonuses ARE included in overtime/vacation base (CRA rule) */
+	nonDiscretionaryEnabled: boolean;
+	defaultTaxable: boolean;
+}
+
+/** Commission configuration */
+export interface CommissionConfig {
+	enabled: boolean;
+	calculationType: CommissionCalculationType;
+	defaultAmount: number;
+	requiresSalesInput: boolean;
+	/** CRA: commission may be included in overtime base */
+	includeInOvertimeBase: boolean;
+}
+
+/** Expense category for reimbursement */
+export interface ExpenseCategory {
+	id: string;
+	name: string;
+	maxAmount?: number;
+	taxable: boolean;
+}
+
+/** Expense reimbursement configuration */
+export interface ExpenseReimbursementConfig {
+	enabled: boolean;
+	requireReceipts: boolean;
+	maxAmountWithoutApproval?: number;
+	categories: ExpenseCategory[];
+}
+
+/** Custom earning type */
+export interface CustomEarning {
+	id: string;
+	name: string;
+	calculationType: CalculationType;
+	amount: number;
+	taxable: boolean;
+	includeInVacationPay: boolean;
+	includeInOvertimeBase: boolean;
+	isDefaultEnabled: boolean;
+	description?: string;
+}
+
+/** Complete earnings configuration for a pay group */
+export interface EarningsConfig {
+	enabled: boolean;
+	bonus: BonusConfig;
+	commission: CommissionConfig;
+	expenseReimbursement: ExpenseReimbursementConfig;
+	allowances: AllowanceConfig[];
+	customEarnings: CustomEarning[];
+}
+
+// ============================================
+// TAXABLE BENEFITS CONFIG TYPES (CRA T4130)
+// ============================================
+
+/** Automobile benefit configuration per CRA T4130 */
+export interface AutomobileBenefitConfig {
+	enabled: boolean;
+	// Standby Charge calculation
+	vehicleCost: number;
+	isLeased: boolean;
+	monthlyLeaseCost?: number;
+	daysAvailablePerMonth: number;
+	// Operating Expense Benefit
+	personalKilometers: number;
+	totalKilometers?: number;
+	useOperatingExpenseBenefit: boolean;
+	/** 2025 CRA rate: $0.34/km */
+	operatingExpenseRate: number;
+	// GST/HST
+	includesGstHst: boolean;
+	gstHstRate: number;
+	// Overrides
+	calculatedMonthlyBenefit?: number;
+	manualMonthlyOverride?: number;
+}
+
+/** Housing benefit configuration */
+export interface HousingBenefitConfig {
+	enabled: boolean;
+	monthlyValue: number;
+	includesUtilities: boolean;
+	utilitiesValue?: number;
+}
+
+/** Travel assistance benefit (northern zones) */
+export interface TravelAssistanceBenefitConfig {
+	enabled: boolean;
+	isPrescribedZone: boolean;
+	isIntermediateZone: boolean;
+	annualValue: number;
+	tripsPerYear: number;
+}
+
+/** Board and lodging benefit */
+export interface BoardLodgingBenefitConfig {
+	enabled: boolean;
+	valueType: 'daily' | 'monthly';
+	value: number;
+	isSubsidized: boolean;
+	employeeContribution?: number;
+}
+
+/** Group life insurance benefit */
+export interface GroupLifeInsuranceBenefitConfig {
+	enabled: boolean;
+	coverageAmount: number;
+	employerPremium: number;
+	employeePremium: number;
+	useCraRates: boolean;
+}
+
+/** Custom taxable benefit */
+export interface CustomTaxableBenefit {
+	id: string;
+	name: string;
+	calculationType: 'fixed_monthly' | 'fixed_per_period' | 'annual';
+	amount: number;
+	subjectToCppEi: boolean;
+	isDefaultEnabled: boolean;
+	description?: string;
+}
+
+/** Complete taxable benefits configuration */
+export interface TaxableBenefitsConfig {
+	enabled: boolean;
+	automobile: AutomobileBenefitConfig;
+	housing: HousingBenefitConfig;
+	travelAssistance: TravelAssistanceBenefitConfig;
+	boardLodging: BoardLodgingBenefitConfig;
+	groupLifeInsurance: GroupLifeInsuranceBenefitConfig;
+	customBenefits: CustomTaxableBenefit[];
+}
+
+// ============================================
+// DEDUCTIONS CONFIG TYPES (Replaces customDeductions)
+// ============================================
+
+/** Deduction categories with specific tax treatments */
+export type DeductionCategory =
+	| 'rrsp' // Pre-tax, annual limit
+	| 'union_dues' // Pre-tax, 100% tax deductible
+	| 'professional_dues' // Pre-tax
+	| 'parking' // Post-tax typically
+	| 'charitable' // Post-tax, tax receipt
+	| 'garnishment' // Post-tax, court-ordered
+	| 'loan_repayment' // Post-tax
+	| 'equipment' // Post-tax
+	| 'other';
+
+/** RRSP deduction configuration */
+export interface RrspDeductionConfig {
+	enabled: boolean;
+	calculationType: CalculationType;
+	amount: number;
+	employerMatchEnabled: boolean;
+	employerMatchPercentage?: number;
+	employerMatchMaxAmount?: number;
+	respectAnnualLimit: boolean;
+	isDefaultEnabled: boolean;
+}
+
+/** Union dues configuration */
+export interface UnionDuesConfig {
+	enabled: boolean;
+	calculationType: CalculationType;
+	amount: number;
+	unionName?: string;
+	isDefaultEnabled: boolean;
+}
+
+/** Garnishment deduction configuration */
+export interface GarnishmentDeductionConfig {
+	enabled: boolean;
+	allowGarnishments: boolean;
+	// Garnishment details stored separately per employee
+}
+
+/** Approved charity for donations */
+export interface ApprovedCharity {
+	id: string;
+	name: string;
+	registrationNumber: string;
+	defaultAmount?: number;
+}
+
+/** Charitable donation configuration */
+export interface CharitableDonationConfig {
+	enabled: boolean;
+	approvedCharities: ApprovedCharity[];
+	isDefaultEnabled: boolean;
+}
+
+/** Custom deduction (enhanced from old CustomDeduction) */
+export interface CustomDeduction {
+	id: string;
+	name: string;
+	category: DeductionCategory;
+	/** Pre-tax reduces taxable income, post-tax deducted from net pay */
+	taxTreatment: DeductionType;
+	calculationType: CalculationType;
+	amount: number;
+	isEmployerContribution: boolean;
+	employerAmount?: number;
+	annualLimit?: number;
+	perPayPeriodLimit?: number;
+	isDefaultEnabled: boolean;
+	description?: string;
+}
+
+/** Complete deductions configuration */
+export interface DeductionsConfig {
+	enabled: boolean;
+	rrsp: RrspDeductionConfig;
+	unionDues: UnionDuesConfig;
+	garnishments: GarnishmentDeductionConfig;
+	charitableDonations: CharitableDonationConfig;
+	customDeductions: CustomDeduction[];
+}
 
 // Employment type options
 export type EmploymentType = 'full_time' | 'part_time';
@@ -131,29 +400,6 @@ export interface GroupBenefits {
 	disability: BenefitConfig;
 }
 
-/**
- * Custom deduction item (e.g., parking, union dues, RRSP)
- */
-export interface CustomDeduction {
-	id: string;
-	/** Display name */
-	name: string;
-	/** Pre-tax reduces taxable income, post-tax deducted from net pay */
-	type: DeductionType;
-	/** Fixed amount or percentage of gross */
-	calculationType: CalculationType;
-	/** Amount (dollars if fixed, percentage if percentage) */
-	amount: number;
-	/** Whether employer also contributes (e.g., RRSP matching) */
-	isEmployerContribution: boolean;
-	/** Employer contribution amount (if applicable) */
-	employerAmount?: number;
-	/** Whether new employees get this deduction by default */
-	isDefaultEnabled: boolean;
-	/** Optional description */
-	description?: string;
-}
-
 // ============================================
 // Main Pay Group Interface
 // ============================================
@@ -193,8 +439,16 @@ export interface PayGroup {
 	// Group Benefits
 	groupBenefits: GroupBenefits;
 
-	// Custom Deductions
-	customDeductions: CustomDeduction[];
+	// === Structured Configurations (CRA Compliant) ===
+
+	/** Earnings configuration (bonus, commission, allowances, custom earnings) */
+	earningsConfig: EarningsConfig;
+
+	/** Taxable benefits configuration (automobile, housing, etc.) */
+	taxableBenefitsConfig: TaxableBenefitsConfig;
+
+	/** Deductions configuration (RRSP, union dues, custom deductions) */
+	deductionsConfig: DeductionsConfig;
 
 	// Metadata
 	createdAt: string;
@@ -276,6 +530,112 @@ export const DEFAULT_GROUP_BENEFITS: GroupBenefits = {
 	disability: { ...DEFAULT_BENEFIT_CONFIG }
 };
 
+// ============================================
+// Default Values for Structured Configurations
+// ============================================
+
+/**
+ * Default earnings configuration
+ */
+export const DEFAULT_EARNINGS_CONFIG: EarningsConfig = {
+	enabled: false,
+	bonus: {
+		enabled: false,
+		discretionaryEnabled: false,
+		nonDiscretionaryEnabled: false,
+		defaultTaxable: true
+	},
+	commission: {
+		enabled: false,
+		calculationType: 'fixed',
+		defaultAmount: 0,
+		requiresSalesInput: false,
+		includeInOvertimeBase: false
+	},
+	expenseReimbursement: {
+		enabled: false,
+		requireReceipts: true,
+		categories: []
+	},
+	allowances: [],
+	customEarnings: []
+};
+
+/**
+ * Default taxable benefits configuration
+ */
+export const DEFAULT_TAXABLE_BENEFITS_CONFIG: TaxableBenefitsConfig = {
+	enabled: false,
+	automobile: {
+		enabled: false,
+		vehicleCost: 0,
+		isLeased: false,
+		daysAvailablePerMonth: 30,
+		personalKilometers: 0,
+		useOperatingExpenseBenefit: false,
+		operatingExpenseRate: 0.34, // 2025 CRA rate
+		includesGstHst: true,
+		gstHstRate: 0.13
+	},
+	housing: {
+		enabled: false,
+		monthlyValue: 0,
+		includesUtilities: false
+	},
+	travelAssistance: {
+		enabled: false,
+		isPrescribedZone: false,
+		isIntermediateZone: false,
+		annualValue: 0,
+		tripsPerYear: 2
+	},
+	boardLodging: {
+		enabled: false,
+		valueType: 'daily',
+		value: 0,
+		isSubsidized: false
+	},
+	groupLifeInsurance: {
+		enabled: false,
+		coverageAmount: 0,
+		employerPremium: 0,
+		employeePremium: 0,
+		useCraRates: true
+	},
+	customBenefits: []
+};
+
+/**
+ * Default deductions configuration
+ */
+export const DEFAULT_DEDUCTIONS_CONFIG: DeductionsConfig = {
+	enabled: true,
+	rrsp: {
+		enabled: false,
+		calculationType: 'fixed',
+		amount: 0,
+		employerMatchEnabled: false,
+		respectAnnualLimit: true,
+		isDefaultEnabled: false
+	},
+	unionDues: {
+		enabled: false,
+		calculationType: 'fixed',
+		amount: 0,
+		isDefaultEnabled: false
+	},
+	garnishments: {
+		enabled: true,
+		allowGarnishments: true
+	},
+	charitableDonations: {
+		enabled: false,
+		approvedCharities: [],
+		isDefaultEnabled: false
+	},
+	customDeductions: []
+};
+
 /**
  * Create a new PayGroup with default values
  */
@@ -292,7 +652,9 @@ export function createDefaultPayGroup(companyId: string): Omit<PayGroup, 'id' | 
 		overtimePolicy: { ...DEFAULT_OVERTIME_POLICY },
 		wcbConfig: { ...DEFAULT_WCB_CONFIG },
 		groupBenefits: { ...DEFAULT_GROUP_BENEFITS },
-		customDeductions: []
+		earningsConfig: { ...DEFAULT_EARNINGS_CONFIG },
+		taxableBenefitsConfig: { ...DEFAULT_TAXABLE_BENEFITS_CONFIG },
+		deductionsConfig: { ...DEFAULT_DEDUCTIONS_CONFIG }
 	};
 }
 

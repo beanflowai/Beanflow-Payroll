@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { EmployeePayrollInput, EarningsBreakdown, Adjustment } from '$lib/types/payroll';
 	import { ADJUSTMENT_TYPE_LABELS } from '$lib/types/payroll';
-	import type { OvertimePolicy, GroupBenefits, CustomDeduction, StatutoryDefaults } from '$lib/types/pay-group';
+	import type { OvertimePolicy, GroupBenefits, DeductionsConfig, StatutoryDefaults } from '$lib/types/pay-group';
 	import { InlineEditField } from '$lib/components/shared';
 
 	interface Props {
@@ -12,7 +12,7 @@
 		leaveEnabled: boolean;
 		overtimePolicy: OvertimePolicy;
 		groupBenefits: GroupBenefits;
-		customDeductions: CustomDeduction[];
+		deductionsConfig: DeductionsConfig;
 		statutoryDefaults: StatutoryDefaults;
 		// Callbacks
 		onEarningsEdit: (key: string, value: number) => void;
@@ -30,7 +30,7 @@
 		leaveEnabled,
 		overtimePolicy,
 		groupBenefits,
-		customDeductions,
+		deductionsConfig,
 		statutoryDefaults,
 		onEarningsEdit,
 		onLeaveChange,
@@ -205,7 +205,8 @@
 			{/if}
 			<!-- Custom Deductions and Estimated Total -->
 			{#if true}
-				{@const defaultDeductions = customDeductions.filter(d => d.isDefaultEnabled)}
+				{@const customDeductions = deductionsConfig?.customDeductions ?? []}
+				{@const defaultDeductions = customDeductions.filter((d) => d.isDefaultEnabled)}
 				{@const benefitsTotal = groupBenefits.enabled
 					? (groupBenefits.health.enabled ? groupBenefits.health.employeeDeduction : 0) +
 					  (groupBenefits.dental.enabled ? groupBenefits.dental.employeeDeduction : 0) +
@@ -229,7 +230,7 @@
 							<div class="flex justify-between items-center py-1">
 								<span class="text-body-small text-surface-600">
 									{deduction.name}
-									<span class="text-caption text-surface-400">({deduction.type === 'pre_tax' ? 'pre' : 'post'})</span>
+									<span class="text-caption text-surface-400">({deduction.taxTreatment === 'pre_tax' ? 'pre' : 'post'})</span>
 								</span>
 								<span class="text-body-small font-medium text-error-600">
 									{deduction.calculationType === 'percentage' ? `${deduction.amount}%` : ''}-{formatCurrency(amount)}

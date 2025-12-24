@@ -195,7 +195,7 @@
 							leaveEnabled={payGroup.leaveEnabled}
 							overtimePolicy={payGroup.overtimePolicy}
 							groupBenefits={payGroup.groupBenefits}
-							customDeductions={payGroup.customDeductions}
+							deductionsConfig={payGroup.deductionsConfig}
 							statutoryDefaults={payGroup.statutoryDefaults}
 							onToggleExpand={() => onToggleExpand(employee.id)}
 							onHoursChange={(field, value) => handleHoursChange(employee.id, field, value)}

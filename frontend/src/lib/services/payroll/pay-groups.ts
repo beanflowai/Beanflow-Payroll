@@ -8,6 +8,14 @@ import type {
 	UpcomingPayDate,
 	PayrollRunStatus
 } from '$lib/types/payroll';
+import {
+	DEFAULT_EARNINGS_CONFIG,
+	DEFAULT_TAXABLE_BENEFITS_CONFIG,
+	DEFAULT_DEDUCTIONS_CONFIG,
+	DEFAULT_OVERTIME_POLICY,
+	DEFAULT_GROUP_BENEFITS,
+	DEFAULT_STATUTORY_DEFAULTS
+} from '$lib/types/pay-group';
 import { getCurrentUserId, getCurrentLedgerId } from './helpers';
 import type {
 	PayrollServiceResult,
@@ -176,26 +184,13 @@ export async function getPayGroupsWithEmployeesForPayDate(
 				employees: employeeList,
 				// Pay Group configuration for UI rendering
 				leaveEnabled: pg.leave_enabled ?? true,
-				overtimePolicy: pg.overtime_policy ?? {
-					bankTimeEnabled: false,
-					bankTimeRate: 1.5,
-					bankTimeExpiryMonths: 3,
-					requireWrittenAgreement: true
-				},
-				groupBenefits: pg.group_benefits ?? {
-					enabled: false,
-					health: { enabled: false, employeeDeduction: 0, employerContribution: 0, isTaxable: false },
-					dental: { enabled: false, employeeDeduction: 0, employerContribution: 0, isTaxable: false },
-					vision: { enabled: false, employeeDeduction: 0, employerContribution: 0, isTaxable: false },
-					lifeInsurance: { enabled: false, employeeDeduction: 0, employerContribution: 0, isTaxable: false, coverageAmount: 0 },
-					disability: { enabled: false, employeeDeduction: 0, employerContribution: 0, isTaxable: false }
-				},
-				customDeductions: pg.custom_deductions ?? [],
-				statutoryDefaults: pg.statutory_defaults ?? {
-					cppExemptByDefault: false,
-					cpp2ExemptByDefault: false,
-					eiExemptByDefault: false
-				}
+				overtimePolicy: pg.overtime_policy ?? DEFAULT_OVERTIME_POLICY,
+				groupBenefits: pg.group_benefits ?? DEFAULT_GROUP_BENEFITS,
+				statutoryDefaults: pg.statutory_defaults ?? DEFAULT_STATUTORY_DEFAULTS,
+				// Structured configurations
+				earningsConfig: pg.earnings_config ?? DEFAULT_EARNINGS_CONFIG,
+				taxableBenefitsConfig: pg.taxable_benefits_config ?? DEFAULT_TAXABLE_BENEFITS_CONFIG,
+				deductionsConfig: pg.deductions_config ?? DEFAULT_DEDUCTIONS_CONFIG
 			});
 
 			totalEmployees += employeeList.length;
