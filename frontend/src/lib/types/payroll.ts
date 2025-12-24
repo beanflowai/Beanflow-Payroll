@@ -593,7 +593,7 @@ export interface HoursInput {
 // One-time Adjustment Types
 // ===========================================
 
-export type AdjustmentType = 'bonus' | 'retroactive_pay' | 'taxable_benefit' | 'reimbursement' | 'deduction';
+export type AdjustmentType = 'bonus' | 'retroactive_pay' | 'taxable_benefit' | 'reimbursement' | 'deduction' | 'other';
 
 // Overtime choice when bank time is enabled
 export type OvertimeChoice = 'pay_out' | 'bank_time';
@@ -603,7 +603,8 @@ export const ADJUSTMENT_TYPE_LABELS: Record<AdjustmentType, { label: string; ico
 	retroactive_pay: { label: 'Retroactive Pay', icon: '⏪', taxable: true },
 	taxable_benefit: { label: 'Taxable Benefit', icon: '🎁', taxable: true },
 	reimbursement: { label: 'Reimbursement', icon: '💵', taxable: false },
-	deduction: { label: 'Deduction', icon: '➖', taxable: false }
+	deduction: { label: 'Deduction', icon: '➖', taxable: false },
+	other: { label: 'Other', icon: '📝', taxable: true }
 };
 
 export interface Adjustment {
