@@ -5,6 +5,7 @@
 		EmployeePayrollInput
 	} from '$lib/types/payroll';
 	import { DraftPayGroupSection } from '$lib/components/payroll';
+	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	interface Props {
 		payrollRun: PayrollRunWithGroups;
@@ -35,15 +36,6 @@
 		}).format(amount);
 	}
 
-	function formatDate(dateStr: string): string {
-		return new Date(dateStr).toLocaleDateString('en-CA', {
-			weekday: 'short',
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric'
-		});
-	}
-
 	function handleToggleExpand(id: string) {
 		expandedRecordId = expandedRecordId === id ? null : id;
 	}
@@ -66,7 +58,7 @@
 					<i class="fas fa-edit"></i>
 					Draft
 				</div>
-				<h1 class="page-title">Pay Date: {formatDate(payrollRun.payDate)}</h1>
+				<h1 class="page-title">Pay Date: {formatShortDate(payrollRun.payDate)}</h1>
 			</div>
 			<div class="header-actions">
 				<button

@@ -2,6 +2,7 @@
 	import type { UpcomingPayDate } from '$lib/types/payroll';
 	import { PAYROLL_STATUS_LABELS, PAY_FREQUENCY_LABELS, EMPLOYMENT_TYPE_LABELS } from '$lib/types/payroll';
 	import { goto } from '$app/navigation';
+	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	interface Props {
 		payDateData: UpcomingPayDate;
@@ -17,15 +18,6 @@
 			minimumFractionDigits: 0,
 			maximumFractionDigits: 0
 		}).format(amount);
-	}
-
-	function formatDate(dateStr: string): string {
-		return new Date(dateStr).toLocaleDateString('en-CA', {
-			weekday: 'short',
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric'
-		});
 	}
 
 	function getDaysUntil(dateStr: string): string {
@@ -102,7 +94,7 @@
 				<i class="fas fa-calendar-alt"></i>
 			</div>
 			<div class="date-text">
-				<h3 class="pay-date">{formatDate(payDateData.payDate)}</h3>
+				<h3 class="pay-date">{formatShortDate(payDateData.payDate)}</h3>
 				<span class="days-until {daysUntilClass}">{getDaysUntil(payDateData.payDate)}</span>
 			</div>
 		</div>

@@ -289,7 +289,7 @@
 	}
 </script>
 
-<form class="flex flex-col gap-6" onsubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+<form class="employee-form flex flex-col gap-6" onsubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
 	{#if submitError}
 		<div class="flex items-center gap-3 p-4 bg-error-50 border border-error-200 rounded-lg text-error-700">
 			<i class="fas fa-exclamation-circle"></i>

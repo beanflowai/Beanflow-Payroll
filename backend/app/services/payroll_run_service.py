@@ -31,7 +31,11 @@ class PayrollRunService:
         self.supabase = get_supabase_client()
 
     async def get_run(self, run_id: UUID) -> dict[str, Any] | None:
-        """Get a payroll run by ID"""
+        """Get a payroll run by ID
+
+        Note: RLS policies using auth.uid() will automatically filter by user.
+        The explicit user_id/ledger_id filters provide defense-in-depth.
+        """
         result = self.supabase.table("payroll_runs").select("*").eq(
             "id", str(run_id)
         ).eq("user_id", self.user_id).eq("ledger_id", self.ledger_id).execute()

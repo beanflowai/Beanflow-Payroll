@@ -5,6 +5,7 @@
 	 */
 	import LeaveBalanceCard from '$lib/components/employee-portal/LeaveBalanceCard.svelte';
 	import type { EmployeeLeaveBalance, LeaveHistoryEntry } from '$lib/types/employee-portal';
+	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	// Mock data for static UI
 	const leaveBalance: EmployeeLeaveBalance = {
@@ -51,8 +52,7 @@
 	];
 
 	function formatDate(dateStr: string): string {
-		const date = new Date(dateStr);
-		return date.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
+		return formatShortDate(dateStr);
 	}
 
 	function formatDateRange(start: string, end?: string): string {

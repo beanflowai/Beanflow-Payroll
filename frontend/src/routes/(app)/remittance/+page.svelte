@@ -12,6 +12,7 @@
 	} from '$lib/types/remittance';
 	import type { RemittancePeriod, RemittanceStatus, PaymentMethod } from '$lib/types/remittance';
 	import MarkAsPaidModal from '$lib/components/remittance/MarkAsPaidModal.svelte';
+	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	// Mock data
 	let selectedYear = $state(2025);
@@ -167,11 +168,7 @@
 
 	// Format date
 	function formatDate(dateStr: string): string {
-		return new Date(dateStr).toLocaleDateString('en-CA', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric'
-		});
+		return formatShortDate(dateStr);
 	}
 
 	// Modal state

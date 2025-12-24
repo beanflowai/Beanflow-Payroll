@@ -7,6 +7,7 @@
 		getPayGroupPolicySummary,
 		countEnabledBenefits
 	} from '$lib/types/pay-group';
+	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	interface Props {
 		payGroup: PayGroup;
@@ -15,16 +16,6 @@
 	}
 
 	let { payGroup, onView, onDelete }: Props = $props();
-
-	// Format date for display
-	function formatDate(dateStr: string): string {
-		const date = new Date(dateStr);
-		return date.toLocaleDateString('en-CA', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric'
-		});
-	}
 
 	// Get policy summary for badges
 	const policySummary = $derived(getPayGroupPolicySummary(payGroup));
@@ -86,7 +77,7 @@
 			</div>
 			<div class="stat-item">
 				<span class="stat-label">Next Pay</span>
-				<span class="stat-value">{formatDate(payGroup.nextPayDate)}</span>
+				<span class="stat-value">{formatShortDate(payGroup.nextPayDate)}</span>
 			</div>
 		</div>
 

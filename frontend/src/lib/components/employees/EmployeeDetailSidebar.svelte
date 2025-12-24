@@ -7,6 +7,7 @@
 		EMPLOYMENT_TYPE_LABELS,
 		EMPLOYEE_STATUS_LABELS
 	} from '$lib/types/employee';
+	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	interface Props {
 		employee: Employee;
@@ -52,11 +53,7 @@
 
 	function formatDate(dateStr: string | null | undefined): string {
 		if (!dateStr) return '-';
-		return new Date(dateStr).toLocaleDateString('en-CA', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric'
-		});
+		return formatShortDate(dateStr);
 	}
 
 	function getPerPeriodAmount(emp: Employee): string {

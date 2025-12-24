@@ -1,5 +1,6 @@
 <script lang="ts">
 	// Reports page - Phase 0 static UI prototype
+	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	const reportTypes = [
 		{
@@ -71,11 +72,7 @@
 	];
 
 	function formatDate(dateStr: string): string {
-		return new Date(dateStr).toLocaleDateString('en-CA', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric'
-		});
+		return formatShortDate(dateStr);
 	}
 </script>
 

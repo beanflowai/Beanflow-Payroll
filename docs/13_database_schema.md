@@ -372,6 +372,10 @@ CREATE TABLE IF NOT EXISTS payroll_records (
     vacation_accrued NUMERIC(10, 2) DEFAULT 0,
     vacation_hours_taken NUMERIC(6, 2) DEFAULT 0,
 
+    -- Draft Flow Support (Added 2025-12-23)
+    input_data JSONB,                    -- Original input data for recalculation
+    is_modified BOOLEAN DEFAULT FALSE,   -- Whether record has been modified since last calculation
+
     -- Calculation Details (for audit/debugging)
     calculation_details JSONB,
 
@@ -469,6 +473,46 @@ CREATE POLICY "Users can access own payroll records"
   "calculated_at": "2025-01-15T10:30:00Z"
 }
 ```
+
+### input_data JSONB Structure (Added 2025-12-23)
+
+Stores the original input data used for payroll calculation, enabling recalculation when values are modified in Draft state.
+
+```json
+{
+  "regularHours": 80,
+  "overtimeHours": 5,
+  "leaveEntries": [
+    { "type": "vacation", "hours": 8 }
+  ],
+  "holidayWorkEntries": [
+    { "holidayDate": "2025-12-25", "holidayName": "Christmas Day", "hoursWorked": 8 }
+  ],
+  "adjustments": [
+    { "type": "bonus", "amount": 500, "description": "Q4 Performance", "taxable": true }
+  ],
+  "overrides": {
+    "regularPay": null,
+    "overtimePay": null,
+    "holidayPay": null
+  }
+}
+```
+
+**Field Descriptions**:
+| Field | Type | Description |
+|-------|------|-------------|
+| `regularHours` | number | Regular hours worked (hourly employees) |
+| `overtimeHours` | number | Overtime hours worked |
+| `leaveEntries` | array | Leave taken (vacation, sick) |
+| `holidayWorkEntries` | array | Hours worked on statutory holidays |
+| `adjustments` | array | One-time adjustments (bonus, retro pay, etc.) |
+| `overrides` | object | Manual overrides for calculated pay values |
+
+**Usage**:
+- Stored when payroll run transitions to `draft` status
+- Used by backend to recalculate deductions when records are modified
+- `is_modified` flag set to `true` when input_data changes, cleared after recalculation
 
 ---
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { PAYMENT_METHOD_INFO } from '$lib/types/remittance';
 	import type { RemittancePeriod, PaymentMethod } from '$lib/types/remittance';
+	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	interface Props {
 		remittance: RemittancePeriod;
@@ -29,11 +30,7 @@
 	}
 
 	function formatDate(dateStr: string): string {
-		return new Date(dateStr).toLocaleDateString('en-CA', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric'
-		});
+		return formatShortDate(dateStr);
 	}
 
 	function handleSubmit() {

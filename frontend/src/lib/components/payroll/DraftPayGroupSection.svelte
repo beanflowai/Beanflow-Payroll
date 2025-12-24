@@ -28,6 +28,10 @@
 	// Local input state for editing (will be synced to parent on change)
 	let localInputMap = $state<Map<string, Partial<EmployeePayrollInput>>>(new Map());
 
+	// Track which records have leave/adjustment editing open
+	let showLeaveEdit = $state<Set<string>>(new Set());
+	let showAdjustmentEdit = $state<Set<string>>(new Set());
+
 	function formatCurrency(amount: number): string {
 		return new Intl.NumberFormat('en-CA', {
 			style: 'currency',
@@ -60,7 +64,8 @@
 
 	function handleLeaveChange(record: PayrollRecord, type: 'vacation' | 'sick', hours: number) {
 		const current = getLocalInput(record.id);
-		const existingLeaves = current.leaveEntries || [];
+		// Merge local edits with existing record data
+		const existingLeaves = current.leaveEntries ?? record.inputData?.leaveEntries ?? [];
 		const newLeaveEntries = existingLeaves.filter((l) => l.type !== type);
 		if (hours > 0) {
 			newLeaveEntries.push({ type, hours });
@@ -72,7 +77,8 @@
 
 	function handleAddAdjustment(record: PayrollRecord) {
 		const current = getLocalInput(record.id);
-		const existingAdjs = current.adjustments || [];
+		// Merge local edits with existing record data
+		const existingAdjs = current.adjustments ?? record.inputData?.adjustments ?? [];
 		const newAdj: Adjustment = {
 			id: crypto.randomUUID(),
 			type: 'bonus',
@@ -88,7 +94,8 @@
 
 	function handleUpdateAdjustment(record: PayrollRecord, idx: number, updates: Partial<Adjustment>) {
 		const current = getLocalInput(record.id);
-		const existingAdjs = current.adjustments || [];
+		// Merge local edits with existing record data
+		const existingAdjs = current.adjustments ?? record.inputData?.adjustments ?? [];
 		const newAdjs = [...existingAdjs];
 		newAdjs[idx] = { ...newAdjs[idx], ...updates };
 		const updated = { ...current, adjustments: newAdjs };
@@ -98,11 +105,54 @@
 
 	function handleRemoveAdjustment(record: PayrollRecord, idx: number) {
 		const current = getLocalInput(record.id);
-		const existingAdjs = current.adjustments || [];
-		const newAdjs = existingAdjs.filter((_, i) => i !== idx);
+		// Merge local edits with existing record data
+		const existingAdjs = current.adjustments ?? record.inputData?.adjustments ?? [];
+		const newAdjs = existingAdjs.filter((_: Adjustment, i: number) => i !== idx);
 		const updated = { ...current, adjustments: newAdjs };
 		localInputMap = new Map(localInputMap).set(record.id, updated);
 		onUpdateRecord(record.id, record.employeeId, { adjustments: newAdjs });
+	}
+
+	function toggleLeaveEdit(recordId: string) {
+		const newSet = new Set(showLeaveEdit);
+		if (newSet.has(recordId)) {
+			newSet.delete(recordId);
+		} else {
+			newSet.add(recordId);
+		}
+		showLeaveEdit = newSet;
+	}
+
+	function toggleAdjustmentEdit(recordId: string) {
+		const newSet = new Set(showAdjustmentEdit);
+		if (newSet.has(recordId)) {
+			newSet.delete(recordId);
+		} else {
+			newSet.add(recordId);
+		}
+		showAdjustmentEdit = newSet;
+	}
+
+	function getLeaveHours(record: PayrollRecord, type: 'vacation' | 'sick'): number {
+		// Check local edits first
+		const local = getLocalInput(record.id);
+		const localEntry = local.leaveEntries?.find((l: { type: string; hours: number }) => l.type === type);
+		if (localEntry !== undefined) {
+			return localEntry.hours;
+		}
+		// Fall back to record's existing input_data
+		const recordEntry = record.inputData?.leaveEntries?.find((l: { type: string; hours: number }) => l.type === type);
+		return recordEntry?.hours ?? 0;
+	}
+
+	function getAdjustments(record: PayrollRecord): Adjustment[] {
+		// Check local edits first
+		const local = getLocalInput(record.id);
+		if (local.adjustments !== undefined) {
+			return local.adjustments;
+		}
+		// Fall back to record's existing input_data
+		return record.inputData?.adjustments ?? [];
 	}
 </script>
 
@@ -160,7 +210,7 @@
 				<thead>
 					<tr>
 						<th class="col-employee">Employee</th>
-						<th class="col-province">Province</th>
+						<th class="col-rate">Rate/Salary</th>
 						<th class="col-hours">Hours</th>
 						<th class="col-overtime">OT</th>
 						<th class="col-gross">Gross</th>
@@ -181,8 +231,16 @@
 									<span class="employee-type">{record.compensationType}</span>
 								</div>
 							</td>
-							<td class="col-province">
-								<span class="province-badge">{record.employeeProvince}</span>
+							<td class="col-rate">
+								<span class="rate-value">
+									{#if record.compensationType === 'salaried' && record.annualSalary}
+										{formatCurrency(record.annualSalary)}/yr
+									{:else if record.hourlyRate}
+										{formatCurrency(record.hourlyRate)}/hr
+									{:else}
+										--
+									{/if}
+								</span>
 							</td>
 							<td class="col-hours" onclick={(e) => e.stopPropagation()}>
 								{#if record.compensationType === 'hourly'}
@@ -229,6 +287,19 @@
 								<td colspan="8">
 									<div class="expanded-content">
 										<div class="expanded-grid">
+											<!-- Employee Info Column -->
+											<div class="detail-column">
+												<h4 class="column-title">Employee Info</h4>
+												<div class="detail-items">
+													<div class="detail-item">
+														<span class="detail-label">Province</span>
+														<span class="detail-value">
+															<span class="province-badge">{record.employeeProvince}</span>
+														</span>
+													</div>
+												</div>
+											</div>
+
 											<!-- Earnings Column -->
 											<div class="detail-column">
 												<h4 class="column-title">Earnings</h4>
@@ -293,26 +364,125 @@
 											<div class="detail-column edit-column">
 												<h4 class="column-title">Quick Edit</h4>
 												<div class="edit-actions">
+													<!-- Leave Section -->
 													<button
 														class="edit-btn"
+														class:active={showLeaveEdit.has(record.id)}
 														onclick={(e) => {
 															e.stopPropagation();
-															// Open leave modal or inline edit
+															toggleLeaveEdit(record.id);
 														}}
 													>
 														<i class="fas fa-calendar-alt"></i>
-														Add Leave
+														{showLeaveEdit.has(record.id) ? 'Hide Leave' : 'Add Leave'}
 													</button>
+													{#if showLeaveEdit.has(record.id)}
+														<div class="inline-edit-section" onclick={(e) => e.stopPropagation()}>
+															<div class="leave-inputs">
+																<div class="leave-input-row">
+																	<label class="leave-label">Vacation</label>
+																	<input
+																		type="number"
+																		class="leave-input"
+																		value={getLeaveHours(record, 'vacation')}
+																		min="0"
+																		step="0.5"
+																		placeholder="0"
+																		onchange={(e) =>
+																			handleLeaveChange(record, 'vacation', parseFloat(e.currentTarget.value) || 0)}
+																	/>
+																	<span class="leave-unit">hrs</span>
+																</div>
+																<div class="leave-input-row">
+																	<label class="leave-label">Sick</label>
+																	<input
+																		type="number"
+																		class="leave-input"
+																		value={getLeaveHours(record, 'sick')}
+																		min="0"
+																		step="0.5"
+																		placeholder="0"
+																		onchange={(e) =>
+																			handleLeaveChange(record, 'sick', parseFloat(e.currentTarget.value) || 0)}
+																	/>
+																	<span class="leave-unit">hrs</span>
+																</div>
+															</div>
+														</div>
+													{/if}
+
+													<!-- Adjustment Section -->
 													<button
 														class="edit-btn"
+														class:active={showAdjustmentEdit.has(record.id)}
 														onclick={(e) => {
 															e.stopPropagation();
-															handleAddAdjustment(record);
+															toggleAdjustmentEdit(record.id);
 														}}
 													>
-														<i class="fas fa-plus"></i>
-														Add Adjustment
+														<i class="fas fa-sliders-h"></i>
+														{showAdjustmentEdit.has(record.id) ? 'Hide Adjustments' : 'Adjustments'}
 													</button>
+													{#if showAdjustmentEdit.has(record.id)}
+														<div class="inline-edit-section" onclick={(e) => e.stopPropagation()}>
+															<div class="adjustments-list">
+																{#each getAdjustments(record) as adj, idx (adj.id)}
+																	<div class="adjustment-item">
+																		<select
+																			class="adj-type-select"
+																			value={adj.type}
+																			onchange={(e) =>
+																				handleUpdateAdjustment(record, idx, { type: e.currentTarget.value as Adjustment['type'] })}
+																		>
+																			{#each Object.entries(ADJUSTMENT_TYPE_LABELS) as [typeKey, typeInfo]}
+																				<option value={typeKey}>{typeInfo.label}</option>
+																			{/each}
+																		</select>
+																		<input
+																			type="number"
+																			class="adj-amount-input"
+																			value={adj.amount}
+																			step="0.01"
+																			placeholder="$0.00"
+																			onchange={(e) =>
+																				handleUpdateAdjustment(record, idx, { amount: parseFloat(e.currentTarget.value) || 0 })}
+																		/>
+																		<input
+																			type="text"
+																			class="adj-desc-input"
+																			value={adj.description}
+																			placeholder="Description"
+																			onchange={(e) =>
+																				handleUpdateAdjustment(record, idx, { description: e.currentTarget.value })}
+																		/>
+																		<label class="adj-taxable">
+																			<input
+																				type="checkbox"
+																				checked={adj.taxable}
+																				onchange={(e) =>
+																					handleUpdateAdjustment(record, idx, { taxable: e.currentTarget.checked })}
+																			/>
+																			<span>Tax</span>
+																		</label>
+																		<button
+																			class="adj-remove-btn"
+																			title="Remove adjustment"
+																			onclick={() => handleRemoveAdjustment(record, idx)}
+																		>
+																			<i class="fas fa-times"></i>
+																		</button>
+																	</div>
+																{/each}
+																<button
+																	class="add-adj-btn"
+																	onclick={() => handleAddAdjustment(record)}
+																>
+																	<i class="fas fa-plus"></i>
+																	Add Adjustment
+																</button>
+															</div>
+														</div>
+													{/if}
 												</div>
 											</div>
 										</div>
@@ -489,27 +659,39 @@
 	}
 
 	.col-employee {
-		width: 20%;
+		width: 16%;
 	}
 
-	.col-province {
-		width: 8%;
+	.col-rate {
+		width: 12%;
+	}
+
+	.rate-value {
+		font-size: var(--font-size-body-content);
+		font-weight: var(--font-weight-medium);
+		color: var(--color-surface-700);
 	}
 
 	.col-hours,
 	.col-overtime {
-		width: 10%;
+		width: 8%;
+		text-align: center;
+	}
+
+	.records-table th.col-hours,
+	.records-table th.col-overtime {
+		text-align: center;
 	}
 
 	.col-gross,
 	.col-deductions,
 	.col-net {
-		width: 14%;
+		width: 15%;
 		text-align: right;
 	}
 
 	.col-actions {
-		width: 6%;
+		width: 4%;
 		text-align: right;
 	}
 
@@ -607,7 +789,7 @@
 
 	.expanded-grid {
 		display: grid;
-		grid-template-columns: 1fr 1fr 1fr;
+		grid-template-columns: 1fr 1fr 1fr 1fr;
 		gap: var(--spacing-5);
 	}
 
@@ -688,6 +870,165 @@
 		color: var(--color-primary-600);
 	}
 
+	.edit-btn.active {
+		background: var(--color-primary-50);
+		border-color: var(--color-primary-400);
+		color: var(--color-primary-700);
+	}
+
+	/* Inline Edit Section */
+	.inline-edit-section {
+		background: white;
+		border: 1px solid var(--color-surface-200);
+		border-radius: var(--radius-md);
+		padding: var(--spacing-3);
+		margin-top: var(--spacing-2);
+	}
+
+	/* Leave Inputs */
+	.leave-inputs {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-2);
+	}
+
+	.leave-input-row {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
+	}
+
+	.leave-label {
+		font-size: var(--font-size-body-small);
+		color: var(--color-surface-600);
+		width: 60px;
+	}
+
+	.leave-input {
+		width: 70px;
+		padding: var(--spacing-1) var(--spacing-2);
+		border: 1px solid var(--color-surface-300);
+		border-radius: var(--radius-sm);
+		font-size: var(--font-size-body-content);
+		text-align: center;
+	}
+
+	.leave-input:focus {
+		outline: none;
+		border-color: var(--color-primary-500);
+		box-shadow: 0 0 0 2px var(--color-primary-100);
+	}
+
+	.leave-unit {
+		font-size: var(--font-size-auxiliary-text);
+		color: var(--color-surface-500);
+	}
+
+	/* Adjustments List */
+	.adjustments-list {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-2);
+	}
+
+	.adjustment-item {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
+		flex-wrap: wrap;
+	}
+
+	.adj-type-select {
+		padding: var(--spacing-1) var(--spacing-2);
+		border: 1px solid var(--color-surface-300);
+		border-radius: var(--radius-sm);
+		font-size: var(--font-size-body-small);
+		background: white;
+		min-width: 100px;
+	}
+
+	.adj-type-select:focus {
+		outline: none;
+		border-color: var(--color-primary-500);
+	}
+
+	.adj-amount-input {
+		width: 90px;
+		padding: var(--spacing-1) var(--spacing-2);
+		border: 1px solid var(--color-surface-300);
+		border-radius: var(--radius-sm);
+		font-size: var(--font-size-body-small);
+		text-align: right;
+	}
+
+	.adj-amount-input:focus {
+		outline: none;
+		border-color: var(--color-primary-500);
+	}
+
+	.adj-desc-input {
+		flex: 1;
+		min-width: 100px;
+		padding: var(--spacing-1) var(--spacing-2);
+		border: 1px solid var(--color-surface-300);
+		border-radius: var(--radius-sm);
+		font-size: var(--font-size-body-small);
+	}
+
+	.adj-desc-input:focus {
+		outline: none;
+		border-color: var(--color-primary-500);
+	}
+
+	.adj-taxable {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-1);
+		font-size: var(--font-size-auxiliary-text);
+		color: var(--color-surface-600);
+		cursor: pointer;
+	}
+
+	.adj-taxable input {
+		cursor: pointer;
+	}
+
+	.adj-remove-btn {
+		padding: var(--spacing-1);
+		background: none;
+		border: none;
+		color: var(--color-error-500);
+		cursor: pointer;
+		border-radius: var(--radius-sm);
+		transition: var(--transition-fast);
+	}
+
+	.adj-remove-btn:hover {
+		background: var(--color-error-50);
+		color: var(--color-error-600);
+	}
+
+	.add-adj-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--spacing-2);
+		padding: var(--spacing-2);
+		background: var(--color-surface-50);
+		border: 1px dashed var(--color-surface-300);
+		border-radius: var(--radius-sm);
+		font-size: var(--font-size-body-small);
+		color: var(--color-surface-600);
+		cursor: pointer;
+		transition: var(--transition-fast);
+	}
+
+	.add-adj-btn:hover {
+		background: var(--color-primary-50);
+		border-color: var(--color-primary-300);
+		color: var(--color-primary-600);
+	}
+
 	.net-pay-summary {
 		display: flex;
 		justify-content: flex-end;
@@ -716,7 +1057,7 @@
 		}
 
 		.expanded-grid {
-			grid-template-columns: 1fr 1fr;
+			grid-template-columns: 1fr 1fr 1fr;
 		}
 	}
 
@@ -741,7 +1082,7 @@
 		}
 
 		.expanded-grid {
-			grid-template-columns: 1fr;
+			grid-template-columns: 1fr 1fr;
 		}
 	}
 </style>

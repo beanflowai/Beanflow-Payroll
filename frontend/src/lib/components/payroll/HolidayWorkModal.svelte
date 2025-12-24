@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Holiday, PayrollRecord, HolidayWorkEntry } from '$lib/types/payroll';
 	import { Avatar } from '$lib/components/shared';
+	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	interface HolidayWorkRow {
 		rowId: string;
@@ -44,14 +45,6 @@
 		const startDate = new Date(start);
 		const endDate = new Date(end);
 		return `${startDate.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}`;
-	}
-
-	function formatDate(dateStr: string): string {
-		return new Date(dateStr).toLocaleDateString('en-CA', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric'
-		});
 	}
 
 	// Row management
@@ -207,7 +200,7 @@
 						<i class="fas fa-gift"></i>
 						<div>
 							<strong>{holiday.name}</strong>
-							<span class="holiday-date">{formatDate(holiday.date)} - {holiday.province}</span>
+							<span class="holiday-date">{formatShortDate(holiday.date)} - {holiday.province}</span>
 						</div>
 					</div>
 					<p class="holiday-note">

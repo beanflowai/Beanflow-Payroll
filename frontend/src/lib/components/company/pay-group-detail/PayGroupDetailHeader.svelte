@@ -2,6 +2,7 @@
 	// PayGroupDetailHeader - Header with back navigation, title, and actions
 	import type { PayGroup } from '$lib/types/pay-group';
 	import { PAY_FREQUENCY_INFO, EMPLOYMENT_TYPE_INFO } from '$lib/types/pay-group';
+	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	interface Props {
 		payGroup: PayGroup;
@@ -11,16 +12,6 @@
 	}
 
 	let { payGroup, isNew = false, onBack, onDelete }: Props = $props();
-
-	// Format date for display - shorter format for inline display
-	function formatDateShort(dateStr: string): string {
-		const date = new Date(dateStr);
-		return date.toLocaleDateString('en-CA', {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric'
-		});
-	}
 
 	// Calculate days until next pay date
 	function getDaysUntilPayDate(dateStr: string): number {
@@ -86,7 +77,7 @@
 							<span class="metadata-separator">&middot;</span>
 							<span class="next-pay-inline">
 								<i class="fas fa-calendar-alt"></i>
-								<span class="pay-date">{formatDateShort(payGroup.nextPayDate)}</span>
+								<span class="pay-date">{formatShortDate(payGroup.nextPayDate)}</span>
 								<span class="pay-badge {badgeVariant}">
 									{#if daysUntilPay < 0}
 										Overdue

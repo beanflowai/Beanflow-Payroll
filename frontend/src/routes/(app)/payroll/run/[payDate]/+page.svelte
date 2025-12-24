@@ -49,6 +49,7 @@
 		updatePayrollRecord,
 		recalculatePayrollRun,
 		finalizePayrollRun,
+		revertToDraft,
 		checkHasModifiedRecords,
 		type BeforeRunData,
 		type EmployeeHoursInput,
@@ -59,6 +60,7 @@
 		getUnassignedEmployees,
 		assignEmployeesToPayGroup
 	} from '$lib/services/employeeService';
+	import { formatFullDate } from '$lib/utils/dateUtils';
 
 	// ===========================================
 	// Route Params
@@ -96,6 +98,7 @@
 	let hasModifiedRecords = $state(false);
 	let isRecalculating = $state(false);
 	let isFinalizing = $state(false);
+	let isReverting = $state(false);
 
 	// ===========================================
 	// Load Data
@@ -235,15 +238,6 @@
 	// ===========================================
 	// Helpers
 	// ===========================================
-	function formatDate(dateStr: string): string {
-		return new Date(dateStr).toLocaleDateString('en-CA', {
-			weekday: 'long',
-			year: 'numeric',
-			month: 'long',
-			day: 'numeric'
-		});
-	}
-
 	function formatCurrency(amount: number): string {
 		return new Intl.NumberFormat('en-CA', {
 			style: 'currency',
@@ -738,6 +732,26 @@
 		}
 	}
 
+	async function handleRevertToDraft() {
+		if (!payrollRun || payrollRun.status !== 'pending_approval') return;
+
+		isReverting = true;
+		try {
+			const result = await revertToDraft(payrollRun.id);
+			if (result.error) {
+				alert(`Failed to revert: ${result.error}`);
+				return;
+			}
+			// Update local state - status should now be draft
+			payrollRun = result.data;
+			hasModifiedRecords = false;
+		} catch (err) {
+			alert(`Failed to revert: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		} finally {
+			isReverting = false;
+		}
+	}
+
 	// Check if payroll run is in draft state
 	const isDraft = $derived(payrollRun?.status === 'draft');
 </script>
@@ -751,12 +765,12 @@
 {:else if error}
 	<PayrollErrorState {error} onRetry={loadPayrollRun} />
 {:else if !payrollRun && !payDateInfo}
-	<PayrollNotFound payDateFormatted={formatDate(payDate)} onBack={handleBack} />
+	<PayrollNotFound payDateFormatted={formatFullDate(payDate)} onBack={handleBack} />
 {:else if !payrollRun && beforeRunData}
 	<!-- Before Run View -->
 	<div class="max-w-[1200px]">
 		<PayrollPageHeader
-			payDateFormatted={formatDate(beforeRunData.payDate)}
+			payDateFormatted={formatFullDate(beforeRunData.payDate)}
 			payGroupCount={beforeRunData.payGroups.length}
 			employeeCount={beforeRunData.totalEmployees}
 			onBack={handleBack}
@@ -850,7 +864,7 @@
 	<!-- Payroll Run View (pending_approval, approved, paid) -->
 	<div class="max-w-[1200px]">
 		<PayrollPageHeader
-			payDateFormatted={formatDate(payrollRun.payDate)}
+			payDateFormatted={formatFullDate(payrollRun.payDate)}
 			payGroupCount={payrollRun.payGroups.length}
 			employeeCount={payrollRun.totalEmployees}
 			onBack={handleBack}
@@ -877,6 +891,14 @@
 						<span>Resend All</span>
 					</button>
 				{:else}
+					<button
+						class="flex items-center gap-2 py-3 px-5 bg-white text-surface-700 border border-surface-200 rounded-lg text-body-content font-medium cursor-pointer transition-all duration-150 hover:bg-surface-50 hover:border-surface-300 disabled:opacity-50 disabled:cursor-not-allowed"
+						onclick={handleRevertToDraft}
+						disabled={isReverting}
+					>
+						<i class="fas fa-undo"></i>
+						<span>{isReverting ? 'Reverting...' : 'Revert to Draft'}</span>
+					</button>
 					<button
 						class="flex items-center gap-2 py-3 px-5 bg-gradient-to-br from-primary-600 to-secondary-600 text-white border-none rounded-lg text-body-content font-medium cursor-pointer shadow-md3-1 transition-all duration-150 hover:opacity-90 hover:-translate-y-px"
 						onclick={handleApprove}

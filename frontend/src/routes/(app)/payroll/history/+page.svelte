@@ -2,6 +2,7 @@
 	import type { PayrollRun, PayrollRecord, PayrollRunStatus } from '$lib/types/payroll';
 	import { PAYROLL_STATUS_LABELS } from '$lib/types/payroll';
 	import PayrollRunDetailPanel from '$lib/components/payroll/PayrollRunDetailPanel.svelte';
+	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	// Mock data - will be replaced with API calls
 	const mockPayrollRuns: PayrollRun[] = [
@@ -263,14 +264,6 @@
 		}).format(amount);
 	}
 
-	function formatDate(dateStr: string): string {
-		return new Date(dateStr).toLocaleDateString('en-CA', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric'
-		});
-	}
-
 	function formatPeriod(start: string, end: string): string {
 		const startDate = new Date(start);
 		const endDate = new Date(end);
@@ -372,7 +365,7 @@
 							onkeydown={(e) => e.key === 'Enter' && selectRun(run)}
 						>
 							<td class="p-4 px-5 text-body-content border-b border-surface-100 font-medium text-surface-800 last:border-b-0">{formatPeriod(run.periodStart, run.periodEnd)}</td>
-							<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-600 last:border-b-0">{formatDate(run.payDate)}</td>
+							<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-600 last:border-b-0">{formatShortDate(run.payDate)}</td>
 							<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-700 last:border-b-0">{run.totalEmployees}</td>
 							<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-700 font-mono last:border-b-0">{formatCurrency(run.totalGross)}</td>
 							<td class="p-4 px-5 text-body-content border-b border-surface-100 font-mono font-semibold text-surface-800 last:border-b-0">{formatCurrency(run.totalNetPay)}</td>

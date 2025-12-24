@@ -3,6 +3,7 @@
 	 * PaystubDetail - Full paystub detail view component
 	 */
 	import type { PaystubDetail } from '$lib/types/employee-portal';
+	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	interface Props {
 		paystub: PaystubDetail;
@@ -10,11 +11,6 @@
 	}
 
 	let { paystub, onDownload }: Props = $props();
-
-	function formatDate(dateStr: string): string {
-		const date = new Date(dateStr);
-		return date.toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' });
-	}
 
 	function formatMoney(amount: number): string {
 		return new Intl.NumberFormat('en-CA', {
@@ -32,7 +28,7 @@
 				<span class="company-name">{paystub.companyName}</span>
 				<span class="company-address">{paystub.companyAddress}</span>
 			</div>
-			<div class="pay-date">Pay Date: {formatDate(paystub.payDate)}</div>
+			<div class="pay-date">Pay Date: {formatShortDate(paystub.payDate)}</div>
 		</header>
 
 		<div class="document-divider"></div>
@@ -44,7 +40,7 @@
 			</div>
 			<div class="period-info">
 				<span class="label">Period:</span>
-				<span class="value">{formatDate(paystub.payPeriodStart)} - {formatDate(paystub.payPeriodEnd)}</span>
+				<span class="value">{formatShortDate(paystub.payPeriodStart)} - {formatShortDate(paystub.payPeriodEnd)}</span>
 			</div>
 		</div>
 

@@ -5,6 +5,7 @@
 	 */
 	import BaseModal from '$lib/shared-base/BaseModal.svelte';
 	import type { ProfileChangeRequest } from '$lib/types/employee-portal';
+	import { formatDateTime } from '$lib/utils/dateUtils';
 
 	interface Props {
 		visible: boolean;
@@ -26,16 +27,6 @@
 		bank_info: 'Bank Information'
 	};
 
-	function formatDate(dateStr: string): string {
-		const date = new Date(dateStr);
-		return date.toLocaleDateString('en-CA', {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric',
-			hour: 'numeric',
-			minute: '2-digit'
-		});
-	}
 
 	function handleApprove() {
 		isSubmitting = true;
@@ -110,7 +101,7 @@
 		<div class="request-header">
 			<h3 class="employee-name">{changeRequest.employeeName}</h3>
 			<span class="change-type-badge">{changeTypeLabels[changeRequest.changeType]} Change</span>
-			<p class="submitted-date">Submitted: {formatDate(changeRequest.submittedAt)}</p>
+			<p class="submitted-date">Submitted: {formatDateTime(changeRequest.submittedAt)}</p>
 		</div>
 
 		<!-- Changes Comparison -->

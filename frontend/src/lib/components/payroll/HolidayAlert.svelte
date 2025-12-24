@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Holiday } from '$lib/types/payroll';
+	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	interface Props {
 		holidays: Holiday[];
@@ -8,16 +9,8 @@
 
 	let { holidays, onManageHolidayHours }: Props = $props();
 
-	function formatDate(dateStr: string): string {
-		return new Date(dateStr).toLocaleDateString('en-CA', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric'
-		});
-	}
-
 	const holidayText = $derived(
-		holidays.map((h) => `${h.name} (${formatDate(h.date)})`).join(', ')
+		holidays.map((h) => `${h.name} (${formatShortDate(h.date)})`).join(', ')
 	);
 </script>
 

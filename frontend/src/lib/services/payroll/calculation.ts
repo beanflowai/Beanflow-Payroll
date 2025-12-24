@@ -149,7 +149,7 @@ export async function startPayrollRun(
 				period_start: periodStart,
 				period_end: periodEnd,
 				pay_date: payDate,
-				status: 'pending_approval',
+				status: 'draft',
 				total_employees: totalEmployees,
 				total_gross: parseFloat(summary.total_gross),
 				total_cpp_employee: parseFloat(summary.total_cpp_employee),
@@ -208,7 +208,17 @@ export async function startPayrollRun(
 				ytd_federal_tax: 0, // Would be updated from result
 				ytd_provincial_tax: 0, // Would be updated from result
 				vacation_accrued: 0,
-				vacation_hours_taken: 0
+				vacation_hours_taken: 0,
+				// Draft flow support: store original input data for recalculation
+				input_data: {
+					regularHours: hoursData?.regularHours || 0,
+					overtimeHours: hoursData?.overtimeHours || 0,
+					leaveEntries: [],
+					holidayWorkEntries: [],
+					adjustments: [],
+					overrides: {}
+				},
+				is_modified: false
 			};
 		});
 

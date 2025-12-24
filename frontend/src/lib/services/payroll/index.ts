@@ -43,6 +43,7 @@ export {
 	updatePayrollRecord,
 	recalculatePayrollRun,
 	finalizePayrollRun,
+	revertToDraft,
 	checkHasModifiedRecords
 } from './payroll-runs';
 

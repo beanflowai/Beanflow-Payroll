@@ -12,6 +12,7 @@
 		EMPLOYMENT_TYPE_INFO,
 		PERIOD_START_DAY_OPTIONS
 	} from '$lib/types/pay-group';
+	import { formatLongDate } from '$lib/utils/dateUtils';
 
 	interface Props {
 		payGroup: PayGroup;
@@ -80,15 +81,6 @@
 		}
 	}
 
-	// Format date for display
-	function formatDate(dateStr: string): string {
-		const date = new Date(dateStr);
-		return date.toLocaleDateString('en-CA', {
-			year: 'numeric',
-			month: 'long',
-			day: 'numeric'
-		});
-	}
 
 	// Validation
 	const isValid = $derived(editName.trim().length > 0 && editNextPayDate.length > 0);
@@ -237,7 +229,7 @@
 
 				<div class="info-item">
 					<span class="info-label">Next Pay Date</span>
-					<span class="info-value">{formatDate(payGroup.nextPayDate)}</span>
+					<span class="info-value">{formatLongDate(payGroup.nextPayDate)}</span>
 				</div>
 
 				<div class="info-item">

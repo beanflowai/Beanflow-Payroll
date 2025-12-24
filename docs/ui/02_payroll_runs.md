@@ -828,6 +828,32 @@ The "Finalize" action transitions the payroll run from Draft (editable) to Pendi
 | Draft, has changes | Enabled | Disabled |
 | Pending Approval | Hidden | Hidden |
 
+### 8.8.1 Revert to Draft (Pending Approval → Draft)
+
+> **Added**: 2025-12-23
+
+When a payroll run is in `pending_approval` status, the user can click "Revert to Draft" to return to the editable `draft` state for further modifications.
+
+**Pre-conditions**:
+- Status must be `pending_approval`
+
+**Revert Action**:
+1. User clicks "Revert to Draft" button
+2. System changes status from `pending_approval` to `draft`
+3. All fields become editable again
+
+**Post-Revert UI**:
+- Status badge changes to "Draft"
+- Edit capabilities are re-enabled
+- "Recalculate" and "Finalize" buttons reappear
+
+**Button Location**: Header actions area, next to "Approve & Send" button
+
+**Use Cases**:
+- User discovers an error after finalizing but before approval
+- Need to add a last-minute adjustment or bonus
+- Correction of hours or leave entries
+
 ### 8.9 Approve
 
 After Finalize, the payroll run can be approved:
@@ -873,11 +899,12 @@ After Finalize, the payroll run can be approved:
                            │ Finalize
                            ▼
                     ┌─────────────┐
-                    │  Pending    │
-                    │  Approval   │
-                    │ (read-only) │
-                    └──────┬──────┘
-                           │ Approve & Send
+              ┌────►│  Pending    │
+              │     │  Approval   │
+   Revert to  │     │ (read-only) │
+     Draft    │     └──────┬──────┘
+              │            │ Approve & Send
+              └────────────┤
                            ▼
                     ┌─────────────┐
                     │  Approved   │
@@ -894,7 +921,7 @@ After Finalize, the payroll run can be approved:
 |-------|----------|-------------------|
 | Before Run | Yes | Start Payroll Run |
 | Draft | Yes | Edit, Recalculate, Finalize |
-| Pending Approval | No | Approve & Send Paystubs |
+| Pending Approval | No | Approve & Send Paystubs, Revert to Draft |
 | Approved | No | Mark as Paid, Download/Resend Paystubs |
 | Paid | No | Download/Resend Paystubs |
 

@@ -4,12 +4,14 @@
  */
 
 import { supabase } from '$lib/api/supabase';
+import { api } from '$lib/api/client';
 import type {
 	PayrollRunWithGroups,
 	PayrollRunPayGroup,
 	PayrollRunStatus,
 	DbPayrollRun,
-	DbPayrollRecordWithEmployee
+	DbPayrollRecordWithEmployee,
+	EmployeePayrollInput
 } from '$lib/types/payroll';
 import { dbPayrollRecordToUi } from '$lib/types/payroll';
 import { getCurrentUserId, getCurrentLedgerId } from './helpers';
@@ -59,6 +61,8 @@ export async function getPayrollRunByPayDate(
 					province_of_employment,
 					pay_group_id,
 					email,
+					hourly_rate,
+					annual_salary,
 					pay_groups (
 						id,
 						name,
@@ -347,19 +351,59 @@ export async function listPayrollRuns(
 
 /**
  * Update a single payroll record in a draft payroll run
- * TODO: Implement actual database update
+ * Calls backend PATCH endpoint to update input_data and set is_modified=true
  */
 export async function updatePayrollRecord(
 	runId: string,
 	recordId: string,
-	updates: Record<string, unknown>
+	updates: Partial<EmployeePayrollInput>
 ): Promise<PayrollServiceResult<PayrollRunWithGroups>> {
 	try {
 		getCurrentUserId();
-		// TODO: Implement actual record update logic
-		// For now, return error indicating not implemented
-		console.warn('updatePayrollRecord not yet implemented', { runId, recordId, updates });
-		return { data: null, error: 'updatePayrollRecord not yet implemented' };
+
+		// Build request body matching backend UpdatePayrollRecordRequest
+		const requestBody: Record<string, unknown> = {};
+
+		if (updates.regularHours !== undefined) {
+			requestBody.regularHours = updates.regularHours;
+		}
+		if (updates.overtimeHours !== undefined) {
+			requestBody.overtimeHours = updates.overtimeHours;
+		}
+		if (updates.leaveEntries !== undefined) {
+			requestBody.leaveEntries = updates.leaveEntries.map((entry) => ({
+				type: entry.type,
+				hours: entry.hours
+			}));
+		}
+		if (updates.holidayWorkEntries !== undefined) {
+			requestBody.holidayWorkEntries = updates.holidayWorkEntries.map((entry) => ({
+				holidayDate: entry.holidayDate,
+				holidayName: entry.holidayName,
+				hoursWorked: entry.hoursWorked
+			}));
+		}
+		if (updates.adjustments !== undefined) {
+			requestBody.adjustments = updates.adjustments.map((adj) => ({
+				type: adj.type,
+				amount: adj.amount,
+				description: adj.description,
+				taxable: adj.taxable
+			}));
+		}
+		if (updates.overrides !== undefined) {
+			requestBody.overrides = {
+				regularPay: updates.overrides.regularPay ?? null,
+				overtimePay: updates.overrides.overtimePay ?? null,
+				holidayPay: updates.overrides.holidayPay ?? null
+			};
+		}
+
+		// Call backend API
+		await api.patch(`/payroll/runs/${runId}/records/${recordId}`, requestBody);
+
+		// Return updated payroll run data
+		return getPayrollRunById(runId);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Failed to update payroll record';
 		return { data: null, error: message };
@@ -368,18 +412,22 @@ export async function updatePayrollRecord(
 
 /**
  * Recalculate all payroll records in a draft payroll run
- * TODO: Implement actual recalculation via backend API
+ * Calls backend POST endpoint to recalculate all records using their input_data
  */
 export async function recalculatePayrollRun(
 	runId: string
 ): Promise<PayrollServiceResult<PayrollRunWithGroups>> {
 	try {
 		getCurrentUserId();
-		// TODO: Implement actual recalculation logic
-		console.warn('recalculatePayrollRun not yet implemented', { runId });
-		return { data: null, error: 'recalculatePayrollRun not yet implemented' };
+
+		// Call backend recalculate endpoint
+		await api.post(`/payroll/runs/${runId}/recalculate`, {});
+
+		// Return updated payroll run with recalculated values
+		return getPayrollRunById(runId);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Failed to recalculate payroll run';
+		console.error('recalculatePayrollRun error:', message);
 		return { data: null, error: message };
 	}
 }
@@ -394,18 +442,72 @@ export async function finalizePayrollRun(
 }
 
 /**
+ * Revert a pending_approval payroll run back to draft status
+ * Allows user to make further edits after finalizing
+ */
+export async function revertToDraft(
+	runId: string
+): Promise<PayrollServiceResult<PayrollRunWithGroups>> {
+	try {
+		const userId = getCurrentUserId();
+		const ledgerId = getCurrentLedgerId();
+
+		// Verify run is in pending_approval status
+		const { data: runData, error: runError } = await supabase
+			.from('payroll_runs')
+			.select('status')
+			.eq('id', runId)
+			.eq('user_id', userId)
+			.eq('ledger_id', ledgerId)
+			.single();
+
+		if (runError) {
+			return { data: null, error: runError.message };
+		}
+
+		if (runData.status !== 'pending_approval') {
+			return {
+				data: null,
+				error: `Cannot revert: payroll run is in '${runData.status}' status, not 'pending_approval'`
+			};
+		}
+
+		// Update status back to draft
+		return updatePayrollRunStatus(runId, 'draft');
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to revert payroll run';
+		return { data: null, error: message };
+	}
+}
+
+/**
  * Check if a payroll run has modified records that need recalculation
- * TODO: Implement actual check logic
+ * Queries the database for any records with is_modified=true
  */
 export async function checkHasModifiedRecords(
 	runId: string
 ): Promise<PayrollServiceResult<boolean>> {
 	try {
-		getCurrentUserId();
-		// TODO: Implement actual check logic
-		// For now, always return false
-		console.warn('checkHasModifiedRecords not yet implemented', { runId });
-		return { data: false, error: null };
+		const userId = getCurrentUserId();
+		const ledgerId = getCurrentLedgerId();
+
+		// Query for any records with is_modified = true
+		const { data, error } = await supabase
+			.from('payroll_records')
+			.select('id')
+			.eq('payroll_run_id', runId)
+			.eq('user_id', userId)
+			.eq('ledger_id', ledgerId)
+			.eq('is_modified', true)
+			.limit(1);
+
+		if (error) {
+			console.error('Failed to check modified records:', error);
+			return { data: null, error: error.message };
+		}
+
+		// Returns true if any records are modified
+		return { data: data !== null && data.length > 0, error: null };
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Failed to check modified records';
 		return { data: null, error: message };

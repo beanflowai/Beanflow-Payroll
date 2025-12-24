@@ -7,6 +7,7 @@
 		EMPLOYEE_STATUS_LABELS
 	} from '$lib/types/employee';
 	import { Avatar } from '$lib/components/shared';
+	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	interface Props {
 		employees: Employee[];
@@ -44,11 +45,7 @@
 
 	function formatDate(dateStr: string | null | undefined): string {
 		if (!dateStr) return '-';
-		return new Date(dateStr).toLocaleDateString('en-CA', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric'
-		});
+		return formatShortDate(dateStr);
 	}
 
 	function getFullName(emp: Employee): string {

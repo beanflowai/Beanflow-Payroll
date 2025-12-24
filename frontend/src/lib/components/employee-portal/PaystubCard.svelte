@@ -3,6 +3,7 @@
 	 * PaystubCard - Summary card for a single paystub
 	 */
 	import type { PaystubSummary } from '$lib/types/employee-portal';
+	import { formatLongDate, formatDateNoYear } from '$lib/utils/dateUtils';
 
 	interface Props {
 		paystub: PaystubSummary;
@@ -11,16 +12,6 @@
 	}
 
 	let { paystub, onView, onDownload }: Props = $props();
-
-	function formatDate(dateStr: string): string {
-		const date = new Date(dateStr);
-		return date.toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' });
-	}
-
-	function formatDateShort(dateStr: string): string {
-		const date = new Date(dateStr);
-		return date.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
-	}
 
 	function formatMoney(amount: number): string {
 		return new Intl.NumberFormat('en-CA', {
@@ -32,9 +23,9 @@
 
 <div class="paystub-card">
 	<div class="paystub-header">
-		<div class="paystub-date">{formatDate(paystub.payDate)}</div>
+		<div class="paystub-date">{formatLongDate(paystub.payDate)}</div>
 		<div class="paystub-period">
-			Pay Period: {formatDateShort(paystub.payPeriodStart)} - {formatDateShort(paystub.payPeriodEnd)}
+			Pay Period: {formatDateNoYear(paystub.payPeriodStart)} - {formatDateNoYear(paystub.payPeriodEnd)}
 		</div>
 	</div>
 

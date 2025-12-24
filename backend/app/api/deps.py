@@ -61,8 +61,8 @@ async def get_current_user(
             detail="Invalid token payload",
         )
 
-    # Set RLS context for database queries
-    SupabaseClient.set_user_context(user_id)
+    # Set user token for RLS context - this enables auth.uid() in Supabase queries
+    SupabaseClient.set_user_token(token)
 
     # Get user metadata from token
     user_metadata = payload.get("user_metadata", {})

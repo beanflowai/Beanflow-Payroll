@@ -6,6 +6,7 @@
 	import ProfileSection from '$lib/components/employee-portal/ProfileSection.svelte';
 	import ProfileField from '$lib/components/employee-portal/ProfileField.svelte';
 	import type { EmployeePortalProfile } from '$lib/types/employee-portal';
+	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	// Modal states
 	let showEditPersonal = $state(false);
@@ -51,10 +52,6 @@
 		}).format(amount);
 	}
 
-	function formatDate(dateStr: string): string {
-		const date = new Date(dateStr);
-		return date.toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' });
-	}
 </script>
 
 <div class="profile-page">
@@ -68,7 +65,7 @@
 			<div class="employee-info">
 				<h1 class="employee-name">{profile.firstName} {profile.lastName}</h1>
 				<p class="employee-title">{profile.jobTitle}</p>
-				<p class="employee-hire-date">Hired: {formatDate(profile.hireDate)}</p>
+				<p class="employee-hire-date">Hired: {formatShortDate(profile.hireDate)}</p>
 			</div>
 		</div>
 	</header>

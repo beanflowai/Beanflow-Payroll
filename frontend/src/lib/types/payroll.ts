@@ -197,6 +197,12 @@ export interface PayrollRecord {
 	paystubStatus?: PaystubStatus;
 	paystubSentAt?: string; // ISO datetime
 	paystubSentTo?: string; // email address
+
+	// Input data for draft editing (contains user-modified values)
+	inputData?: Partial<EmployeePayrollInput>;
+
+	// Modified flag for draft status
+	isModified?: boolean;
 }
 
 // Holiday in a pay period
@@ -433,6 +439,9 @@ export interface DbPayrollRecord {
 	paystub_storage_key: string | null;
 	paystub_generated_at: string | null;
 	created_at: string;
+	// Draft editing fields
+	input_data: Record<string, unknown> | null;
+	is_modified: boolean;
 }
 
 /**
@@ -545,7 +554,10 @@ export function dbPayrollRecordToUi(db: DbPayrollRecordWithEmployee): PayrollRec
 		holidayWorkHours: [],
 		// Paystub status
 		paystubStatus: db.paystub_generated_at ? 'sent' : 'pending',
-		paystubSentAt: db.paystub_generated_at ?? undefined
+		paystubSentAt: db.paystub_generated_at ?? undefined,
+		// Draft editing fields
+		inputData: db.input_data as Partial<EmployeePayrollInput> | undefined,
+		isModified: db.is_modified ?? false
 	};
 }
 

@@ -5,6 +5,7 @@
 		checkPayrollPageStatus,
 		getUpcomingPayDates
 	} from '$lib/services/payroll';
+	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	// ===========================================
 	// State
@@ -69,14 +70,7 @@
 		}).format(amount);
 	}
 
-	function formatDate(dateStr: string): string {
-		return new Date(dateStr).toLocaleDateString('en-CA', {
-			weekday: 'short',
-			month: 'short',
-			day: 'numeric'
-		});
-	}
-</script>
+	</script>
 
 <svelte:head>
 	<title>Run Payroll - BeanFlow Payroll</title>
@@ -151,7 +145,7 @@
 						<i class="fas fa-clock"></i>
 					</div>
 					<div class="flex flex-col">
-						<span class="text-title-large font-semibold text-surface-800">{formatDate(nextPayDate.payDate)}</span>
+						<span class="text-title-large font-semibold text-surface-800">{formatShortDate(nextPayDate.payDate)}</span>
 						<span class="text-auxiliary-text text-surface-600">Next Pay Date</span>
 					</div>
 				</div>

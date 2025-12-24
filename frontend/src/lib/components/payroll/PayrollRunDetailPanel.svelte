@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { PayrollRun, PayrollRecord } from '$lib/types/payroll';
 	import { PAYROLL_STATUS_LABELS } from '$lib/types/payroll';
+	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	interface Props {
 		payrollRun: PayrollRun;
@@ -17,14 +18,6 @@
 			currency: 'CAD',
 			minimumFractionDigits: 2
 		}).format(amount);
-	}
-
-	function formatDate(dateStr: string): string {
-		return new Date(dateStr).toLocaleDateString('en-CA', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric'
-		});
 	}
 
 	function formatPeriod(start: string, end: string): string {
@@ -74,7 +67,7 @@
 		<!-- Pay Date -->
 		<div class="pay-date-row">
 			<span class="label">Pay Date</span>
-			<span class="value">{formatDate(payrollRun.payDate)}</span>
+			<span class="value">{formatShortDate(payrollRun.payDate)}</span>
 		</div>
 
 		<!-- Summary Cards - 2x2 Grid -->
