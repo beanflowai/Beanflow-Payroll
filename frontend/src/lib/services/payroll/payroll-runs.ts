@@ -89,13 +89,15 @@ export async function getPayrollRunByPayDate(
 			return { data: null, error: recordsError.message };
 		}
 
-		// Group records by pay group
+		// Group records by pay group (use snapshot fields for historical accuracy)
 		const payGroupMap = new Map<string, PayrollRunPayGroup>();
 
 		for (const record of (recordsData as DbPayrollRecordWithEmployee[]) ?? []) {
 			const payGroup = record.employees.pay_groups;
-			const payGroupId = payGroup?.id ?? 'unknown';
-			const payGroupName = payGroup?.name ?? 'Unknown Pay Group';
+			// Use snapshot fields for grouping to preserve historical pay group assignment
+			// Fallback to joined data for records created before snapshots were added
+			const payGroupId = record.pay_group_id_snapshot ?? payGroup?.id ?? 'unknown';
+			const payGroupName = record.pay_group_name_snapshot ?? payGroup?.name ?? 'Unknown Pay Group';
 
 			const existing = payGroupMap.get(payGroupId);
 			const uiRecord = dbPayrollRecordToUi(record);
@@ -524,6 +526,73 @@ export async function checkHasModifiedRecords(
 		return { data: data !== null && data.length > 0, error: null };
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Failed to check modified records';
+		return { data: null, error: message };
+	}
+}
+
+// ===========================================
+// Sync Employees to Draft Run
+// ===========================================
+
+/**
+ * Basic run info returned from sync API (without records)
+ */
+interface SyncRunInfo {
+	id: string;
+	payDate: string;
+	status: string;
+	totalEmployees: number;
+	totalGross: number;
+	totalNetPay: number;
+}
+
+/**
+ * Response from sync employees API
+ */
+export interface SyncEmployeesResult {
+	addedCount: number;
+	addedEmployees: Array<{ employee_id: string; employee_name: string }>;
+	run: SyncRunInfo;
+}
+
+/**
+ * Sync new employees to a draft payroll run
+ * When employees are added to pay groups after a run is created,
+ * this function adds them to the existing run.
+ *
+ * Only works on draft runs. Non-draft runs return empty result.
+ */
+export async function syncEmployeesToRun(
+	runId: string
+): Promise<PayrollServiceResult<SyncEmployeesResult>> {
+	try {
+		getCurrentUserId();
+
+		// Call backend sync-employees endpoint
+		const response = await api.post<{
+			addedCount: number;
+			addedEmployees: Array<{ employee_id: string; employee_name: string }>;
+			run: {
+				id: string;
+				payDate: string;
+				status: string;
+				totalEmployees: number;
+				totalGross: number;
+				totalNetPay: number;
+			};
+		}>(`/payroll/runs/${runId}/sync-employees`, {});
+
+		return {
+			data: {
+				addedCount: response.addedCount,
+				addedEmployees: response.addedEmployees,
+				run: response.run
+			},
+			error: null
+		};
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to sync employees';
+		console.error('syncEmployeesToRun error:', message);
 		return { data: null, error: message };
 	}
 }

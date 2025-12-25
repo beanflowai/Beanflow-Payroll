@@ -51,6 +51,7 @@
 		finalizePayrollRun,
 		revertToDraft,
 		checkHasModifiedRecords,
+		syncEmployeesToRun,
 		type BeforeRunData,
 		type EmployeeHoursInput,
 		type EmployeeForPayroll
@@ -126,8 +127,23 @@
 			}
 			payrollRun = result.data;
 
-			// Check for modified records if in draft state
+			// For draft runs: sync new employees and check for modified records
 			if (payrollRun && payrollRun.status === 'draft') {
+				// Sync any new employees that were added to pay groups after run creation
+				const syncResult = await syncEmployeesToRun(payrollRun.id);
+				if (!syncResult.error && syncResult.data && syncResult.data.addedCount > 0) {
+					const { addedCount, addedEmployees } = syncResult.data;
+					// Reload the payroll run to get updated employee list with records
+					const reloadResult = await getPayrollRunByPayDate(payDate);
+					if (!reloadResult.error && reloadResult.data) {
+						payrollRun = reloadResult.data;
+					}
+					// Notify user about newly synced employees
+					const names = addedEmployees.map(e => e.employee_name).join(', ');
+					alert(`${addedCount} new employee(s) added to payroll: ${names}`);
+				}
+
+				// Check for modified records
 				const modifiedResult = await checkHasModifiedRecords(payrollRun.id);
 				if (!modifiedResult.error) {
 					hasModifiedRecords = modifiedResult.data ?? false;

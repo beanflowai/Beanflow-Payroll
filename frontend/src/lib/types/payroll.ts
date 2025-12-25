@@ -406,10 +406,16 @@ export interface DbPayrollRecord {
 	employee_id: string;
 	user_id: string;
 	ledger_id: string;
+	// Employee snapshots (captured at payroll creation time)
+	employee_name_snapshot: string | null;
+	province_snapshot: string | null;
+	annual_salary_snapshot: number | null;
+	hourly_rate_snapshot: number | null;
+	pay_group_id_snapshot: string | null;
+	pay_group_name_snapshot: string | null;
 	// Hours worked (for hourly employees)
 	regular_hours_worked: number | null;
 	overtime_hours_worked: number;
-	hourly_rate_snapshot: number | null;
 	// Earnings
 	gross_regular: number;
 	gross_overtime: number;
@@ -510,21 +516,29 @@ export function dbPayrollRunToUi(db: DbPayrollRun): PayrollRun {
 
 /**
  * Convert database payroll_record with employee info to UI PayrollRecord
+ * Uses snapshot fields when available, falls back to joined employee data
  */
 export function dbPayrollRecordToUi(db: DbPayrollRecordWithEmployee): PayrollRecord {
 	const employee = db.employees;
-	// Determine compensation type based on employee salary/rate
-	const compensationType: CompensationType = employee.hourly_rate != null ? 'hourly' : 'salaried';
+	// Determine compensation type from snapshot (use current data as fallback for old records)
+	const hourlyRateForType = db.hourly_rate_snapshot ?? employee.hourly_rate;
+	const compensationType: CompensationType = hourlyRateForType != null ? 'hourly' : 'salaried';
+
+	// Use snapshot fields if available, fallback to joined employee data
+	const employeeName = db.employee_name_snapshot ?? `${employee.first_name} ${employee.last_name}`;
+	const employeeProvince = db.province_snapshot ?? employee.province_of_employment;
+	const annualSalary = db.annual_salary_snapshot ?? employee.annual_salary;
+	const hourlyRate = db.hourly_rate_snapshot ?? employee.hourly_rate;
 
 	return {
 		id: db.id,
 		employeeId: db.employee_id,
-		employeeName: `${employee.first_name} ${employee.last_name}`,
-		employeeProvince: employee.province_of_employment,
+		employeeName,
+		employeeProvince,
 		// Compensation info
 		compensationType,
-		annualSalary: employee.annual_salary ?? undefined,
-		hourlyRate: employee.hourly_rate ?? undefined,
+		annualSalary: annualSalary ?? undefined,
+		hourlyRate: hourlyRate ?? undefined,
 		// Hours worked (for hourly employees)
 		regularHoursWorked: db.regular_hours_worked ?? undefined,
 		overtimeHoursWorked: db.overtime_hours_worked ?? undefined,
@@ -576,15 +590,20 @@ export function dbPayrollRecordToUi(db: DbPayrollRecordWithEmployee): PayrollRec
 
 /**
  * Convert database payroll_record with employee info to UI PayrollRecordWithGroup
+ * Uses snapshot fields when available, falls back to joined pay group data
  */
 export function dbPayrollRecordToUiWithGroup(db: DbPayrollRecordWithEmployee): PayrollRecordWithGroup {
 	const baseRecord = dbPayrollRecordToUi(db);
 	const payGroup = db.employees.pay_groups;
 
+	// Use snapshot fields if available, fallback to joined pay group data
+	const payGroupId = db.pay_group_id_snapshot ?? payGroup?.id ?? 'unknown';
+	const payGroupName = db.pay_group_name_snapshot ?? payGroup?.name ?? 'Unknown Pay Group';
+
 	return {
 		...baseRecord,
-		payGroupId: payGroup?.id ?? 'unknown',
-		payGroupName: payGroup?.name ?? 'Unknown Pay Group'
+		payGroupId,
+		payGroupName
 	};
 }
 

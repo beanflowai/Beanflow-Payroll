@@ -44,7 +44,9 @@ export {
 	recalculatePayrollRun,
 	finalizePayrollRun,
 	revertToDraft,
-	checkHasModifiedRecords
+	checkHasModifiedRecords,
+	syncEmployeesToRun,
+	type SyncEmployeesResult
 } from './payroll-runs';
 
 // Re-export pay group functions

@@ -20,6 +20,10 @@ from app.services.payroll import EmployeePayrollInput, PayrollEngine
 
 logger = logging.getLogger(__name__)
 
+# 2025 Federal and Provincial Basic Personal Amounts (default claim amounts)
+DEFAULT_FEDERAL_CLAIM_2025 = Decimal("16129")
+DEFAULT_PROVINCIAL_CLAIM_2025 = Decimal("12747")  # Ontario default
+
 
 class PayrollRunService:
     """Service for payroll run operations"""
@@ -212,11 +216,11 @@ class PayrollRunService:
                 holiday_pay=holiday_pay,
                 other_earnings=other_earnings,
                 federal_claim_amount=Decimal(
-                    str(employee.get("federal_claim_amount", "16129"))
-                ),
+                    str(employee.get("federal_claim_amount"))
+                ) if employee.get("federal_claim_amount") is not None else DEFAULT_FEDERAL_CLAIM_2025,
                 provincial_claim_amount=Decimal(
-                    str(employee.get("provincial_claim_amount", "12747"))
-                ),
+                    str(employee.get("provincial_claim_amount"))
+                ) if employee.get("provincial_claim_amount") is not None else DEFAULT_PROVINCIAL_CLAIM_2025,
                 is_cpp_exempt=employee.get("is_cpp_exempt", False),
                 is_ei_exempt=employee.get("is_ei_exempt", False),
                 cpp2_exempt=employee.get("cpp2_exempt", False),
@@ -338,6 +342,279 @@ class PayrollRunService:
         ).eq("is_modified", True).limit(1).execute()
 
         return bool(result.data and len(result.data) > 0)
+
+    async def sync_employees(self, run_id: UUID) -> dict[str, Any]:
+        """
+        Sync new employees to a draft payroll run.
+
+        When loading a draft payroll run, employees may have been added to pay groups
+        after the run was created. This method:
+        1. Finds pay groups for the run's pay_date
+        2. Gets all active employees from those pay groups
+        3. Creates payroll_records for any employees not in the run
+        4. Updates the run's total_employees count
+
+        Returns:
+            Dict with added_count, added_employees, and updated run data
+
+        Raises:
+            ValueError: If run is not in draft status
+        """
+        # Verify run exists and is in draft status
+        run = await self.get_run(run_id)
+        if not run:
+            raise ValueError("Payroll run not found")
+
+        if run["status"] != "draft":
+            # Not an error, just return empty result for non-draft runs
+            return {
+                "added_count": 0,
+                "added_employees": [],
+                "run": run,
+            }
+
+        pay_date = run["pay_date"]
+
+        # Get pay groups with matching next_pay_date
+        # Note: pay_groups table doesn't have user_id/ledger_id columns
+        # RLS policy filters via company_id relationship
+        pay_groups_result = self.supabase.table("pay_groups").select(
+            "id, name, pay_frequency, employment_type"
+        ).eq("next_pay_date", pay_date).execute()
+
+        pay_groups = pay_groups_result.data or []
+        if not pay_groups:
+            return {
+                "added_count": 0,
+                "added_employees": [],
+                "run": run,
+            }
+
+        pay_group_ids = [pg["id"] for pg in pay_groups]
+        pay_group_map = {pg["id"]: pg for pg in pay_groups}
+
+        # Get all active employees from these pay groups
+        employees_result = self.supabase.table("employees").select(
+            "id, first_name, last_name, province_of_employment, pay_group_id, "
+            "annual_salary, hourly_rate, federal_claim_amount, provincial_claim_amount, "
+            "is_cpp_exempt, is_ei_exempt, cpp2_exempt"
+        ).eq("user_id", self.user_id).eq("ledger_id", self.ledger_id).in_(
+            "pay_group_id", pay_group_ids
+        ).is_("termination_date", "null").execute()
+
+        all_employees = employees_result.data or []
+
+        # Get existing employee IDs in this run
+        existing_records_result = self.supabase.table("payroll_records").select(
+            "employee_id"
+        ).eq("payroll_run_id", str(run_id)).execute()
+
+        existing_employee_ids = {
+            r["employee_id"] for r in (existing_records_result.data or [])
+        }
+
+        # Find missing employees
+        missing_employees = [
+            emp for emp in all_employees if emp["id"] not in existing_employee_ids
+        ]
+
+        if not missing_employees:
+            return {
+                "added_count": 0,
+                "added_employees": [],
+                "run": run,
+            }
+
+        # Calculate payroll for missing employees and create records
+        added_employees, results = await self._create_records_for_employees(
+            run_id, missing_employees, pay_group_map
+        )
+
+        # Calculate totals from new results and add to existing run totals
+        new_gross = sum(float(r.total_gross) for r in results)
+        new_cpp_employee = sum(float(r.cpp_total) for r in results)
+        new_cpp_employer = sum(float(r.cpp_employer) for r in results)
+        new_ei_employee = sum(float(r.ei_employee) for r in results)
+        new_ei_employer = sum(float(r.ei_employer) for r in results)
+        new_federal_tax = sum(float(r.federal_tax) for r in results)
+        new_provincial_tax = sum(float(r.provincial_tax) for r in results)
+        new_net_pay = sum(float(r.net_pay) for r in results)
+        new_employer_cost = new_cpp_employer + new_ei_employer
+
+        # Update all run totals
+        self.supabase.table("payroll_runs").update({
+            "total_employees": (run.get("total_employees") or 0) + len(added_employees),
+            "total_gross": float(run.get("total_gross", 0)) + new_gross,
+            "total_cpp_employee": float(run.get("total_cpp_employee", 0)) + new_cpp_employee,
+            "total_cpp_employer": float(run.get("total_cpp_employer", 0)) + new_cpp_employer,
+            "total_ei_employee": float(run.get("total_ei_employee", 0)) + new_ei_employee,
+            "total_ei_employer": float(run.get("total_ei_employer", 0)) + new_ei_employer,
+            "total_federal_tax": float(run.get("total_federal_tax", 0)) + new_federal_tax,
+            "total_provincial_tax": float(run.get("total_provincial_tax", 0)) + new_provincial_tax,
+            "total_net_pay": float(run.get("total_net_pay", 0)) + new_net_pay,
+            "total_employer_cost": float(run.get("total_employer_cost", 0)) + new_employer_cost,
+        }).eq("id", str(run_id)).execute()
+
+        # Return updated run
+        updated_run = await self.get_run(run_id) or run
+
+        return {
+            "added_count": len(added_employees),
+            "added_employees": added_employees,
+            "run": updated_run,
+        }
+
+    async def _create_records_for_employees(
+        self,
+        run_id: UUID,
+        employees: list[dict[str, Any]],
+        pay_group_map: dict[str, dict[str, Any]],
+    ) -> tuple[list[dict[str, Any]], list[Any]]:
+        """Create payroll records for a list of employees.
+
+        Returns:
+            Tuple of (added_employees list, calculation_results list)
+        """
+        if not employees:
+            return [], []
+
+        # Build calculation inputs
+        calculation_inputs: list[EmployeePayrollInput] = []
+        employee_map: dict[str, dict[str, Any]] = {}
+
+        for emp in employees:
+            pay_group = pay_group_map.get(emp.get("pay_group_id", ""), {})
+            pay_frequency_str = pay_group.get("pay_frequency", "bi_weekly")
+            pay_frequency = PayFrequency(pay_frequency_str)
+
+            # Calculate gross pay
+            gross_regular, gross_overtime = self._calculate_initial_gross(
+                emp, pay_frequency_str
+            )
+
+            calc_input = EmployeePayrollInput(
+                employee_id=emp["id"],
+                province=Province(emp["province_of_employment"]),
+                pay_frequency=pay_frequency,
+                gross_regular=gross_regular,
+                gross_overtime=gross_overtime,
+                federal_claim_amount=Decimal(
+                    str(emp.get("federal_claim_amount"))
+                ) if emp.get("federal_claim_amount") is not None else DEFAULT_FEDERAL_CLAIM_2025,
+                provincial_claim_amount=Decimal(
+                    str(emp.get("provincial_claim_amount"))
+                ) if emp.get("provincial_claim_amount") is not None else DEFAULT_PROVINCIAL_CLAIM_2025,
+                is_cpp_exempt=emp.get("is_cpp_exempt", False),
+                is_ei_exempt=emp.get("is_ei_exempt", False),
+                cpp2_exempt=emp.get("cpp2_exempt", False),
+            )
+            calculation_inputs.append(calc_input)
+            employee_map[emp["id"]] = emp
+
+        # Calculate using PayrollEngine
+        engine = PayrollEngine(year=2025)
+        results = engine.calculate_batch(calculation_inputs)
+
+        # Create payroll records
+        records_to_insert = []
+        added_employees = []
+
+        for result in results:
+            emp = employee_map[result.employee_id]
+            pay_group = pay_group_map.get(emp.get("pay_group_id", ""), {})
+
+            # Build employee name snapshot
+            employee_name = f"{emp['first_name']} {emp['last_name']}"
+
+            records_to_insert.append({
+                "payroll_run_id": str(run_id),
+                "employee_id": result.employee_id,
+                "user_id": self.user_id,
+                "ledger_id": self.ledger_id,
+                # Snapshot fields
+                "employee_name_snapshot": employee_name,
+                "province_snapshot": emp["province_of_employment"],
+                "annual_salary_snapshot": emp.get("annual_salary"),
+                "pay_group_id_snapshot": emp.get("pay_group_id"),
+                "pay_group_name_snapshot": pay_group.get("name"),
+                # Hours (for hourly employees, defaults)
+                "regular_hours_worked": None,
+                "overtime_hours_worked": 0,
+                "hourly_rate_snapshot": emp.get("hourly_rate"),
+                # Earnings
+                "gross_regular": float(result.gross_regular),
+                "gross_overtime": float(result.gross_overtime),
+                "holiday_pay": float(result.holiday_pay),
+                "holiday_premium_pay": float(result.holiday_premium_pay),
+                "vacation_pay_paid": float(result.vacation_pay),
+                "other_earnings": float(result.other_earnings),
+                # Deductions
+                "cpp_employee": float(result.cpp_base),
+                "cpp_additional": float(result.cpp_additional),
+                "ei_employee": float(result.ei_employee),
+                "federal_tax": float(result.federal_tax),
+                "provincial_tax": float(result.provincial_tax),
+                "rrsp": float(result.rrsp),
+                "union_dues": float(result.union_dues),
+                "garnishments": float(result.garnishments),
+                "other_deductions": float(result.other_deductions),
+                # Employer costs
+                "cpp_employer": float(result.cpp_employer),
+                "ei_employer": float(result.ei_employer),
+                # YTD
+                "ytd_gross": float(result.new_ytd_gross),
+                "ytd_cpp": float(result.new_ytd_cpp),
+                "ytd_ei": float(result.new_ytd_ei),
+                "ytd_federal_tax": 0,
+                "ytd_provincial_tax": 0,
+                "vacation_accrued": 0,
+                "vacation_hours_taken": 0,
+                # Draft state
+                "input_data": {
+                    "regularHours": 0,
+                    "overtimeHours": 0,
+                    "leaveEntries": [],
+                    "holidayWorkEntries": [],
+                    "adjustments": [],
+                    "overrides": {},
+                },
+                "is_modified": False,
+            })
+
+            added_employees.append({
+                "employee_id": result.employee_id,
+                "employee_name": employee_name,
+            })
+
+        # Insert all records
+        if records_to_insert:
+            self.supabase.table("payroll_records").insert(records_to_insert).execute()
+
+        return added_employees, results
+
+    def _calculate_initial_gross(
+        self, employee: dict[str, Any], pay_frequency: str
+    ) -> tuple[Decimal, Decimal]:
+        """Calculate initial gross pay for a new employee in a payroll run."""
+        annual_salary = employee.get("annual_salary")
+        hourly_rate = employee.get("hourly_rate")
+
+        if annual_salary and not hourly_rate:
+            # Salaried employee
+            periods_per_year = {
+                "weekly": 52,
+                "bi_weekly": 26,
+                "semi_monthly": 24,
+                "monthly": 12,
+            }
+            periods = periods_per_year.get(pay_frequency, 26)
+            gross_regular = Decimal(str(annual_salary)) / Decimal(str(periods))
+            return gross_regular, Decimal("0")
+        elif hourly_rate:
+            # Hourly employee - start with 0 hours, user will input
+            return Decimal("0"), Decimal("0")
+        else:
+            return Decimal("0"), Decimal("0")
 
     def _calculate_gross_from_input(
         self,

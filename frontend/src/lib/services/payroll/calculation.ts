@@ -62,6 +62,15 @@ export async function startPayrollRun(
 		// Track hours used for each employee (to store in payroll_records)
 		const employeeHoursUsed = new Map<string, { regularHours: number; overtimeHours: number; hourlyRate: number | null }>();
 
+		// Track snapshot data for each employee (for historical accuracy)
+		const employeeSnapshotData = new Map<string, {
+			name: string;
+			province: string;
+			annualSalary: number | null;
+			payGroupId: string;
+			payGroupName: string;
+		}>();
+
 		// Build calculation requests for all employees
 		const calculationRequests: EmployeeCalculationRequest[] = [];
 
@@ -72,6 +81,15 @@ export async function startPayrollRun(
 				payGroup.payFrequency === 'monthly' ? 'monthly' : 'weekly';
 
 			for (const employee of payGroup.employees) {
+				// Store snapshot data for this employee
+				employeeSnapshotData.set(employee.id, {
+					name: `${employee.firstName} ${employee.lastName}`,
+					province: employee.province,
+					annualSalary: employee.annualSalary,
+					payGroupId: payGroup.id,
+					payGroupName: payGroup.name
+				});
+
 				// Calculate gross pay based on salary or hourly rate
 				let grossRegular = 0;
 				let grossOvertime = 0;
@@ -175,11 +193,19 @@ export async function startPayrollRun(
 		const payrollRecords = calculationResponse.results.map((result) => {
 			// Get hours data for this employee
 			const hoursData = employeeHoursUsed.get(result.employee_id);
+			// Get snapshot data for this employee
+			const snapshotData = employeeSnapshotData.get(result.employee_id);
 			return {
 				payroll_run_id: runId,
 				employee_id: result.employee_id,
 				user_id: userId,
 				ledger_id: ledgerId,
+				// Employee snapshots (captured at payroll creation time)
+				employee_name_snapshot: snapshotData?.name ?? null,
+				province_snapshot: snapshotData?.province ?? null,
+				annual_salary_snapshot: snapshotData?.annualSalary ?? null,
+				pay_group_id_snapshot: snapshotData?.payGroupId ?? null,
+				pay_group_name_snapshot: snapshotData?.payGroupName ?? null,
 				// Hours worked (for hourly employees)
 				regular_hours_worked: hoursData?.regularHours || null,
 				overtime_hours_worked: hoursData?.overtimeHours || 0,

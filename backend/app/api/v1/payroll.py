@@ -21,6 +21,7 @@ from app.services.payroll import (
     PayrollCalculationResult,
     PayrollEngine,
 )
+from app.services.payroll_run_service import get_payroll_run_service
 
 logger = logging.getLogger(__name__)
 
@@ -578,8 +579,6 @@ async def update_payroll_record(
 
     The record will be marked as modified, requiring recalculation.
     """
-    from app.services.payroll_run_service import get_payroll_run_service
-
     try:
         service = get_payroll_run_service(current_user.id, current_user.id)
 
@@ -661,8 +660,6 @@ async def recalculate_payroll_run(
 
     Only works on runs in 'draft' status.
     """
-    from app.services.payroll_run_service import get_payroll_run_service
-
     try:
         service = get_payroll_run_service(current_user.id, current_user.id)
         result = await service.recalculate_run(run_id)
@@ -694,6 +691,74 @@ async def recalculate_payroll_run(
         )
 
 
+class SyncEmployeesResponse(BaseModel):
+    """Response from sync employees operation."""
+
+    addedCount: int = Field(alias="added_count")
+    addedEmployees: list[dict[str, str]] = Field(alias="added_employees")
+    run: PayrollRunResponse
+
+    model_config = {"populate_by_name": True}
+
+
+@router.post(
+    "/runs/{run_id}/sync-employees",
+    response_model=SyncEmployeesResponse,
+    summary="Sync new employees to draft payroll run",
+    description="Add any new employees from pay groups to an existing draft payroll run.",
+)
+async def sync_employees(
+    run_id: UUID,
+    current_user: CurrentUser,
+) -> SyncEmployeesResponse:
+    """
+    Sync new employees to a draft payroll run.
+
+    When employees are added to pay groups after a payroll run is created,
+    this endpoint will:
+    1. Find pay groups for the run's pay_date
+    2. Get active employees from those pay groups
+    3. Create payroll_records for any employees not yet in the run
+    4. Update the run's total_employees count
+
+    Only works on runs in 'draft' status. Non-draft runs return empty result.
+    """
+    try:
+        service = get_payroll_run_service(current_user.id, current_user.id)
+        result = await service.sync_employees(run_id)
+
+        run_data = result["run"]
+        return SyncEmployeesResponse(
+            added_count=result["added_count"],
+            added_employees=result["added_employees"],
+            run=PayrollRunResponse(
+                id=run_data["id"],
+                pay_date=run_data["pay_date"],
+                status=run_data["status"],
+                total_employees=run_data.get("total_employees", 0),
+                total_gross=float(run_data.get("total_gross", 0)),
+                total_cpp_employee=float(run_data.get("total_cpp_employee", 0)),
+                total_cpp_employer=float(run_data.get("total_cpp_employer", 0)),
+                total_ei_employee=float(run_data.get("total_ei_employee", 0)),
+                total_ei_employer=float(run_data.get("total_ei_employer", 0)),
+                total_federal_tax=float(run_data.get("total_federal_tax", 0)),
+                total_provincial_tax=float(run_data.get("total_provincial_tax", 0)),
+                total_net_pay=float(run_data.get("total_net_pay", 0)),
+                total_employer_cost=float(run_data.get("total_employer_cost", 0)),
+            ),
+        )
+
+    except ValueError as e:
+        logger.error(f"Sync employees error: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.exception("Unexpected error syncing employees")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal error syncing employees",
+        )
+
+
 @router.post(
     "/runs/{run_id}/finalize",
     response_model=PayrollRunResponse,
@@ -714,8 +779,6 @@ async def finalize_payroll_run(
     - Run must be in 'draft' status
     - No records can have is_modified = True (must recalculate first)
     """
-    from app.services.payroll_run_service import get_payroll_run_service
-
     try:
         service = get_payroll_run_service(current_user.id, current_user.id)
         result = await service.finalize_run(run_id)

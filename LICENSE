@@ -1,0 +1,54 @@
+GNU AFFERO GENERAL PUBLIC LICENSE
+Version 3, 19 November 2007
+
+Copyright (C) 2024-2025 Beanflow
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+Additional permission under GNU GPL version 3 section 7
+
+If you modify this Program, or any covered work, by linking or
+combining it with any code whose authors consent to redistribution
+under the terms of the GNU Affero General Public License, you may
+grant an additional permission to link or combine that code with this
+Program, and to distribute the resulting work.  The terms of this
+license will continue to apply to the part which is the covered work,
+but the specially licensed code will be governed by the terms of that
+license and not by this one.
+
+---
+
+This license allows you to:
+
+- Use this software for any purpose
+- Study how the software works and modify it
+- Redistribute copies of the software
+- Distribute modified copies of the software
+
+Under the following conditions:
+
+- You must provide source code for any modifications you distribute
+- You must license your modifications under the AGPL-3.0
+- You must include a copy of the AGPL-3.0 license with your distribution
+- Any software that uses this code over a network must also provide its source code
+
+Why AGPL-3.0?
+
+The AGPL-3.0 ensures that improvements and modifications to this software
+remain open-source and benefit the entire community. This is particularly
+important for web-based software like Beanflow Payroll, as it prevents
+the software from being used in proprietary services without contributing
+improvements back to the community.
+
+For more information, visit: https://www.gnu.org/licenses/agpl-3.0.html
