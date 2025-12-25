@@ -15,6 +15,13 @@
 // Pay frequency options
 export type PayFrequency = 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly';
 
+/**
+ * Tax calculation method per CRA T4127
+ * - annualization: Option 1 - Each period calculated independently
+ * - cumulative_averaging: Option 2 - Considers YTD earnings and tax
+ */
+export type TaxCalculationMethod = 'annualization' | 'cumulative_averaging';
+
 // Bank time rate options (varies by province)
 export type BankTimeRate = 1.0 | 1.5;
 
@@ -427,6 +434,10 @@ export interface PayGroup {
 	// Leave Policy
 	leaveEnabled: boolean;
 
+	// Tax Calculation Method
+	/** CRA-approved tax calculation method */
+	taxCalculationMethod: TaxCalculationMethod;
+
 	// Statutory Deduction Defaults
 	statutoryDefaults: StatutoryDefaults;
 
@@ -472,6 +483,36 @@ export interface PayGroupFormData {
 // ============================================
 // Default Values & Factory Functions
 // ============================================
+
+/**
+ * Default tax calculation method
+ */
+export const DEFAULT_TAX_CALCULATION_METHOD: TaxCalculationMethod = 'annualization';
+
+/**
+ * Tax calculation method display information
+ */
+export const TAX_CALCULATION_METHOD_INFO: Record<
+	TaxCalculationMethod,
+	{
+		label: string;
+		description: string;
+		badge?: string;
+		disabled?: boolean;
+	}
+> = {
+	annualization: {
+		label: 'Annualization (Option 1)',
+		description: 'Each pay period calculated independently. Best for stable salary income.'
+	},
+	cumulative_averaging: {
+		label: 'Cumulative Averaging (Option 2)',
+		description:
+			'Considers YTD earnings for more accurate withholding. Best for variable income (commissions, bonuses).',
+		badge: 'Coming Soon',
+		disabled: true
+	}
+};
 
 /**
  * Default statutory defaults (no exemptions)
@@ -648,6 +689,7 @@ export function createDefaultPayGroup(companyId: string): Omit<PayGroup, 'id' | 
 		nextPayDate: '',
 		periodStartDay: 'monday',
 		leaveEnabled: true,
+		taxCalculationMethod: DEFAULT_TAX_CALCULATION_METHOD,
 		statutoryDefaults: { ...DEFAULT_STATUTORY_DEFAULTS },
 		overtimePolicy: { ...DEFAULT_OVERTIME_POLICY },
 		wcbConfig: { ...DEFAULT_WCB_CONFIG },

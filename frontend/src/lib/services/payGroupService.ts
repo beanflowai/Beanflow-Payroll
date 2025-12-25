@@ -11,6 +11,7 @@ import type {
 	PayFrequency,
 	EmploymentType,
 	PeriodStartDay,
+	TaxCalculationMethod,
 	StatutoryDefaults,
 	OvertimePolicy,
 	WcbConfig,
@@ -22,7 +23,8 @@ import type {
 import {
 	DEFAULT_EARNINGS_CONFIG,
 	DEFAULT_TAXABLE_BENEFITS_CONFIG,
-	DEFAULT_DEDUCTIONS_CONFIG
+	DEFAULT_DEDUCTIONS_CONFIG,
+	DEFAULT_TAX_CALCULATION_METHOD
 } from '$lib/types/pay-group';
 import { authState } from '$lib/stores/auth.svelte';
 
@@ -41,6 +43,7 @@ export interface DbPayGroup {
 	next_pay_date: string;
 	period_start_day: PeriodStartDay;
 	leave_enabled: boolean;
+	tax_calculation_method: TaxCalculationMethod;
 	statutory_defaults: StatutoryDefaults;
 	overtime_policy: OvertimePolicy;
 	wcb_config: WcbConfig;
@@ -64,6 +67,7 @@ export interface PayGroupCreateInput {
 	next_pay_date: string;
 	period_start_day?: PeriodStartDay;
 	leave_enabled?: boolean;
+	tax_calculation_method?: TaxCalculationMethod;
 	statutory_defaults?: StatutoryDefaults;
 	overtime_policy?: OvertimePolicy;
 	wcb_config?: WcbConfig;
@@ -84,6 +88,7 @@ export interface PayGroupUpdateInput {
 	next_pay_date?: string;
 	period_start_day?: PeriodStartDay;
 	leave_enabled?: boolean;
+	tax_calculation_method?: TaxCalculationMethod;
 	statutory_defaults?: StatutoryDefaults;
 	overtime_policy?: OvertimePolicy;
 	wcb_config?: WcbConfig;
@@ -107,6 +112,7 @@ export function dbPayGroupToUi(db: DbPayGroup): PayGroup {
 		nextPayDate: db.next_pay_date,
 		periodStartDay: db.period_start_day,
 		leaveEnabled: db.leave_enabled,
+		taxCalculationMethod: db.tax_calculation_method ?? DEFAULT_TAX_CALCULATION_METHOD,
 		statutoryDefaults: db.statutory_defaults,
 		overtimePolicy: db.overtime_policy,
 		wcbConfig: db.wcb_config,

@@ -32,6 +32,40 @@ Design a configuration-driven architecture that externalizes all tax rates, thre
 
 ---
 
+## Pay Group Tax Configuration
+
+### Tax Calculation Method
+
+Pay Groups can specify which CRA-approved tax calculation method to use:
+
+| Value | Method | Status |
+|-------|--------|--------|
+| `annualization` | Option 1 - Annual Tax Method | ✅ Implemented |
+| `cumulative_averaging` | Option 2 - Cumulative Averaging | 🔜 Phase 2 |
+
+**Database Column:**
+```sql
+tax_calculation_method TEXT NOT NULL DEFAULT 'annualization'
+  CHECK (tax_calculation_method IN ('annualization', 'cumulative_averaging'))
+```
+
+**TypeScript Type:**
+```typescript
+export type TaxCalculationMethod = 'annualization' | 'cumulative_averaging';
+```
+
+**Usage in Payroll Engine:**
+```python
+if pay_group.tax_calculation_method == 'cumulative_averaging':
+    # Use YTD-aware calculation (Phase 2)
+    federal_tax = calculate_cumulative_federal_tax(...)
+else:
+    # Use current annualization method
+    federal_tax = fed_calc.calculate_tax_per_period(...)
+```
+
+---
+
 ## 📦 Configuration File Architecture
 
 ### Directory Structure

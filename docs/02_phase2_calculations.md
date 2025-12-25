@@ -12,6 +12,72 @@
 
 Implement the core payroll calculation logic following CRA T4127 formulas.
 
+---
+
+## 📊 Tax Calculation Methods
+
+CRA T4127 provides two official methods for calculating income tax withholding. This system supports both methods, configurable at the Pay Group level.
+
+### Option 1: Annualization Method (Default)
+
+**How it works:**
+- Each pay period is calculated independently
+- Current period income is annualized: `A = P × (I - F - U1)`
+- Annual tax is calculated, then divided by pay periods
+
+**Best for:**
+- Employees with stable, predictable income
+- Salaried employees
+
+**Pros:**
+- Simple to understand and implement
+- Each pay period is self-contained
+- No need to track YTD tax amounts
+
+**Cons:**
+- May over/under-withhold for variable income
+- Year-end reconciliation through personal tax return
+
+### Option 2: Cumulative Averaging Method (Coming Soon)
+
+**How it works:**
+- Considers YTD earnings and YTD tax already withheld
+- Calculates what total tax *should be* for YTD period
+- Deducts current period tax as the difference
+
+**Formula:**
+```
+Current Period Tax = (Cumulative Tax on YTD Income) - (YTD Tax Already Withheld)
+```
+
+**Best for:**
+- Employees with variable income (commissions, bonuses)
+- Sales teams with fluctuating earnings
+
+**Pros:**
+- More accurate throughout the year
+- Reduces over/under-withholding
+- Better cash flow management for employees
+
+**Cons:**
+- More complex calculation
+- Requires accurate YTD tracking
+
+### Configuration
+
+Tax calculation method is configured at the **Pay Group** level:
+
+```typescript
+interface PayGroup {
+  // ...other fields...
+  taxCalculationMethod: 'annualization' | 'cumulative_averaging';
+}
+```
+
+This allows different employee groups (e.g., salaried vs. sales) to use appropriate methods.
+
+---
+
 ### Deliverables
 1. ✅ CPP calculator (base + additional CPP2)
 2. ✅ EI calculator

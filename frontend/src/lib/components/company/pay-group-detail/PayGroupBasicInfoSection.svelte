@@ -5,12 +5,14 @@
 		PayGroup,
 		PayFrequency,
 		EmploymentType,
-		PeriodStartDay
+		PeriodStartDay,
+		TaxCalculationMethod
 	} from '$lib/types/pay-group';
 	import {
 		PAY_FREQUENCY_INFO,
 		EMPLOYMENT_TYPE_INFO,
-		PERIOD_START_DAY_OPTIONS
+		PERIOD_START_DAY_OPTIONS,
+		TAX_CALCULATION_METHOD_INFO
 	} from '$lib/types/pay-group';
 	import { formatLongDate } from '$lib/utils/dateUtils';
 
@@ -39,6 +41,9 @@
 		startInEditMode ? payGroup.periodStartDay : 'monday'
 	);
 	let editLeaveEnabled = $state(startInEditMode ? payGroup.leaveEnabled : true);
+	let editTaxCalculationMethod = $state<TaxCalculationMethod>(
+		startInEditMode ? payGroup.taxCalculationMethod : 'annualization'
+	);
 
 	// Enter edit mode
 	function enterEditMode() {
@@ -49,6 +54,7 @@
 		editNextPayDate = payGroup.nextPayDate;
 		editPeriodStartDay = payGroup.periodStartDay;
 		editLeaveEnabled = payGroup.leaveEnabled;
+		editTaxCalculationMethod = payGroup.taxCalculationMethod;
 		isEditing = true;
 	}
 
@@ -68,6 +74,7 @@
 			nextPayDate: editNextPayDate,
 			periodStartDay: editPeriodStartDay,
 			leaveEnabled: editLeaveEnabled,
+			taxCalculationMethod: editTaxCalculationMethod,
 			updatedAt: new Date().toISOString()
 		};
 		onUpdate(updated);
@@ -98,6 +105,7 @@
 			const nextDate = editNextPayDate;
 			const startDay = editPeriodStartDay;
 			const leave = editLeaveEnabled;
+			const taxMethod = editTaxCalculationMethod;
 
 			// Read payGroup without tracking to avoid loop
 			untrack(() => {
@@ -109,7 +117,8 @@
 					employmentType: empType,
 					nextPayDate: nextDate,
 					periodStartDay: startDay,
-					leaveEnabled: leave
+					leaveEnabled: leave,
+					taxCalculationMethod: taxMethod
 				};
 				onUpdate(updated);
 			});
@@ -203,6 +212,42 @@
 					</label>
 					<p class="field-hint">Track vacation and sick leave for employees in this group</p>
 				</div>
+
+				<!-- Tax Calculation Method -->
+				<div class="form-group tax-method-group">
+					<label class="form-label">Tax Calculation Method</label>
+					<div class="tax-method-options">
+						{#each Object.entries(TAX_CALCULATION_METHOD_INFO) as [value, info]}
+							<label
+								class="tax-method-option"
+								class:selected={editTaxCalculationMethod === value}
+								class:disabled={info.disabled}
+							>
+								<input
+									type="radio"
+									name="taxCalculationMethod"
+									{value}
+									checked={editTaxCalculationMethod === value}
+									disabled={info.disabled}
+									onchange={() => {
+										if (!info.disabled) {
+											editTaxCalculationMethod = value as TaxCalculationMethod;
+										}
+									}}
+								/>
+								<div class="tax-method-content">
+									<div class="tax-method-header">
+										<span class="tax-method-label">{info.label}</span>
+										{#if info.badge}
+											<span class="tax-method-badge">{info.badge}</span>
+										{/if}
+									</div>
+									<p class="tax-method-description">{info.description}</p>
+								</div>
+							</label>
+						{/each}
+					</div>
+				</div>
 			</div>
 		{:else}
 			<!-- View Mode -->
@@ -254,6 +299,17 @@
 								<i class="fas fa-times"></i>
 								Disabled
 							</span>
+						{/if}
+					</span>
+				</div>
+
+				<div class="info-item tax-method-view">
+					<span class="info-label">Tax Calculation Method</span>
+					<span class="info-value">
+						{#if TAX_CALCULATION_METHOD_INFO[payGroup.taxCalculationMethod]}
+							{TAX_CALCULATION_METHOD_INFO[payGroup.taxCalculationMethod].label}
+						{:else}
+							Annualization (Option 1)
 						{/if}
 					</span>
 				</div>
@@ -481,13 +537,101 @@
 		margin: var(--spacing-1) 0 0;
 	}
 
+	/* Tax Calculation Method Styles */
+	.tax-method-group {
+		grid-column: span 2;
+	}
+
+	.form-label {
+		font-size: var(--font-size-auxiliary-text);
+		font-weight: var(--font-weight-medium);
+		color: var(--color-surface-600);
+		margin-bottom: var(--spacing-2);
+	}
+
+	.tax-method-options {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-3);
+	}
+
+	.tax-method-option {
+		display: flex;
+		align-items: flex-start;
+		gap: var(--spacing-3);
+		padding: var(--spacing-4);
+		border: 1px solid var(--color-surface-200);
+		border-radius: var(--radius-lg);
+		cursor: pointer;
+		transition: var(--transition-fast);
+	}
+
+	.tax-method-option:hover:not(.disabled) {
+		border-color: var(--color-surface-300);
+		background: var(--color-surface-50);
+	}
+
+	.tax-method-option.selected {
+		border-color: var(--color-primary-500);
+		background: var(--color-primary-50);
+	}
+
+	.tax-method-option.disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+		background: var(--color-surface-50);
+	}
+
+	.tax-method-option input[type='radio'] {
+		margin-top: var(--spacing-1);
+		accent-color: var(--color-primary-500);
+	}
+
+	.tax-method-content {
+		flex: 1;
+	}
+
+	.tax-method-header {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
+		margin-bottom: var(--spacing-1);
+	}
+
+	.tax-method-label {
+		font-weight: var(--font-weight-medium);
+		color: var(--color-surface-800);
+	}
+
+	.tax-method-badge {
+		padding: var(--spacing-1) var(--spacing-2);
+		background: var(--color-warning-100);
+		color: var(--color-warning-700);
+		font-size: var(--font-size-auxiliary-text);
+		font-weight: var(--font-weight-medium);
+		border-radius: var(--radius-full);
+	}
+
+	.tax-method-description {
+		font-size: var(--font-size-auxiliary-text);
+		color: var(--color-surface-600);
+		margin: 0;
+		line-height: 1.4;
+	}
+
+	.tax-method-view {
+		grid-column: span 2;
+	}
+
 	@media (max-width: 640px) {
 		.info-grid,
 		.form-grid {
 			grid-template-columns: 1fr;
 		}
 
-		.checkbox-group {
+		.checkbox-group,
+		.tax-method-group,
+		.tax-method-view {
 			grid-column: span 1;
 		}
 

@@ -794,6 +794,11 @@ CREATE TABLE IF NOT EXISTS pay_groups (
     -- Leave Policy
     leave_enabled BOOLEAN DEFAULT TRUE,
 
+    -- Tax Calculation Configuration
+    tax_calculation_method TEXT NOT NULL DEFAULT 'annualization' CHECK (
+        tax_calculation_method IN ('annualization', 'cumulative_averaging')
+    ),
+
     -- Policy Configurations (JSONB)
     statutory_defaults JSONB DEFAULT '{
         "cppExemptByDefault": false,
