@@ -712,6 +712,333 @@ class PayrollRunService:
         return gross_regular, gross_overtime
 
 
+    async def create_or_get_run(self, pay_date: str) -> dict[str, Any]:
+        """
+        Create a new draft payroll run or get existing one for a pay date.
+
+        This method:
+        1. Checks if a payroll run already exists for this pay date
+        2. If exists, returns the existing run
+        3. If not, creates a new draft run with payroll records for all eligible employees
+
+        Args:
+            pay_date: The pay date in YYYY-MM-DD format
+
+        Returns:
+            Dict with 'run' (payroll run data), 'created' (bool), and 'records_count'
+        """
+        # Check if a run already exists for this pay date
+        existing_result = self.supabase.table("payroll_runs").select("*").eq(
+            "user_id", self.user_id
+        ).eq("ledger_id", self.ledger_id).eq("pay_date", pay_date).execute()
+
+        if existing_result.data and len(existing_result.data) > 0:
+            return {
+                "run": existing_result.data[0],
+                "created": False,
+                "records_count": 0,
+            }
+
+        # Get pay groups with matching next_pay_date
+        pay_groups_result = self.supabase.table("pay_groups").select(
+            "id, name, pay_frequency, employment_type"
+        ).eq("next_pay_date", pay_date).execute()
+
+        pay_groups = pay_groups_result.data or []
+        if not pay_groups:
+            raise ValueError(f"No pay groups found with pay date {pay_date}")
+
+        pay_group_ids = [pg["id"] for pg in pay_groups]
+        pay_group_map = {pg["id"]: pg for pg in pay_groups}
+
+        # Get all active employees from these pay groups
+        employees_result = self.supabase.table("employees").select(
+            "id, first_name, last_name, province_of_employment, pay_group_id, "
+            "annual_salary, hourly_rate, federal_claim_amount, provincial_claim_amount, "
+            "is_cpp_exempt, is_ei_exempt, cpp2_exempt"
+        ).eq("user_id", self.user_id).eq("ledger_id", self.ledger_id).in_(
+            "pay_group_id", pay_group_ids
+        ).is_("termination_date", "null").execute()
+
+        employees = employees_result.data or []
+        if not employees:
+            raise ValueError("No active employees found for these pay groups")
+
+        # Calculate period dates from pay frequency (simplified - assumes bi-weekly)
+        from datetime import datetime, timedelta
+        pay_date_obj = datetime.strptime(pay_date, "%Y-%m-%d")
+        # Default to 2-week period for bi-weekly
+        period_end = pay_date_obj - timedelta(days=1)
+        period_start = period_end - timedelta(days=13)
+
+        # Create the payroll run
+        run_insert_result = self.supabase.table("payroll_runs").insert({
+            "user_id": self.user_id,
+            "ledger_id": self.ledger_id,
+            "period_start": period_start.strftime("%Y-%m-%d"),
+            "period_end": period_end.strftime("%Y-%m-%d"),
+            "pay_date": pay_date,
+            "status": "draft",
+            "total_employees": len(employees),
+            "total_gross": 0,
+            "total_cpp_employee": 0,
+            "total_cpp_employer": 0,
+            "total_ei_employee": 0,
+            "total_ei_employer": 0,
+            "total_federal_tax": 0,
+            "total_provincial_tax": 0,
+            "total_net_pay": 0,
+            "total_employer_cost": 0,
+        }).execute()
+
+        if not run_insert_result.data or len(run_insert_result.data) == 0:
+            raise ValueError("Failed to create payroll run")
+
+        run = run_insert_result.data[0]
+        run_id = run["id"]
+
+        # Create payroll records for all employees (without calculation)
+        _, results = await self._create_records_for_employees(
+            UUID(run_id), employees, pay_group_map
+        )
+
+        # Update run totals from created records
+        if results:
+            total_gross = sum(float(r.total_gross) for r in results)
+            total_cpp_employee = sum(float(r.cpp_total) for r in results)
+            total_cpp_employer = sum(float(r.cpp_employer) for r in results)
+            total_ei_employee = sum(float(r.ei_employee) for r in results)
+            total_ei_employer = sum(float(r.ei_employer) for r in results)
+            total_federal_tax = sum(float(r.federal_tax) for r in results)
+            total_provincial_tax = sum(float(r.provincial_tax) for r in results)
+            total_net_pay = sum(float(r.net_pay) for r in results)
+            total_employer_cost = total_cpp_employer + total_ei_employer
+
+            self.supabase.table("payroll_runs").update({
+                "total_gross": total_gross,
+                "total_cpp_employee": total_cpp_employee,
+                "total_cpp_employer": total_cpp_employer,
+                "total_ei_employee": total_ei_employee,
+                "total_ei_employer": total_ei_employer,
+                "total_federal_tax": total_federal_tax,
+                "total_provincial_tax": total_provincial_tax,
+                "total_net_pay": total_net_pay,
+                "total_employer_cost": total_employer_cost,
+            }).eq("id", run_id).execute()
+
+            # Refresh run data
+            run = await self.get_run(UUID(run_id)) or run
+
+        return {
+            "run": run,
+            "created": True,
+            "records_count": len(employees),
+        }
+
+    async def add_employee_to_run(
+        self, run_id: UUID, employee_id: str
+    ) -> dict[str, Any]:
+        """
+        Add a single employee to a draft payroll run.
+
+        This adds the employee to the run and creates a payroll record for them.
+        If the employee doesn't belong to a pay group, they'll be assigned based
+        on the run's pay groups.
+
+        Args:
+            run_id: The payroll run ID
+            employee_id: The employee ID to add
+
+        Returns:
+            Dict with 'record' (created payroll record) and 'employee_name'
+
+        Raises:
+            ValueError: If run is not in draft status or employee not found
+        """
+        # Verify run is in draft status
+        run = await self.get_run(run_id)
+        if not run:
+            raise ValueError("Payroll run not found")
+
+        if run["status"] != "draft":
+            raise ValueError(
+                f"Cannot add employee: payroll run is in '{run['status']}' status, "
+                "not 'draft'"
+            )
+
+        # Check if employee already in run
+        existing_record = self.supabase.table("payroll_records").select("id").eq(
+            "payroll_run_id", str(run_id)
+        ).eq("employee_id", employee_id).execute()
+
+        if existing_record.data and len(existing_record.data) > 0:
+            raise ValueError("Employee already exists in this payroll run")
+
+        # Get employee data
+        employee_result = self.supabase.table("employees").select(
+            "id, first_name, last_name, province_of_employment, pay_group_id, "
+            "annual_salary, hourly_rate, federal_claim_amount, provincial_claim_amount, "
+            "is_cpp_exempt, is_ei_exempt, cpp2_exempt"
+        ).eq("id", employee_id).eq("user_id", self.user_id).eq(
+            "ledger_id", self.ledger_id
+        ).single().execute()
+
+        if not employee_result.data:
+            raise ValueError("Employee not found")
+
+        employee = employee_result.data
+
+        # Get pay group info
+        pay_group_id = employee.get("pay_group_id")
+        pay_group = {}
+        if pay_group_id:
+            pg_result = self.supabase.table("pay_groups").select(
+                "id, name, pay_frequency, employment_type"
+            ).eq("id", pay_group_id).execute()
+            if pg_result.data:
+                pay_group = pg_result.data[0]
+
+        pay_group_map = {pay_group_id: pay_group} if pay_group_id else {}
+
+        # Create the payroll record
+        added_employees, results = await self._create_records_for_employees(
+            run_id, [employee], pay_group_map
+        )
+
+        if not added_employees:
+            raise ValueError("Failed to create payroll record for employee")
+
+        # Update run totals
+        if results:
+            r = results[0]
+            self.supabase.table("payroll_runs").update({
+                "total_employees": (run.get("total_employees") or 0) + 1,
+                "total_gross": float(run.get("total_gross", 0)) + float(r.total_gross),
+                "total_cpp_employee": float(run.get("total_cpp_employee", 0)) + float(r.cpp_total),
+                "total_cpp_employer": float(run.get("total_cpp_employer", 0)) + float(r.cpp_employer),
+                "total_ei_employee": float(run.get("total_ei_employee", 0)) + float(r.ei_employee),
+                "total_ei_employer": float(run.get("total_ei_employer", 0)) + float(r.ei_employer),
+                "total_federal_tax": float(run.get("total_federal_tax", 0)) + float(r.federal_tax),
+                "total_provincial_tax": float(run.get("total_provincial_tax", 0)) + float(r.provincial_tax),
+                "total_net_pay": float(run.get("total_net_pay", 0)) + float(r.net_pay),
+                "total_employer_cost": float(run.get("total_employer_cost", 0)) + float(r.cpp_employer) + float(r.ei_employer),
+            }).eq("id", str(run_id)).execute()
+
+        return {
+            "employee_id": employee_id,
+            "employee_name": f"{employee['first_name']} {employee['last_name']}",
+        }
+
+    async def remove_employee_from_run(
+        self, run_id: UUID, employee_id: str
+    ) -> dict[str, Any]:
+        """
+        Remove an employee from a draft payroll run.
+
+        This deletes the payroll record for the employee.
+
+        Args:
+            run_id: The payroll run ID
+            employee_id: The employee ID to remove
+
+        Returns:
+            Dict with 'removed' (bool) and 'employee_id'
+
+        Raises:
+            ValueError: If run is not in draft status or record not found
+        """
+        # Verify run is in draft status
+        run = await self.get_run(run_id)
+        if not run:
+            raise ValueError("Payroll run not found")
+
+        if run["status"] != "draft":
+            raise ValueError(
+                f"Cannot remove employee: payroll run is in '{run['status']}' status, "
+                "not 'draft'"
+            )
+
+        # Get the record to remove (for updating totals)
+        record_result = self.supabase.table("payroll_records").select("*").eq(
+            "payroll_run_id", str(run_id)
+        ).eq("employee_id", employee_id).eq("user_id", self.user_id).execute()
+
+        if not record_result.data or len(record_result.data) == 0:
+            raise ValueError("Employee not found in this payroll run")
+
+        record = record_result.data[0]
+
+        # Delete the record
+        self.supabase.table("payroll_records").delete().eq(
+            "id", record["id"]
+        ).execute()
+
+        # Update run totals (subtract the removed employee's values)
+        gross = float(record.get("gross_regular", 0)) + float(record.get("gross_overtime", 0))
+        cpp_employee = float(record.get("cpp_employee", 0)) + float(record.get("cpp_additional", 0))
+        cpp_employer = float(record.get("cpp_employer", 0))
+        ei_employee = float(record.get("ei_employee", 0))
+        ei_employer = float(record.get("ei_employer", 0))
+        federal_tax = float(record.get("federal_tax", 0))
+        provincial_tax = float(record.get("provincial_tax", 0))
+        net_pay = gross - cpp_employee - ei_employee - federal_tax - provincial_tax
+
+        self.supabase.table("payroll_runs").update({
+            "total_employees": max(0, (run.get("total_employees") or 0) - 1),
+            "total_gross": max(0, float(run.get("total_gross", 0)) - gross),
+            "total_cpp_employee": max(0, float(run.get("total_cpp_employee", 0)) - cpp_employee),
+            "total_cpp_employer": max(0, float(run.get("total_cpp_employer", 0)) - cpp_employer),
+            "total_ei_employee": max(0, float(run.get("total_ei_employee", 0)) - ei_employee),
+            "total_ei_employer": max(0, float(run.get("total_ei_employer", 0)) - ei_employer),
+            "total_federal_tax": max(0, float(run.get("total_federal_tax", 0)) - federal_tax),
+            "total_provincial_tax": max(0, float(run.get("total_provincial_tax", 0)) - provincial_tax),
+            "total_net_pay": max(0, float(run.get("total_net_pay", 0)) - net_pay),
+            "total_employer_cost": max(0, float(run.get("total_employer_cost", 0)) - cpp_employer - ei_employer),
+        }).eq("id", str(run_id)).execute()
+
+        return {
+            "removed": True,
+            "employee_id": employee_id,
+        }
+
+    async def delete_run(self, run_id: UUID) -> dict[str, Any]:
+        """
+        Delete a draft payroll run.
+
+        Only draft runs can be deleted. The associated payroll_records will be
+        automatically deleted via CASCADE.
+
+        Args:
+            run_id: The payroll run ID
+
+        Returns:
+            Dict with 'deleted' (bool) and 'run_id'
+
+        Raises:
+            ValueError: If run is not in draft status
+        """
+        # Verify run exists and is in draft status
+        run = await self.get_run(run_id)
+        if not run:
+            raise ValueError("Payroll run not found")
+
+        if run["status"] != "draft":
+            raise ValueError(
+                f"Cannot delete: payroll run is in '{run['status']}' status. "
+                "Only draft runs can be deleted."
+            )
+
+        # Delete the run (CASCADE will delete payroll_records)
+        self.supabase.table("payroll_runs").delete().eq(
+            "id", str(run_id)
+        ).eq("user_id", self.user_id).eq("ledger_id", self.ledger_id).execute()
+
+        return {
+            "deleted": True,
+            "run_id": str(run_id),
+        }
+
+
 # Factory function for creating service instance
 def get_payroll_run_service(user_id: str, ledger_id: str) -> PayrollRunService:
     """Create a PayrollRunService instance with user context"""

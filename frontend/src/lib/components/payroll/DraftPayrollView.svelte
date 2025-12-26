@@ -12,9 +12,14 @@
 		hasModifiedRecords: boolean;
 		isRecalculating: boolean;
 		isFinalizing: boolean;
+		isDeleting?: boolean;
 		onRecalculate: () => void;
 		onFinalize: () => void;
 		onUpdateRecord: (recordId: string, employeeId: string, updates: Partial<EmployeePayrollInput>) => void;
+		onAddEmployee?: (payGroupId: string) => void;
+		onRemoveEmployee?: (employeeId: string) => void;
+		onDeleteDraft?: () => void;
+		onBack?: () => void;
 	}
 
 	let {
@@ -22,9 +27,14 @@
 		hasModifiedRecords,
 		isRecalculating,
 		isFinalizing,
+		isDeleting = false,
 		onRecalculate,
 		onFinalize,
-		onUpdateRecord
+		onUpdateRecord,
+		onAddEmployee,
+		onRemoveEmployee,
+		onDeleteDraft,
+		onBack
 	}: Props = $props();
 
 	let expandedRecordId = $state<string | null>(null);
@@ -61,24 +71,45 @@
 				<h1 class="page-title">Pay Date: {formatShortDate(payrollRun.payDate)}</h1>
 			</div>
 			<div class="header-actions">
+				{#if onBack}
+					<button class="btn btn-ghost" onclick={onBack}>
+						<i class="fas fa-arrow-left"></i>
+						Back
+					</button>
+				{/if}
+				{#if onDeleteDraft}
+					<button
+						class="btn btn-danger-outline"
+						onclick={onDeleteDraft}
+						disabled={isDeleting}
+					>
+						{#if isDeleting}
+							<i class="fas fa-spinner fa-spin"></i>
+							Deleting...
+						{:else}
+							<i class="fas fa-trash"></i>
+							Delete Draft
+						{/if}
+					</button>
+				{/if}
 				<button
 					class="btn btn-secondary"
 					onclick={onRecalculate}
-					disabled={isRecalculating || !hasModifiedRecords}
+					disabled={isRecalculating}
 				>
 					{#if isRecalculating}
 						<i class="fas fa-spinner fa-spin"></i>
-						Recalculating...
+						Calculating...
 					{:else}
 						<i class="fas fa-calculator"></i>
-						Recalculate
+						Calculate
 					{/if}
 				</button>
 				<button
 					class="btn btn-primary"
 					onclick={onFinalize}
 					disabled={isFinalizing || hasModifiedRecords}
-					title={hasModifiedRecords ? 'Recalculate first to save changes' : 'Finalize payroll run'}
+					title={hasModifiedRecords ? 'Calculate first to save changes' : 'Finalize payroll run'}
 				>
 					{#if isFinalizing}
 						<i class="fas fa-spinner fa-spin"></i>
@@ -97,7 +128,7 @@
 				<i class="fas fa-exclamation-triangle"></i>
 				<span>
 					<strong>Unsaved Changes:</strong> You have modified employee data. Click
-					<strong>Recalculate</strong> to update CPP, EI, and tax calculations.
+					<strong>Calculate</strong> to update CPP, EI, and tax calculations.
 				</span>
 			</div>
 		{/if}
@@ -186,6 +217,8 @@
 				{expandedRecordId}
 				onToggleExpand={handleToggleExpand}
 				{onUpdateRecord}
+				{onAddEmployee}
+				{onRemoveEmployee}
 			/>
 		{/each}
 	</div>
@@ -283,6 +316,28 @@
 	.btn-primary:hover:not(:disabled) {
 		opacity: 0.9;
 		transform: translateY(-1px);
+	}
+
+	.btn-ghost {
+		background: transparent;
+		border: none;
+		color: var(--color-surface-600);
+	}
+
+	.btn-ghost:hover:not(:disabled) {
+		background: var(--color-surface-100);
+		color: var(--color-surface-800);
+	}
+
+	.btn-danger-outline {
+		background: white;
+		border: 1px solid var(--color-error-300);
+		color: var(--color-error-600);
+	}
+
+	.btn-danger-outline:hover:not(:disabled) {
+		background: var(--color-error-50);
+		border-color: var(--color-error-400);
 	}
 
 	/* Warning Banner */

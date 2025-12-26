@@ -596,3 +596,167 @@ export async function syncEmployeesToRun(
 		return { data: null, error: message };
 	}
 }
+
+// ===========================================
+// Create or Get Draft Run (Merged Flow)
+// ===========================================
+
+/**
+ * Response from create-or-get payroll run API
+ */
+export interface CreateOrGetRunResult {
+	created: boolean;
+	recordsCount: number;
+}
+
+/**
+ * Create or get a draft payroll run for a specific pay date.
+ * If a run already exists, returns it. If not, creates a new draft run
+ * with payroll records for all eligible employees.
+ *
+ * This is the main entry point for the merged Before Run + Draft flow.
+ */
+export async function createOrGetPayrollRun(
+	payDate: string
+): Promise<PayrollServiceResult<PayrollRunWithGroups & CreateOrGetRunResult>> {
+	try {
+		getCurrentUserId();
+
+		// Call backend create-or-get endpoint
+		const response = await api.post<{
+			run: {
+				id: string;
+				payDate: string;
+				status: string;
+				totalEmployees: number;
+				totalGross: number;
+				totalCppEmployee: number;
+				totalCppEmployer: number;
+				totalEiEmployee: number;
+				totalEiEmployer: number;
+				totalFederalTax: number;
+				totalProvincialTax: number;
+				totalNetPay: number;
+				totalEmployerCost: number;
+			};
+			created: boolean;
+			recordsCount: number;
+		}>('/payroll/runs/create-or-get', { payDate });
+
+		// Get the full payroll run data with records
+		const runResult = await getPayrollRunByPayDate(payDate);
+		if (runResult.error || !runResult.data) {
+			return { data: null, error: runResult.error ?? 'Failed to load payroll run' };
+		}
+
+		return {
+			data: {
+				...runResult.data,
+				created: response.created,
+				recordsCount: response.recordsCount
+			},
+			error: null
+		};
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to create or get payroll run';
+		console.error('createOrGetPayrollRun error:', message);
+		return { data: null, error: message };
+	}
+}
+
+// ===========================================
+// Add/Remove Employees from Draft Run
+// ===========================================
+
+/**
+ * Add an employee to a draft payroll run.
+ * Creates a payroll record for the employee with initial calculations.
+ */
+export async function addEmployeeToRun(
+	runId: string,
+	employeeId: string
+): Promise<PayrollServiceResult<{ employeeId: string; employeeName: string }>> {
+	try {
+		getCurrentUserId();
+
+		const response = await api.post<{
+			employeeId: string;
+			employeeName: string;
+		}>(`/payroll/runs/${runId}/employees`, { employeeId });
+
+		return {
+			data: {
+				employeeId: response.employeeId,
+				employeeName: response.employeeName
+			},
+			error: null
+		};
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to add employee';
+		console.error('addEmployeeToRun error:', message);
+		return { data: null, error: message };
+	}
+}
+
+/**
+ * Remove an employee from a draft payroll run.
+ * Deletes the payroll record for the employee.
+ */
+export async function removeEmployeeFromRun(
+	runId: string,
+	employeeId: string
+): Promise<PayrollServiceResult<{ removed: boolean; employeeId: string }>> {
+	try {
+		getCurrentUserId();
+
+		const response = await api.delete<{
+			removed: boolean;
+			employeeId: string;
+		}>(`/payroll/runs/${runId}/employees/${employeeId}`);
+
+		return {
+			data: {
+				removed: response.removed,
+				employeeId: response.employeeId
+			},
+			error: null
+		};
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to remove employee';
+		console.error('removeEmployeeFromRun error:', message);
+		return { data: null, error: message };
+	}
+}
+
+// ===========================================
+// Delete Draft Run
+// ===========================================
+
+/**
+ * Delete a draft payroll run.
+ * Only works on runs in 'draft' status. Deletes all associated records.
+ */
+export async function deletePayrollRun(
+	runId: string
+): Promise<PayrollServiceResult<{ deleted: boolean; runId: string }>> {
+	try {
+		getCurrentUserId();
+
+		const response = await api.delete<{
+			deleted: boolean;
+			runId: string;
+		}>(`/payroll/runs/${runId}`);
+
+		return {
+			data: {
+				deleted: response.deleted,
+				runId: response.runId
+			},
+			error: null
+		};
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to delete payroll run';
+		console.error('deletePayrollRun error:', message);
+		return { data: null, error: message };
+	}
+}

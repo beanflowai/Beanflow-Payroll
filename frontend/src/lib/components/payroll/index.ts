@@ -18,13 +18,8 @@ export { default as PayGroupSection } from './PayGroupSection.svelte';
 export { default as DraftPayrollView } from './DraftPayrollView.svelte';
 export { default as DraftPayGroupSection } from './DraftPayGroupSection.svelte';
 
-// Before Run Components
-export { default as BeforeRunPayGroupSection } from './BeforeRunPayGroupSection.svelte';
-export { default as BeforeRunEmployeeRow } from './BeforeRunEmployeeRow.svelte';
-export { default as BeforeRunEmployeeExpandedRow } from './BeforeRunEmployeeExpandedRow.svelte';
+// Add Employees Modal
 export { default as AddEmployeesModal } from './AddEmployeesModal.svelte';
-export { default as BeforeRunSummaryCards } from './BeforeRunSummaryCards.svelte';
-export { default as BeforeRunEmployerCosts } from './BeforeRunEmployerCosts.svelte';
 
 // Page State Components
 export { default as PayrollLoadingState } from './PayrollLoadingState.svelte';

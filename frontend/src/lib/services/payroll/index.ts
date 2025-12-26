@@ -46,7 +46,12 @@ export {
 	revertToDraft,
 	checkHasModifiedRecords,
 	syncEmployeesToRun,
-	type SyncEmployeesResult
+	createOrGetPayrollRun,
+	addEmployeeToRun,
+	removeEmployeeFromRun,
+	deletePayrollRun,
+	type SyncEmployeesResult,
+	type CreateOrGetRunResult
 } from './payroll-runs';
 
 // Re-export pay group functions

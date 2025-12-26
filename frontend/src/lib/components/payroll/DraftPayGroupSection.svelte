@@ -24,9 +24,11 @@
 		expandedRecordId: string | null;
 		onToggleExpand: (id: string) => void;
 		onUpdateRecord: (recordId: string, employeeId: string, updates: Partial<EmployeePayrollInput>) => void;
+		onAddEmployee?: (payGroupId: string) => void;
+		onRemoveEmployee?: (employeeId: string) => void;
 	}
 
-	let { payGroup, expandedRecordId, onToggleExpand, onUpdateRecord }: Props = $props();
+	let { payGroup, expandedRecordId, onToggleExpand, onUpdateRecord, onAddEmployee, onRemoveEmployee }: Props = $props();
 
 	let isCollapsed = $state(false);
 
@@ -212,6 +214,35 @@
 		}
 		return '--';
 	}
+
+	// Check if record needs recalculation (modified or not yet calculated)
+	function isUncalculated(record: PayrollRecord): boolean {
+		// Check if record is marked as modified
+		if (record.isModified) return true;
+		// Check if statutory deductions are zero (indicates not yet calculated)
+		const hasZeroDeductions =
+			record.cppEmployee === 0 &&
+			record.eiEmployee === 0 &&
+			record.federalTax === 0 &&
+			record.provincialTax === 0;
+		// For salaried employees with gross > 0, zero deductions means uncalculated
+		if (record.grossRegular > 0 && hasZeroDeductions) return true;
+		return false;
+	}
+
+	function handleRemoveEmployee(e: MouseEvent, employeeId: string) {
+		e.stopPropagation();
+		if (onRemoveEmployee) {
+			onRemoveEmployee(employeeId);
+		}
+	}
+
+	function handleAddEmployee(e: MouseEvent) {
+		e.stopPropagation();
+		if (onAddEmployee) {
+			onAddEmployee(payGroup.payGroupId);
+		}
+	}
 </script>
 
 <div class="bg-white rounded-xl shadow-md3-1 overflow-hidden mb-4 border-2 border-neutral-200">
@@ -259,6 +290,15 @@
 				<span class="text-body-content font-semibold text-success-600">{formatCurrency(payGroup.totalNetPay)}</span>
 				<span class="text-caption text-surface-500">Net Pay</span>
 			</div>
+			{#if onAddEmployee}
+				<button
+					class="p-2 bg-primary-50 border border-primary-200 rounded-lg text-primary-600 cursor-pointer transition-all duration-150 hover:bg-primary-100 hover:border-primary-300"
+					title="Add Employee"
+					onclick={handleAddEmployee}
+				>
+					<i class="fas fa-user-plus"></i>
+				</button>
+			{/if}
 		</div>
 	</button>
 
@@ -286,9 +326,27 @@
 							onclick={() => onToggleExpand(record.id)}
 						>
 							<td class="py-3 px-4 text-body-content text-surface-700 border-b border-surface-100">
-								<div class="flex flex-col gap-0.5">
-									<span class="font-medium text-surface-800">{record.employeeName}</span>
-									<span class="text-caption text-surface-500 capitalize">{record.compensationType}</span>
+								<div class="flex items-center gap-2">
+									<div class="flex flex-col gap-0.5">
+										<div class="flex items-center gap-2">
+											<span class="font-medium text-surface-800">{record.employeeName}</span>
+											{#if isUncalculated(record)}
+												<span class="inline-flex items-center px-1.5 py-0.5 bg-warning-100 text-warning-700 rounded text-caption font-medium">
+													Est.
+												</span>
+											{/if}
+										</div>
+										<span class="text-caption text-surface-500 capitalize">{record.compensationType}</span>
+									</div>
+									{#if onRemoveEmployee}
+										<button
+											class="ml-auto p-1.5 bg-transparent border-none text-surface-400 cursor-pointer rounded transition-all duration-150 hover:bg-error-50 hover:text-error-500"
+											title="Remove from payroll"
+											onclick={(e) => handleRemoveEmployee(e, record.employeeId)}
+										>
+											<i class="fas fa-user-minus text-sm"></i>
+										</button>
+									{/if}
 								</div>
 							</td>
 							<td class="py-3 px-4 text-body-content text-surface-700 border-b border-surface-100 text-center">
