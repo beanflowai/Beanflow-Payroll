@@ -4,7 +4,7 @@
 **Complexity**: Medium
 **Prerequisites**: Phase 1-3 completed
 
-> **Last Updated**: 2025-12-07
+> **Last Updated**: 2025-12-26
 > **Architecture Version**: v2.0 (Supabase + Repository-Service-API pattern)
 
 ---
@@ -18,8 +18,10 @@ Create REST API endpoints and frontend UI for payroll operations following proje
 2. ✅ FastAPI endpoints for payroll (following existing patterns)
 3. ✅ Employee management API with RLS
 4. ✅ Pay period/payroll run API
-5. ✅ Frontend **Svelte 5** components (using Runes)
-6. ✅ Beancount ledger integration (using existing `BeancountService`)
+5. ✅ Draft payroll run management API (create-or-get, add/remove employees, sync, delete)
+6. ✅ Frontend **Svelte 5** components (using Runes)
+7. ✅ Beancount ledger integration (using existing `BeancountService`)
+8. ✅ Employee snapshot mechanism for historical accuracy
 
 ---
 
@@ -52,6 +54,24 @@ backend/app/services/firestore/company_service.py  # Simpler example
 backend/app/repositories/invoice_repository.py     # Data access
 backend/app/repositories/file_repository.py        # Complex example
 ```
+
+### Employee Snapshot Mechanism
+
+When creating payroll records, the system stores a snapshot of the employee's data
+at the time of payroll creation. This ensures historical accuracy even if employee
+details change later.
+
+**Snapshot fields stored in `payroll_records`:**
+- `snapshot_name`: Employee full name at payroll time
+- `snapshot_province`: Province of employment at payroll time
+- `snapshot_salary`: Annual salary at payroll time
+- `snapshot_pay_group_name`: Pay group name at payroll time
+
+**Usage:**
+- When displaying historical payroll data, use snapshot fields with fallback to current employee data
+- Ensures paystubs and reports reflect accurate historical information
+
+**Database migration:** `20251224240000_add_employee_snapshots.sql`
 
 ---
 
@@ -986,6 +1006,175 @@ async def get_payroll_run(
         )
 
     return result
+
+
+# =============================================================================
+# DRAFT PAYROLL RUN MANAGEMENT ENDPOINTS (NEW)
+# =============================================================================
+
+@router.post(
+    "/runs/create-or-get",
+    response_model=CreateOrGetRunResponse,
+    summary="Create or get a draft payroll run"
+)
+async def create_or_get_run(
+    request: CreateOrGetRunRequest,
+    current_user: CurrentUser,
+):
+    """
+    Create a new draft payroll run or get existing one for a pay date.
+
+    This endpoint:
+    1. Checks if a payroll run already exists for this pay date
+    2. If exists, returns the existing run
+    3. If not, creates a new draft run with payroll records for all eligible employees
+
+    The run is automatically populated with employees from pay groups that have
+    this date as their next_pay_date.
+
+    Request body:
+    - payDate: Pay date in YYYY-MM-DD format
+
+    Response:
+    - run: PayrollRunResponse with run details
+    - created: True if new run was created, False if existing
+    - recordsCount: Number of payroll records created
+    """
+    pass
+
+
+@router.post(
+    "/runs/{run_id}/sync-employees",
+    response_model=SyncEmployeesResponse,
+    summary="Sync new employees to draft payroll run"
+)
+async def sync_employees(run_id: UUID, current_user: CurrentUser):
+    """
+    Sync new employees to a draft payroll run.
+
+    When employees are added to pay groups after a payroll run is created,
+    this endpoint will:
+    1. Find pay groups for the run's pay_date
+    2. Get active employees from those pay groups
+    3. Create payroll_records for any employees not yet in the run
+    4. Update the run's total_employees count
+
+    Only works on runs in 'draft' status.
+
+    Response:
+    - addedCount: Number of new employees added
+    - addedEmployees: List of {employeeId, employeeName}
+    - run: Updated PayrollRunResponse
+    """
+    pass
+
+
+@router.post(
+    "/runs/{run_id}/employees",
+    response_model=AddEmployeeResponse,
+    summary="Add an employee to a draft payroll run"
+)
+async def add_employee_to_run(
+    run_id: UUID,
+    request: AddEmployeeRequest,
+    current_user: CurrentUser,
+):
+    """
+    Add a single employee to a draft payroll run.
+
+    Creates a payroll record for the employee in the run.
+    Only works on runs in 'draft' status.
+
+    Request body:
+    - employeeId: Employee ID to add
+
+    Response:
+    - employeeId: Added employee ID
+    - employeeName: Added employee name
+    """
+    pass
+
+
+@router.delete(
+    "/runs/{run_id}/employees/{employee_id}",
+    response_model=RemoveEmployeeResponse,
+    summary="Remove an employee from a draft payroll run"
+)
+async def remove_employee_from_run(
+    run_id: UUID,
+    employee_id: str,
+    current_user: CurrentUser,
+):
+    """
+    Remove an employee from a draft payroll run.
+
+    Deletes the payroll record for the employee.
+    Only works on runs in 'draft' status.
+
+    Response:
+    - removed: True if successfully removed
+    - employeeId: Removed employee ID
+    """
+    pass
+
+
+@router.delete(
+    "/runs/{run_id}",
+    response_model=DeleteRunResponse,
+    summary="Delete a draft payroll run"
+)
+async def delete_payroll_run(run_id: UUID, current_user: CurrentUser):
+    """
+    Delete a draft payroll run.
+
+    Permanently deletes the run and all associated payroll records.
+    Only works on runs in 'draft' status.
+
+    Response:
+    - deleted: True if successfully deleted
+    - runId: Deleted run ID
+    """
+    pass
+
+
+@router.post(
+    "/runs/{run_id}/recalculate",
+    response_model=PayrollRunResponse,
+    summary="Recalculate payroll run"
+)
+async def recalculate_payroll_run(run_id: UUID, current_user: CurrentUser):
+    """
+    Recalculate all payroll deductions for a draft run.
+
+    This will:
+    1. Read input_data from all payroll_records
+    2. Recalculate CPP, EI, federal tax, and provincial tax
+    3. Update all payroll_records with new values
+    4. Update payroll_runs summary totals
+    5. Clear all is_modified flags
+
+    Only works on runs in 'draft' status.
+    """
+    pass
+
+
+@router.post(
+    "/runs/{run_id}/finalize",
+    response_model=PayrollRunResponse,
+    summary="Finalize payroll run"
+)
+async def finalize_payroll_run(run_id: UUID, current_user: CurrentUser):
+    """
+    Finalize a draft payroll run.
+
+    Transitions the run from 'draft' to 'pending_approval' status.
+    After finalization, the run becomes read-only.
+
+    Prerequisites:
+    - Run must be in 'draft' status
+    - No records can have is_modified = True (must recalculate first)
+    """
+    pass
 
 
 # =============================================================================

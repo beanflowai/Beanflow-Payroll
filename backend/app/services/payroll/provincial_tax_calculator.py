@@ -407,6 +407,9 @@ class ProvincialTaxCalculator:
         else:
             T2 = T4
 
+        # Round T2 before dividing by pay periods (matches CRA calculation order)
+        T2 = self._round(T2)
+
         # Tax per period
         tax_per_period = self._round(T2 / self.P)
 

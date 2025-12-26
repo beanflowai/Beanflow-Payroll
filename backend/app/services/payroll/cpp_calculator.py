@@ -22,6 +22,7 @@ class CppContribution(NamedTuple):
     """CPP contribution breakdown."""
     base: Decimal
     additional: Decimal  # CPP2
+    enhancement: Decimal  # F2: 1% enhancement portion (deductible from taxable income)
     total: Decimal
     employer: Decimal
 
@@ -214,12 +215,38 @@ class CPPCalculator:
         total = base_cpp + additional_cpp
         employer = total  # Employer matches employee contribution
 
+        # Calculate F2 (CPP enhancement portion) - deductible from taxable income
+        # Enhancement = Total CPP × (1% / 5.95%) per T4127
+        enhancement = self._calculate_enhancement(base_cpp)
+
         return CppContribution(
             base=base_cpp,
             additional=additional_cpp,
+            enhancement=enhancement,
             total=total,
             employer=employer,
         )
+
+    def _calculate_enhancement(self, base_cpp: Decimal) -> Decimal:
+        """
+        Calculate CPP enhancement portion (F2) - deductible from taxable income.
+
+        Per T4127: The CPP enhancement (1% of 5.95% total rate) is deductible
+        from income when calculating taxable income for tax purposes.
+
+        Formula: F2 = base_cpp × (0.01 / 0.0595)
+
+        Note: Enhancement is calculated from base CPP only, not CPP2 (additional).
+
+        Args:
+            base_cpp: Base CPP contribution for this period
+
+        Returns:
+            CPP enhancement portion (F2) for this period
+        """
+        # Enhancement rate is 1%, total base rate is 5.95%
+        enhancement_ratio = Decimal("0.01") / Decimal("0.0595")
+        return self._round(base_cpp * enhancement_ratio)
 
     def get_employer_contribution(self, employee_cpp: Decimal) -> Decimal:
         """

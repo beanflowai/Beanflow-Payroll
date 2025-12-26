@@ -1,0 +1,43 @@
+{
+  "year": 2026,
+  "effective_date": "2026-01-01",
+  "source": "CRA T4127 (122nd Edition, January 2026) - Table 8.1",
+  "bpaf": 16452.00,
+  "cea": 1501.00,
+  "indexing_rate": 0.020,
+  "brackets": [
+    {
+      "threshold": 0,
+      "rate": 0.14,
+      "constant": 0,
+      "description": "14% on first $58,523"
+    },
+    {
+      "threshold": 58523,
+      "rate": 0.205,
+      "constant": 3804,
+      "description": "20.5% on $58,523 to $117,045"
+    },
+    {
+      "threshold": 117045,
+      "rate": 0.26,
+      "constant": 10241,
+      "description": "26% on $117,045 to $181,440"
+    },
+    {
+      "threshold": 181440,
+      "rate": 0.29,
+      "constant": 15685,
+      "description": "29% on $181,440 to $258,482"
+    },
+    {
+      "threshold": 258482,
+      "rate": 0.33,
+      "constant": 26024,
+      "description": "33% on over $258,482"
+    }
+  ],
+  "k1_rate": 0.14,
+  "k2_cpp_ei_rate": 0.14,
+  "k4_canada_employment_rate": 0.14
+}

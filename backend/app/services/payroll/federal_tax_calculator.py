@@ -10,6 +10,7 @@ Reference: T4127 (121st Edition, July 2025)
 from __future__ import annotations
 
 import logging
+from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, NamedTuple
 
@@ -51,17 +52,25 @@ class FederalTaxCalculator:
     - K4 = Canada Employment Amount credit
     """
 
-    def __init__(self, pay_periods_per_year: int = 26, year: int = 2025):
+    def __init__(
+        self,
+        pay_periods_per_year: int = 26,
+        year: int = 2025,
+        pay_date: date | None = None,
+    ):
         """
         Initialize federal tax calculator.
 
         Args:
             pay_periods_per_year: Number of pay periods (52=weekly, 26=bi-weekly, etc.)
             year: Tax year for configuration lookup
+            pay_date: Pay period date for selecting appropriate tax edition
+                     (2025: before July 1 uses 15% rate, after uses 14% rate)
         """
         self.P = pay_periods_per_year
         self.year = year
-        self._config = get_federal_config(year)
+        self.pay_date = pay_date
+        self._config = get_federal_config(year, pay_date)
         self._cpp_config = get_cpp_config(year)
         self._ei_config = get_ei_config(year)
 
@@ -92,20 +101,22 @@ class FederalTaxCalculator:
         rrsp_per_period: Decimal = Decimal("0"),
         union_dues_per_period: Decimal = Decimal("0"),
         cpp2_per_period: Decimal = Decimal("0"),
+        cpp_enhancement_per_period: Decimal = Decimal("0"),
     ) -> Decimal:
         """
         Calculate annual taxable income (Factor A).
 
-        Formula: A = P × (I - F - U1 - CPP2)
+        Formula: A = P × (I - F - F2 - U1 - CPP2)
 
         Where:
         - I = Gross income per period
         - F = RRSP deduction per period
+        - F2 = CPP enhancement portion (1% of 5.95%)
         - U1 = Union dues per period
         - CPP2 = CPP additional contribution per period (deductible from taxable income)
         - P = Pay periods per year
 
-        Note: CPP2 (CPP additional contribution) is deducted from taxable income
+        Note: Both F2 (CPP enhancement) and CPP2 are deducted from taxable income
         per CRA T4127 guidelines.
 
         Args:
@@ -113,6 +124,7 @@ class FederalTaxCalculator:
             rrsp_per_period: RRSP deduction for this period
             union_dues_per_period: Union dues for this period
             cpp2_per_period: CPP additional contribution (CPP2) for this period
+            cpp_enhancement_per_period: CPP enhancement portion (F2) for this period
 
         Returns:
             Annual taxable income
@@ -121,7 +133,8 @@ class FederalTaxCalculator:
             gross_per_period
             - rrsp_per_period
             - union_dues_per_period
-            - cpp2_per_period
+            - cpp_enhancement_per_period  # F2: CPP enhancement (1% portion)
+            - cpp2_per_period             # CPP2: additional contribution
         )
         annual_income = self.P * net_per_period
         return max(annual_income, Decimal("0"))
@@ -270,6 +283,7 @@ class FederalTaxCalculator:
         rrsp_per_period: Decimal = Decimal("0"),
         union_dues_per_period: Decimal = Decimal("0"),
         cpp2_per_period: Decimal = Decimal("0"),
+        cpp_enhancement_per_period: Decimal = Decimal("0"),
         k3: Decimal = Decimal("0"),
     ) -> Decimal:
         """
@@ -283,6 +297,7 @@ class FederalTaxCalculator:
             rrsp_per_period: RRSP deduction for this period
             union_dues_per_period: Union dues for this period
             cpp2_per_period: CPP additional contribution (CPP2) for this period
+            cpp_enhancement_per_period: CPP enhancement portion (F2) for this period
             k3: Other tax credits
 
         Returns:
@@ -293,6 +308,7 @@ class FederalTaxCalculator:
             rrsp_per_period,
             union_dues_per_period,
             cpp2_per_period,
+            cpp_enhancement_per_period,
         )
 
         result = self.calculate_federal_tax(
@@ -314,6 +330,7 @@ class FederalTaxCalculator:
         rrsp_per_period: Decimal = Decimal("0"),
         union_dues_per_period: Decimal = Decimal("0"),
         cpp2_per_period: Decimal = Decimal("0"),
+        cpp_enhancement_per_period: Decimal = Decimal("0"),
         k3: Decimal = Decimal("0"),
     ) -> dict[str, Any]:
         """
@@ -326,6 +343,7 @@ class FederalTaxCalculator:
             rrsp_per_period,
             union_dues_per_period,
             cpp2_per_period,
+            cpp_enhancement_per_period,
         )
 
         result = self.calculate_federal_tax(
@@ -345,6 +363,7 @@ class FederalTaxCalculator:
                 "rrsp_per_period": str(rrsp_per_period),
                 "union_dues_per_period": str(union_dues_per_period),
                 "cpp2_per_period": str(cpp2_per_period),
+                "cpp_enhancement_per_period": str(cpp_enhancement_per_period),
                 "pay_periods_per_year": self.P,
             },
             "calculation": {

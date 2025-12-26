@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
@@ -58,6 +59,9 @@ class EmployeePayrollInput:
     ytd_cpp_base: Decimal = Decimal("0")
     ytd_cpp_additional: Decimal = Decimal("0")
     ytd_ei: Decimal = Decimal("0")
+
+    # Pay period date (for tax edition selection)
+    pay_date: date | None = None
 
     # Exemptions
     is_cpp_exempt: bool = False
@@ -162,7 +166,7 @@ class PayrollEngine:
         self.year = year
         self._cpp_calculators: dict[int, CPPCalculator] = {}
         self._ei_calculators: dict[int, EICalculator] = {}
-        self._federal_calculators: dict[int, FederalTaxCalculator] = {}
+        self._federal_calculators: dict[tuple[int, date | None], FederalTaxCalculator] = {}
         self._provincial_calculators: dict[tuple[str, int], ProvincialTaxCalculator] = {}
 
     def _get_cpp_calculator(self, pay_periods: int) -> CPPCalculator:
@@ -177,11 +181,16 @@ class PayrollEngine:
             self._ei_calculators[pay_periods] = EICalculator(pay_periods, self.year)
         return self._ei_calculators[pay_periods]
 
-    def _get_federal_calculator(self, pay_periods: int) -> FederalTaxCalculator:
-        """Get or create federal tax calculator for pay frequency."""
-        if pay_periods not in self._federal_calculators:
-            self._federal_calculators[pay_periods] = FederalTaxCalculator(pay_periods, self.year)
-        return self._federal_calculators[pay_periods]
+    def _get_federal_calculator(
+        self, pay_periods: int, pay_date: date | None = None
+    ) -> FederalTaxCalculator:
+        """Get or create federal tax calculator for pay frequency and date."""
+        key = (pay_periods, pay_date)
+        if key not in self._federal_calculators:
+            self._federal_calculators[key] = FederalTaxCalculator(
+                pay_periods, self.year, pay_date
+            )
+        return self._federal_calculators[key]
 
     def _get_provincial_calculator(
         self, province: str, pay_periods: int
@@ -222,7 +231,7 @@ class PayrollEngine:
         # Get calculators
         cpp_calc = self._get_cpp_calculator(pay_periods)
         ei_calc = self._get_ei_calculator(pay_periods)
-        federal_calc = self._get_federal_calculator(pay_periods)
+        federal_calc = self._get_federal_calculator(pay_periods, input_data.pay_date)
         provincial_calc = self._get_provincial_calculator(province_code, pay_periods)
 
         calculation_details: dict[str, Any] = {
@@ -238,6 +247,7 @@ class PayrollEngine:
             cpp_result = CppContribution(
                 base=Decimal("0"),
                 additional=Decimal("0"),
+                enhancement=Decimal("0"),
                 total=Decimal("0"),
                 employer=Decimal("0"),
             )
@@ -256,6 +266,7 @@ class PayrollEngine:
             "ytd_cpp_additional": str(input_data.ytd_cpp_additional),
             "base": str(cpp_result.base),
             "additional": str(cpp_result.additional),
+            "enhancement": str(cpp_result.enhancement),
             "total": str(cpp_result.total),
             "employer": str(cpp_result.employer),
             "exempt": input_data.is_cpp_exempt,
@@ -284,19 +295,22 @@ class PayrollEngine:
 
         # =========================================================================
         # Step 3: Calculate Annual Taxable Income
-        # Note: CPP2 (additional CPP contribution) is deducted from taxable income
+        # Note: Both F2 (CPP enhancement) and CPP2 are deducted from taxable income
+        # per CRA T4127: A = P × (I - F - F2 - U1 - CPP2)
         # =========================================================================
         annual_taxable = federal_calc.calculate_annual_taxable_income(
             input_data.total_gross,
             input_data.rrsp_per_period,
             input_data.union_dues_per_period,
-            cpp_result.additional,  # CPP2 is deductible from taxable income
+            cpp_result.additional,     # CPP2 is deductible from taxable income
+            cpp_result.enhancement,    # F2: CPP enhancement (1% portion)
         )
 
         calculation_details["income"] = {
             "gross_per_period": str(input_data.total_gross),
             "rrsp_per_period": str(input_data.rrsp_per_period),
             "union_dues_per_period": str(input_data.union_dues_per_period),
+            "cpp_enhancement_per_period": str(cpp_result.enhancement),
             "cpp2_per_period": str(cpp_result.additional),
             "annual_taxable_income": str(annual_taxable),
         }
@@ -326,21 +340,11 @@ class PayrollEngine:
         # =========================================================================
         # Step 5: Calculate Provincial Tax
         # =========================================================================
-        logger.info(
-            f"TAX DEBUG: Calculating provincial tax for {input_data.employee_id}: "
-            f"province={province_code}, annual_taxable={annual_taxable}, "
-            f"provincial_claim_amount={input_data.provincial_claim_amount}"
-        )
         provincial_result = provincial_calc.calculate_provincial_tax(
             annual_taxable,
             input_data.provincial_claim_amount,
             cpp_result.base,
             ei_result.employee,
-        )
-        logger.info(
-            f"TAX DEBUG: Provincial tax result: K1P={provincial_result.personal_credits_k1p}, "
-            f"T4={provincial_result.basic_provincial_tax_t4}, T2={provincial_result.annual_provincial_tax_t2}, "
-            f"tax_per_period={provincial_result.tax_per_period}"
         )
 
         calculation_details["provincial_tax"] = {

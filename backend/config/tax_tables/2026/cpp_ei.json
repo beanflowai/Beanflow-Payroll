@@ -1,0 +1,25 @@
+{
+  "year": 2026,
+  "effective_date": "2026-01-01",
+  "source": "CRA T4127 (122nd Edition, January 2026)",
+  "cpp": {
+    "ympe": 74600.00,
+    "yampe": 85000.00,
+    "basic_exemption": 3500.00,
+    "base_rate": 0.0595,
+    "additional_rate": 0.04,
+    "max_base_contribution": 4230.45,
+    "max_additional_contribution": 416.00,
+    "max_total_contribution": 4646.45,
+    "employer_rate_multiplier": 1.0,
+    "description": "CPP contributions apply on pensionable earnings between $3,500 and YMPE at 5.95%, plus additional 4% on earnings between YMPE and YAMPE (CPP2)"
+  },
+  "ei": {
+    "mie": 68900.00,
+    "employee_rate": 0.0163,
+    "employer_rate_multiplier": 1.4,
+    "max_employee_premium": 1123.07,
+    "max_employer_premium": 1572.30,
+    "description": "EI premiums apply on insurable earnings up to MIE at 1.63% for employees, 1.4x for employers"
+  }
+}

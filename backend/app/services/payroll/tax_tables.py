@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import date
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
@@ -55,14 +56,38 @@ def _get_config_path(year: int, filename: str) -> Path:
     return CONFIG_BASE_PATH / str(year) / filename
 
 
-@lru_cache(maxsize=1)
-def get_federal_config(year: int = 2025) -> dict[str, Any]:
-    """
-    Get federal tax configuration for a given year.
+# July 1 cutoff for mid-year rate change (2025: 15% -> 14%)
+FEDERAL_JULY_CUTOFF = date(2025, 7, 1)
 
-    Returns dict with keys: year, bpaf, cea, indexing_rate, brackets, etc.
+
+def get_federal_config(year: int = 2025, pay_date: date | None = None) -> dict[str, Any]:
     """
-    path = _get_config_path(year, "federal.json")
+    Get federal tax configuration for a given year and pay date.
+
+    For 2025, the federal tax rate changed from 15% to 14% on July 1.
+    This function selects the appropriate edition based on the pay date:
+    - Before July 1, 2025: 120th Edition (15% rate) - federal_jan.json
+    - July 1, 2025 onwards: 121st Edition (14% rate) - federal_jul.json
+
+    Args:
+        year: Tax year (default: 2025)
+        pay_date: Pay period date for edition selection (default: uses July edition)
+
+    Returns:
+        Dict with federal tax configuration for the appropriate edition
+    """
+    if year == 2025:
+        # Select edition based on pay date
+        if pay_date is not None and pay_date < FEDERAL_JULY_CUTOFF:
+            filename = "federal_jan.json"
+        else:
+            # Default to July edition (14% rate) for current calculations
+            filename = "federal_jul.json"
+    else:
+        # For other years, use standard federal.json
+        filename = "federal.json"
+
+    path = _get_config_path(year, filename)
     return _load_json_file(str(path))
 
 
@@ -307,15 +332,25 @@ def validate_tax_tables(year: int = 2025) -> list[str]:
     """
     errors: list[str] = []
 
-    # Validate federal config
-    try:
-        federal = get_federal_config(year)
-        if len(federal.get("brackets", [])) != 5:
-            errors.append(f"Federal should have 5 brackets, got {len(federal.get('brackets', []))}")
-        if "bpaf" not in federal:
-            errors.append("Federal missing 'bpaf' (Basic Personal Amount)")
-    except TaxConfigError as e:
-        errors.append(f"Federal config error: {e}")
+    # Validate federal config(s)
+    # For 2025, validate both editions (Jan and Jul)
+    if year == 2025:
+        federal_editions = [
+            ("federal_jan", date(2025, 1, 1)),
+            ("federal_jul", date(2025, 7, 1)),
+        ]
+    else:
+        federal_editions = [("federal", None)]
+
+    for edition_name, pay_date in federal_editions:
+        try:
+            federal = get_federal_config(year, pay_date)
+            if len(federal.get("brackets", [])) != 5:
+                errors.append(f"{edition_name}: should have 5 brackets, got {len(federal.get('brackets', []))}")
+            if "bpaf" not in federal:
+                errors.append(f"{edition_name}: missing 'bpaf' (Basic Personal Amount)")
+        except TaxConfigError as e:
+            errors.append(f"{edition_name} config error: {e}")
 
     # Validate CPP/EI config
     try:

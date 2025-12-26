@@ -1,6 +1,12 @@
 # Phase 2: Core Calculation Engine
 
 > **Note:** 本文档中的税率和金额基于 CRA T4127 121st Edition (July 2025)
+>
+> **2025 Mid-Year Tax Rate Change:** 2025年联邦最低税率从15%降至14%，生效日期为7月1日：
+> - **2025年1月1日 - 6月30日**: 120th Edition (15% rate)
+> - **2025年7月1日起**: 121st Edition (14% rate)
+>
+> 系统会根据 `pay_date` 自动选择对应的税率版本。
 
 **Duration**: 3 weeks
 **Complexity**: Medium
@@ -22,8 +28,16 @@ CRA T4127 provides two official methods for calculating income tax withholding. 
 
 **How it works:**
 - Each pay period is calculated independently
-- Current period income is annualized: `A = P × (I - F - U1)`
+- Current period income is annualized: `A = P × (I - F - F2 - U1 - CPP2)`
 - Annual tax is calculated, then divided by pay periods
+
+**Formula Variables:**
+- `I` = Gross income per period
+- `F` = RRSP deduction per period
+- `F2` = CPP enhancement portion (1% of 5.95% base rate, deductible from taxable income)
+- `U1` = Union dues per period
+- `CPP2` = CPP additional contribution per period (for income > YMPE)
+- `P` = Pay periods per year
 
 **Best for:**
 - Employees with stable, predictable income
@@ -106,10 +120,20 @@ backend/app/services/payroll/cpp_calculator.py
 
 REQUIREMENTS:
 
-1. Import dependencies:
+1. Import dependencies and define return type:
 ```python
 from decimal import Decimal
+from typing import NamedTuple
 from ..tax_tables_2025 import CPP_CONFIG_2025
+
+
+class CppContribution(NamedTuple):
+    """CPP contribution breakdown."""
+    base: Decimal           # Base CPP (5.95% rate)
+    additional: Decimal     # CPP2 (1.00% rate, for income > YMPE)
+    enhancement: Decimal    # F2: 1% enhancement portion (deductible from taxable income)
+    total: Decimal          # base + additional
+    employer: Decimal       # Employer contribution (matches employee total)
 ```
 
 2. Implement CPPCalculator class:
@@ -225,18 +249,23 @@ class CPPCalculator:
 
         return round(cpp2, 2)
 
-    def calculate_total_cpp(
+    def calculate(
         self,
         pensionable_earnings: Decimal,
         ytd_pensionable_earnings: Decimal = Decimal("0"),
         ytd_cpp_base: Decimal = Decimal("0"),
         ytd_cpp_additional: Decimal = Decimal("0")
-    ) -> tuple[Decimal, Decimal, Decimal]:
+    ) -> CppContribution:
         """
-        Calculate both base and additional CPP
+        Calculate CPP contributions for the pay period.
 
         Returns:
-            (base_cpp, additional_cpp, total_cpp)
+            CppContribution NamedTuple with fields:
+            - base: Base CPP contribution (5.95% rate)
+            - additional: CPP2 contribution (1.00% rate, for income > YMPE)
+            - enhancement: F2 portion (1% of 5.95%, deductible from taxable income)
+            - total: base + additional
+            - employer: Employer contribution (matches employee total)
         """
         base_cpp = self.calculate_base_cpp(
             pensionable_earnings,
@@ -250,7 +279,17 @@ class CPPCalculator:
             ytd_cpp_additional
         )
 
-        return (base_cpp, additional_cpp, base_cpp + additional_cpp)
+        # F2: Enhancement portion = base_cpp × (0.01 / 0.0595)
+        enhancement = self._round(base_cpp * (Decimal("0.01") / Decimal("0.0595")))
+        total = base_cpp + additional_cpp
+
+        return CppContribution(
+            base=base_cpp,
+            additional=additional_cpp,
+            enhancement=enhancement,
+            total=total,
+            employer=total
+        )
 
     def get_employer_contribution(self, employee_cpp: Decimal) -> Decimal:
         """
@@ -271,17 +310,15 @@ Test with T4127 example or realistic scenarios:
 calc = CPPCalculator(pay_periods_per_year=26)  # Bi-weekly
 
 # Scenario 1: Low income (below YMPE)
-base, additional, total = calc.calculate_total_cpp(
-    pensionable_earnings=Decimal("2000.00")
-)
-assert additional == Decimal("0")  # No CPP2
-assert base > Decimal("0")
+result = calc.calculate(pensionable_earnings=Decimal("2000.00"))
+assert result.additional == Decimal("0")  # No CPP2
+assert result.base > Decimal("0")
+assert result.enhancement > Decimal("0")  # F2 is calculated from base
 
 # Scenario 2: High income (above YMPE)
-base, additional, total = calc.calculate_total_cpp(
-    pensionable_earnings=Decimal("3500.00")
-)
-assert additional > Decimal("0")  # Has CPP2
+result = calc.calculate(pensionable_earnings=Decimal("3500.00"))
+assert result.additional > Decimal("0")  # Has CPP2
+assert result.enhancement > Decimal("0")  # F2 portion for tax deduction
 ```
 ```
 
@@ -546,34 +583,51 @@ class FederalTaxCalculator:
 
     Reference: CRA T4127 Chapter 4
     Formula: T3 = (R × A) - K - K1 - K2 - K3 - K4
+
+    Note: For 2025, the lowest federal tax bracket changed from 15% to 14%
+    effective July 1, 2025. The calculator accepts a pay_date parameter to
+    automatically select the appropriate tax edition.
     """
 
-    def __init__(self, pay_periods_per_year: int = 26):
+    def __init__(self, pay_periods_per_year: int = 26, year: int = 2025, pay_date: date | None = None):
         self.P = pay_periods_per_year
-        self.config = FEDERAL_TAX_CONFIG
+        self.year = year
+        self.pay_date = pay_date
+        # Selects 120th Edition (Jan, 15%) or 121st Edition (Jul, 14%) based on pay_date
+        self.config = get_federal_config(year, pay_date)
 
     def calculate_annual_taxable_income(
         self,
         gross_per_period: Decimal,
         rrsp_per_period: Decimal = Decimal("0"),
-        union_dues_per_period: Decimal = Decimal("0")
+        union_dues_per_period: Decimal = Decimal("0"),
+        cpp2_per_period: Decimal = Decimal("0"),
+        cpp_enhancement_per_period: Decimal = Decimal("0")
     ) -> Decimal:
         """
         Calculate annual taxable income (Factor A)
 
-        Formula: A = P × (I - F - U1)
+        Formula: A = P × (I - F - F2 - U1 - CPP2)
 
         Where:
         - I = Gross income per period
         - F = RRSP deduction
+        - F2 = CPP enhancement portion (1% of 5.95%, deductible)
         - U1 = Union dues
+        - CPP2 = CPP additional contribution (deductible)
         - P = Pay periods per year
 
         Returns:
             Annual taxable income
         """
-        A = self.P * (gross_per_period - rrsp_per_period - union_dues_per_period)
-        return max(A, Decimal("0"))
+        net_per_period = (
+            gross_per_period
+            - rrsp_per_period
+            - union_dues_per_period
+            - cpp_enhancement_per_period  # F2
+            - cpp2_per_period             # CPP2
+        )
+        return max(self.P * net_per_period, Decimal("0"))
 
     def calculate_k1(self, total_claim_amount: Decimal) -> Decimal:
         """
