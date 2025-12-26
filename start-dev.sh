@@ -107,6 +107,12 @@ if [ ! -d "node_modules" ]; then
     npm install
 fi
 
+# Generate .svelte-kit if missing (prevents tsconfig warning)
+if [ ! -d ".svelte-kit" ]; then
+    echo -e "${YELLOW}Generating .svelte-kit...${NC}"
+    npx svelte-kit sync
+fi
+
 npm run dev -- --port $FRONTEND_PORT --host &
 FRONTEND_PID=$!
 echo $FRONTEND_PID > "$FRONTEND_PID_FILE"

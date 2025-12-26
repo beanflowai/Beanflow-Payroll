@@ -2,10 +2,15 @@
 	/**
 	 * EditTaxInfoModal - Edit tax information form (TD1)
 	 * Changes require employer approval
+	 *
+	 * UI follows BPA + Additional Claims pattern:
+	 * - BPA is read-only (set by province)
+	 * - User inputs only Additional Claims
+	 * - Total = BPA + Additional Claims (auto-calculated)
 	 */
 	import BaseModal from '$lib/shared-base/BaseModal.svelte';
 	import type { TaxInfoFormData } from '$lib/types/employee-portal';
-	import { TAX_CONSTANTS_2025 } from '$lib/types/employee-portal';
+	import { FEDERAL_BPA_2025, PROVINCIAL_BPA_2025, PROVINCE_LABELS, type Province } from '$lib/types/employee';
 
 	interface Props {
 		visible: boolean;
@@ -22,21 +27,28 @@
 
 	let { visible = $bindable(), initialData, onclose, onSubmit }: Props = $props();
 
-	// Get provincial BPA based on province
-	const provincialBPA = TAX_CONSTANTS_2025.provincialBPA[initialData.provinceOfEmployment as keyof typeof TAX_CONSTANTS_2025.provincialBPA] || TAX_CONSTANTS_2025.provincialBPA.ON;
+	// Get provincial BPA based on province (with fallback to ON for unsupported provinces like QC)
+	const province = initialData.provinceOfEmployment as Province;
+	const provincialBPA = PROVINCIAL_BPA_2025[province] ?? PROVINCIAL_BPA_2025.ON;
+	const provinceName = PROVINCE_LABELS[province] ?? initialData.provinceOfEmployment;
 
-	// Form state
-	let useBasicFederal = $state(initialData.federalClaimAmount === TAX_CONSTANTS_2025.federalBPA);
-	let customFederalAmount = $state(initialData.federalClaimAmount);
-	let useBasicProvincial = $state(initialData.provincialClaimAmount === provincialBPA);
-	let customProvincialAmount = $state(initialData.provincialClaimAmount);
+	// Reverse-calculate additional claims from stored total
+	function calculateAdditionalClaims(storedTotal: number, bpa: number): number {
+		const additional = storedTotal - bpa;
+		return additional > 0 ? additional : 0;
+	}
+
+	// Form state - user inputs Additional Claims only
+	let federalAdditionalClaims = $state(calculateAdditionalClaims(initialData.federalClaimAmount, FEDERAL_BPA_2025));
+	let provincialAdditionalClaims = $state(calculateAdditionalClaims(initialData.provincialClaimAmount, provincialBPA));
 	let requestAdditionalTax = $state(initialData.additionalTaxPerPeriod > 0);
 	let additionalTaxAmount = $state(initialData.additionalTaxPerPeriod);
 
 	let isSubmitting = $state(false);
 
-	const federalAmount = $derived(useBasicFederal ? TAX_CONSTANTS_2025.federalBPA : customFederalAmount);
-	const provincialAmount = $derived(useBasicProvincial ? provincialBPA : customProvincialAmount);
+	// Derived: Total claim amounts (BPA + additional claims)
+	const federalTotalClaim = $derived(FEDERAL_BPA_2025 + federalAdditionalClaims);
+	const provincialTotalClaim = $derived(provincialBPA + provincialAdditionalClaims);
 
 	function formatMoney(amount: number): string {
 		return new Intl.NumberFormat('en-CA', {
@@ -51,11 +63,11 @@
 		isSubmitting = true;
 
 		const data: TaxInfoFormData = {
-			federalClaimAmount: federalAmount,
-			provincialClaimAmount: provincialAmount,
+			federalClaimAmount: federalTotalClaim,
+			provincialClaimAmount: provincialTotalClaim,
 			additionalTaxPerPeriod: requestAdditionalTax ? additionalTaxAmount : 0,
-			useBasicFederalAmount: useBasicFederal,
-			useBasicProvincialAmount: useBasicProvincial
+			useBasicFederalAmount: federalAdditionalClaims === 0,
+			useBasicProvincialAmount: provincialAdditionalClaims === 0
 		};
 
 		setTimeout(() => {
@@ -91,66 +103,62 @@
 
 		<div class="form-divider"></div>
 
-		<!-- Federal TD1 Claim Amount -->
+		<!-- Federal TD1 -->
 		<div class="form-group">
-			<label class="form-label">Federal TD1 Claim Amount</label>
-			<div class="radio-group">
-				<label class="radio-option">
-					<input type="radio" bind:group={useBasicFederal} value={true} />
-					<span class="radio-label">
-						Basic Personal Amount: {formatMoney(TAX_CONSTANTS_2025.federalBPA)}
-						<span class="radio-hint">(most employees)</span>
-					</span>
-				</label>
-				<label class="radio-option">
-					<input type="radio" bind:group={useBasicFederal} value={false} />
-					<span class="radio-label">Custom amount from TD1 form:</span>
-				</label>
-				{#if !useBasicFederal}
+			<label class="form-label">Federal TD1</label>
+			<div class="claim-grid">
+				<div class="claim-item">
+					<span class="claim-sublabel">Basic Personal Amount (2025)</span>
+					<div class="claim-value readonly">{formatMoney(FEDERAL_BPA_2025)}</div>
+				</div>
+				<div class="claim-item">
+					<span class="claim-sublabel">Additional Claims</span>
 					<div class="custom-amount-input">
 						<span class="currency-prefix">$</span>
 						<input
 							type="number"
 							class="form-input amount-input"
-							bind:value={customFederalAmount}
+							bind:value={federalAdditionalClaims}
 							min="0"
 							step="1"
 						/>
 					</div>
-				{/if}
+				</div>
+				<div class="claim-item">
+					<span class="claim-sublabel">Total Claim Amount</span>
+					<div class="claim-value total">{formatMoney(federalTotalClaim)}</div>
+				</div>
 			</div>
 			<p class="form-hint">
-				Enter the total from Line 13 of your Federal TD1 form if different from the Basic Personal Amount.
+				Enter additional claims from your TD1 form (spouse, dependants, disability, etc.) - the amount above the Basic Personal Amount.
 			</p>
 		</div>
 
-		<!-- Provincial TD1 Claim Amount -->
+		<!-- Provincial TD1 -->
 		<div class="form-group">
-			<label class="form-label">Provincial TD1 Claim Amount ({initialData.provinceOfEmployment})</label>
-			<div class="radio-group">
-				<label class="radio-option">
-					<input type="radio" bind:group={useBasicProvincial} value={true} />
-					<span class="radio-label">
-						Basic Personal Amount: {formatMoney(provincialBPA)}
-						<span class="radio-hint">(most employees)</span>
-					</span>
-				</label>
-				<label class="radio-option">
-					<input type="radio" bind:group={useBasicProvincial} value={false} />
-					<span class="radio-label">Custom amount from TD1 form:</span>
-				</label>
-				{#if !useBasicProvincial}
+			<label class="form-label">Provincial TD1 ({provinceName})</label>
+			<div class="claim-grid">
+				<div class="claim-item">
+					<span class="claim-sublabel">Basic Personal Amount (2025)</span>
+					<div class="claim-value readonly">{formatMoney(provincialBPA)}</div>
+				</div>
+				<div class="claim-item">
+					<span class="claim-sublabel">Additional Claims</span>
 					<div class="custom-amount-input">
 						<span class="currency-prefix">$</span>
 						<input
 							type="number"
 							class="form-input amount-input"
-							bind:value={customProvincialAmount}
+							bind:value={provincialAdditionalClaims}
 							min="0"
 							step="1"
 						/>
 					</div>
-				{/if}
+				</div>
+				<div class="claim-item">
+					<span class="claim-sublabel">Total Claim Amount</span>
+					<div class="claim-value total">{formatMoney(provincialTotalClaim)}</div>
+				</div>
 			</div>
 		</div>
 
@@ -257,38 +265,52 @@
 		color: var(--color-surface-600);
 	}
 
-	.radio-group {
+	.claim-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: var(--spacing-3);
+	}
+
+	@media (max-width: 640px) {
+		.claim-grid {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	.claim-item {
 		display: flex;
 		flex-direction: column;
-		gap: var(--spacing-2);
+		gap: var(--spacing-1);
 	}
 
-	.radio-option {
-		display: flex;
-		align-items: flex-start;
-		gap: var(--spacing-2);
-		cursor: pointer;
-	}
-
-	.radio-option input[type='radio'] {
-		margin-top: 3px;
-	}
-
-	.radio-label {
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-700);
-	}
-
-	.radio-hint {
+	.claim-sublabel {
 		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
+		color: var(--color-surface-600);
+	}
+
+	.claim-value {
+		padding: var(--spacing-3);
+		border-radius: var(--radius-md);
+		font-size: var(--font-size-body-content);
+		font-weight: var(--font-weight-medium);
+	}
+
+	.claim-value.readonly {
+		background: var(--color-surface-100);
+		color: var(--color-surface-600);
+	}
+
+	.claim-value.total {
+		background: var(--color-primary-50);
+		border: 1px solid var(--color-primary-200);
+		color: var(--color-primary-700);
+		font-weight: var(--font-weight-semibold);
 	}
 
 	.custom-amount-input {
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-2);
-		margin-left: var(--spacing-6);
 	}
 
 	.currency-prefix {

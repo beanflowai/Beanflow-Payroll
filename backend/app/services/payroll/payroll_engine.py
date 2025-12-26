@@ -284,17 +284,20 @@ class PayrollEngine:
 
         # =========================================================================
         # Step 3: Calculate Annual Taxable Income
+        # Note: CPP2 (additional CPP contribution) is deducted from taxable income
         # =========================================================================
         annual_taxable = federal_calc.calculate_annual_taxable_income(
             input_data.total_gross,
             input_data.rrsp_per_period,
             input_data.union_dues_per_period,
+            cpp_result.additional,  # CPP2 is deductible from taxable income
         )
 
         calculation_details["income"] = {
             "gross_per_period": str(input_data.total_gross),
             "rrsp_per_period": str(input_data.rrsp_per_period),
             "union_dues_per_period": str(input_data.union_dues_per_period),
+            "cpp2_per_period": str(cpp_result.additional),
             "annual_taxable_income": str(annual_taxable),
         }
 
@@ -323,11 +326,21 @@ class PayrollEngine:
         # =========================================================================
         # Step 5: Calculate Provincial Tax
         # =========================================================================
+        logger.info(
+            f"TAX DEBUG: Calculating provincial tax for {input_data.employee_id}: "
+            f"province={province_code}, annual_taxable={annual_taxable}, "
+            f"provincial_claim_amount={input_data.provincial_claim_amount}"
+        )
         provincial_result = provincial_calc.calculate_provincial_tax(
             annual_taxable,
             input_data.provincial_claim_amount,
             cpp_result.base,
             ei_result.employee,
+        )
+        logger.info(
+            f"TAX DEBUG: Provincial tax result: K1P={provincial_result.personal_credits_k1p}, "
+            f"T4={provincial_result.basic_provincial_tax_t4}, T2={provincial_result.annual_provincial_tax_t2}, "
+            f"tax_per_period={provincial_result.tax_per_period}"
         )
 
         calculation_details["provincial_tax"] = {

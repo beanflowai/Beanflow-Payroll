@@ -17,12 +17,23 @@ from uuid import UUID
 from app.core.supabase_client import get_supabase_client
 from app.models.payroll import PayFrequency, Province
 from app.services.payroll import EmployeePayrollInput, PayrollEngine
+from app.services.payroll.tax_tables import get_province_config
 
 logger = logging.getLogger(__name__)
 
-# 2025 Federal and Provincial Basic Personal Amounts (default claim amounts)
+# 2025 Federal Basic Personal Amount (default claim amount)
 DEFAULT_FEDERAL_CLAIM_2025 = Decimal("16129")
-DEFAULT_PROVINCIAL_CLAIM_2025 = Decimal("12747")  # Ontario default
+
+
+def get_provincial_bpa(province_code: str, year: int = 2025) -> Decimal:
+    """Get the Basic Personal Amount for a province from tax tables."""
+    try:
+        config = get_province_config(province_code, year)
+        return Decimal(str(config["bpa"]))
+    except Exception as e:
+        logger.warning(f"Failed to get BPA for {province_code}: {e}, using fallback")
+        # Fallback to ON default if lookup fails
+        return Decimal("12747")
 
 
 class PayrollRunService:
@@ -207,6 +218,24 @@ class PayrollRunService:
                         other_earnings += amount
 
             # Build calculation input
+            # Determine claim amounts (use employee values or province-specific BPA)
+            province_code = employee["province_of_employment"]
+            federal_claim = Decimal(
+                str(employee.get("federal_claim_amount"))
+            ) if employee.get("federal_claim_amount") is not None else DEFAULT_FEDERAL_CLAIM_2025
+            provincial_claim = Decimal(
+                str(employee.get("provincial_claim_amount"))
+            ) if employee.get("provincial_claim_amount") is not None else get_provincial_bpa(province_code)
+
+            # DEBUG: Log claim amounts for each employee
+            logger.info(
+                f"PAYROLL DEBUG: Employee {employee.get('first_name')} {employee.get('last_name')} "
+                f"(province={province_code}): "
+                f"federal_claim_amount={employee.get('federal_claim_amount')} -> {federal_claim}, "
+                f"provincial_claim_amount={employee.get('provincial_claim_amount')} -> {provincial_claim}, "
+                f"gross={gross_regular + gross_overtime}"
+            )
+
             calc_input = EmployeePayrollInput(
                 employee_id=record["employee_id"],
                 province=Province(employee["province_of_employment"]),
@@ -215,12 +244,8 @@ class PayrollRunService:
                 gross_overtime=gross_overtime,
                 holiday_pay=holiday_pay,
                 other_earnings=other_earnings,
-                federal_claim_amount=Decimal(
-                    str(employee.get("federal_claim_amount"))
-                ) if employee.get("federal_claim_amount") is not None else DEFAULT_FEDERAL_CLAIM_2025,
-                provincial_claim_amount=Decimal(
-                    str(employee.get("provincial_claim_amount"))
-                ) if employee.get("provincial_claim_amount") is not None else DEFAULT_PROVINCIAL_CLAIM_2025,
+                federal_claim_amount=federal_claim,
+                provincial_claim_amount=provincial_claim,
                 is_cpp_exempt=employee.get("is_cpp_exempt", False),
                 is_ei_exempt=employee.get("is_ei_exempt", False),
                 cpp2_exempt=employee.get("cpp2_exempt", False),
@@ -492,9 +517,11 @@ class PayrollRunService:
                 emp, pay_frequency_str
             )
 
+            # Use province-specific BPA as default if no employee override
+            emp_province = emp["province_of_employment"]
             calc_input = EmployeePayrollInput(
                 employee_id=emp["id"],
-                province=Province(emp["province_of_employment"]),
+                province=Province(emp_province),
                 pay_frequency=pay_frequency,
                 gross_regular=gross_regular,
                 gross_overtime=gross_overtime,
@@ -503,7 +530,7 @@ class PayrollRunService:
                 ) if emp.get("federal_claim_amount") is not None else DEFAULT_FEDERAL_CLAIM_2025,
                 provincial_claim_amount=Decimal(
                     str(emp.get("provincial_claim_amount"))
-                ) if emp.get("provincial_claim_amount") is not None else DEFAULT_PROVINCIAL_CLAIM_2025,
+                ) if emp.get("provincial_claim_amount") is not None else get_provincial_bpa(emp_province),
                 is_cpp_exempt=emp.get("is_cpp_exempt", False),
                 is_ei_exempt=emp.get("is_ei_exempt", False),
                 cpp2_exempt=emp.get("cpp2_exempt", False),

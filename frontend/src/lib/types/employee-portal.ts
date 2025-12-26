@@ -311,21 +311,4 @@ export const RELATIONSHIP_OPTIONS = [
 	'Other'
 ] as const;
 
-export const TAX_CONSTANTS_2025 = {
-	federalBPA: 16129,
-	provincialBPA: {
-		AB: 21003,
-		BC: 12932,
-		MB: 15780,
-		NB: 13396,
-		NL: 10818,
-		NS: 11481,
-		NT: 17373,
-		NU: 18767,
-		ON: 12399,
-		PE: 14250,
-		QC: 18056,
-		SK: 18491,
-		YT: 16129
-	}
-} as const;
+// BPA constants are centralized in employee.ts - use FEDERAL_BPA_2025 and PROVINCIAL_BPA_2025

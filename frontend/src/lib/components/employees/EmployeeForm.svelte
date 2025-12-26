@@ -41,12 +41,27 @@
 	let annualSalary = $state(employee?.annualSalary ?? 0);
 	let hourlyRate = $state(employee?.hourlyRate ?? 0);
 
-	// Tax
-	let federalClaimAmount = $state(employee?.federalClaimAmount ?? FEDERAL_BPA_2025);
-	let provincialClaimAmount = $state(employee?.provincialClaimAmount ?? PROVINCIAL_BPA_2025['ON']);
+	// Tax - BPA is read-only, user inputs Additional Claims only
+	// On initial load for existing employee, reverse-calculate additional claims from stored total
+	function calculateAdditionalClaims(storedTotal: number, bpa: number): number {
+		const additional = storedTotal - bpa;
+		return additional > 0 ? additional : 0;
+	}
+
+	let federalAdditionalClaims = $state(
+		employee ? calculateAdditionalClaims(employee.federalClaimAmount, FEDERAL_BPA_2025) : 0
+	);
+	let provincialAdditionalClaims = $state(
+		employee ? calculateAdditionalClaims(employee.provincialClaimAmount, PROVINCIAL_BPA_2025[employee.provinceOfEmployment]) : 0
+	);
+	let showProvinceChangeWarning = $state(false);
 	let isCppExempt = $state(employee?.isCppExempt ?? false);
 	let isEiExempt = $state(employee?.isEiExempt ?? false);
 	let cpp2Exempt = $state(employee?.cpp2Exempt ?? false);
+
+	// Derived: Total claim amounts (BPA + additional claims)
+	const federalClaimAmount = $derived(FEDERAL_BPA_2025 + federalAdditionalClaims);
+	const provincialClaimAmount = $derived(PROVINCIAL_BPA_2025[province] + provincialAdditionalClaims);
 
 	// Deductions
 	let rrspPerPeriod = $state(employee?.rrspPerPeriod ?? 0);
@@ -82,8 +97,9 @@
 			compensationType = employee.hourlyRate ? 'hourly' : 'salaried';
 			annualSalary = employee.annualSalary ?? 0;
 			hourlyRate = employee.hourlyRate ?? 0;
-			federalClaimAmount = employee.federalClaimAmount;
-			provincialClaimAmount = employee.provincialClaimAmount;
+			// Reverse-calculate additional claims from stored total
+			federalAdditionalClaims = calculateAdditionalClaims(employee.federalClaimAmount, FEDERAL_BPA_2025);
+			provincialAdditionalClaims = calculateAdditionalClaims(employee.provincialClaimAmount, PROVINCIAL_BPA_2025[employee.provinceOfEmployment]);
 			isCppExempt = employee.isCppExempt;
 			isEiExempt = employee.isEiExempt;
 			cpp2Exempt = employee.cpp2Exempt;
@@ -92,6 +108,7 @@
 			vacationPayoutMethod = employee.vacationConfig?.payoutMethod ?? 'accrual';
 			vacationRate = employee.vacationConfig?.vacationRate ?? '0.04';
 			vacationBalance = employee.vacationBalance ?? 0;
+			showProvinceChangeWarning = false;
 			errors = {};
 			submitError = null;
 		}
@@ -104,11 +121,15 @@
 		return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 9)}`;
 	}
 
-	// Province change handler - auto-fill BPA
+	// Province change handler - show warning if additional claims exist
 	function handleProvinceChange(newProvince: Province) {
 		province = newProvince;
-		federalClaimAmount = FEDERAL_BPA_2025;
-		provincialClaimAmount = PROVINCIAL_BPA_2025[newProvince];
+		// Show warning if user has additional claims that may need review
+		if (federalAdditionalClaims > 0 || provincialAdditionalClaims > 0) {
+			showProvinceChangeWarning = true;
+		}
+		// BPA updates automatically via derived provincialClaimAmount
+		// Additional claims remain unchanged - user decides if they need adjustment
 	}
 
 	// Tag management
@@ -167,9 +188,9 @@
 			newErrors.hourlyRate = 'Hourly rate is required';
 		}
 
-		// Tax
-		if (federalClaimAmount < 0) newErrors.federalClaimAmount = 'Invalid amount';
-		if (provincialClaimAmount < 0) newErrors.provincialClaimAmount = 'Invalid amount';
+		// Tax - validate additional claims (must be >= 0)
+		if (federalAdditionalClaims < 0) newErrors.federalAdditionalClaims = 'Invalid amount';
+		if (provincialAdditionalClaims < 0) newErrors.provincialAdditionalClaims = 'Invalid amount';
 
 		errors = newErrors;
 		return Object.keys(newErrors).length === 0;
@@ -548,66 +569,116 @@
 		<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">Tax Information (TD1)</h3>
 		<p class="text-body-small text-surface-500 m-0 mb-4 flex items-center gap-2">
 			<i class="fas fa-info-circle text-primary-500"></i>
-			Claim amounts are auto-filled with 2025 Basic Personal Amounts when province changes
+			BPA is set based on 2025 tax tables. Enter any additional claims from TD1 (spouse, dependants, etc.)
 		</p>
-		<div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
-			<div class="flex flex-col gap-2">
-				<label for="federalClaim" class="text-body-small font-medium text-surface-700">Federal Claim Amount *</label>
-				<div class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10">
-					<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
-					<input
-						id="federalClaim"
-						type="number"
-						class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
-						bind:value={federalClaimAmount}
-						min="0"
-						step="1"
-					/>
-				</div>
-				{#if errors.federalClaimAmount}
-					<span class="text-auxiliary-text text-error-600">{errors.federalClaimAmount}</span>
-				{/if}
-				<span class="text-auxiliary-text text-surface-500">2025 BPA: {formatCurrency(FEDERAL_BPA_2025)}</span>
-			</div>
 
-			<div class="flex flex-col gap-2">
-				<label for="provincialClaim" class="text-body-small font-medium text-surface-700">Provincial Claim Amount *</label>
-				<div class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10">
-					<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
-					<input
-						id="provincialClaim"
-						type="number"
-						class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
-						bind:value={provincialClaimAmount}
-						min="0"
-						step="1"
-					/>
-				</div>
-				{#if errors.provincialClaimAmount}
-					<span class="text-auxiliary-text text-error-600">{errors.provincialClaimAmount}</span>
-				{/if}
-				<span class="text-auxiliary-text text-surface-500">{PROVINCE_LABELS[province]} BPA: {formatCurrency(PROVINCIAL_BPA_2025[province])}</span>
+		{#if showProvinceChangeWarning}
+			<div class="flex items-center gap-3 p-3 mb-4 bg-warning-50 border border-warning-200 rounded-lg text-warning-700 text-body-small">
+				<i class="fas fa-exclamation-triangle text-warning-500"></i>
+				<span>Province changed. Please review your additional TD1 claims before saving.</span>
+				<button type="button" class="ml-auto bg-transparent border-none text-warning-500 cursor-pointer p-1 opacity-70 hover:opacity-100" onclick={() => showProvinceChangeWarning = false}>
+					<i class="fas fa-times"></i>
+				</button>
 			</div>
+		{/if}
 
-			<div class="flex flex-col gap-2 col-span-full">
-				<label class="text-body-small font-medium text-surface-700">Exemptions</label>
-				<div class="flex gap-6 flex-wrap max-sm:flex-col max-sm:gap-3">
-					<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
-						<input type="checkbox" bind:checked={isCppExempt} />
-						<span>CPP Exempt</span>
-					</label>
-					<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
-						<input type="checkbox" bind:checked={isEiExempt} />
-						<span>EI Exempt</span>
-					</label>
-					<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
-						<input type="checkbox" bind:checked={cpp2Exempt} />
-						<span>CPP2 Exempt</span>
-						<span class="text-surface-400 cursor-help" title="CPT30 form on file - exempt from additional CPP contributions">
-							<i class="fas fa-info-circle"></i>
-						</span>
-					</label>
+		<!-- Federal TD1 -->
+		<div class="mb-6">
+			<h4 class="text-body-small font-semibold text-surface-600 m-0 mb-3">Federal TD1</h4>
+			<div class="grid grid-cols-3 gap-4 max-sm:grid-cols-1">
+				<div class="flex flex-col gap-2">
+					<label class="text-body-small font-medium text-surface-700">Basic Personal Amount (2025)</label>
+					<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600 font-medium">
+						{formatCurrency(FEDERAL_BPA_2025)}
+					</div>
 				</div>
+
+				<div class="flex flex-col gap-2">
+					<label for="federalAdditionalClaims" class="text-body-small font-medium text-surface-700">Additional Claims</label>
+					<div class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10">
+						<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
+						<input
+							id="federalAdditionalClaims"
+							type="number"
+							class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
+							bind:value={federalAdditionalClaims}
+							min="0"
+							step="1"
+						/>
+					</div>
+					{#if errors.federalAdditionalClaims}
+						<span class="text-auxiliary-text text-error-600">{errors.federalAdditionalClaims}</span>
+					{/if}
+					<span class="text-auxiliary-text text-surface-500">From TD1 Line 13 minus BPA</span>
+				</div>
+
+				<div class="flex flex-col gap-2">
+					<label class="text-body-small font-medium text-surface-700">Total Claim Amount</label>
+					<div class="p-3 bg-primary-50 border border-primary-200 rounded-md text-body-content text-primary-700 font-semibold">
+						{formatCurrency(federalClaimAmount)}
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Provincial TD1 -->
+		<div class="mb-6">
+			<h4 class="text-body-small font-semibold text-surface-600 m-0 mb-3">Provincial TD1 ({PROVINCE_LABELS[province]})</h4>
+			<div class="grid grid-cols-3 gap-4 max-sm:grid-cols-1">
+				<div class="flex flex-col gap-2">
+					<label class="text-body-small font-medium text-surface-700">Basic Personal Amount (2025)</label>
+					<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600 font-medium">
+						{formatCurrency(PROVINCIAL_BPA_2025[province])}
+					</div>
+				</div>
+
+				<div class="flex flex-col gap-2">
+					<label for="provincialAdditionalClaims" class="text-body-small font-medium text-surface-700">Additional Claims</label>
+					<div class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10">
+						<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
+						<input
+							id="provincialAdditionalClaims"
+							type="number"
+							class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
+							bind:value={provincialAdditionalClaims}
+							min="0"
+							step="1"
+						/>
+					</div>
+					{#if errors.provincialAdditionalClaims}
+						<span class="text-auxiliary-text text-error-600">{errors.provincialAdditionalClaims}</span>
+					{/if}
+					<span class="text-auxiliary-text text-surface-500">From TD1 Line 13 minus BPA</span>
+				</div>
+
+				<div class="flex flex-col gap-2">
+					<label class="text-body-small font-medium text-surface-700">Total Claim Amount</label>
+					<div class="p-3 bg-primary-50 border border-primary-200 rounded-md text-body-content text-primary-700 font-semibold">
+						{formatCurrency(provincialClaimAmount)}
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Exemptions -->
+		<div class="flex flex-col gap-2">
+			<label class="text-body-small font-medium text-surface-700">Exemptions</label>
+			<div class="flex gap-6 flex-wrap max-sm:flex-col max-sm:gap-3">
+				<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
+					<input type="checkbox" bind:checked={isCppExempt} />
+					<span>CPP Exempt</span>
+				</label>
+				<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
+					<input type="checkbox" bind:checked={isEiExempt} />
+					<span>EI Exempt</span>
+				</label>
+				<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
+					<input type="checkbox" bind:checked={cpp2Exempt} />
+					<span>CPP2 Exempt</span>
+					<span class="text-surface-400 cursor-help" title="CPT30 form on file - exempt from additional CPP contributions">
+						<i class="fas fa-info-circle"></i>
+					</span>
+				</label>
 			</div>
 		</div>
 	</section>

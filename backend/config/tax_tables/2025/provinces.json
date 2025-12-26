@@ -223,7 +223,7 @@
     "SK": {
       "name": "Saskatchewan",
       "code": "SK",
-      "bpa": 19491.00,
+      "bpa": 19991.00,
       "bpa_is_dynamic": false,
       "indexing_rate": 0.027,
       "has_surtax": false,
