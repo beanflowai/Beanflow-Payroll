@@ -22,7 +22,7 @@
 		LeaveAlert,
 		LeaveModal,
 		OvertimeModal,
-		AddEmployeesModal,
+		AddEmployeesPanel,
 		PayrollLoadingState,
 		PayrollErrorState,
 		PayrollNotFound,
@@ -612,11 +612,12 @@
 	{/if}
 {/if}
 
-<!-- Add Employees Modal -->
-{#if showAddEmployeesModal && selectedPayGroupId && payrollRun}
+<!-- Add Employees Panel -->
+{#if selectedPayGroupId && payrollRun}
 	{@const payGroupData = payrollRun.payGroups.find(pg => pg.payGroupId === selectedPayGroupId)}
 	{#if payGroupData}
-		<AddEmployeesModal
+		<AddEmployeesPanel
+			isOpen={showAddEmployeesModal}
 			payGroup={{
 				id: payGroupData.payGroupId,
 				name: payGroupData.payGroupName,

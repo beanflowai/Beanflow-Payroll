@@ -1,14 +1,15 @@
 <script lang="ts">
-	import type { UpcomingPayDate } from '$lib/types/payroll';
+	import type { UpcomingPayDate, PayGroupSummary } from '$lib/types/payroll';
 	import { PAYROLL_STATUS_LABELS, PAY_FREQUENCY_LABELS, EMPLOYMENT_TYPE_LABELS } from '$lib/types/payroll';
 	import { goto } from '$app/navigation';
 	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	interface Props {
 		payDateData: UpcomingPayDate;
+		onPayGroupClick?: (payGroup: PayGroupSummary) => void;
 	}
 
-	let { payDateData }: Props = $props();
+	let { payDateData, onPayGroupClick }: Props = $props();
 
 	// Helpers
 	function formatCurrency(amount: number): string {
@@ -130,9 +131,19 @@
 
 	<div class="pay-groups-list">
 		{#each payDateData.payGroups as group (group.id)}
-			<div class="pay-group-chip" class:no-employees={group.employeeCount === 0}>
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<div
+				class="pay-group-chip"
+				class:no-employees={group.employeeCount === 0}
+				class:clickable={!!onPayGroupClick}
+				onclick={() => onPayGroupClick?.(group)}
+			>
 				<div class="chip-header">
 					<span class="chip-name">{group.name}</span>
+					{#if onPayGroupClick}
+						<i class="fas fa-chevron-right chip-arrow"></i>
+					{/if}
 				</div>
 				{#if group.employeeCount === 0}
 					<div class="chip-empty">
@@ -336,9 +347,23 @@
 		background: var(--color-surface-50);
 		border: 1px solid var(--color-surface-200);
 		border-radius: var(--radius-lg);
+		transition: var(--transition-fast);
+	}
+
+	.pay-group-chip.clickable {
+		cursor: pointer;
+	}
+
+	.pay-group-chip.clickable:hover {
+		background: var(--color-surface-100);
+		border-color: var(--color-primary-300);
+		box-shadow: var(--shadow-sm);
 	}
 
 	.chip-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
 		margin-bottom: var(--spacing-2);
 	}
 
@@ -346,6 +371,17 @@
 		font-size: var(--font-size-body-content);
 		font-weight: var(--font-weight-medium);
 		color: var(--color-surface-800);
+	}
+
+	.chip-arrow {
+		font-size: 10px;
+		color: var(--color-surface-400);
+		transition: var(--transition-fast);
+	}
+
+	.pay-group-chip.clickable:hover .chip-arrow {
+		color: var(--color-primary-500);
+		transform: translateX(2px);
 	}
 
 	.chip-details {

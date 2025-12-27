@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { UpcomingPayDate, PayrollPageStatus } from '$lib/types/payroll';
-	import { PayDateCard } from '$lib/components/payroll';
+	import type { UpcomingPayDate, PayrollPageStatus, PayGroupSummary } from '$lib/types/payroll';
+	import { PayDateCard, PayGroupEmployeesPanel } from '$lib/components/payroll';
 	import {
 		checkPayrollPageStatus,
 		getUpcomingPayDates
@@ -14,6 +14,10 @@
 	let upcomingPayDates = $state<UpcomingPayDate[]>([]);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
+
+	// Employee panel state
+	let selectedPayGroup = $state<PayGroupSummary | null>(null);
+	let showEmployeesPanel = $state(false);
 
 	// ===========================================
 	// Load Data
@@ -70,7 +74,24 @@
 		}).format(amount);
 	}
 
-	</script>
+	// ===========================================
+	// Pay Group Click Handler
+	// ===========================================
+	function handlePayGroupClick(payGroup: PayGroupSummary) {
+		selectedPayGroup = payGroup;
+		showEmployeesPanel = true;
+	}
+
+	function handleCloseEmployeesPanel() {
+		showEmployeesPanel = false;
+		selectedPayGroup = null;
+	}
+
+	function handleEmployeesChanged() {
+		// Reload data to update employee counts
+		loadData();
+	}
+</script>
 
 <svelte:head>
 	<title>Run Payroll - BeanFlow Payroll</title>
@@ -191,7 +212,7 @@
 			{:else}
 				<div class="flex flex-col gap-4">
 					{#each upcomingPayDates as payDateData (payDateData.payDate)}
-						<PayDateCard {payDateData} />
+						<PayDateCard {payDateData} onPayGroupClick={handlePayGroupClick} />
 					{/each}
 				</div>
 			{/if}
@@ -234,4 +255,14 @@
 			</div>
 		</section>
 	</div>
+{/if}
+
+<!-- Pay Group Employees Panel -->
+{#if selectedPayGroup}
+	<PayGroupEmployeesPanel
+		payGroup={selectedPayGroup}
+		isOpen={showEmployeesPanel}
+		onClose={handleCloseEmployeesPanel}
+		onEmployeesChanged={handleEmployeesChanged}
+	/>
 {/if}

@@ -973,6 +973,11 @@ class PayrollRunService:
             "id", record["id"]
         ).execute()
 
+        # Clear employee's pay_group_id (unassign from pay group)
+        self.supabase.table("employees").update({
+            "pay_group_id": None
+        }).eq("id", employee_id).eq("user_id", self.user_id).execute()
+
         # Update run totals (subtract the removed employee's values)
         gross = float(record.get("gross_regular", 0)) + float(record.get("gross_overtime", 0))
         cpp_employee = float(record.get("cpp_employee", 0)) + float(record.get("cpp_additional", 0))

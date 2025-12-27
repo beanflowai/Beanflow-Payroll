@@ -3,6 +3,7 @@
 	import type { PayGroup } from '$lib/types/pay-group';
 	import type { Employee } from '$lib/types/employee';
 	import { PROVINCE_LABELS } from '$lib/types/employee';
+	import SlideOverPanel from '$lib/components/ui/SlideOverPanel.svelte';
 	import {
 		getEmployeesByPayGroup,
 		getUnassignedEmployees,
@@ -244,93 +245,81 @@
 	</div>
 </section>
 
-<!-- Add Employees Modal -->
-{#if showModal}
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] p-4" onclick={closeModal}>
-		<div class="bg-white rounded-xl w-full max-w-[500px] max-h-[80vh] flex flex-col shadow-md3-3" onclick={(e) => e.stopPropagation()}>
-			<div class="flex justify-between items-center p-4 px-5 border-b border-surface-100">
-				<h3 class="m-0 text-title-small font-semibold text-surface-800">Add Employees to {payGroup.name}</h3>
+<!-- Add Employees Slide-over Panel -->
+<SlideOverPanel isOpen={showModal} title="Add Employees to {payGroup.name}" width="md" onClose={closeModal}>
+	{#snippet children()}
+		{#if unassignedEmployees.length === 0}
+			<div class="flex flex-col items-center text-center py-8 px-4">
+				<i class="fas fa-info-circle text-[32px] text-surface-400 mb-4"></i>
+				<p class="text-surface-600 m-0">No unassigned employees available.</p>
+				<p class="text-auxiliary-text text-surface-500 mt-2">All employees are already assigned to a pay group, or you need to add employees first.</p>
+				<a
+					href="/employees"
+					class="inline-flex items-center gap-2 mt-4 py-3 px-4 bg-primary-500 text-white rounded-md no-underline text-body-content font-medium transition-[150ms] hover:bg-primary-600"
+				>
+					<i class="fas fa-arrow-right"></i>
+					Go to Employees
+				</a>
+			</div>
+		{:else}
+			<div class="pb-3 border-b border-surface-100 mb-3">
+				<label class="flex items-center gap-2 cursor-pointer">
+					<input
+						type="checkbox"
+						class="w-[18px] h-[18px] accent-primary-500"
+						checked={selectedIds.size === unassignedEmployees.length}
+						onchange={toggleSelectAll}
+					/>
+					<span class="text-body-content text-surface-700">Select All ({unassignedEmployees.length})</span>
+				</label>
+			</div>
+
+			<div class="flex flex-col gap-2">
+				{#each unassignedEmployees as employee (employee.id)}
+					<label class="flex items-center gap-3 p-3 rounded-md cursor-pointer transition-[150ms] hover:bg-surface-50">
+						<input
+							type="checkbox"
+							class="w-[18px] h-[18px] accent-primary-500"
+							checked={selectedIds.has(employee.id)}
+							onchange={() => toggleSelect(employee.id)}
+						/>
+						<div class="flex flex-col gap-0.5">
+							<span class="font-medium text-surface-800">{employee.firstName} {employee.lastName}</span>
+							<span class="text-auxiliary-text text-surface-500">
+								{PROVINCE_LABELS[employee.provinceOfEmployment]} · {formatCompensation(employee)}
+							</span>
+						</div>
+					</label>
+				{/each}
+			</div>
+		{/if}
+	{/snippet}
+
+	{#snippet footer()}
+		{#if unassignedEmployees.length > 0}
+			<div class="flex justify-end gap-3">
 				<button
-					class="w-8 h-8 rounded-md bg-transparent border-none text-surface-500 cursor-pointer transition-[150ms] hover:bg-surface-100"
+					type="button"
+					class="py-2 px-4 bg-transparent text-surface-600 border border-surface-200 rounded-md text-body-content font-medium cursor-pointer transition-[150ms] hover:bg-surface-100"
 					onclick={closeModal}
 				>
-					<i class="fas fa-times"></i>
+					Cancel
+				</button>
+				<button
+					type="button"
+					class="inline-flex items-center gap-2 py-2 px-4 bg-primary-500 text-white border-none rounded-md text-body-content font-medium cursor-pointer transition-[150ms] hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
+					onclick={handleAssign}
+					disabled={selectedIds.size === 0 || isAssigning}
+				>
+					{#if isAssigning}
+						<i class="fas fa-spinner fa-spin"></i>
+						Assigning...
+					{:else}
+						<i class="fas fa-check"></i>
+						Add {selectedIds.size} Employee{selectedIds.size !== 1 ? 's' : ''}
+					{/if}
 				</button>
 			</div>
-
-			<div class="flex-1 overflow-y-auto p-4 px-5">
-				{#if unassignedEmployees.length === 0}
-					<div class="flex flex-col items-center text-center p-6">
-						<i class="fas fa-info-circle text-[32px] text-surface-400 mb-4"></i>
-						<p class="text-surface-600 m-0">No unassigned employees available.</p>
-						<p class="text-auxiliary-text text-surface-500 mt-2">All employees are already assigned to a pay group, or you need to add employees first.</p>
-						<a
-							href="/employees"
-							class="inline-flex items-center gap-2 mt-4 py-3 px-4 bg-primary-500 text-white rounded-md no-underline text-body-content font-medium transition-[150ms] hover:bg-primary-600"
-						>
-							<i class="fas fa-arrow-right"></i>
-							Go to Employees
-						</a>
-					</div>
-				{:else}
-					<div class="pb-3 border-b border-surface-100 mb-3">
-						<label class="flex items-center gap-2 cursor-pointer">
-							<input
-								type="checkbox"
-								class="w-[18px] h-[18px] accent-primary-500"
-								checked={selectedIds.size === unassignedEmployees.length}
-								onchange={toggleSelectAll}
-							/>
-							<span class="text-body-content text-surface-700">Select All ({unassignedEmployees.length})</span>
-						</label>
-					</div>
-
-					<div class="flex flex-col gap-2">
-						{#each unassignedEmployees as employee (employee.id)}
-							<label class="flex items-center gap-3 p-3 rounded-md cursor-pointer transition-[150ms] hover:bg-surface-50">
-								<input
-									type="checkbox"
-									class="w-[18px] h-[18px] accent-primary-500"
-									checked={selectedIds.has(employee.id)}
-									onchange={() => toggleSelect(employee.id)}
-								/>
-								<div class="flex flex-col gap-0.5">
-									<span class="font-medium text-surface-800">{employee.firstName} {employee.lastName}</span>
-									<span class="text-auxiliary-text text-surface-500">
-										{PROVINCE_LABELS[employee.provinceOfEmployment]} · {formatCompensation(employee)}
-									</span>
-								</div>
-							</label>
-						{/each}
-					</div>
-				{/if}
-			</div>
-
-			{#if unassignedEmployees.length > 0}
-				<div class="flex justify-end gap-3 p-4 px-5 border-t border-surface-100">
-					<button
-						class="py-2 px-4 bg-transparent text-surface-600 border border-surface-200 rounded-md text-body-content font-medium cursor-pointer transition-[150ms] hover:bg-surface-100"
-						onclick={closeModal}
-					>
-						Cancel
-					</button>
-					<button
-						class="inline-flex items-center gap-2 py-2 px-4 bg-primary-500 text-white border-none rounded-md text-body-content font-medium cursor-pointer transition-[150ms] hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
-						onclick={handleAssign}
-						disabled={selectedIds.size === 0 || isAssigning}
-					>
-						{#if isAssigning}
-							<i class="fas fa-spinner fa-spin"></i>
-							Assigning...
-						{:else}
-							<i class="fas fa-check"></i>
-							Add {selectedIds.size} Employee{selectedIds.size !== 1 ? 's' : ''}
-						{/if}
-					</button>
-				</div>
-			{/if}
-		</div>
-	</div>
-{/if}
+		{/if}
+	{/snippet}
+</SlideOverPanel>

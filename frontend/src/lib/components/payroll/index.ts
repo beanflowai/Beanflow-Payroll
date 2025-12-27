@@ -18,8 +18,11 @@ export { default as PayGroupSection } from './PayGroupSection.svelte';
 export { default as DraftPayrollView } from './DraftPayrollView.svelte';
 export { default as DraftPayGroupSection } from './DraftPayGroupSection.svelte';
 
-// Add Employees Modal
-export { default as AddEmployeesModal } from './AddEmployeesModal.svelte';
+// Add Employees Panel
+export { default as AddEmployeesPanel } from './AddEmployeesPanel.svelte';
+
+// Employee Management Panel
+export { default as PayGroupEmployeesPanel } from './PayGroupEmployeesPanel.svelte';
 
 // Page State Components
 export { default as PayrollLoadingState } from './PayrollLoadingState.svelte';
