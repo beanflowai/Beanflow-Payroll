@@ -1,35 +1,45 @@
 <script lang="ts">
-	import type { PayrollRun } from '$lib/types/payroll';
+	import type { PayrollRunWithGroups } from '$lib/types/payroll';
 	import { SummaryCard } from '$lib/components/shared';
+	import Tooltip from '$lib/components/shared/Tooltip.svelte';
+	import { formatCurrency } from '$lib/utils';
 
 	interface Props {
-		payrollRun: PayrollRun;
+		payrollRun: PayrollRunWithGroups;
 	}
 
 	let { payrollRun }: Props = $props();
 
-	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD',
-			minimumFractionDigits: 2
-		}).format(amount);
-	}
+	// Tooltip content
+	const tooltips = $derived({
+		totalDeductions: 'Amount withheld from employee pay: CPP, EI, income taxes, and other deductions',
+		totalEmployerCost: `Employer CPP: ${formatCurrency(payrollRun.totalCppEmployer)} + Employer EI: ${formatCurrency(payrollRun.totalEiEmployer)}`,
+		totalPayrollCost: 'Total Gross + Total Employer Cost',
+		totalRemittance: 'Amount to remit to CRA: Employee & Employer CPP/EI + Income Taxes'
+	});
 </script>
 
-<!-- Summary Cards - Row 1 -->
+<!-- Summary Cards - Row 1: Employee Perspective -->
 <div class="summary-grid">
 	<SummaryCard label="Total Gross" value={formatCurrency(payrollRun.totalGross)} />
-	<SummaryCard label="Total Deductions" value={`-${formatCurrency(payrollRun.totalDeductions)}`} valueClass="deductions" />
+	<Tooltip content={tooltips.totalDeductions}>
+		<SummaryCard label="Total Deductions" value={`-${formatCurrency(payrollRun.totalDeductions)}`} valueClass="deductions" />
+	</Tooltip>
 	<SummaryCard label="Net Pay" value={formatCurrency(payrollRun.totalNetPay)} variant="highlight" />
 	<SummaryCard label="Employees" value={payrollRun.totalEmployees} />
 </div>
 
-<!-- Summary Cards - Row 2: Employer Costs -->
+<!-- Summary Cards - Row 2: Employer Perspective -->
 <div class="summary-grid employer-costs">
-	<SummaryCard label="Employer CPP" value={formatCurrency(payrollRun.totalCppEmployer)} variant="small" />
-	<SummaryCard label="Employer EI" value={formatCurrency(payrollRun.totalEiEmployer)} variant="small" />
-	<SummaryCard label="Total Employer Cost" value={formatCurrency(payrollRun.totalEmployerCost)} variant="accent" />
+	<Tooltip content={tooltips.totalEmployerCost}>
+		<SummaryCard label="Total Employer Cost" value={formatCurrency(payrollRun.totalEmployerCost)} variant="small" />
+	</Tooltip>
+	<Tooltip content={tooltips.totalPayrollCost}>
+		<SummaryCard label="Total Payroll Cost" value={formatCurrency(payrollRun.totalPayrollCost)} variant="highlight" />
+	</Tooltip>
+	<Tooltip content={tooltips.totalRemittance}>
+		<SummaryCard label="Total Remittance" value={formatCurrency(payrollRun.totalRemittance)} variant="small" />
+	</Tooltip>
 </div>
 
 <style>

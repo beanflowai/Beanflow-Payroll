@@ -4,7 +4,7 @@
 **Scope**: All provinces/territories except Quebec
 **Timeline**: 8-10 weeks
 
-> **Last Updated**: 2025-12-18
+> **Last Updated**: 2025-12-27
 > **Architecture Version**: v3.2 (Standalone Product)
 
 ---
@@ -46,10 +46,10 @@ This checklist has been updated to reflect standalone product architecture:
 | Phase | Status | Start Date | End Date | Notes |
 |-------|--------|------------|----------|-------|
 | **Phase 0: Frontend Setup** | 🔄 In Progress | 2025-12-16 | | Auth + 基础布局已完成 |
-| Phase 1: Data Layer | 🔄 In Progress | 2025-12-16 | | ~70% 完成 (见下方详情) |
-| Phase 2: Calculations | ⬜ Not Started | | | CPP/EI/Tax calculators |
+| Phase 1: Data Layer | ✅ Completed | 2025-12-16 | 2025-12-20 | 税表、模型、服务层全部完成 |
+| Phase 2: Calculations | ✅ Completed | 2025-12-20 | 2025-12-26 | CPP/EI/Federal/Provincial + Engine 全部完成 |
 | Phase 3: Paystub | ⬜ Not Started | | | PDF + DO Spaces storage |
-| Phase 4: API & Integration | 🔄 In Progress | 2025-12-16 | | 前端类型和服务已完成 |
+| Phase 4: API & Integration | 🔄 In Progress | 2025-12-16 | | API endpoints + payroll_run_service 进行中 |
 | Phase 5: Testing | ⬜ Not Started | | | Unit + Integration + PDOC |
 | Phase 6: Year-End (Future) | ⬜ Not Started | | | T4 generation |
 | Phase 7: Compliance (Future) | ⬜ Not Started | | | ROE, Remittance |
@@ -68,6 +68,7 @@ This checklist has been updated to reflect standalone product architecture:
 
 以下内容已实现但未在原 checklist 中列出：
 
+#### Phase 1 额外实现
 - ✅ **companies 表** - 公司信息、CRA 汇款配置
 - ✅ **pay_groups 表** - 薪资组政策模板
 - ✅ **Company/PayGroup Pydantic models** - 后端模型
@@ -81,6 +82,22 @@ This checklist has been updated to reflect standalone product architecture:
   - `payroll/payroll-runs.ts` - 薪资运行 CRUD
   - `payroll/pay-groups.ts` - 薪资组查询
   - `payroll/calculation.ts` - 薪资计算 (调用后端 API)
+- ✅ **2026 税表配置** (2025-12-26) - 提前配置下一年税表:
+  - `backend/config/tax_tables/2026/cpp_ei.json`
+  - `backend/config/tax_tables/2026/federal_jan.json`
+  - `backend/config/tax_tables/2026/provinces.json`
+
+#### Phase 4 额外实现 (部分完成)
+- ✅ **payroll_run_service.py** (2025-12-27) - Payroll run 生命周期管理:
+  - `_get_prior_ytd_for_employees()` - 查询历史 YTD
+  - Record updates in draft state
+  - Recalculation of payroll deductions
+  - Status transitions (draft -> pending_approval)
+- ✅ **api/v1/payroll.py** (2025-12-26) - 薪资计算 REST API:
+  - `EmployeeCalculationRequest` / `CalculationResponse` models
+  - `BatchCalculationRequest` model
+  - POST `/payroll/calculate` endpoint
+  - Full earnings/deductions/YTD support
 
 ---
 
@@ -318,65 +335,80 @@ This checklist has been updated to reflect standalone product architecture:
 
 ---
 
-## Phase 2: Core Calculation Engine (3 weeks)
+## Phase 2: Core Calculation Engine (3 weeks) ✅ COMPLETED
 
 ### Week 3: CPP & EI Calculators
 
-- [ ] **Task 2.1.1**: Create `backend/app/services/payroll/cpp_calculator.py`
-  - [ ] Create CPPCalculator class
-  - [ ] Implement `calculate_base_cpp()`:
-    - [ ] Apply $3,500 basic exemption
-    - [ ] Calculate at 5.95% rate
-    - [ ] Check annual maximum
-    - [ ] Handle YTD tracking
-  - [ ] Implement `calculate_additional_cpp()` (CPP2):
-    - [ ] Only for income above YMPE
-    - [ ] Calculate at 1% rate
-    - [ ] Up to YAMPE
-  - [ ] Implement `get_employer_contribution()` (equals employee)
+- [x] **Task 2.1.1**: Create `backend/app/services/payroll/cpp_calculator.py` ✅
+  - [x] Create CPPCalculator class
+  - [x] Implement `calculate_base_cpp()`:
+    - [x] Apply $3,500 basic exemption
+    - [x] Calculate at 5.95% rate
+    - [x] Check annual maximum ($4,034.10)
+    - [x] Handle YTD tracking
+  - [x] Implement `calculate_additional_cpp()` (CPP2):
+    - [x] Only for income above YMPE ($71,200)
+    - [x] Calculate at 1% rate
+    - [x] Up to YAMPE ($76,000)
+    - [x] Max CPP2: $396.00
+  - [x] Implement `get_employer_contribution()` (equals employee)
+  - [x] (额外) CPP Enhancement F2 calculation (1% deductible from taxable income)
+  - [x] (额外) CPP2 exemption support (CPT30 form)
 
-- [ ] **Task 2.1.2**: Create `backend/app/services/payroll/ei_calculator.py`
-  - [ ] Create EICalculator class
-  - [ ] Implement `calculate_ei_premium()`:
-    - [ ] Apply 1.70% rate
-    - [ ] Check MIE limit
-    - [ ] Check maximum premium
-    - [ ] Handle YTD tracking
-  - [ ] Implement `get_employer_premium()` (1.4x employee)
+- [x] **Task 2.1.2**: Create `backend/app/services/payroll/ei_calculator.py` ✅
+  - [x] Create EICalculator class
+  - [x] Implement `calculate_ei_premium()`:
+    - [x] Apply 1.64% rate (2025)
+    - [x] Check MIE limit ($65,700)
+    - [x] Check maximum premium ($1,077.48)
+    - [x] Handle YTD tracking
+  - [x] Implement `get_employer_premium()` (1.4x employee = $1,508.47 max)
 
 ### Week 4-5: Tax Calculators
 
-- [ ] **Task 2.2.1**: Create `backend/app/services/payroll/federal_tax_calculator.py`
-  - [ ] Create FederalTaxCalculator class
-  - [ ] Implement `calculate_annual_taxable_income()`
-  - [ ] Implement tax credit calculations (K1, K2, K4)
-  - [ ] Implement `calculate_federal_tax()` using T4127 formula
+- [x] **Task 2.2.1**: Create `backend/app/services/payroll/federal_tax_calculator.py` ✅
+  - [x] Create FederalTaxCalculator class
+  - [x] Implement `calculate_annual_taxable_income()` (Factor A)
+  - [x] Implement tax credit calculations:
+    - [x] K1: Personal tax credit (based on TD1)
+    - [x] K2: CPP/EI tax credit (uses 4.95% rate)
+    - [x] K4: Canada Employment Amount credit
+  - [x] Implement `calculate_federal_tax()` using T4127 formula: T3 = (R × A) - K - K1 - K2 - K3 - K4
+  - [x] (额外) Support 2025-07-01 federal rate change (15% → 14%)
+  - [x] (额外) CPP2 and CPP Enhancement (F2) deductions from taxable income
 
-- [ ] **Task 2.2.2**: Create `backend/app/services/payroll/provincial_tax_calculator.py`
-  - [ ] Create ProvincialTaxCalculator class
-  - [ ] Implement `get_basic_personal_amount()` (static + dynamic)
-  - [ ] Implement provincial credit calculations
-  - [ ] Implement `calculate_provincial_tax()`
-  - [ ] Handle Ontario surtax/health premium
-  - [ ] Handle BC tax reduction
-  - [ ] Handle Alberta K5P credit
+- [x] **Task 2.2.2**: Create `backend/app/services/payroll/provincial_tax_calculator.py` ✅
+  - [x] Create ProvincialTaxCalculator class
+  - [x] Implement `get_basic_personal_amount()` (static + dynamic for MB, NS, YT)
+  - [x] Implement provincial credit calculations (K1P, K2P)
+  - [x] Implement `calculate_provincial_tax()` for all 12 provinces
+  - [x] Handle Ontario surtax (V1: 20%, 36%) + health premium (V2: up to $900)
+  - [x] Handle BC tax reduction (Factor S: $521 base)
+  - [x] Handle Alberta K5P supplementary credit
 
 ### Week 5: Payroll Engine
 
-- [ ] **Task 2.3.1**: Create `backend/app/services/payroll/payroll_engine.py`
-  - [ ] Create PayrollEngine class
-  - [ ] Implement `calculate_payroll()`:
-    - [ ] Orchestrate all calculators
-    - [ ] Handle exemptions
-    - [ ] Calculate net pay
-    - [ ] Build result object
+- [x] **Task 2.3.1**: Create `backend/app/services/payroll/payroll_engine.py` ✅
+  - [x] Create PayrollEngine class
+  - [x] Implement `calculate_payroll()`:
+    - [x] Orchestrate all calculators (CPP → EI → Federal Tax → Provincial Tax)
+    - [x] Handle exemptions (CPP, EI, CPP2)
+    - [x] Calculate net pay
+    - [x] Build PayrollCalculationResult object
+  - [x] (额外) EmployeePayrollInput model with full earnings/deductions support
+  - [x] (额外) Taxable benefits support
+  - [x] (额外) Pre-tax deductions (RRSP, union dues)
+  - [x] (额外) Post-tax deductions (garnishments)
+  - [x] (额外) YTD tracking and updates
+  - [x] (额外) Employer costs calculation
+  - [x] (额外) Calculator caching for performance
 
 **Validation:**
-- [ ] CPP matches PDOC for test cases
-- [ ] EI matches PDOC for test cases
-- [ ] Federal tax matches PDOC
-- [ ] Provincial tax matches for all 12 provinces
-- [ ] Payroll engine produces correct totals
+- [ ] CPP matches PDOC for test cases (待测试)
+- [ ] EI matches PDOC for test cases (待测试)
+- [ ] Federal tax matches PDOC (待测试)
+- [ ] Provincial tax matches for all 12 provinces (待测试)
+- [x] Payroll engine produces correct totals (代码完成，待 PDOC 验证)
 
 ---
 
@@ -422,11 +454,13 @@ This checklist has been updated to reflect standalone product architecture:
 
 ---
 
-## Phase 4: API & Integration (2 weeks)
+## Phase 4: API & Integration (2 weeks) 🔄 IN PROGRESS
 
 ### Week 7: Service Layer (NEW)
 
-- [ ] **Task 4.0.1**: Create `backend/app/services/payroll/__init__.py`
+- [x] **Task 4.0.1**: Create `backend/app/services/payroll/__init__.py` ✅
+  - [x] Export PayrollEngine, EmployeePayrollInput, PayrollCalculationResult
+  - [x] Export all calculator classes
 
 - [ ] **Task 4.0.2**: Create `backend/app/services/payroll/employee_service.py`
   - [ ] Create EmployeeService class
@@ -437,29 +471,30 @@ This checklist has been updated to reflect standalone product architecture:
   - [ ] Implement `update_employee()`
   - [ ] Implement `terminate_employee()`
 
-- [ ] **Task 4.0.3**: Create `backend/app/services/payroll/payroll_service.py`
-  - [ ] Create PayrollService class
-  - [ ] Implement `create_payroll_run()`
-  - [ ] Implement `calculate_payroll_run()`
-  - [ ] Implement `approve_payroll_run()`:
-    - [ ] Generate paystubs
-    - [ ] Create Beancount transactions
-    - [ ] Update status
-  - [ ] Implement `list_payroll_runs()`
-  - [ ] Implement `get_remittance_summary()`
+- [x] **Task 4.0.3**: Create `backend/app/services/payroll_run_service.py` ✅ (部分)
+  - [x] Create PayrollRunService class
+  - [x] Implement `_get_prior_ytd_for_employees()` - YTD 查询
+  - [x] Implement `get_provincial_bpa()` - 省级 BPA 查询
+  - [ ] Implement `create_payroll_run()` (待完成)
+  - [ ] Implement `calculate_payroll_run()` (待完成)
+  - [ ] Implement `approve_payroll_run()` (待完成)
+  - [ ] Implement `list_payroll_runs()` (待完成)
 
 ### Week 7: Backend API
 
-- [ ] **Task 4.1.1**: Create `backend/app/api/v1/payroll.py`
-  - [ ] Create request/response models (camelCase)
+- [x] **Task 4.1.1**: Create `backend/app/api/v1/payroll.py` ✅ (部分)
+  - [x] Create request/response models (camelCase):
+    - [x] EmployeeCalculationRequest
+    - [x] CalculationResponse
+    - [x] BatchCalculationRequest
   - [ ] Employee endpoints:
     - [ ] POST `/payroll/employees` - Create
     - [ ] GET `/payroll/employees` - List
     - [ ] GET `/payroll/employees/{id}` - Get
     - [ ] PATCH `/payroll/employees/{id}` - Update
     - [ ] POST `/payroll/employees/{id}/terminate` - Terminate
-  - [ ] Payroll calculation endpoints:
-    - [ ] POST `/payroll/calculate` - Single calculation
+  - [x] Payroll calculation endpoints:
+    - [x] POST `/payroll/calculate` - Single calculation ✅
   - [ ] Payroll run endpoints:
     - [ ] POST `/payroll/runs` - Create run
     - [ ] POST `/payroll/runs/{id}/calculate` - Calculate
@@ -473,7 +508,7 @@ This checklist has been updated to reflect standalone product architecture:
     - [ ] GET `/payroll/remittances/summary` - Monthly summary
   - [ ] Stats endpoint:
     - [ ] GET `/payroll/stats` - Dashboard stats
-  - [ ] Register router in `__init__.py`
+  - [x] Register router in `__init__.py` ✅
 
 - [ ] **Task 4.1.2**: Create encryption utility
   - [ ] Create `backend/app/core/encryption.py`:

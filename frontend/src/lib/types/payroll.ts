@@ -115,6 +115,8 @@ export interface PayrollRun {
 	totalDeductions: number;
 	totalNetPay: number;
 	totalEmployerCost: number;
+	totalPayrollCost: number;    // totalGross + totalEmployerCost
+	totalRemittance: number;     // CPP (employee+employer) + EI (employee+employer) + federal tax + provincial tax
 	holidays?: Holiday[];
 }
 
@@ -336,6 +338,8 @@ export interface PayrollRunWithGroups {
 	totalDeductions: number;
 	totalNetPay: number;
 	totalEmployerCost: number;
+	totalPayrollCost: number;    // totalGross + totalEmployerCost
+	totalRemittance: number;     // CPP (employee+employer) + EI (employee+employer) + federal tax + provincial tax
 	// Holidays applicable to this pay date
 	holidays?: Holiday[];
 }
@@ -500,6 +504,16 @@ export interface DbPayrollRecordWithEmployee extends DbPayrollRecord {
  * Convert database payroll_run to UI PayrollRun
  */
 export function dbPayrollRunToUi(db: DbPayrollRun): PayrollRun {
+	const totalGross = Number(db.total_gross);
+	const totalNetPay = Number(db.total_net_pay);
+	const totalCppEmployee = Number(db.total_cpp_employee);
+	const totalCppEmployer = Number(db.total_cpp_employer);
+	const totalEiEmployee = Number(db.total_ei_employee);
+	const totalEiEmployer = Number(db.total_ei_employer);
+	const totalFederalTax = Number(db.total_federal_tax);
+	const totalProvincialTax = Number(db.total_provincial_tax);
+	const totalEmployerCost = Number(db.total_employer_cost);
+
 	return {
 		id: db.id,
 		periodStart: db.period_start,
@@ -507,16 +521,21 @@ export function dbPayrollRunToUi(db: DbPayrollRun): PayrollRun {
 		payDate: db.pay_date,
 		status: db.status,
 		totalEmployees: db.total_employees,
-		totalGross: Number(db.total_gross),
-		totalCppEmployee: Number(db.total_cpp_employee),
-		totalCppEmployer: Number(db.total_cpp_employer),
-		totalEiEmployee: Number(db.total_ei_employee),
-		totalEiEmployer: Number(db.total_ei_employer),
-		totalFederalTax: Number(db.total_federal_tax),
-		totalProvincialTax: Number(db.total_provincial_tax),
-		totalDeductions: Number(db.total_cpp_employee) + Number(db.total_ei_employee) + Number(db.total_federal_tax) + Number(db.total_provincial_tax),
-		totalNetPay: Number(db.total_net_pay),
-		totalEmployerCost: Number(db.total_employer_cost)
+		totalGross,
+		totalCppEmployee,
+		totalCppEmployer,
+		totalEiEmployee,
+		totalEiEmployer,
+		totalFederalTax,
+		totalProvincialTax,
+		// Fixed: totalDeductions = totalGross - totalNetPay (what employees don't take home)
+		totalDeductions: totalGross - totalNetPay,
+		totalNetPay,
+		totalEmployerCost,
+		// New: totalPayrollCost = totalGross + totalEmployerCost
+		totalPayrollCost: totalGross + totalEmployerCost,
+		// New: totalRemittance = all CPP/EI (employee + employer) + taxes
+		totalRemittance: totalCppEmployee + totalCppEmployer + totalEiEmployee + totalEiEmployer + totalFederalTax + totalProvincialTax
 	};
 }
 

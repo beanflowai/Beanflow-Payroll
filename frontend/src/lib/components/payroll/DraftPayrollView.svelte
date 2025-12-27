@@ -5,7 +5,9 @@
 		EmployeePayrollInput
 	} from '$lib/types/payroll';
 	import { DraftPayGroupSection } from '$lib/components/payroll';
+	import Tooltip from '$lib/components/shared/Tooltip.svelte';
 	import { formatShortDate } from '$lib/utils/dateUtils';
+	import { formatCurrency } from '$lib/utils';
 
 	interface Props {
 		payrollRun: PayrollRunWithGroups;
@@ -39,47 +41,43 @@
 
 	let expandedRecordId = $state<string | null>(null);
 
-	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD'
-		}).format(amount);
-	}
-
 	function handleToggleExpand(id: string) {
 		expandedRecordId = expandedRecordId === id ? null : id;
 	}
 
-	// Calculate totals for summary cards
-	const totalDeductions = $derived(
-		payrollRun.totalCppEmployee +
-			payrollRun.totalEiEmployee +
-			payrollRun.totalFederalTax +
-			payrollRun.totalProvincialTax
-	);
+	// Tooltip content
+	const tooltips = $derived({
+		totalDeductions: 'Amount withheld from employee pay: CPP, EI, income taxes, and other deductions',
+		totalEmployerCost: `Employer CPP: ${formatCurrency(payrollRun.totalCppEmployer)} + Employer EI: ${formatCurrency(payrollRun.totalEiEmployer)}`,
+		totalPayrollCost: 'Total Gross + Total Employer Cost',
+		totalRemittance: 'Amount to remit to CRA: Employee & Employer CPP/EI + Income Taxes'
+	});
 </script>
 
-<div class="draft-payroll-view">
+<div class="flex flex-col gap-5">
 	<!-- Header with Status Banner -->
-	<div class="page-header">
-		<div class="header-content">
-			<div class="header-left">
-				<div class="status-badge draft">
+	<div class="flex flex-col gap-3">
+		<div class="flex justify-between items-center flex-wrap gap-3">
+			<div class="flex items-center gap-3">
+				<div class="inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold bg-amber-100 text-amber-700">
 					<i class="fas fa-edit"></i>
 					Draft
 				</div>
-				<h1 class="page-title">Pay Date: {formatShortDate(payrollRun.payDate)}</h1>
+				<h1 class="text-2xl font-bold text-gray-800 m-0">Pay Date: {formatShortDate(payrollRun.payDate)}</h1>
 			</div>
-			<div class="header-actions">
+			<div class="flex gap-3">
 				{#if onBack}
-					<button class="btn btn-ghost" onclick={onBack}>
+					<button
+						class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-base font-medium cursor-pointer transition-all bg-transparent border-none text-gray-600 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-60 disabled:cursor-not-allowed"
+						onclick={onBack}
+					>
 						<i class="fas fa-arrow-left"></i>
 						Back
 					</button>
 				{/if}
 				{#if onDeleteDraft}
 					<button
-						class="btn btn-danger-outline"
+						class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-base font-medium cursor-pointer transition-all bg-white border border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 disabled:opacity-60 disabled:cursor-not-allowed"
 						onclick={onDeleteDraft}
 						disabled={isDeleting}
 					>
@@ -93,7 +91,7 @@
 					</button>
 				{/if}
 				<button
-					class="btn btn-secondary"
+					class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-base font-medium cursor-pointer transition-all bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 disabled:opacity-60 disabled:cursor-not-allowed"
 					onclick={onRecalculate}
 					disabled={isRecalculating}
 				>
@@ -106,7 +104,7 @@
 					{/if}
 				</button>
 				<button
-					class="btn btn-primary"
+					class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-base font-medium cursor-pointer transition-all bg-gradient-to-br from-blue-600 to-purple-600 border-none text-white hover:opacity-90 hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed"
 					onclick={onFinalize}
 					disabled={isFinalizing || hasModifiedRecords}
 					title={hasModifiedRecords ? 'Calculate first to save changes' : 'Finalize payroll run'}
@@ -124,8 +122,8 @@
 
 		<!-- Warning Banner (when modified) -->
 		{#if hasModifiedRecords}
-			<div class="warning-banner">
-				<i class="fas fa-exclamation-triangle"></i>
+			<div class="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-300 rounded-lg text-amber-800 text-base">
+				<i class="fas fa-exclamation-triangle text-amber-600 text-lg"></i>
 				<span>
 					<strong>Unsaved Changes:</strong> You have modified employee data. Click
 					<strong>Calculate</strong> to update CPP, EI, and tax calculations.
@@ -134,83 +132,118 @@
 		{/if}
 	</div>
 
-	<!-- Summary Cards -->
-	<div class="summary-cards">
-		<div class="summary-card">
-			<div class="card-icon employees">
-				<i class="fas fa-users"></i>
-			</div>
-			<div class="card-content">
-				<span class="card-value">{payrollRun.totalEmployees}</span>
-				<span class="card-label">Employees</span>
-			</div>
-		</div>
-		<div class="summary-card">
-			<div class="card-icon gross">
+	<!-- Summary Cards - Row 1: Employee Perspective -->
+	<div class="grid grid-cols-4 gap-4 max-lg:grid-cols-2 max-md:grid-cols-1">
+		<div class="flex items-center gap-4 px-5 py-4 bg-white rounded-2xl shadow-md">
+			<div class="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-blue-100 text-blue-600">
 				<i class="fas fa-dollar-sign"></i>
 			</div>
-			<div class="card-content">
-				<span class="card-value">{formatCurrency(payrollRun.totalGross)}</span>
-				<span class="card-label">Total Gross</span>
+			<div class="flex flex-col gap-0.5">
+				<span class="text-xl font-bold text-gray-800">{formatCurrency(payrollRun.totalGross)}</span>
+				<span class="text-xs text-gray-500">Total Gross</span>
 			</div>
 		</div>
-		<div class="summary-card">
-			<div class="card-icon deductions">
-				<i class="fas fa-minus-circle"></i>
+		<Tooltip content={tooltips.totalDeductions}>
+			<div class="flex items-center gap-4 px-5 py-4 bg-white rounded-2xl shadow-md">
+				<div class="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-amber-100 text-amber-600">
+					<i class="fas fa-minus-circle"></i>
+				</div>
+				<div class="flex flex-col gap-0.5">
+					<span class="text-xl font-bold text-red-600">-{formatCurrency(payrollRun.totalDeductions)}</span>
+					<span class="text-xs text-gray-500">Total Deductions</span>
+				</div>
 			</div>
-			<div class="card-content">
-				<span class="card-value">{formatCurrency(totalDeductions)}</span>
-				<span class="card-label">Total Deductions</span>
-			</div>
-		</div>
-		<div class="summary-card highlight">
-			<div class="card-icon net">
+		</Tooltip>
+		<div class="flex items-center gap-4 px-5 py-4 bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-2xl shadow-md">
+			<div class="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-green-600 text-white">
 				<i class="fas fa-wallet"></i>
 			</div>
-			<div class="card-content">
-				<span class="card-value">{formatCurrency(payrollRun.totalNetPay)}</span>
-				<span class="card-label">Total Net Pay</span>
+			<div class="flex flex-col gap-0.5">
+				<span class="text-xl font-bold text-gray-800">{formatCurrency(payrollRun.totalNetPay)}</span>
+				<span class="text-xs text-gray-500">Total Net Pay</span>
+			</div>
+		</div>
+		<div class="flex items-center gap-4 px-5 py-4 bg-white rounded-2xl shadow-md">
+			<div class="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-purple-100 text-purple-600">
+				<i class="fas fa-users"></i>
+			</div>
+			<div class="flex flex-col gap-0.5">
+				<span class="text-xl font-bold text-gray-800">{payrollRun.totalEmployees}</span>
+				<span class="text-xs text-gray-500">Employees</span>
 			</div>
 		</div>
 	</div>
 
+	<!-- Summary Cards - Row 2: Employer Perspective -->
+	<div class="grid grid-cols-3 gap-4 max-md:grid-cols-1">
+		<Tooltip content={tooltips.totalEmployerCost}>
+			<div class="flex items-center gap-4 px-5 py-4 bg-white rounded-2xl shadow-md">
+				<div class="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-cyan-100 text-cyan-600">
+					<i class="fas fa-building"></i>
+				</div>
+				<div class="flex flex-col gap-0.5">
+					<span class="text-xl font-bold text-gray-800">{formatCurrency(payrollRun.totalEmployerCost)}</span>
+					<span class="text-xs text-gray-500">Total Employer Cost</span>
+				</div>
+			</div>
+		</Tooltip>
+		<Tooltip content={tooltips.totalPayrollCost}>
+			<div class="flex items-center gap-4 px-5 py-4 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl shadow-md">
+				<div class="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-white/20 text-white">
+					<i class="fas fa-receipt"></i>
+				</div>
+				<div class="flex flex-col gap-0.5">
+					<span class="text-xl font-bold text-white">{formatCurrency(payrollRun.totalPayrollCost)}</span>
+					<span class="text-xs text-white/80">Total Payroll Cost</span>
+				</div>
+			</div>
+		</Tooltip>
+		<Tooltip content={tooltips.totalRemittance}>
+			<div class="flex items-center gap-4 px-5 py-4 bg-white rounded-2xl shadow-md">
+				<div class="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-orange-100 text-orange-600">
+					<i class="fas fa-paper-plane"></i>
+				</div>
+				<div class="flex flex-col gap-0.5">
+					<span class="text-xl font-bold text-gray-800">{formatCurrency(payrollRun.totalRemittance)}</span>
+					<span class="text-xs text-gray-500">Total Remittance</span>
+				</div>
+			</div>
+		</Tooltip>
+	</div>
+
 	<!-- Deduction Breakdown -->
-	<div class="deduction-breakdown">
-		<h3 class="breakdown-title">Deduction Breakdown</h3>
-		<div class="breakdown-grid">
-			<div class="breakdown-item">
-				<span class="breakdown-label">CPP (Employee)</span>
-				<span class="breakdown-value">{formatCurrency(payrollRun.totalCppEmployee)}</span>
+	<div class="bg-white rounded-2xl shadow-md px-5 py-4">
+		<h3 class="text-base font-semibold text-gray-700 m-0 mb-3">Deduction & Remittance Breakdown</h3>
+		<div class="grid grid-cols-3 gap-3 max-lg:grid-cols-2 max-md:grid-cols-1">
+			<div class="flex justify-between px-3 py-2 bg-gray-50 rounded-md">
+				<span class="text-base text-gray-600">CPP (Employee)</span>
+				<span class="text-base font-medium text-gray-800">{formatCurrency(payrollRun.totalCppEmployee)}</span>
 			</div>
-			<div class="breakdown-item">
-				<span class="breakdown-label">CPP (Employer)</span>
-				<span class="breakdown-value employer">{formatCurrency(payrollRun.totalCppEmployer)}</span>
+			<div class="flex justify-between px-3 py-2 bg-gray-50 rounded-md">
+				<span class="text-base text-gray-600">CPP (Employer)</span>
+				<span class="text-base font-medium text-cyan-600">{formatCurrency(payrollRun.totalCppEmployer)}</span>
 			</div>
-			<div class="breakdown-item">
-				<span class="breakdown-label">EI (Employee)</span>
-				<span class="breakdown-value">{formatCurrency(payrollRun.totalEiEmployee)}</span>
+			<div class="flex justify-between px-3 py-2 bg-gray-50 rounded-md">
+				<span class="text-base text-gray-600">EI (Employee)</span>
+				<span class="text-base font-medium text-gray-800">{formatCurrency(payrollRun.totalEiEmployee)}</span>
 			</div>
-			<div class="breakdown-item">
-				<span class="breakdown-label">EI (Employer)</span>
-				<span class="breakdown-value employer">{formatCurrency(payrollRun.totalEiEmployer)}</span>
+			<div class="flex justify-between px-3 py-2 bg-gray-50 rounded-md">
+				<span class="text-base text-gray-600">EI (Employer)</span>
+				<span class="text-base font-medium text-cyan-600">{formatCurrency(payrollRun.totalEiEmployer)}</span>
 			</div>
-			<div class="breakdown-item">
-				<span class="breakdown-label">Federal Tax</span>
-				<span class="breakdown-value">{formatCurrency(payrollRun.totalFederalTax)}</span>
+			<div class="flex justify-between px-3 py-2 bg-gray-50 rounded-md">
+				<span class="text-base text-gray-600">Federal Tax</span>
+				<span class="text-base font-medium text-gray-800">{formatCurrency(payrollRun.totalFederalTax)}</span>
 			</div>
-			<div class="breakdown-item">
-				<span class="breakdown-label">Provincial Tax</span>
-				<span class="breakdown-value">{formatCurrency(payrollRun.totalProvincialTax)}</span>
+			<div class="flex justify-between px-3 py-2 bg-gray-50 rounded-md">
+				<span class="text-base text-gray-600">Provincial Tax</span>
+				<span class="text-base font-medium text-gray-800">{formatCurrency(payrollRun.totalProvincialTax)}</span>
 			</div>
-		</div>
-		<div class="employer-cost">
-			<span class="employer-label">Total Employer Cost</span>
-			<span class="employer-value">{formatCurrency(payrollRun.totalEmployerCost)}</span>
 		</div>
 	</div>
 
 	<!-- Pay Group Sections -->
-	<div class="pay-groups">
+	<div class="flex flex-col gap-4">
 		{#each payrollRun.payGroups as payGroup (payGroup.payGroupId)}
 			<DraftPayGroupSection
 				{payGroup}
@@ -223,314 +256,3 @@
 		{/each}
 	</div>
 </div>
-
-<style>
-	.draft-payroll-view {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-5);
-	}
-
-	/* Header */
-	.page-header {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-3);
-	}
-
-	.header-content {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: var(--spacing-3);
-	}
-
-	.header-left {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-	}
-
-	.status-badge {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-2) var(--spacing-3);
-		border-radius: var(--radius-full);
-		font-size: var(--font-size-body-small);
-		font-weight: var(--font-weight-semibold);
-	}
-
-	.status-badge.draft {
-		background: var(--color-warning-100);
-		color: var(--color-warning-700);
-	}
-
-	.page-title {
-		font-size: var(--font-size-headline);
-		font-weight: var(--font-weight-bold);
-		color: var(--color-surface-800);
-		margin: 0;
-	}
-
-	.header-actions {
-		display: flex;
-		gap: var(--spacing-3);
-	}
-
-	.btn {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-2) var(--spacing-4);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.btn:disabled {
-		opacity: 0.6;
-		cursor: not-allowed;
-	}
-
-	.btn-secondary {
-		background: white;
-		border: 1px solid var(--color-surface-300);
-		color: var(--color-surface-700);
-	}
-
-	.btn-secondary:hover:not(:disabled) {
-		background: var(--color-surface-50);
-		border-color: var(--color-surface-400);
-	}
-
-	.btn-primary {
-		background: linear-gradient(135deg, var(--color-primary-600), var(--color-secondary-600));
-		border: none;
-		color: white;
-	}
-
-	.btn-primary:hover:not(:disabled) {
-		opacity: 0.9;
-		transform: translateY(-1px);
-	}
-
-	.btn-ghost {
-		background: transparent;
-		border: none;
-		color: var(--color-surface-600);
-	}
-
-	.btn-ghost:hover:not(:disabled) {
-		background: var(--color-surface-100);
-		color: var(--color-surface-800);
-	}
-
-	.btn-danger-outline {
-		background: white;
-		border: 1px solid var(--color-error-300);
-		color: var(--color-error-600);
-	}
-
-	.btn-danger-outline:hover:not(:disabled) {
-		background: var(--color-error-50);
-		border-color: var(--color-error-400);
-	}
-
-	/* Warning Banner */
-	.warning-banner {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-		padding: var(--spacing-3) var(--spacing-4);
-		background: var(--color-warning-50);
-		border: 1px solid var(--color-warning-300);
-		border-radius: var(--radius-md);
-		color: var(--color-warning-800);
-		font-size: var(--font-size-body-content);
-	}
-
-	.warning-banner i {
-		color: var(--color-warning-600);
-		font-size: 18px;
-	}
-
-	/* Summary Cards */
-	.summary-cards {
-		display: grid;
-		grid-template-columns: repeat(4, 1fr);
-		gap: var(--spacing-4);
-	}
-
-	.summary-card {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-4);
-		padding: var(--spacing-4) var(--spacing-5);
-		background: white;
-		border-radius: var(--radius-xl);
-		box-shadow: var(--shadow-md3-1);
-	}
-
-	.summary-card.highlight {
-		background: linear-gradient(135deg, var(--color-success-50), var(--color-success-100));
-		border: 1px solid var(--color-success-200);
-	}
-
-	.card-icon {
-		width: 48px;
-		height: 48px;
-		border-radius: var(--radius-md);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 20px;
-	}
-
-	.card-icon.employees {
-		background: var(--color-primary-100);
-		color: var(--color-primary-600);
-	}
-
-	.card-icon.gross {
-		background: var(--color-info-100);
-		color: var(--color-info-600);
-	}
-
-	.card-icon.deductions {
-		background: var(--color-warning-100);
-		color: var(--color-warning-600);
-	}
-
-	.card-icon.net {
-		background: var(--color-success-600);
-		color: white;
-	}
-
-	.card-content {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.card-value {
-		font-size: var(--font-size-title);
-		font-weight: var(--font-weight-bold);
-		color: var(--color-surface-800);
-	}
-
-	.card-label {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	/* Deduction Breakdown */
-	.deduction-breakdown {
-		background: white;
-		border-radius: var(--radius-xl);
-		box-shadow: var(--shadow-md3-1);
-		padding: var(--spacing-4) var(--spacing-5);
-	}
-
-	.breakdown-title {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-700);
-		margin: 0 0 var(--spacing-3) 0;
-	}
-
-	.breakdown-grid {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: var(--spacing-3);
-	}
-
-	.breakdown-item {
-		display: flex;
-		justify-content: space-between;
-		padding: var(--spacing-2) var(--spacing-3);
-		background: var(--color-surface-50);
-		border-radius: var(--radius-sm);
-	}
-
-	.breakdown-label {
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-600);
-	}
-
-	.breakdown-value {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-800);
-	}
-
-	.breakdown-value.employer {
-		color: var(--color-info-600);
-	}
-
-	.employer-cost {
-		display: flex;
-		justify-content: flex-end;
-		align-items: center;
-		gap: var(--spacing-4);
-		margin-top: var(--spacing-3);
-		padding-top: var(--spacing-3);
-		border-top: 1px solid var(--color-surface-200);
-	}
-
-	.employer-label {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-600);
-	}
-
-	.employer-value {
-		font-size: var(--font-size-title);
-		font-weight: var(--font-weight-bold);
-		color: var(--color-info-600);
-	}
-
-	/* Pay Groups */
-	.pay-groups {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-4);
-	}
-
-	@media (max-width: 1024px) {
-		.summary-cards {
-			grid-template-columns: repeat(2, 1fr);
-		}
-
-		.breakdown-grid {
-			grid-template-columns: repeat(2, 1fr);
-		}
-	}
-
-	@media (max-width: 768px) {
-		.header-content {
-			flex-direction: column;
-			align-items: flex-start;
-		}
-
-		.header-actions {
-			width: 100%;
-		}
-
-		.btn {
-			flex: 1;
-			justify-content: center;
-		}
-
-		.summary-cards {
-			grid-template-columns: 1fr;
-		}
-
-		.breakdown-grid {
-			grid-template-columns: 1fr;
-		}
-	}
-</style>

@@ -135,22 +135,37 @@ export async function getPayrollRunByPayDate(
 		}
 
 		const dbRun = runData as DbPayrollRun;
+		const totalGross = Number(dbRun.total_gross);
+		const totalNetPay = Number(dbRun.total_net_pay);
+		const totalCppEmployee = Number(dbRun.total_cpp_employee);
+		const totalCppEmployer = Number(dbRun.total_cpp_employer);
+		const totalEiEmployee = Number(dbRun.total_ei_employee);
+		const totalEiEmployer = Number(dbRun.total_ei_employer);
+		const totalFederalTax = Number(dbRun.total_federal_tax);
+		const totalProvincialTax = Number(dbRun.total_provincial_tax);
+		const totalEmployerCost = Number(dbRun.total_employer_cost);
+
 		const result: PayrollRunWithGroups = {
 			id: dbRun.id,
 			payDate: dbRun.pay_date,
 			status: dbRun.status,
 			payGroups: Array.from(payGroupMap.values()),
 			totalEmployees: dbRun.total_employees,
-			totalGross: Number(dbRun.total_gross),
-			totalCppEmployee: Number(dbRun.total_cpp_employee),
-			totalCppEmployer: Number(dbRun.total_cpp_employer),
-			totalEiEmployee: Number(dbRun.total_ei_employee),
-			totalEiEmployer: Number(dbRun.total_ei_employer),
-			totalFederalTax: Number(dbRun.total_federal_tax),
-			totalProvincialTax: Number(dbRun.total_provincial_tax),
-			totalDeductions: Number(dbRun.total_cpp_employee) + Number(dbRun.total_ei_employee) + Number(dbRun.total_federal_tax) + Number(dbRun.total_provincial_tax),
-			totalNetPay: Number(dbRun.total_net_pay),
-			totalEmployerCost: Number(dbRun.total_employer_cost),
+			totalGross,
+			totalCppEmployee,
+			totalCppEmployer,
+			totalEiEmployee,
+			totalEiEmployer,
+			totalFederalTax,
+			totalProvincialTax,
+			// Fixed: totalDeductions = totalGross - totalNetPay
+			totalDeductions: totalGross - totalNetPay,
+			totalNetPay,
+			totalEmployerCost,
+			// New: totalPayrollCost = totalGross + totalEmployerCost
+			totalPayrollCost: totalGross + totalEmployerCost,
+			// New: totalRemittance = all CPP/EI (employee + employer) + taxes
+			totalRemittance: totalCppEmployee + totalCppEmployer + totalEiEmployee + totalEiEmployer + totalFederalTax + totalProvincialTax,
 			holidays: [] // Would load from a holidays table
 		};
 
@@ -340,23 +355,40 @@ export async function listPayrollRuns(
 		}
 
 		// Convert to PayrollRunWithGroups (simplified without records)
-		const runs: PayrollRunWithGroups[] = (data as DbPayrollRun[]).map(dbRun => ({
-			id: dbRun.id,
-			payDate: dbRun.pay_date,
-			status: dbRun.status,
-			payGroups: [], // Would need separate query to get pay groups
-			totalEmployees: dbRun.total_employees,
-			totalGross: Number(dbRun.total_gross),
-			totalCppEmployee: Number(dbRun.total_cpp_employee),
-			totalCppEmployer: Number(dbRun.total_cpp_employer),
-			totalEiEmployee: Number(dbRun.total_ei_employee),
-			totalEiEmployer: Number(dbRun.total_ei_employer),
-			totalFederalTax: Number(dbRun.total_federal_tax),
-			totalProvincialTax: Number(dbRun.total_provincial_tax),
-			totalDeductions: Number(dbRun.total_cpp_employee) + Number(dbRun.total_ei_employee) + Number(dbRun.total_federal_tax) + Number(dbRun.total_provincial_tax),
-			totalNetPay: Number(dbRun.total_net_pay),
-			totalEmployerCost: Number(dbRun.total_employer_cost)
-		}));
+		const runs: PayrollRunWithGroups[] = (data as DbPayrollRun[]).map(dbRun => {
+			const totalGross = Number(dbRun.total_gross);
+			const totalNetPay = Number(dbRun.total_net_pay);
+			const totalCppEmployee = Number(dbRun.total_cpp_employee);
+			const totalCppEmployer = Number(dbRun.total_cpp_employer);
+			const totalEiEmployee = Number(dbRun.total_ei_employee);
+			const totalEiEmployer = Number(dbRun.total_ei_employer);
+			const totalFederalTax = Number(dbRun.total_federal_tax);
+			const totalProvincialTax = Number(dbRun.total_provincial_tax);
+			const totalEmployerCost = Number(dbRun.total_employer_cost);
+
+			return {
+				id: dbRun.id,
+				payDate: dbRun.pay_date,
+				status: dbRun.status,
+				payGroups: [], // Would need separate query to get pay groups
+				totalEmployees: dbRun.total_employees,
+				totalGross,
+				totalCppEmployee,
+				totalCppEmployer,
+				totalEiEmployee,
+				totalEiEmployer,
+				totalFederalTax,
+				totalProvincialTax,
+				// Fixed: totalDeductions = totalGross - totalNetPay
+				totalDeductions: totalGross - totalNetPay,
+				totalNetPay,
+				totalEmployerCost,
+				// New: totalPayrollCost = totalGross + totalEmployerCost
+				totalPayrollCost: totalGross + totalEmployerCost,
+				// New: totalRemittance = all CPP/EI (employee + employer) + taxes
+				totalRemittance: totalCppEmployee + totalCppEmployer + totalEiEmployee + totalEiEmployer + totalFederalTax + totalProvincialTax
+			};
+		});
 
 		return { data: runs, count: count ?? 0, error: null };
 	} catch (err) {

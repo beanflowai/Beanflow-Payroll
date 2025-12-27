@@ -24,6 +24,33 @@ logger = logging.getLogger(__name__)
 # 2025 Federal Basic Personal Amount (default claim amount)
 DEFAULT_FEDERAL_CLAIM_2025 = Decimal("16129")
 
+# Payroll run statuses that count as "completed" for YTD calculations
+COMPLETED_RUN_STATUSES = ["approved", "paid"]
+
+# Default fallback year if date parsing fails
+DEFAULT_TAX_YEAR = 2025
+
+
+def _extract_year_from_date(date_str: str, default: int = DEFAULT_TAX_YEAR) -> int:
+    """Safely extract year from a date string (YYYY-MM-DD format).
+
+    Args:
+        date_str: Date string in YYYY-MM-DD format
+        default: Default year to return if parsing fails
+
+    Returns:
+        The extracted year, or default if parsing fails
+    """
+    if not date_str or not isinstance(date_str, str):
+        return default
+    try:
+        # Ensure we have at least 4 characters and they're digits
+        if len(date_str) >= 4 and date_str[:4].isdigit():
+            return int(date_str[:4])
+        return default
+    except (ValueError, TypeError):
+        return default
+
 
 def get_provincial_bpa(province_code: str, year: int = 2025) -> Decimal:
     """Get the Basic Personal Amount for a province from tax tables."""
@@ -44,6 +71,115 @@ class PayrollRunService:
         self.user_id = user_id
         self.ledger_id = ledger_id
         self.supabase = get_supabase_client()
+
+    def _get_prior_ytd_for_employees(
+        self, employee_ids: list[str], current_run_id: str, year: int = DEFAULT_TAX_YEAR
+    ) -> dict[str, dict[str, Decimal]]:
+        """
+        Get prior YTD totals for employees from completed payroll runs.
+
+        This queries all approved/paid payroll_records for each employee
+        in the given year, EXCLUDING the current run, and sums their totals.
+
+        Args:
+            employee_ids: List of employee IDs to query
+            current_run_id: The current payroll run ID to exclude
+            year: The tax year (default from DEFAULT_TAX_YEAR)
+
+        Returns:
+            Dict mapping employee_id -> {
+                'ytd_gross': Decimal,
+                'ytd_cpp': Decimal,
+                'ytd_ei': Decimal,
+                'ytd_federal_tax': Decimal,
+                'ytd_provincial_tax': Decimal,
+            }
+        """
+        if not employee_ids:
+            return {}
+
+        # Define year boundaries for efficient database filtering
+        year_start = f"{year}-01-01"
+        year_end = f"{year}-12-31"
+
+        # Query all completed payroll records for these employees in the year
+        # Join with payroll_runs to filter by status and year at database level
+        result = self.supabase.table("payroll_records").select(
+            """
+            employee_id,
+            gross_regular,
+            gross_overtime,
+            holiday_pay,
+            holiday_premium_pay,
+            vacation_pay_paid,
+            other_earnings,
+            cpp_employee,
+            cpp_additional,
+            ei_employee,
+            federal_tax,
+            provincial_tax,
+            payroll_runs!inner (
+                id,
+                pay_date,
+                status
+            )
+            """
+        ).eq("user_id", self.user_id).eq("ledger_id", self.ledger_id).in_(
+            "employee_id", employee_ids
+        ).in_(
+            "payroll_runs.status", COMPLETED_RUN_STATUSES
+        ).gte(
+            "payroll_runs.pay_date", year_start
+        ).lte(
+            "payroll_runs.pay_date", year_end
+        ).neq(
+            "payroll_run_id", current_run_id
+        ).execute()
+
+        # Initialize YTD dict for all employees
+        ytd_data: dict[str, dict[str, Decimal]] = {}
+        for emp_id in employee_ids:
+            ytd_data[emp_id] = {
+                "ytd_gross": Decimal("0"),
+                "ytd_cpp": Decimal("0"),
+                "ytd_ei": Decimal("0"),
+                "ytd_federal_tax": Decimal("0"),
+                "ytd_provincial_tax": Decimal("0"),
+            }
+
+        # Sum up prior records (year filtering already done at database level)
+        for record in result.data or []:
+            emp_id = record["employee_id"]
+            if emp_id not in ytd_data:
+                continue
+
+            # Calculate total gross for this record
+            total_gross = (
+                Decimal(str(record.get("gross_regular", 0)))
+                + Decimal(str(record.get("gross_overtime", 0)))
+                + Decimal(str(record.get("holiday_pay", 0)))
+                + Decimal(str(record.get("holiday_premium_pay", 0)))
+                + Decimal(str(record.get("vacation_pay_paid", 0)))
+                + Decimal(str(record.get("other_earnings", 0)))
+            )
+
+            # Sum CPP (base + additional)
+            total_cpp = (
+                Decimal(str(record.get("cpp_employee", 0)))
+                + Decimal(str(record.get("cpp_additional", 0)))
+            )
+
+            ytd_data[emp_id]["ytd_gross"] += total_gross
+            ytd_data[emp_id]["ytd_cpp"] += total_cpp
+            ytd_data[emp_id]["ytd_ei"] += Decimal(str(record.get("ei_employee", 0)))
+            ytd_data[emp_id]["ytd_federal_tax"] += Decimal(
+                str(record.get("federal_tax", 0))
+            )
+            ytd_data[emp_id]["ytd_provincial_tax"] += Decimal(
+                str(record.get("provincial_tax", 0))
+            )
+
+        return ytd_data
 
     def _calculate_benefits_deduction(
         self, group_benefits: dict[str, Any]
@@ -105,8 +241,9 @@ class PayrollRunService:
         taxable_benefits = Decimal("0")
 
         # Only life insurance has the special "pensionable but not insurable" treatment
+        # Employer-paid life insurance is ALWAYS a taxable benefit in Canada (CRA rule)
         life = group_benefits.get("lifeInsurance") or {}
-        if life.get("enabled") and life.get("isTaxable", False):
+        if life.get("enabled"):
             employer_contribution = Decimal(str(life.get("employerContribution", 0)))
             if employer_contribution > 0:
                 taxable_benefits += employer_contribution
@@ -247,6 +384,16 @@ class PayrollRunService:
         if not records:
             raise ValueError("No records found for payroll run")
 
+        # Extract year from pay_date for YTD calculations
+        pay_date = run.get("pay_date", "")
+        tax_year = _extract_year_from_date(pay_date)
+
+        # Get prior YTD data from completed payroll runs (excluding current run)
+        employee_ids = [record["employee_id"] for record in records]
+        prior_ytd_data = self._get_prior_ytd_for_employees(
+            employee_ids, str(run_id), year=tax_year
+        )
+
         # Build calculation inputs from input_data
         calculation_inputs: list[EmployeePayrollInput] = []
         record_map: dict[str, dict[str, Any]] = {}  # employee_id -> record
@@ -317,6 +464,9 @@ class PayrollRunService:
                 f"gross={gross_regular + gross_overtime}"
             )
 
+            # Get prior YTD for this employee (from completed pay runs only)
+            emp_prior_ytd = prior_ytd_data.get(record["employee_id"], {})
+
             calc_input = EmployeePayrollInput(
                 employee_id=record["employee_id"],
                 province=Province(employee["province_of_employment"]),
@@ -334,18 +484,19 @@ class PayrollRunService:
                 taxable_benefits_pensionable=taxable_benefits_pensionable,
                 # Employee benefits deduction (post-tax, included in net_pay calc)
                 other_deductions=benefits_deduction,
-                # YTD values from current record
-                ytd_gross=Decimal(str(record.get("ytd_gross", 0))),
-                ytd_cpp_base=Decimal(str(record.get("ytd_cpp", 0))),
-                ytd_ei=Decimal(str(record.get("ytd_ei", 0))),
-                ytd_federal_tax=Decimal(str(record.get("ytd_federal_tax", 0))),
-                ytd_provincial_tax=Decimal(str(record.get("ytd_provincial_tax", 0))),
+                # YTD values from PRIOR completed payroll runs (not current record)
+                # This prevents double-counting when recalculating
+                ytd_gross=emp_prior_ytd.get("ytd_gross", Decimal("0")),
+                ytd_cpp_base=emp_prior_ytd.get("ytd_cpp", Decimal("0")),
+                ytd_ei=emp_prior_ytd.get("ytd_ei", Decimal("0")),
+                ytd_federal_tax=emp_prior_ytd.get("ytd_federal_tax", Decimal("0")),
+                ytd_provincial_tax=emp_prior_ytd.get("ytd_provincial_tax", Decimal("0")),
             )
             calculation_inputs.append(calc_input)
             record_map[record["employee_id"]] = record
 
         # Calculate using PayrollEngine
-        engine = PayrollEngine(year=2025)
+        engine = PayrollEngine(year=tax_year)
         results = engine.calculate_batch(calculation_inputs)
 
         # Update each record with new calculation results
@@ -553,9 +704,12 @@ class PayrollRunService:
                 "run": run,
             }
 
+        # Extract tax year from pay_date
+        tax_year = _extract_year_from_date(pay_date)
+
         # Calculate payroll for missing employees and create records
         added_employees, results = await self._create_records_for_employees(
-            run_id, missing_employees, pay_group_map
+            run_id, missing_employees, pay_group_map, tax_year
         )
 
         # Calculate totals from new results and add to existing run totals
@@ -597,14 +751,27 @@ class PayrollRunService:
         run_id: UUID,
         employees: list[dict[str, Any]],
         pay_group_map: dict[str, dict[str, Any]],
+        tax_year: int = 2025,
     ) -> tuple[list[dict[str, Any]], list[Any]]:
         """Create payroll records for a list of employees.
+
+        Args:
+            run_id: The payroll run ID
+            employees: List of employee data
+            pay_group_map: Mapping of pay group ID to pay group data
+            tax_year: The tax year for YTD calculations (extracted from pay_date)
 
         Returns:
             Tuple of (added_employees list, calculation_results list)
         """
         if not employees:
             return [], []
+
+        # Get prior YTD data for all employees from completed payroll runs
+        employee_ids = [emp["id"] for emp in employees]
+        prior_ytd_data = self._get_prior_ytd_for_employees(
+            employee_ids, str(run_id), year=tax_year
+        )
 
         # Build calculation inputs
         calculation_inputs: list[EmployeePayrollInput] = []
@@ -631,6 +798,10 @@ class PayrollRunService:
 
             # Use province-specific BPA as default if no employee override
             emp_province = emp["province_of_employment"]
+
+            # Get prior YTD for this employee
+            emp_prior_ytd = prior_ytd_data.get(emp["id"], {})
+
             calc_input = EmployeePayrollInput(
                 employee_id=emp["id"],
                 province=Province(emp_province),
@@ -650,12 +821,18 @@ class PayrollRunService:
                 taxable_benefits_pensionable=taxable_benefits_pensionable,
                 # Employee benefits deduction (post-tax, included in net_pay calc)
                 other_deductions=benefits_deduction,
+                # YTD values from prior completed payroll runs
+                ytd_gross=emp_prior_ytd.get("ytd_gross", Decimal("0")),
+                ytd_cpp_base=emp_prior_ytd.get("ytd_cpp", Decimal("0")),
+                ytd_ei=emp_prior_ytd.get("ytd_ei", Decimal("0")),
+                ytd_federal_tax=emp_prior_ytd.get("ytd_federal_tax", Decimal("0")),
+                ytd_provincial_tax=emp_prior_ytd.get("ytd_provincial_tax", Decimal("0")),
             )
             calculation_inputs.append(calc_input)
             employee_map[emp["id"]] = emp
 
         # Calculate using PayrollEngine
-        engine = PayrollEngine(year=2025)
+        engine = PayrollEngine(year=tax_year)
         results = engine.calculate_batch(calculation_inputs)
 
         # Create payroll records
@@ -951,9 +1128,12 @@ class PayrollRunService:
         run = run_insert_result.data[0]
         run_id = run["id"]
 
+        # Extract tax year from pay_date
+        tax_year = _extract_year_from_date(pay_date)
+
         # Create payroll records for all employees (without calculation)
         _, results = await self._create_records_for_employees(
-            UUID(run_id), employees, pay_group_map
+            UUID(run_id), employees, pay_group_map, tax_year
         )
 
         # Update run totals from created records
@@ -1054,9 +1234,13 @@ class PayrollRunService:
 
         pay_group_map = {pay_group_id: pay_group} if pay_group_id else {}
 
+        # Extract tax year from run's pay_date
+        pay_date = run.get("pay_date", "")
+        tax_year = _extract_year_from_date(pay_date)
+
         # Create the payroll record
         added_employees, results = await self._create_records_for_employees(
-            run_id, [employee], pay_group_map
+            run_id, [employee], pay_group_map, tax_year
         )
 
         if not added_employees:

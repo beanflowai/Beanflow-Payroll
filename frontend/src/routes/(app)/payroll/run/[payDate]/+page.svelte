@@ -160,6 +160,8 @@
 					totalDeductions: payrollRun.totalDeductions,
 					totalNetPay: payrollRun.totalNetPay,
 					totalEmployerCost: payrollRun.totalEmployerCost,
+					totalPayrollCost: payrollRun.totalPayrollCost,
+					totalRemittance: payrollRun.totalRemittance,
 					holidays: payrollRun.holidays
 				}
 			: null
