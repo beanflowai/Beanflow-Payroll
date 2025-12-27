@@ -4,7 +4,8 @@
 		PAY_FREQUENCY_LABELS,
 		EMPLOYMENT_TYPE_LABELS,
 		COLUMN_GROUP_LABELS,
-		EMPLOYEE_STATUS_LABELS
+		EMPLOYEE_STATUS_LABELS,
+		formatVacationRate
 	} from '$lib/types/employee';
 	import { Avatar } from '$lib/components/shared';
 	import { formatShortDate } from '$lib/utils/dateUtils';
@@ -254,7 +255,7 @@
 					{:else if activeColumnGroup === 'compensation'}
 						<td class="col-salary money">{formatCompensation(emp)}</td>
 						<td class="col-period money">{getPerPeriodAmount(emp)}</td>
-						<td class="col-vacation">{(parseFloat(emp.vacationConfig?.vacationRate ?? '0.04') * 100).toFixed(0)}%</td>
+						<td class="col-vacation">{formatVacationRate(emp.vacationConfig?.vacationRate ?? '0.04')}</td>
 						<td class="col-balance money">{formatCurrency(emp.vacationBalance)}</td>
 					{:else if activeColumnGroup === 'tax'}
 						<td class="col-claim money">{formatCurrency(emp.federalClaimAmount)}</td>

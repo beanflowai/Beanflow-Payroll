@@ -101,6 +101,82 @@ This allows different employee groups (e.g., salaried vs. sales) to use appropri
 
 ---
 
+## 📊 Taxable Benefits in Payroll Calculation
+
+### Overview
+
+Certain employer-paid benefits are taxable and must be included in payroll calculations. The most common example is group life insurance premiums paid by the employer.
+
+### Life Insurance Employer Contribution
+
+Per CRA rules:
+- **Pensionable**: YES - included in CPP calculation base
+- **Insurable**: NO - NOT included in EI calculation base
+- **Taxable**: YES - included in income tax calculation
+
+### Implementation
+
+**File: `backend/app/services/payroll/payroll_engine.py`**
+
+```python
+@dataclass
+class EmployeePayrollInput:
+    # ... existing fields ...
+
+    # Taxable Benefits (employer-paid benefits that are taxable)
+    # Life insurance employer premium is pensionable but NOT insurable
+    taxable_benefits_pensionable: Decimal = Decimal("0")
+
+    @property
+    def pensionable_earnings(self) -> Decimal:
+        """Earnings subject to CPP (includes pensionable taxable benefits)."""
+        return self.total_gross + self.taxable_benefits_pensionable
+
+    @property
+    def insurable_earnings(self) -> Decimal:
+        """Earnings subject to EI (excludes non-cash benefits like life insurance)."""
+        # Life insurance employer contribution is NOT insurable
+        return self.total_gross
+
+    @property
+    def taxable_income_per_period(self) -> Decimal:
+        """Gross income for tax calculation (includes taxable benefits)."""
+        return self.total_gross + self.taxable_benefits_pensionable
+```
+
+### Tax Calculation Impact
+
+The annual taxable income formula now uses `taxable_income_per_period`:
+
+```
+A = P × (taxable_income_per_period - F - F2 - U1 - CPP2)
+```
+
+Where:
+- `taxable_income_per_period` = gross + taxable_benefits_pensionable
+- F = RRSP deduction
+- F2 = CPP enhancement (deductible)
+- U1 = Union dues
+- CPP2 = Additional CPP (deductible)
+
+### Calculation Details Output
+
+The calculation details now include taxable benefits information:
+
+```json
+{
+  "income": {
+    "gross_per_period": "2500.00",
+    "taxable_benefits_pensionable": "50.00",
+    "taxable_income_per_period": "2550.00",
+    "rrsp_per_period": "100.00",
+    "union_dues_per_period": "25.00"
+  }
+}
+```
+
+---
+
 ## 📦 Task 2.1: CPP Calculator
 
 ### LLM Agent Prompt

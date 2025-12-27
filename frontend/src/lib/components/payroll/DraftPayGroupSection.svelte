@@ -47,8 +47,11 @@
 	}
 
 	function formatPeriod(start: string, end: string): string {
-		const startDate = new Date(start);
-		const endDate = new Date(end);
+		// Parse date strings as local dates (not UTC) to avoid timezone shift
+		const [startYear, startMonth, startDay] = start.split('-').map(Number);
+		const [endYear, endMonth, endDay] = end.split('-').map(Number);
+		const startDate = new Date(startYear, startMonth - 1, startDay);
+		const endDate = new Date(endYear, endMonth - 1, endDay);
 		const startStr = startDate.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
 		const endStr = endDate.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
 		return `${startStr} - ${endStr}`;
@@ -424,6 +427,14 @@
 														{/if}
 													</div>
 
+													<!-- Vacation Earned -->
+													{#if record.vacationAccrued > 0}
+														<div class="flex justify-between items-center">
+															<span class="text-body-content text-surface-600">Vacation Earned</span>
+															<span class="text-body-content text-surface-800">{formatCurrency(record.vacationAccrued)}</span>
+														</div>
+													{/if}
+
 													<!-- Overtime -->
 													<div class="flex flex-col gap-1">
 														<div class="flex justify-between items-center">
@@ -592,6 +603,40 @@
 														<span class="text-body-content text-surface-600">Provincial Tax</span>
 														<span class="text-body-content text-surface-800">{formatCurrency(record.provincialTax)}</span>
 													</div>
+
+													<!-- Benefits (from Pay Group group_benefits) -->
+													{#if payGroup.groupBenefits?.enabled}
+														{#if payGroup.groupBenefits.health?.enabled}
+															<div class="flex justify-between items-center">
+																<span class="text-body-content text-surface-600">Health</span>
+																<span class="text-body-content text-surface-800">{formatCurrency(payGroup.groupBenefits.health.employeeDeduction)}</span>
+															</div>
+														{/if}
+														{#if payGroup.groupBenefits.dental?.enabled}
+															<div class="flex justify-between items-center">
+																<span class="text-body-content text-surface-600">Dental</span>
+																<span class="text-body-content text-surface-800">{formatCurrency(payGroup.groupBenefits.dental.employeeDeduction)}</span>
+															</div>
+														{/if}
+														{#if payGroup.groupBenefits.vision?.enabled}
+															<div class="flex justify-between items-center">
+																<span class="text-body-content text-surface-600">Vision</span>
+																<span class="text-body-content text-surface-800">{formatCurrency(payGroup.groupBenefits.vision.employeeDeduction)}</span>
+															</div>
+														{/if}
+														{#if payGroup.groupBenefits.lifeInsurance?.enabled}
+															<div class="flex justify-between items-center">
+																<span class="text-body-content text-surface-600">Life Insurance</span>
+																<span class="text-body-content text-surface-800">{formatCurrency(payGroup.groupBenefits.lifeInsurance.employeeDeduction)}</span>
+															</div>
+														{/if}
+														{#if payGroup.groupBenefits.disability?.enabled}
+															<div class="flex justify-between items-center">
+																<span class="text-body-content text-surface-600">Disability</span>
+																<span class="text-body-content text-surface-800">{formatCurrency(payGroup.groupBenefits.disability.employeeDeduction)}</span>
+															</div>
+														{/if}
+													{/if}
 
 													<!-- User-added deduction adjustments -->
 													{#each getDeductionAdjustments(record) as adj, idx (adj.id)}

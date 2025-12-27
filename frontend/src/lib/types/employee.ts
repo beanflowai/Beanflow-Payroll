@@ -39,7 +39,10 @@ export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
 };
 
 export type VacationPayoutMethod = 'accrual' | 'pay_as_you_go';
-export type VacationRate = '0' | '0.04' | '0.06' | '0.08';
+// Predefined vacation rates or 'custom' for user-defined rates
+export type VacationRatePreset = '0' | '0.04' | '0.06' | '0.08' | 'custom';
+// Actual vacation rate can be any numeric string (for custom) or preset
+export type VacationRate = string;
 export type CompensationType = 'salaried' | 'hourly';
 export type EmployeeStatus = 'draft' | 'active' | 'terminated';
 
@@ -49,12 +52,39 @@ export const EMPLOYEE_STATUS_LABELS: Record<EmployeeStatus, string> = {
 	terminated: 'Terminated'
 };
 
-export const VACATION_RATE_LABELS: Record<VacationRate, string> = {
+export const VACATION_RATE_LABELS: Record<VacationRatePreset, string> = {
 	'0': 'None (Owner/Contractor)',
 	'0.04': '4% (< 5 years)',
 	'0.06': '6% (5+ years)',
-	'0.08': '8% (Federal 10+)'
+	'0.08': '8% (Federal 10+)',
+	'custom': 'Custom Rate'
 };
+
+/**
+ * Check if a vacation rate is a preset or custom
+ */
+export function isPresetVacationRate(rate: string): rate is VacationRatePreset {
+	return rate in VACATION_RATE_LABELS;
+}
+
+/**
+ * Get the preset key for display, or 'custom' if not a preset
+ */
+export function getVacationRatePreset(rate: string): VacationRatePreset {
+	if (rate === '0' || rate === '0.04' || rate === '0.06' || rate === '0.08') {
+		return rate;
+	}
+	return 'custom';
+}
+
+/**
+ * Format vacation rate as percentage for display
+ */
+export function formatVacationRate(rate: string): string {
+	const numRate = parseFloat(rate);
+	if (isNaN(numRate)) return '0%';
+	return `${(numRate * 100).toFixed(2).replace(/\.?0+$/, '')}%`;
+}
 
 export interface VacationConfig {
 	payoutMethod: VacationPayoutMethod;
@@ -162,7 +192,7 @@ export function calculateYearsOfService(hireDate: string): number {
  * - 5+ years: 6%
  * - 10+ years (Federal only): 8%
  */
-export function suggestVacationRate(yearsOfService: number, isFederal = false): VacationRate {
+export function suggestVacationRate(yearsOfService: number, isFederal = false): VacationRatePreset {
 	if (yearsOfService >= 10 && isFederal) return '0.08';
 	if (yearsOfService >= 5) return '0.06';
 	return '0.04';

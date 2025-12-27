@@ -41,6 +41,7 @@ Implement comprehensive holiday and vacation pay functionality for Canadian payr
 - **4%**: Employees with less than 5 years of service
 - **6%**: Employees with 5-10 years of service
 - **8%**: Federal employees with 10+ years (varies by province)
+- **Custom**: User-defined rate for special cases (e.g., Saskatchewan 5.77%)
 
 **Calculation Base:**
 - Applied to gross wages earned during vacation entitlement year
@@ -50,6 +51,41 @@ Implement comprehensive holiday and vacation pay functionality for Canadian payr
 **Payout Options:**
 1. **Accrued**: Paid when vacation taken (most common)
 2. **Per-Period**: Added to each paycheck (4%/6% of gross)
+
+### Custom Vacation Rates
+
+Some provinces have non-standard vacation rates that don't fit the 4%/6%/8% presets:
+
+| Province | Service | Rate | Weeks |
+|----------|---------|------|-------|
+| Saskatchewan | 1-9 years | 5.77% | 3 weeks |
+| Saskatchewan | 10+ years | 7.69% | 4 weeks |
+
+**Implementation** (`frontend/src/lib/types/employee.ts`):
+
+```typescript
+// Predefined vacation rates or 'custom' for user-defined rates
+export type VacationRatePreset = '0' | '0.04' | '0.06' | '0.08' | 'custom';
+// Actual vacation rate can be any numeric string (for custom) or preset
+export type VacationRate = string;
+
+export const VACATION_RATE_LABELS: Record<VacationRatePreset, string> = {
+  '0': 'None (Owner/Contractor)',
+  '0.04': '4% (< 5 years)',
+  '0.06': '6% (5+ years)',
+  '0.08': '8% (Federal 10+)',
+  'custom': 'Custom Rate'
+};
+
+// Helper functions
+export function getVacationRatePreset(rate: string): VacationRatePreset;
+export function formatVacationRate(rate: string): string;  // e.g., "5.77%"
+```
+
+**UI Flow:**
+1. User selects "Custom Rate" from dropdown
+2. Custom rate input field appears (percentage, e.g., 5.77)
+3. Rate is stored as decimal string (e.g., "0.0577")
 
 ---
 
@@ -383,6 +419,28 @@ def calculate_vacation_accrual(
 
     return gross_earnings * rate
 ```
+
+**Current Implementation** (`backend/app/services/payroll_run_service.py`):
+
+The vacation accrued amount is now calculated and stored for each payroll record:
+
+```python
+# Calculate vacation accrued
+vacation_config = employee.get("vacation_config") or {}
+vacation_rate = Decimal(str(vacation_config.get("vacation_rate", "0.04")))
+vacation_accrued = result.total_gross * vacation_rate
+
+# Update payroll record
+self.supabase.table("payroll_records").update({
+    ...
+    "vacation_accrued": float(vacation_accrued),
+    ...
+}).eq("id", record["id"]).execute()
+```
+
+The `vacation_accrued` field is displayed in the payroll UI:
+- **DraftPayGroupSection.svelte**: Shows "Vacation Earned" in earnings breakdown
+- **PayrollRecordExpandedRow.svelte**: Shows vacation earned with 🏖️ icon and blue styling
 
 **Example:**
 ```python

@@ -1,6 +1,6 @@
 # Earnings, Benefits, and Deductions Configuration
 
-**Last Updated**: 2025-12-24
+**Last Updated**: 2025-12-26
 **Related**: [Database Schema](./13_database_schema.md)
 
 ---
@@ -481,6 +481,119 @@ The system should track YTD contributions to avoid over-contribution.
 - Housing benefits
 - Garnishment integration
 - RRSP annual limit tracking
+
+---
+
+## 7. Group Benefits Configuration (Added 2025-12-26)
+
+### Overview
+
+Group benefits are employer-sponsored benefit plans that may include employee payroll deductions. The `group_benefits` JSONB column in the `pay_groups` table stores these configurations.
+
+### GroupBenefits Structure
+
+```typescript
+interface GroupBenefits {
+  enabled: boolean;
+  health?: BenefitPlan;
+  dental?: BenefitPlan;
+  vision?: BenefitPlan;
+  lifeInsurance?: LifeInsurancePlan;
+  disability?: BenefitPlan;
+}
+
+interface BenefitPlan {
+  enabled: boolean;
+  employeeDeduction: number;  // Per-period employee deduction
+}
+
+interface LifeInsurancePlan {
+  enabled: boolean;
+  employeeDeduction: number;      // Per-period employee deduction
+  employerContribution: number;   // Per-period employer contribution (taxable benefit)
+}
+```
+
+### CRA Tax Treatment
+
+| Benefit Type | Employee Deduction | Employer Contribution |
+|--------------|-------------------|----------------------|
+| Health | Post-tax deduction | Non-taxable |
+| Dental | Post-tax deduction | Non-taxable |
+| Vision | Post-tax deduction | Non-taxable |
+| Life Insurance | Post-tax deduction | **Taxable benefit** (pensionable, NOT insurable) |
+| Disability | Post-tax deduction | Non-taxable |
+
+### Payroll Calculation Integration
+
+**File: `backend/app/services/payroll_run_service.py`**
+
+```python
+# Calculate benefits deduction from pay group
+group_benefits = pay_group.get("group_benefits") or {}
+benefits_deduction = Decimal("0")
+
+if group_benefits.get("enabled"):
+    # Health
+    health = group_benefits.get("health") or {}
+    if health.get("enabled"):
+        benefits_deduction += Decimal(str(health.get("employeeDeduction", 0)))
+
+    # Dental
+    dental = group_benefits.get("dental") or {}
+    if dental.get("enabled"):
+        benefits_deduction += Decimal(str(dental.get("employeeDeduction", 0)))
+
+    # Life Insurance
+    life = group_benefits.get("lifeInsurance") or {}
+    if life.get("enabled"):
+        benefits_deduction += Decimal(str(life.get("employeeDeduction", 0)))
+
+    # Vision
+    vision = group_benefits.get("vision") or {}
+    if vision.get("enabled"):
+        benefits_deduction += Decimal(str(vision.get("employeeDeduction", 0)))
+
+    # Disability
+    disability = group_benefits.get("disability") or {}
+    if disability.get("enabled"):
+        benefits_deduction += Decimal(str(disability.get("employeeDeduction", 0)))
+
+# Add benefits to other_deductions
+total_other_deductions = result.other_deductions + benefits_deduction
+```
+
+### Life Insurance Taxable Benefit
+
+The employer's life insurance contribution is a taxable benefit and is included in:
+- **Pensionable earnings** (for CPP calculation)
+- **Taxable income** (for income tax calculation)
+- But NOT in **insurable earnings** (EI is not applied)
+
+```python
+# Extract taxable benefits (life insurance employer contribution)
+taxable_benefits_pensionable = Decimal("0")
+if group_benefits.get("enabled"):
+    life = group_benefits.get("lifeInsurance") or {}
+    if life.get("enabled"):
+        employer_life = Decimal(str(life.get("employerContribution", 0)))
+        if employer_life > 0:
+            taxable_benefits_pensionable += employer_life
+```
+
+### UI Display
+
+Benefits deductions are displayed in the payroll UI:
+- **DraftPayGroupSection.svelte**: Shows individual benefit deductions (Health, Dental, Vision, Life Insurance, Disability)
+- **PayrollRecordExpandedRow.svelte**: Shows total benefits with 🏥 icon and orange styling
+
+### Default Configuration
+
+```typescript
+const DEFAULT_GROUP_BENEFITS: GroupBenefits = {
+  enabled: false
+};
+```
 
 ---
 

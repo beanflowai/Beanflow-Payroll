@@ -59,6 +59,8 @@ class EmployeePayrollInput:
     ytd_cpp_base: Decimal = Decimal("0")
     ytd_cpp_additional: Decimal = Decimal("0")
     ytd_ei: Decimal = Decimal("0")
+    ytd_federal_tax: Decimal = Decimal("0")
+    ytd_provincial_tax: Decimal = Decimal("0")
 
     # Pay period date (for tax edition selection)
     pay_date: date | None = None
@@ -67,6 +69,10 @@ class EmployeePayrollInput:
     is_cpp_exempt: bool = False
     is_ei_exempt: bool = False
     cpp2_exempt: bool = False
+
+    # Taxable Benefits (employer-paid benefits that are taxable)
+    # Life insurance employer premium is pensionable but NOT insurable
+    taxable_benefits_pensionable: Decimal = Decimal("0")
 
     @property
     def total_gross(self) -> Decimal:
@@ -82,15 +88,19 @@ class EmployeePayrollInput:
 
     @property
     def pensionable_earnings(self) -> Decimal:
-        """Earnings subject to CPP."""
-        # Most earnings are pensionable
-        return self.total_gross
+        """Earnings subject to CPP (includes pensionable taxable benefits)."""
+        return self.total_gross + self.taxable_benefits_pensionable
 
     @property
     def insurable_earnings(self) -> Decimal:
-        """Earnings subject to EI."""
-        # Most earnings are insurable
+        """Earnings subject to EI (excludes non-cash benefits like life insurance)."""
+        # Life insurance employer contribution is NOT insurable
         return self.total_gross
+
+    @property
+    def taxable_income_per_period(self) -> Decimal:
+        """Gross income for tax calculation (includes taxable benefits)."""
+        return self.total_gross + self.taxable_benefits_pensionable
 
 
 @dataclass
@@ -297,9 +307,11 @@ class PayrollEngine:
         # Step 3: Calculate Annual Taxable Income
         # Note: Both F2 (CPP enhancement) and CPP2 are deducted from taxable income
         # per CRA T4127: A = P × (I - F - F2 - U1 - CPP2)
+        # taxable_income_per_period includes taxable benefits (e.g., life insurance
+        # employer contribution)
         # =========================================================================
         annual_taxable = federal_calc.calculate_annual_taxable_income(
-            input_data.total_gross,
+            input_data.taxable_income_per_period,  # Includes taxable benefits
             input_data.rrsp_per_period,
             input_data.union_dues_per_period,
             cpp_result.additional,     # CPP2 is deductible from taxable income
@@ -308,6 +320,8 @@ class PayrollEngine:
 
         calculation_details["income"] = {
             "gross_per_period": str(input_data.total_gross),
+            "taxable_benefits_pensionable": str(input_data.taxable_benefits_pensionable),
+            "taxable_income_per_period": str(input_data.taxable_income_per_period),
             "rrsp_per_period": str(input_data.rrsp_per_period),
             "union_dues_per_period": str(input_data.union_dues_per_period),
             "cpp_enhancement_per_period": str(cpp_result.enhancement),
@@ -421,8 +435,8 @@ class PayrollEngine:
             new_ytd_gross=new_ytd_gross,
             new_ytd_cpp=new_ytd_cpp,
             new_ytd_ei=new_ytd_ei,
-            new_ytd_federal_tax=Decimal("0"),  # Would need existing YTD
-            new_ytd_provincial_tax=Decimal("0"),  # Would need existing YTD
+            new_ytd_federal_tax=input_data.ytd_federal_tax + federal_result.tax_per_period,
+            new_ytd_provincial_tax=input_data.ytd_provincial_tax + provincial_result.tax_per_period,
             # Details
             calculation_details=calculation_details,
         )

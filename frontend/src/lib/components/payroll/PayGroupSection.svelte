@@ -2,6 +2,7 @@
 	import type { PayrollRunPayGroup, PayrollRecord, PayrollRunStatus } from '$lib/types/payroll';
 	import { PAY_FREQUENCY_LABELS, EMPLOYMENT_TYPE_LABELS } from '$lib/types/payroll';
 	import { PayrollRecordExpandedRow, LeaveTypeBadge } from '$lib/components/payroll';
+	import { formatDateRange } from '$lib/utils/dateUtils';
 
 	interface Props {
 		payGroup: PayrollRunPayGroup;
@@ -35,14 +36,6 @@
 		}).format(amount);
 	}
 
-	function formatPeriod(start: string, end: string): string {
-		const startDate = new Date(start);
-		const endDate = new Date(end);
-		const startStr = startDate.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
-		const endStr = endDate.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
-		return `${startStr} - ${endStr}`;
-	}
-
 	function toggleCollapse() {
 		isCollapsed = !isCollapsed;
 	}
@@ -70,7 +63,7 @@
 					</span>
 					<span class="meta-divider"></span>
 					<span class="meta-item">
-						{formatPeriod(payGroup.periodStart, payGroup.periodEnd)}
+						{formatDateRange(payGroup.periodStart, payGroup.periodEnd)}
 					</span>
 				</div>
 			</div>
@@ -201,7 +194,7 @@
 							</td>
 						</tr>
 						{#if expandedRecordId === record.id}
-							<PayrollRecordExpandedRow {record} colspan={8} />
+							<PayrollRecordExpandedRow {record} groupBenefits={payGroup.groupBenefits} />
 						{/if}
 					{/each}
 				</tbody>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Employee, Province, VacationPayoutMethod, VacationRate, EmployeeCreateInput, EmployeeUpdateInput } from '$lib/types/employee';
+	import type { Employee, Province, VacationPayoutMethod, VacationRate, VacationRatePreset, EmployeeCreateInput, EmployeeUpdateInput } from '$lib/types/employee';
 	import type { PayGroup } from '$lib/types/pay-group';
 	import {
 		PROVINCE_LABELS,
@@ -9,7 +9,8 @@
 		FEDERAL_BPA_2025,
 		PROVINCIAL_BPA_2025,
 		calculateYearsOfService,
-		suggestVacationRate
+		suggestVacationRate,
+		getVacationRatePreset
 	} from '$lib/types/employee';
 	import { createEmployee, updateEmployee } from '$lib/services/employeeService';
 
@@ -69,8 +70,24 @@
 
 	// Vacation
 	let vacationPayoutMethod = $state<VacationPayoutMethod>(employee?.vacationConfig?.payoutMethod ?? 'accrual');
-	let vacationRate = $state<VacationRate>(employee?.vacationConfig?.vacationRate ?? '0.04');
+	// Track both the preset selection and custom value
+	const initialPreset = getVacationRatePreset(employee?.vacationConfig?.vacationRate ?? '0.04');
+	let vacationRatePreset = $state<string>(initialPreset);
+	// Custom rate as percentage (e.g., 5.77 for 5.77%)
+	// Use Math.round to avoid floating point precision issues (0.0577 * 100 = 5.7700000000000005)
+	let customVacationRate = $state<number>(
+		initialPreset === 'custom'
+			? Math.round(parseFloat(employee?.vacationConfig?.vacationRate ?? '0') * 10000) / 100
+			: 4
+	);
 	let vacationBalance = $state(employee?.vacationBalance ?? 0);
+
+	// Derived: actual vacation rate value (rounded to avoid floating point issues)
+	const vacationRate = $derived<VacationRate>(
+		vacationRatePreset === 'custom'
+			? (Math.round(customVacationRate * 100) / 10000).toFixed(4)
+			: vacationRatePreset
+	);
 
 	// UI state
 	let isSubmitting = $state(false);
@@ -106,7 +123,12 @@
 			rrspPerPeriod = employee.rrspPerPeriod;
 			unionDuesPerPeriod = employee.unionDuesPerPeriod;
 			vacationPayoutMethod = employee.vacationConfig?.payoutMethod ?? 'accrual';
-			vacationRate = employee.vacationConfig?.vacationRate ?? '0.04';
+			const resetPreset = getVacationRatePreset(employee.vacationConfig?.vacationRate ?? '0.04');
+			vacationRatePreset = resetPreset;
+			if (resetPreset === 'custom') {
+				// Use Math.round to avoid floating point precision issues
+				customVacationRate = Math.round(parseFloat(employee.vacationConfig?.vacationRate ?? '0') * 10000) / 100;
+			}
 			vacationBalance = employee.vacationBalance ?? 0;
 			showProvinceChangeWarning = false;
 			errors = {};
@@ -191,6 +213,15 @@
 		// Tax - validate additional claims (must be >= 0)
 		if (federalAdditionalClaims < 0) newErrors.federalAdditionalClaims = 'Invalid amount';
 		if (provincialAdditionalClaims < 0) newErrors.provincialAdditionalClaims = 'Invalid amount';
+
+		// Vacation - validate custom rate if selected
+		if (vacationRatePreset === 'custom') {
+			if (customVacationRate === null || customVacationRate === undefined || isNaN(customVacationRate)) {
+				newErrors.customVacationRate = 'Please enter a valid percentage';
+			} else if (customVacationRate < 0 || customVacationRate > 100) {
+				newErrors.customVacationRate = 'Rate must be between 0 and 100';
+			}
+		}
 
 		errors = newErrors;
 		return Object.keys(newErrors).length === 0;
@@ -728,13 +759,13 @@
 				<select
 					id="vacationRate"
 					class="p-3 border border-surface-300 rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10"
-					bind:value={vacationRate}
+					bind:value={vacationRatePreset}
 				>
 					{#each Object.entries(VACATION_RATE_LABELS) as [rate, label]}
 						<option value={rate}>{label}</option>
 					{/each}
 				</select>
-				{#if vacationRate !== '0' && vacationRate !== suggestedRate && hireDate}
+				{#if vacationRatePreset !== '0' && vacationRatePreset !== 'custom' && vacationRatePreset !== suggestedRate && hireDate}
 					<span class="text-auxiliary-text text-primary-600 flex items-center gap-1">
 						<i class="fas fa-lightbulb"></i>
 						Suggested: {VACATION_RATE_LABELS[suggestedRate]} based on {yearsOfService.toFixed(1)} years of service
@@ -742,7 +773,32 @@
 				{/if}
 			</div>
 
-			{#if vacationRate !== '0'}
+			{#if vacationRatePreset === 'custom'}
+				<div class="flex flex-col gap-2">
+					<label for="customVacationRate" class="text-body-small font-medium text-surface-700">Custom Rate (%) *</label>
+					<div class="flex items-center border rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10 {errors.customVacationRate ? 'border-error-500' : 'border-surface-300'}">
+						<input
+							id="customVacationRate"
+							type="number"
+							inputmode="decimal"
+							class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
+							bind:value={customVacationRate}
+							min="0"
+							max="100"
+							step="0.01"
+							placeholder="e.g., 5.77"
+						/>
+						<span class="p-3 bg-surface-100 text-surface-500 text-body-content">%</span>
+					</div>
+					{#if errors.customVacationRate}
+						<span class="text-auxiliary-text text-error-600">{errors.customVacationRate}</span>
+					{:else}
+						<span class="text-auxiliary-text text-surface-500">Enter any percentage (e.g., 5.77 for Saskatchewan 3+ weeks)</span>
+					{/if}
+				</div>
+			{/if}
+
+			{#if vacationRatePreset !== '0'}
 				<div class="flex flex-col gap-2">
 					<label for="vacationMethod" class="text-body-small font-medium text-surface-700">Payout Method</label>
 					<select

@@ -1,12 +1,14 @@
 <script lang="ts">
 	import type { PayrollRecord } from '$lib/types/payroll';
+	import type { GroupBenefits } from '$lib/types/pay-group';
 	import { LEAVE_TYPE_LABELS } from '$lib/types/payroll';
 
 	interface Props {
 		record: PayrollRecord;
+		groupBenefits?: GroupBenefits;
 	}
 
-	let { record }: Props = $props();
+	let { record, groupBenefits }: Props = $props();
 
 	// Derived values for Leave section
 	const hasLeaveThisPeriod = $derived((record.leaveEntries?.length ?? 0) > 0);
@@ -35,6 +37,15 @@
 						<span class="item-label">Regular Pay</span>
 						<span class="item-value">{formatCurrency(record.grossRegular)}</span>
 					</div>
+					{#if record.vacationAccrued > 0}
+						<div class="breakdown-item vacation-earned">
+							<span class="item-label">
+								<span class="vacation-icon">🏖️</span>
+								Vacation Earned
+							</span>
+							<span class="item-value vacation-value">{formatCurrency(record.vacationAccrued)}</span>
+						</div>
+					{/if}
 					{#if record.grossOvertime > 0}
 						<div class="breakdown-item overtime-item">
 							<span class="item-label overtime-label">
@@ -126,6 +137,47 @@
 						<div class="breakdown-item">
 							<span class="item-label">Union Dues</span>
 							<span class="item-value">{formatCurrency(record.unionDues)}</span>
+						</div>
+					{/if}
+					<!-- Benefits breakdown (if groupBenefits available) or aggregate -->
+					{#if groupBenefits?.enabled}
+						{#if groupBenefits.health?.enabled}
+							<div class="breakdown-item">
+								<span class="item-label">Health</span>
+								<span class="item-value">{formatCurrency(groupBenefits.health.employeeDeduction)}</span>
+							</div>
+						{/if}
+						{#if groupBenefits.dental?.enabled}
+							<div class="breakdown-item">
+								<span class="item-label">Dental</span>
+								<span class="item-value">{formatCurrency(groupBenefits.dental.employeeDeduction)}</span>
+							</div>
+						{/if}
+						{#if groupBenefits.vision?.enabled}
+							<div class="breakdown-item">
+								<span class="item-label">Vision</span>
+								<span class="item-value">{formatCurrency(groupBenefits.vision.employeeDeduction)}</span>
+							</div>
+						{/if}
+						{#if groupBenefits.lifeInsurance?.enabled}
+							<div class="breakdown-item">
+								<span class="item-label">Life Insurance</span>
+								<span class="item-value">{formatCurrency(groupBenefits.lifeInsurance.employeeDeduction)}</span>
+							</div>
+						{/if}
+						{#if groupBenefits.disability?.enabled}
+							<div class="breakdown-item">
+								<span class="item-label">Disability</span>
+								<span class="item-value">{formatCurrency(groupBenefits.disability.employeeDeduction)}</span>
+							</div>
+						{/if}
+					{:else if record.otherDeductions > 0}
+						<div class="breakdown-item benefits-item">
+							<span class="item-label benefits-label">
+								<span class="benefits-icon">🏥</span>
+								Benefits & Other
+							</span>
+							<span class="item-value">{formatCurrency(record.otherDeductions)}</span>
 						</div>
 					{/if}
 					<div class="breakdown-item total">
@@ -386,6 +438,53 @@
 		font-size: var(--font-size-auxiliary-text);
 		color: var(--color-surface-500);
 		font-family: var(--font-family-primary);
+	}
+
+	/* Vacation Earned styling */
+	.vacation-earned {
+		background: var(--color-info-50, #eff6ff);
+		border-radius: var(--radius-md);
+		padding: var(--spacing-2) !important;
+		margin: var(--spacing-1) 0;
+	}
+
+	.vacation-earned .item-label {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-1);
+		color: var(--color-info-700, #1d4ed8);
+	}
+
+	.vacation-icon {
+		font-size: var(--font-size-body-content);
+	}
+
+	.vacation-value {
+		color: var(--color-info-700, #1d4ed8);
+		font-weight: var(--font-weight-medium);
+	}
+
+	/* Benefits styling */
+	.benefits-item {
+		background: var(--color-warning-50, #fff7ed);
+		border-radius: var(--radius-md);
+		padding: var(--spacing-2) !important;
+		margin: var(--spacing-1) 0;
+	}
+
+	.benefits-label {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-1);
+		color: var(--color-warning-700, #c2410c);
+	}
+
+	.benefits-icon {
+		font-size: var(--font-size-body-content);
+	}
+
+	.benefits-item .item-value {
+		color: var(--color-warning-700, #c2410c);
 	}
 
 	.net-pay-display {

@@ -1,6 +1,6 @@
 # Database Schema - Payroll Module
 
-**Last Updated**: 2025-12-07
+**Last Updated**: 2025-12-26
 **Database**: Supabase (PostgreSQL)
 
 ---

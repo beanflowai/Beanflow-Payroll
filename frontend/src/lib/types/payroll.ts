@@ -5,7 +5,8 @@
 import type {
 	EarningsConfig,
 	TaxableBenefitsConfig,
-	DeductionsConfig
+	DeductionsConfig,
+	GroupBenefits
 } from './pay-group';
 
 // Leave types
@@ -195,6 +196,9 @@ export interface PayrollRecord {
 	ytdVacationHours?: number;
 	ytdSickHours?: number;
 
+	// Vacation earned this period (gross × vacation_rate)
+	vacationAccrued: number;
+
 	// Vacation payout tracking (for accrual method employees)
 	vacationPayoutEntries?: VacationPayoutEntry[];
 	totalVacationPayout?: number;
@@ -307,6 +311,7 @@ export interface PayrollRunPayGroup {
 	earningsConfig?: EarningsConfig;
 	taxableBenefitsConfig?: TaxableBenefitsConfig;
 	deductionsConfig?: DeductionsConfig;
+	groupBenefits?: GroupBenefits;
 }
 
 /**
@@ -482,6 +487,7 @@ export interface DbPayrollRecordWithEmployee extends DbPayrollRecord {
 			earnings_config?: EarningsConfig;
 			taxable_benefits_config?: TaxableBenefitsConfig;
 			deductions_config?: DeductionsConfig;
+			group_benefits?: GroupBenefits;
 		} | null;
 	};
 }
@@ -576,6 +582,7 @@ export function dbPayrollRecordToUi(db: DbPayrollRecordWithEmployee): PayrollRec
 		ytdProvincialTax: Number(db.ytd_provincial_tax),
 		ytdNetPay: Number(db.ytd_gross) - Number(db.ytd_cpp) - Number(db.ytd_ei) - Number(db.ytd_federal_tax) - Number(db.ytd_provincial_tax),
 		// Vacation
+		vacationAccrued: Number(db.vacation_accrued),
 		vacationHoursTaken: Number(db.vacation_hours_taken),
 		// Holiday work hours - empty by default, would be loaded separately
 		holidayWorkHours: [],

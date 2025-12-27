@@ -45,6 +45,74 @@ class PayrollRunService:
         self.ledger_id = ledger_id
         self.supabase = get_supabase_client()
 
+    def _calculate_benefits_deduction(
+        self, group_benefits: dict[str, Any]
+    ) -> Decimal:
+        """Calculate total employee benefits deduction from group benefits config.
+
+        This calculates the post-tax employee deduction amount for all enabled benefits.
+        """
+        if not group_benefits.get("enabled"):
+            return Decimal("0")
+
+        benefits_deduction = Decimal("0")
+
+        # Health
+        health = group_benefits.get("health") or {}
+        if health.get("enabled"):
+            benefits_deduction += Decimal(str(health.get("employeeDeduction", 0)))
+
+        # Dental
+        dental = group_benefits.get("dental") or {}
+        if dental.get("enabled"):
+            benefits_deduction += Decimal(str(dental.get("employeeDeduction", 0)))
+
+        # Life Insurance
+        life = group_benefits.get("lifeInsurance") or {}
+        if life.get("enabled"):
+            benefits_deduction += Decimal(str(life.get("employeeDeduction", 0)))
+
+        # Vision
+        vision = group_benefits.get("vision") or {}
+        if vision.get("enabled"):
+            benefits_deduction += Decimal(str(vision.get("employeeDeduction", 0)))
+
+        # Disability
+        disability = group_benefits.get("disability") or {}
+        if disability.get("enabled"):
+            benefits_deduction += Decimal(str(disability.get("employeeDeduction", 0)))
+
+        return benefits_deduction
+
+    def _calculate_taxable_benefits(
+        self, group_benefits: dict[str, Any]
+    ) -> Decimal:
+        """Calculate taxable benefits that are pensionable but NOT insurable.
+
+        In Canada, only employer-paid life insurance premiums have this special
+        treatment (pensionable for CPP, but NOT insurable for EI).
+
+        Other benefit types (health, dental, vision, disability) are generally
+        NOT taxable in Canada. If they were taxable, they would be both
+        pensionable AND insurable, but that's extremely rare.
+
+        We only check lifeInsurance.isTaxable to avoid incorrect CPP/EI
+        calculations for other benefit types.
+        """
+        if not group_benefits.get("enabled"):
+            return Decimal("0")
+
+        taxable_benefits = Decimal("0")
+
+        # Only life insurance has the special "pensionable but not insurable" treatment
+        life = group_benefits.get("lifeInsurance") or {}
+        if life.get("enabled") and life.get("isTaxable", False):
+            employer_contribution = Decimal(str(life.get("employerContribution", 0)))
+            if employer_contribution > 0:
+                taxable_benefits += employer_contribution
+
+        return taxable_benefits
+
     async def get_run(self, run_id: UUID) -> dict[str, Any] | None:
         """Get a payroll run by ID
 
@@ -77,12 +145,14 @@ class PayrollRunService:
                 is_cpp_exempt,
                 is_ei_exempt,
                 cpp2_exempt,
+                vacation_config,
                 pay_group_id,
                 pay_groups (
                     id,
                     name,
                     pay_frequency,
-                    employment_type
+                    employment_type,
+                    group_benefits
                 )
             )
             """
@@ -192,6 +262,17 @@ class PayrollRunService:
             )
             pay_frequency = PayFrequency(pay_frequency_str)
 
+            # Extract benefits from pay group
+            group_benefits = pay_group.get("group_benefits") or {}
+
+            # Calculate taxable benefits (employer contributions where isTaxable=True)
+            # These are pensionable but NOT insurable for EI
+            taxable_benefits_pensionable = self._calculate_taxable_benefits(group_benefits)
+
+            # Calculate employee benefits deduction (post-tax deductions)
+            # This is passed to the engine so it's included in net_pay calculation
+            benefits_deduction = self._calculate_benefits_deduction(group_benefits)
+
             # Calculate gross pay from input_data
             gross_regular, gross_overtime = self._calculate_gross_from_input(
                 employee, input_data, pay_frequency_str
@@ -249,10 +330,16 @@ class PayrollRunService:
                 is_cpp_exempt=employee.get("is_cpp_exempt", False),
                 is_ei_exempt=employee.get("is_ei_exempt", False),
                 cpp2_exempt=employee.get("cpp2_exempt", False),
+                # Taxable benefits (employer contributions where isTaxable=True)
+                taxable_benefits_pensionable=taxable_benefits_pensionable,
+                # Employee benefits deduction (post-tax, included in net_pay calc)
+                other_deductions=benefits_deduction,
                 # YTD values from current record
                 ytd_gross=Decimal(str(record.get("ytd_gross", 0))),
                 ytd_cpp_base=Decimal(str(record.get("ytd_cpp", 0))),
                 ytd_ei=Decimal(str(record.get("ytd_ei", 0))),
+                ytd_federal_tax=Decimal(str(record.get("ytd_federal_tax", 0))),
+                ytd_provincial_tax=Decimal(str(record.get("ytd_provincial_tax", 0))),
             )
             calculation_inputs.append(calc_input)
             record_map[record["employee_id"]] = record
@@ -265,7 +352,19 @@ class PayrollRunService:
         for result in results:
             record = record_map[result.employee_id]
             input_data = record.get("input_data") or {}
+            employee = record["employees"]
 
+            # Calculate vacation accrued (only for accrual method, not pay-as-you-go)
+            vacation_config = employee.get("vacation_config") or {}
+            payout_method = vacation_config.get("payout_method", "accrual")
+            if payout_method == "accrual":
+                vacation_rate = Decimal(str(vacation_config.get("vacation_rate", "0.04")))
+                vacation_accrued = result.total_gross * vacation_rate
+            else:
+                # pay_as_you_go: vacation is paid each period, no accrual
+                vacation_accrued = Decimal("0")
+
+            # other_deductions already includes benefits (passed to engine earlier)
             self.supabase.table("payroll_records").update({
                 "gross_regular": float(result.gross_regular),
                 "gross_overtime": float(result.gross_overtime),
@@ -276,11 +375,15 @@ class PayrollRunService:
                 "ei_employee": float(result.ei_employee),
                 "federal_tax": float(result.federal_tax),
                 "provincial_tax": float(result.provincial_tax),
+                "other_deductions": float(result.other_deductions),
                 "cpp_employer": float(result.cpp_employer),
                 "ei_employer": float(result.ei_employer),
                 "ytd_gross": float(result.new_ytd_gross),
                 "ytd_cpp": float(result.new_ytd_cpp),
                 "ytd_ei": float(result.new_ytd_ei),
+                "ytd_federal_tax": float(result.new_ytd_federal_tax),
+                "ytd_provincial_tax": float(result.new_ytd_provincial_tax),
+                "vacation_accrued": float(vacation_accrued),
                 "is_modified": False,
                 # Update hours from input_data
                 "regular_hours_worked": input_data.get("regularHours"),
@@ -404,7 +507,7 @@ class PayrollRunService:
         # Note: pay_groups table doesn't have user_id/ledger_id columns
         # RLS policy filters via company_id relationship
         pay_groups_result = self.supabase.table("pay_groups").select(
-            "id, name, pay_frequency, employment_type"
+            "id, name, pay_frequency, employment_type, group_benefits"
         ).eq("next_pay_date", pay_date).execute()
 
         pay_groups = pay_groups_result.data or []
@@ -422,7 +525,7 @@ class PayrollRunService:
         employees_result = self.supabase.table("employees").select(
             "id, first_name, last_name, province_of_employment, pay_group_id, "
             "annual_salary, hourly_rate, federal_claim_amount, provincial_claim_amount, "
-            "is_cpp_exempt, is_ei_exempt, cpp2_exempt"
+            "is_cpp_exempt, is_ei_exempt, cpp2_exempt, vacation_config"
         ).eq("user_id", self.user_id).eq("ledger_id", self.ledger_id).in_(
             "pay_group_id", pay_group_ids
         ).is_("termination_date", "null").execute()
@@ -512,6 +615,15 @@ class PayrollRunService:
             pay_frequency_str = pay_group.get("pay_frequency", "bi_weekly")
             pay_frequency = PayFrequency(pay_frequency_str)
 
+            # Extract benefits from pay group
+            group_benefits = pay_group.get("group_benefits") or {}
+
+            # Calculate taxable benefits (employer contributions where isTaxable=True)
+            taxable_benefits_pensionable = self._calculate_taxable_benefits(group_benefits)
+
+            # Calculate employee benefits deduction (post-tax deductions)
+            benefits_deduction = self._calculate_benefits_deduction(group_benefits)
+
             # Calculate gross pay
             gross_regular, gross_overtime = self._calculate_initial_gross(
                 emp, pay_frequency_str
@@ -534,6 +646,10 @@ class PayrollRunService:
                 is_cpp_exempt=emp.get("is_cpp_exempt", False),
                 is_ei_exempt=emp.get("is_ei_exempt", False),
                 cpp2_exempt=emp.get("cpp2_exempt", False),
+                # Taxable benefits (employer contributions where isTaxable=True)
+                taxable_benefits_pensionable=taxable_benefits_pensionable,
+                # Employee benefits deduction (post-tax, included in net_pay calc)
+                other_deductions=benefits_deduction,
             )
             calculation_inputs.append(calc_input)
             employee_map[emp["id"]] = emp
@@ -553,6 +669,17 @@ class PayrollRunService:
             # Build employee name snapshot
             employee_name = f"{emp['first_name']} {emp['last_name']}"
 
+            # Calculate vacation accrued (only for accrual method, not pay-as-you-go)
+            vacation_config = emp.get("vacation_config") or {}
+            payout_method = vacation_config.get("payout_method", "accrual")
+            if payout_method == "accrual":
+                vacation_rate = Decimal(str(vacation_config.get("vacation_rate", "0.04")))
+                vacation_accrued = result.total_gross * vacation_rate
+            else:
+                # pay_as_you_go: vacation is paid each period, no accrual
+                vacation_accrued = Decimal("0")
+
+            # other_deductions already includes benefits (passed to engine earlier)
             records_to_insert.append({
                 "payroll_run_id": str(run_id),
                 "employee_id": result.employee_id,
@@ -592,9 +719,9 @@ class PayrollRunService:
                 "ytd_gross": float(result.new_ytd_gross),
                 "ytd_cpp": float(result.new_ytd_cpp),
                 "ytd_ei": float(result.new_ytd_ei),
-                "ytd_federal_tax": 0,
-                "ytd_provincial_tax": 0,
-                "vacation_accrued": 0,
+                "ytd_federal_tax": float(result.new_ytd_federal_tax),
+                "ytd_provincial_tax": float(result.new_ytd_provincial_tax),
+                "vacation_accrued": float(vacation_accrued),
                 "vacation_hours_taken": 0,
                 # Draft state
                 "input_data": {
@@ -741,7 +868,7 @@ class PayrollRunService:
 
         # Get pay groups with matching next_pay_date
         pay_groups_result = self.supabase.table("pay_groups").select(
-            "id, name, pay_frequency, employment_type"
+            "id, name, pay_frequency, employment_type, group_benefits"
         ).eq("next_pay_date", pay_date).execute()
 
         pay_groups = pay_groups_result.data or []
@@ -755,7 +882,7 @@ class PayrollRunService:
         employees_result = self.supabase.table("employees").select(
             "id, first_name, last_name, province_of_employment, pay_group_id, "
             "annual_salary, hourly_rate, federal_claim_amount, provincial_claim_amount, "
-            "is_cpp_exempt, is_ei_exempt, cpp2_exempt"
+            "is_cpp_exempt, is_ei_exempt, cpp2_exempt, vacation_config"
         ).eq("user_id", self.user_id).eq("ledger_id", self.ledger_id).in_(
             "pay_group_id", pay_group_ids
         ).is_("termination_date", "null").execute()
@@ -764,12 +891,39 @@ class PayrollRunService:
         if not employees:
             raise ValueError("No active employees found for these pay groups")
 
-        # Calculate period dates from pay frequency (simplified - assumes bi-weekly)
+        # Calculate period dates based on pay frequency
+        from calendar import monthrange
         from datetime import datetime, timedelta
+
         pay_date_obj = datetime.strptime(pay_date, "%Y-%m-%d")
-        # Default to 2-week period for bi-weekly
-        period_end = pay_date_obj - timedelta(days=1)
-        period_start = period_end - timedelta(days=13)
+
+        # Get pay frequency from the first pay group (all should have same frequency)
+        pay_frequency = pay_groups[0].get("pay_frequency", "bi_weekly")
+
+        if pay_frequency == "monthly":
+            # Monthly: full month of pay_date (e.g., pay date Nov 30 -> Nov 1-30)
+            period_start = pay_date_obj.replace(day=1)
+            last_day = monthrange(pay_date_obj.year, pay_date_obj.month)[1]
+            period_end = pay_date_obj.replace(day=last_day)
+        elif pay_frequency == "semi_monthly":
+            # Semi-monthly: 1-15 or 16-end of month
+            if pay_date_obj.day <= 15:
+                # Pay date in first half: period is 16th to end of previous month
+                prev_month = pay_date_obj.replace(day=1) - timedelta(days=1)
+                period_start = prev_month.replace(day=16)
+                period_end = prev_month
+            else:
+                # Pay date in second half: period is 1st to 15th of current month
+                period_start = pay_date_obj.replace(day=1)
+                period_end = pay_date_obj.replace(day=15)
+        elif pay_frequency == "weekly":
+            # Weekly: 7 days ending day before pay date
+            period_end = pay_date_obj - timedelta(days=1)
+            period_start = period_end - timedelta(days=6)
+        else:
+            # Bi-weekly (default): 14 days ending day before pay date
+            period_end = pay_date_obj - timedelta(days=1)
+            period_start = period_end - timedelta(days=13)
 
         # Create the payroll run
         run_insert_result = self.supabase.table("payroll_runs").insert({
@@ -878,7 +1032,7 @@ class PayrollRunService:
         employee_result = self.supabase.table("employees").select(
             "id, first_name, last_name, province_of_employment, pay_group_id, "
             "annual_salary, hourly_rate, federal_claim_amount, provincial_claim_amount, "
-            "is_cpp_exempt, is_ei_exempt, cpp2_exempt"
+            "is_cpp_exempt, is_ei_exempt, cpp2_exempt, vacation_config"
         ).eq("id", employee_id).eq("user_id", self.user_id).eq(
             "ledger_id", self.ledger_id
         ).single().execute()
@@ -893,7 +1047,7 @@ class PayrollRunService:
         pay_group = {}
         if pay_group_id:
             pg_result = self.supabase.table("pay_groups").select(
-                "id, name, pay_frequency, employment_type"
+                "id, name, pay_frequency, employment_type, group_benefits"
             ).eq("id", pay_group_id).execute()
             if pg_result.data:
                 pay_group = pg_result.data[0]

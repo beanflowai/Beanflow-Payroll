@@ -5,7 +5,8 @@
 		PROVINCE_LABELS,
 		PAY_FREQUENCY_LABELS,
 		EMPLOYMENT_TYPE_LABELS,
-		EMPLOYEE_STATUS_LABELS
+		EMPLOYEE_STATUS_LABELS,
+		formatVacationRate
 	} from '$lib/types/employee';
 	import { formatShortDate } from '$lib/utils/dateUtils';
 
@@ -204,7 +205,7 @@
 			<div class="detail-row">
 				<span class="detail-label">Vacation Rate</span>
 				<span class="detail-value">
-					{(parseFloat(employee.vacationConfig.vacationRate) * 100).toFixed(0)}%
+					{formatVacationRate(employee.vacationConfig.vacationRate)}
 				</span>
 			</div>
 			<div class="detail-row">
