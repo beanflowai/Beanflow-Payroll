@@ -104,3 +104,5 @@ class PaystubData:
     # === Optional fields ===
     occupation: str | None = None
     memo: str | None = None  # e.g., "Pay Period: 11/01/2025 - 11/30/2025"
+    logoUrl: str | None = None  # Company logo URL for paystub branding
+    logoBytes: bytes | None = None  # Pre-downloaded logo bytes (preferred over URL)

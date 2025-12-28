@@ -18,7 +18,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, computed_field
 
-
 # =============================================================================
 # Enums
 # =============================================================================
@@ -616,6 +615,9 @@ class CompanyBase(BaseModel):
     bookkeeping_ledger_name: str | None = None
     bookkeeping_connected_at: datetime | None = None
 
+    # Company Logo
+    logo_url: str | None = None
+
 
 class CompanyCreate(CompanyBase):
     """Company creation request."""
@@ -639,6 +641,8 @@ class CompanyUpdate(BaseModel):
     bookkeeping_ledger_id: str | None = None
     bookkeeping_ledger_name: str | None = None
     bookkeeping_connected_at: datetime | None = None
+    # Company Logo
+    logo_url: str | None = None
 
 
 class Company(CompanyBase):

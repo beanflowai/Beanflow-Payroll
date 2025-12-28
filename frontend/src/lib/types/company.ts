@@ -66,6 +66,9 @@ export interface CompanySettings {
 	addressCity?: string | null;
 	addressPostalCode?: string | null;
 
+	// Logo (for paystub branding)
+	logoUrl?: string | null;
+
 	// CRA Remittance
 	remitterType: RemitterType;
 
@@ -185,6 +188,9 @@ export interface CompanyProfile {
 	addressStreet?: string | null;
 	addressCity?: string | null;
 	addressPostalCode?: string | null;
+
+	// Logo (for paystub branding)
+	logoUrl?: string | null;
 
 	// CRA Remittance
 	remitterType: RemitterType;

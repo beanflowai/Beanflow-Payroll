@@ -28,6 +28,7 @@ export interface DbCompany {
 	bookkeeping_ledger_id: string | null;
 	bookkeeping_ledger_name: string | null;
 	bookkeeping_connected_at: string | null;
+	logo_url: string | null;
 	created_at: string;
 	updated_at: string;
 }
@@ -59,6 +60,7 @@ export interface CompanyUpdateInput {
 	bookkeeping_ledger_id?: string | null;
 	bookkeeping_ledger_name?: string | null;
 	bookkeeping_connected_at?: string | null;
+	logo_url?: string | null;
 }
 
 /**
@@ -78,6 +80,7 @@ export function dbCompanyToUi(db: DbCompany): CompanyProfile {
 		bookkeepingLedgerId: db.bookkeeping_ledger_id,
 		bookkeepingLedgerName: db.bookkeeping_ledger_name,
 		bookkeepingConnectedAt: db.bookkeeping_connected_at,
+		logoUrl: db.logo_url,
 		createdAt: db.created_at,
 		updatedAt: db.updated_at
 	};
@@ -247,6 +250,7 @@ export async function updateCompany(
 			updateData.bookkeeping_ledger_name = input.bookkeeping_ledger_name;
 		if (input.bookkeeping_connected_at !== undefined)
 			updateData.bookkeeping_connected_at = input.bookkeeping_connected_at;
+		if (input.logo_url !== undefined) updateData.logo_url = input.logo_url;
 
 		const { data, error } = await supabase
 			.from(TABLE_NAME)
@@ -336,4 +340,50 @@ export async function getOrCreateDefaultCompany(): Promise<CompanyServiceResult<
 
 	// No company exists, return null (caller should create one)
 	return { data: null, error: null };
+}
+
+/**
+ * Upload a company logo to Supabase Storage
+ *
+ * @param file - The image file to upload
+ * @param companyId - The company ID (used for unique filename)
+ * @returns Object with publicUrl on success, or error message on failure
+ */
+export async function uploadCompanyLogo(
+	file: File,
+	companyId: string | null
+): Promise<{ publicUrl: string | null; error: string | null }> {
+	try {
+		// Validate file type
+		if (!file.type.startsWith('image/')) {
+			return { publicUrl: null, error: 'Please select an image file (PNG, JPG, etc.)' };
+		}
+
+		// Validate file size (max 2MB)
+		if (file.size > 2 * 1024 * 1024) {
+			return { publicUrl: null, error: 'Image size must be less than 2MB' };
+		}
+
+		// Generate unique filename
+		const fileExt = file.name.split('.').pop();
+		const fileName = `${companyId || 'new'}_${Date.now()}.${fileExt}`;
+		const filePath = `company-logos/${fileName}`;
+
+		// Upload to Supabase Storage
+		const { error: uploadError } = await supabase.storage
+			.from('assets')
+			.upload(filePath, file, { upsert: true });
+
+		if (uploadError) {
+			return { publicUrl: null, error: `Upload failed: ${uploadError.message}` };
+		}
+
+		// Get public URL
+		const { data: urlData } = supabase.storage.from('assets').getPublicUrl(filePath);
+
+		return { publicUrl: urlData.publicUrl, error: null };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to upload logo';
+		return { publicUrl: null, error: message };
+	}
 }

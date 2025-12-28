@@ -226,6 +226,11 @@ export async function updateEmployee(
 		if (input.first_name !== undefined) updateData.first_name = input.first_name;
 		if (input.last_name !== undefined) updateData.last_name = input.last_name;
 		if (input.email !== undefined) updateData.email = input.email;
+		// Address fields
+		if (input.address_street !== undefined) updateData.address_street = input.address_street;
+		if (input.address_city !== undefined) updateData.address_city = input.address_city;
+		if (input.address_postal_code !== undefined) updateData.address_postal_code = input.address_postal_code;
+		if (input.occupation !== undefined) updateData.occupation = input.occupation;
 		if (input.province_of_employment !== undefined)
 			updateData.province_of_employment = input.province_of_employment;
 		if (input.pay_frequency !== undefined) updateData.pay_frequency = input.pay_frequency;

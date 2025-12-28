@@ -59,6 +59,7 @@ class PaystubDataBuilder:
         company: Company,
         ytd_records: list[PayrollRecord] | None = None,
         masked_sin: str | None = None,
+        logo_bytes: bytes | None = None,
     ) -> PaystubData:
         """
         Build PaystubData from database records.
@@ -164,6 +165,9 @@ class PaystubDataBuilder:
             ytdNetPay=ytd_net_pay,
             # Vacation
             vacation=vacation,
+            # Company branding
+            logoUrl=company.logo_url,
+            logoBytes=logo_bytes,
         )
 
     def _build_address(

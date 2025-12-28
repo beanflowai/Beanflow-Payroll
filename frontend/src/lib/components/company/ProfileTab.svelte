@@ -12,6 +12,7 @@
 		getOrCreateDefaultCompany,
 		createCompany,
 		updateCompany,
+		uploadCompanyLogo,
 		type CompanyCreateInput
 	} from '$lib/services/companyService';
 
@@ -34,12 +35,15 @@
 	let remitterType = $state<RemitterType>('regular');
 	let autoCalculate = $state(true);
 	let sendPaystubs = $state(false);
+	let logoUrl = $state<string | null>(null);
 
 	// UI state
 	let showRemitterInfo = $state(false);
 	let isSaving = $state(false);
 	let isLoading = $state(true);
+	let isUploadingLogo = $state(false);
 	let error = $state<string | null>(null);
+	let logoInputRef = $state<HTMLInputElement | null>(null);
 
 	// Load company data on mount
 	$effect(() => {
@@ -79,6 +83,31 @@
 		remitterType = company.remitterType;
 		autoCalculate = company.autoCalculateDeductions;
 		sendPaystubs = company.sendPaystubEmails;
+		logoUrl = company.logoUrl ?? null;
+	}
+
+	// Logo upload handler
+	async function handleLogoUpload(event: Event) {
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+
+		isUploadingLogo = true;
+		error = null;
+
+		const result = await uploadCompanyLogo(file, companyId);
+
+		if (result.error) {
+			error = result.error;
+		} else if (result.publicUrl) {
+			logoUrl = result.publicUrl;
+		}
+
+		isUploadingLogo = false;
+	}
+
+	function removeLogo() {
+		logoUrl = null;
 	}
 
 	// Computed due date info
@@ -135,7 +164,8 @@
 					province,
 					remitter_type: remitterType,
 					auto_calculate_deductions: autoCalculate,
-					send_paystub_emails: sendPaystubs
+					send_paystub_emails: sendPaystubs,
+					logo_url: logoUrl
 				});
 				if (result.error) {
 					error = result.error;
@@ -191,6 +221,60 @@
 			</div>
 
 			<div class="bg-white rounded-xl shadow-md3-1 p-6">
+				<!-- Company Logo -->
+				<div class="flex flex-col gap-3 mb-6 pb-6 border-b border-surface-100">
+					<label class="text-body-content font-medium text-surface-700">Company Logo</label>
+					<div class="flex items-start gap-4">
+						<!-- Logo Preview -->
+						<div class="w-24 h-24 rounded-lg border-2 border-dashed border-surface-200 bg-surface-50 flex items-center justify-center overflow-hidden shrink-0">
+							{#if logoUrl}
+								<img src={logoUrl} alt="Company logo" class="w-full h-full object-contain" />
+							{:else}
+								<i class="fas fa-building text-3xl text-surface-300"></i>
+							{/if}
+						</div>
+						<!-- Upload Controls -->
+						<div class="flex flex-col gap-2">
+							<p class="text-auxiliary-text text-surface-600 m-0">
+								Upload your company logo for paystubs. Recommended: PNG or JPG, max 2MB.
+							</p>
+							<div class="flex items-center gap-2">
+								<input
+									type="file"
+									accept="image/*"
+									class="hidden"
+									onchange={handleLogoUpload}
+									bind:this={logoInputRef}
+								/>
+								<button
+									type="button"
+									class="inline-flex items-center gap-2 py-2 px-4 border border-surface-200 rounded-lg text-auxiliary-text font-medium cursor-pointer transition-[150ms] bg-white text-surface-700 hover:bg-surface-50 disabled:opacity-60 disabled:cursor-not-allowed"
+									onclick={() => logoInputRef?.click()}
+									disabled={isUploadingLogo}
+								>
+									{#if isUploadingLogo}
+										<i class="fas fa-spinner fa-spin"></i>
+										<span>Uploading...</span>
+									{:else}
+										<i class="fas fa-upload"></i>
+										<span>{logoUrl ? 'Change Logo' : 'Upload Logo'}</span>
+									{/if}
+								</button>
+								{#if logoUrl}
+									<button
+										type="button"
+										class="inline-flex items-center gap-2 py-2 px-4 border border-error-200 rounded-lg text-auxiliary-text font-medium cursor-pointer transition-[150ms] bg-white text-error-600 hover:bg-error-50"
+										onclick={removeLogo}
+									>
+										<i class="fas fa-trash"></i>
+										<span>Remove</span>
+									</button>
+								{/if}
+							</div>
+						</div>
+					</div>
+				</div>
+
 				<div class="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-5">
 					<div class="flex flex-col gap-2">
 						<label class="text-body-content font-medium text-surface-700" for="company-name">Company Name *</label>

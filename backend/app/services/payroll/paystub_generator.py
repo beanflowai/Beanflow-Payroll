@@ -1,16 +1,20 @@
 """Paystub PDF generator using ReportLab."""
 
+import logging
 from decimal import Decimal
 from io import BytesIO
 from typing import Any
 
+import httpx
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from app.models.paystub import PaystubData
+
+logger = logging.getLogger(__name__)
 
 
 class PaystubGenerator:
@@ -120,13 +124,82 @@ class PaystubGenerator:
             return f"-{abs(value):,.2f}"
         return f"{abs(value):,.2f}"
 
+    def _download_logo(self, url: str) -> BytesIO | None:
+        """Download logo image from URL.
+
+        Args:
+            url: URL to the logo image
+
+        Returns:
+            BytesIO buffer containing the image, or None if download fails
+        """
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                response = client.get(url)
+                response.raise_for_status()
+                return BytesIO(response.content)
+        except Exception as e:
+            logger.warning("Failed to download logo from %s: %s", url, e)
+            return None
+
     def _build_memo_section(self, elements: list[Any], data: PaystubData) -> None:
-        """Build MEMO section with employee name and pay period."""
-        # Employee name and address at top
-        elements.append(Paragraph(data.employeeName, self.styles["Normal"]))
+        """Build header section with logo/company name and employee info."""
+        # Build left side content (logo or company name)
+        left_content: list[Any] = []
+
+        # Use pre-downloaded logo bytes if available, otherwise download from URL
+        logo_buffer: BytesIO | None = None
+        if data.logoBytes:
+            logo_buffer = BytesIO(data.logoBytes)
+        elif data.logoUrl:
+            logo_buffer = self._download_logo(data.logoUrl)
+
+        if logo_buffer:
+            try:
+                # Create image with max width 1.5 inch, maintain aspect ratio
+                img = Image(logo_buffer, width=1.5 * inch, height=0.75 * inch)
+                img.hAlign = "LEFT"
+                left_content.append(img)
+            except Exception as e:
+                logger.warning("Failed to render logo: %s", e)
+                # Fallback to company name
+                left_content.append(
+                    Paragraph(f"<b>{data.employerName}</b>", self.styles["CompanyName"])
+                )
+        else:
+            # No logo available, use company name
+            left_content.append(
+                Paragraph(f"<b>{data.employerName}</b>", self.styles["CompanyName"])
+            )
+
+        # Add employer address below logo/name
+        if data.employerAddress:
+            for line in data.employerAddress.split("\n"):
+                left_content.append(Paragraph(line, self.styles["TableText"]))
+
+        # Build right side content (employee info)
+        right_content: list[Any] = []
+        right_content.append(Paragraph(data.employeeName, self.styles["Normal"]))
         if data.employeeAddress:
             for line in data.employeeAddress.split("\n"):
-                elements.append(Paragraph(line, self.styles["Normal"]))
+                right_content.append(Paragraph(line, self.styles["TableText"]))
+
+        # Create header table with logo/company on left, employee on right
+        header_row = [left_content, right_content]
+        header_table = Table(
+            [header_row],
+            colWidths=[3.75 * inch, 3.75 * inch],
+        )
+        header_table.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("ALIGN", (0, 0), (0, 0), "LEFT"),
+                    ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+                ]
+            )
+        )
+        elements.append(header_table)
 
         elements.append(Spacer(1, 8))
 
@@ -192,27 +265,31 @@ class PaystubGenerator:
         earnings_rows = [earnings_header]
 
         for earning in data.earnings:
+            # For salaried employees, show "Salary" in Qty column if no qty/rate
+            qty_display = earning.qty or ""
+            if not earning.qty and not earning.rate and earning.description == "Regular Earnings":
+                qty_display = "Salary"
+
             earnings_rows.append(
                 [
                     earning.description,
-                    earning.qty or "",
+                    qty_display,
                     self._format_currency(earning.rate) if earning.rate else "",
                     self._format_currency(earning.current),
                     self._format_currency(earning.ytd),
                 ]
             )
 
-        # Add total row if multiple earnings
-        if len(data.earnings) > 1:
-            earnings_rows.append(
-                [
-                    "",
-                    "",
-                    "",
-                    self._format_currency(data.totalEarnings),
-                    self._format_currency(data.ytdEarnings),
-                ]
-            )
+        # Always add Gross Pay row (labeled total row)
+        earnings_rows.append(
+            [
+                "Gross Pay",
+                "",
+                "",
+                self._format_currency(data.totalEarnings),
+                self._format_currency(data.ytdEarnings),
+            ]
+        )
 
         # Right side: Non-taxable Company Items
         benefits_header = ["Non-taxable Company Items", "Current", "YTD Amount"]
@@ -293,10 +370,10 @@ class PaystubGenerator:
                 ]
             )
 
-        # Add total row
+        # Add total row with label
         tax_rows.append(
             [
-                "",
+                "Total Deductions",
                 self._format_currency(data.totalTaxes),
                 self._format_currency(data.ytdTaxes),
             ]
@@ -313,6 +390,9 @@ class PaystubGenerator:
                     ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                     ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
                     ("TOPPADDING", (0, 0), (-1, -1), 2),
+                    # Bold the total row
+                    ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+                    ("LINEABOVE", (0, -1), (-1, -1), 0.5, colors.black),
                 ]
             )
         )
@@ -361,27 +441,39 @@ class PaystubGenerator:
         elements.append(adj_table)
 
     def _build_net_pay_section(self, elements: list[Any], data: PaystubData) -> None:
-        """Build net pay section."""
-        net_pay_data = [
-            [
-                "Net Pay",
-                self._format_currency(data.netPay),
-                self._format_currency(data.ytdNetPay) if data.ytdNetPay is not None else "",
-            ]
+        """Build net pay section with enhanced styling."""
+        # Add column headers
+        net_pay_header = ["", "Current", "YTD Amount"]
+        net_pay_row = [
+            "NET PAY",
+            self._format_currency(data.netPay),
+            self._format_currency(data.ytdNetPay) if data.ytdNetPay is not None else "",
         ]
 
-        net_pay_table = Table(net_pay_data, colWidths=[2.5 * inch, 0.9 * inch, 0.9 * inch])
+        net_pay_table = Table(
+            [net_pay_header, net_pay_row],
+            colWidths=[2.5 * inch, 0.9 * inch, 0.9 * inch],
+        )
         net_pay_table.setStyle(
             TableStyle(
                 [
-                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
-                    ("FONTSIZE", (0, 0), (-1, -1), 9),
-                    ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+                    # Header row styling
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, 0), 8),
+                    ("ALIGN", (1, 0), (-1, 0), "RIGHT"),
+                    # Net pay row styling - larger, bold, with light gray background
+                    ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 1), (-1, 1), 11),
+                    ("ALIGN", (1, 1), (-1, 1), "RIGHT"),
                     ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ("LINEABOVE", (0, 0), (-1, 0), 0.5, colors.black),
-                    ("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.black),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    # Light gray background for net pay row
+                    ("BACKGROUND", (0, 1), (-1, 1), colors.Color(0.95, 0.95, 0.95)),
+                    # Box around net pay row
+                    ("BOX", (0, 1), (-1, 1), 1, colors.black),
+                    ("BOTTOMPADDING", (0, 1), (-1, 1), 6),
+                    ("TOPPADDING", (0, 1), (-1, 1), 6),
+                    ("BOTTOMPADDING", (0, 0), (-1, 0), 2),
+                    ("TOPPADDING", (0, 0), (-1, 0), 2),
                 ]
             )
         )
@@ -455,6 +547,38 @@ class PaystubGenerator:
         elements.append(taxable_table)
 
     def _build_footer_section(self, elements: list[Any], data: PaystubData) -> None:
-        """Build footer with company name and address."""
+        """Build footer with separator, company info, and official statement."""
+        # Add horizontal separator line
+        separator_table = Table(
+            [[""]],
+            colWidths=[7.5 * inch],
+        )
+        separator_table.setStyle(
+            TableStyle(
+                [
+                    ("LINEABOVE", (0, 0), (-1, 0), 1, colors.black),
+                ]
+            )
+        )
+        elements.append(separator_table)
+        elements.append(Spacer(1, 8))
+
+        # Company name and address
         elements.append(Paragraph(data.employerName, self.styles["CompanyName"]))
-        elements.append(Paragraph(data.employerAddress, self.styles["Normal"]))
+        if data.employerAddress:
+            for line in data.employerAddress.split("\n"):
+                elements.append(Paragraph(line, self.styles["TableText"]))
+
+        elements.append(Spacer(1, 8))
+
+        # Official statement
+        statement_style = ParagraphStyle(
+            "FooterStatement",
+            parent=self.styles["Normal"],
+            fontSize=8,
+            fontName="Helvetica-Oblique",
+            textColor=colors.Color(0.4, 0.4, 0.4),
+        )
+        elements.append(
+            Paragraph("This is your official pay statement.", statement_style)
+        )

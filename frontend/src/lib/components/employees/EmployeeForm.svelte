@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import type { Employee, Province, VacationPayoutMethod, VacationRate, VacationRatePreset, EmployeeCreateInput, EmployeeUpdateInput } from '$lib/types/employee';
 	import type { PayGroup } from '$lib/types/pay-group';
 	import {
@@ -76,7 +77,9 @@
 		const currentProvince = province;
 		if (currentProvince) {
 			bpaLoading = true;
-			const requestVersion = ++bpaRequestVersion;
+			// Use untrack to avoid creating a dependency on bpaRequestVersion
+			// Otherwise reading bpaRequestVersion would cause an infinite loop
+			const requestVersion = untrack(() => ++bpaRequestVersion);
 			getBPADefaults(currentProvince).then(defaults => {
 				// Ignore stale responses from previous requests
 				if (requestVersion !== bpaRequestVersion) return;
