@@ -17,8 +17,8 @@
 		visible: boolean;
 		initialData: {
 			sin: string;
-			federalClaimAmount: number;
-			provincialClaimAmount: number;
+			federalAdditionalClaims: number;
+			provincialAdditionalClaims: number;
 			additionalTaxPerPeriod: number;
 			provinceOfEmployment: string;
 		};
@@ -40,20 +40,12 @@
 	const federalBPA = $derived(bpaDefaults?.federalBPA ?? FEDERAL_BPA_2025);
 	const provincialBPA = $derived(bpaDefaults?.provincialBPA ?? PROVINCIAL_BPA_2025[province] ?? PROVINCIAL_BPA_2025.ON);
 
-	// Reverse-calculate additional claims from stored total
-	function calculateAdditionalClaims(storedTotal: number, bpa: number): number {
-		const additional = storedTotal - bpa;
-		return additional > 0 ? additional : 0;
-	}
-
-	// Form state - user inputs Additional Claims only
-	// Initialize with fallback BPA, will be recalculated when API returns
-	let federalAdditionalClaims = $state(calculateAdditionalClaims(initialData.federalClaimAmount, FEDERAL_BPA_2025));
-	let provincialAdditionalClaims = $state(calculateAdditionalClaims(initialData.provincialClaimAmount, PROVINCIAL_BPA_2025[province] ?? PROVINCIAL_BPA_2025.ON));
-	let hasInitializedFromApi = $state(false);
+	// Form state - additional claims are now stored directly (no reverse calculation needed)
+	let federalAdditionalClaims = $state(initialData.federalAdditionalClaims);
+	let provincialAdditionalClaims = $state(initialData.provincialAdditionalClaims);
 	let bpaRequestVersion = $state(0);
 
-	// Fetch BPA on mount and recalculate additional claims with correct BPA
+	// Fetch BPA on mount for display purposes
 	$effect(() => {
 		if (province) {
 			bpaLoading = true;
@@ -62,12 +54,6 @@
 				// Ignore stale responses from previous requests
 				if (requestVersion !== bpaRequestVersion) return;
 				bpaDefaults = defaults;
-				// Recalculate additional claims with correct BPA from API (only on first load)
-				if (!hasInitializedFromApi) {
-					federalAdditionalClaims = calculateAdditionalClaims(initialData.federalClaimAmount, defaults.federalBPA);
-					provincialAdditionalClaims = calculateAdditionalClaims(initialData.provincialClaimAmount, defaults.provincialBPA);
-					hasInitializedFromApi = true;
-				}
 				bpaLoading = false;
 			}).catch(() => {
 				if (requestVersion !== bpaRequestVersion) return;
@@ -98,11 +84,9 @@
 		isSubmitting = true;
 
 		const data: TaxInfoFormData = {
-			federalClaimAmount: federalTotalClaim,
-			provincialClaimAmount: provincialTotalClaim,
-			additionalTaxPerPeriod: requestAdditionalTax ? additionalTaxAmount : 0,
-			useBasicFederalAmount: federalAdditionalClaims === 0,
-			useBasicProvincialAmount: provincialAdditionalClaims === 0
+			federalAdditionalClaims,
+			provincialAdditionalClaims,
+			additionalTaxPerPeriod: requestAdditionalTax ? additionalTaxAmount : 0
 		};
 
 		setTimeout(() => {

@@ -32,8 +32,8 @@
 			phone: '(416) 555-5678'
 		},
 		sin: '***-***-789',
-		federalClaimAmount: 16129,
-		provincialClaimAmount: 12399,
+		federalAdditionalClaims: 0,
+		provincialAdditionalClaims: 0,
 		additionalTaxPerPeriod: 0,
 		bankName: 'TD Canada Trust',
 		transitNumber: '12345',
@@ -101,12 +101,12 @@
 		>
 			<ProfileField label="SIN" value={profile.sin} masked />
 			<ProfileField
-				label="Federal Claim"
-				value={`${formatMoney(profile.federalClaimAmount)} (Basic Personal Amount)`}
+				label="Federal Additional Claims"
+				value={formatMoney(profile.federalAdditionalClaims)}
 			/>
 			<ProfileField
-				label="Provincial Claim"
-				value={`${formatMoney(profile.provincialClaimAmount)} (Ontario BPA)`}
+				label="Provincial Additional Claims"
+				value={formatMoney(profile.provincialAdditionalClaims)}
 			/>
 			<ProfileField
 				label="Additional Tax"

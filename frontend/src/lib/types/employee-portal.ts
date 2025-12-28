@@ -77,8 +77,9 @@ export interface EmployeePortalProfile {
 
 	// Tax info (partially masked)
 	sin: string; // Masked: ***-***-789
-	federalClaimAmount: number;
-	provincialClaimAmount: number;
+	// Additional claims beyond BPA (BPA is dynamic based on province and pay date)
+	federalAdditionalClaims: number;
+	provincialAdditionalClaims: number;
 	additionalTaxPerPeriod: number;
 
 	// Bank info (partially masked)
@@ -105,11 +106,10 @@ export interface PersonalInfoFormData {
 
 export interface TaxInfoFormData {
 	sin?: string;
-	federalClaimAmount: number;
-	provincialClaimAmount: number;
+	// Additional claims beyond BPA
+	federalAdditionalClaims: number;
+	provincialAdditionalClaims: number;
 	additionalTaxPerPeriod: number;
-	useBasicFederalAmount: boolean;
-	useBasicProvincialAmount: boolean;
 }
 
 export interface BankInfoFormData {

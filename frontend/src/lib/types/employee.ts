@@ -111,8 +111,9 @@ export interface Employee {
 	// Compensation
 	annualSalary?: number | null;
 	hourlyRate?: number | null;
-	federalClaimAmount: number;
-	provincialClaimAmount: number;
+	// TD1 additional claims beyond BPA (BPA is fetched dynamically from tax tables)
+	federalAdditionalClaims: number;
+	provincialAdditionalClaims: number;
 	isCppExempt: boolean;
 	isEiExempt: boolean;
 	cpp2Exempt: boolean;
@@ -286,8 +287,8 @@ export interface DbEmployee {
 	// Compensation
 	annual_salary: number | null;
 	hourly_rate: number | null;
-	federal_claim_amount: number;
-	provincial_claim_amount: number;
+	federal_additional_claims: number;
+	provincial_additional_claims: number;
 	is_cpp_exempt: boolean;
 	is_ei_exempt: boolean;
 	cpp2_exempt: boolean;
@@ -326,8 +327,8 @@ export interface EmployeeCreateInput {
 	// Compensation
 	annual_salary?: number | null;
 	hourly_rate?: number | null;
-	federal_claim_amount: number;
-	provincial_claim_amount: number;
+	federal_additional_claims: number;
+	provincial_additional_claims: number;
 	is_cpp_exempt?: boolean;
 	is_ei_exempt?: boolean;
 	cpp2_exempt?: boolean;
@@ -371,8 +372,8 @@ export function dbEmployeeToUi(db: DbEmployee, maskedSin: string): Employee {
 		// Compensation
 		annualSalary: db.annual_salary,
 		hourlyRate: db.hourly_rate,
-		federalClaimAmount: db.federal_claim_amount,
-		provincialClaimAmount: db.provincial_claim_amount,
+		federalAdditionalClaims: db.federal_additional_claims,
+		provincialAdditionalClaims: db.provincial_additional_claims,
 		isCppExempt: db.is_cpp_exempt,
 		isEiExempt: db.is_ei_exempt,
 		cpp2Exempt: db.cpp2_exempt,
@@ -411,8 +412,8 @@ export function uiEmployeeToDbCreate(
 		// Compensation
 		annual_salary: ui.annualSalary ?? null,
 		hourly_rate: ui.hourlyRate ?? null,
-		federal_claim_amount: ui.federalClaimAmount,
-		provincial_claim_amount: ui.provincialClaimAmount,
+		federal_additional_claims: ui.federalAdditionalClaims,
+		provincial_additional_claims: ui.provincialAdditionalClaims,
 		is_cpp_exempt: ui.isCppExempt,
 		is_ei_exempt: ui.isEiExempt,
 		cpp2_exempt: ui.cpp2Exempt,

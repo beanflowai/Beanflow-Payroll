@@ -175,8 +175,8 @@ export async function createEmployee(
 			employment_type: input.employment_type ?? 'full_time',
 			annual_salary: input.annual_salary ?? null,
 			hourly_rate: input.hourly_rate ?? null,
-			federal_claim_amount: input.federal_claim_amount,
-			provincial_claim_amount: input.provincial_claim_amount,
+			federal_additional_claims: input.federal_additional_claims,
+			provincial_additional_claims: input.provincial_additional_claims,
 			is_cpp_exempt: input.is_cpp_exempt ?? false,
 			is_ei_exempt: input.is_ei_exempt ?? false,
 			cpp2_exempt: input.cpp2_exempt ?? false,
@@ -232,10 +232,10 @@ export async function updateEmployee(
 		if (input.employment_type !== undefined) updateData.employment_type = input.employment_type;
 		if (input.annual_salary !== undefined) updateData.annual_salary = input.annual_salary;
 		if (input.hourly_rate !== undefined) updateData.hourly_rate = input.hourly_rate;
-		if (input.federal_claim_amount !== undefined)
-			updateData.federal_claim_amount = input.federal_claim_amount;
-		if (input.provincial_claim_amount !== undefined)
-			updateData.provincial_claim_amount = input.provincial_claim_amount;
+		if (input.federal_additional_claims !== undefined)
+			updateData.federal_additional_claims = input.federal_additional_claims;
+		if (input.provincial_additional_claims !== undefined)
+			updateData.provincial_additional_claims = input.provincial_additional_claims;
 		if (input.is_cpp_exempt !== undefined) updateData.is_cpp_exempt = input.is_cpp_exempt;
 		if (input.is_ei_exempt !== undefined) updateData.is_ei_exempt = input.is_ei_exempt;
 		if (input.cpp2_exempt !== undefined) updateData.cpp2_exempt = input.cpp2_exempt;

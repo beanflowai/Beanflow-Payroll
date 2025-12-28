@@ -177,9 +177,10 @@ class EmployeeBase(BaseModel):
     annual_salary: Decimal | None = None
     hourly_rate: Decimal | None = None
 
-    # TD1 claim amounts (required for tax calculation)
-    federal_claim_amount: Decimal
-    provincial_claim_amount: Decimal
+    # TD1 additional claims (beyond BPA, from TD1 form)
+    # BPA is fetched dynamically from tax tables based on pay_date
+    federal_additional_claims: Decimal = Decimal("0")
+    provincial_additional_claims: Decimal = Decimal("0")
 
     # Exemptions
     is_cpp_exempt: bool = False
@@ -224,8 +225,8 @@ class EmployeeUpdate(BaseModel):
     # Compensation
     annual_salary: Decimal | None = None
     hourly_rate: Decimal | None = None
-    federal_claim_amount: Decimal | None = None
-    provincial_claim_amount: Decimal | None = None
+    federal_additional_claims: Decimal | None = None
+    provincial_additional_claims: Decimal | None = None
     is_cpp_exempt: bool | None = None
     is_ei_exempt: bool | None = None
     cpp2_exempt: bool | None = None
@@ -279,8 +280,8 @@ class EmployeeResponse(BaseModel):
     # Compensation
     annual_salary: Decimal | None
     hourly_rate: Decimal | None
-    federal_claim_amount: Decimal
-    provincial_claim_amount: Decimal
+    federal_additional_claims: Decimal
+    provincial_additional_claims: Decimal
     is_cpp_exempt: bool
     is_ei_exempt: bool
     cpp2_exempt: bool

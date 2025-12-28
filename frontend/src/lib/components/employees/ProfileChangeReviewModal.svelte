@@ -78,11 +78,11 @@
 				fields.push({ label: 'Account', current: String(current.accountNumber), requested: String(requested.accountNumber) });
 			}
 		} else if (changeRequest.changeType === 'tax_info') {
-			if (current.federalClaimAmount !== requested.federalClaimAmount) {
-				fields.push({ label: 'Federal Claim', current: `$${current.federalClaimAmount}`, requested: `$${requested.federalClaimAmount}` });
+			if (current.federalAdditionalClaims !== requested.federalAdditionalClaims) {
+				fields.push({ label: 'Federal Additional Claims', current: `$${current.federalAdditionalClaims}`, requested: `$${requested.federalAdditionalClaims}` });
 			}
-			if (current.provincialClaimAmount !== requested.provincialClaimAmount) {
-				fields.push({ label: 'Provincial Claim', current: `$${current.provincialClaimAmount}`, requested: `$${requested.provincialClaimAmount}` });
+			if (current.provincialAdditionalClaims !== requested.provincialAdditionalClaims) {
+				fields.push({ label: 'Provincial Additional Claims', current: `$${current.provincialAdditionalClaims}`, requested: `$${requested.provincialAdditionalClaims}` });
 			}
 			if (current.additionalTaxPerPeriod !== requested.additionalTaxPerPeriod) {
 				fields.push({ label: 'Additional Tax/Period', current: `$${current.additionalTaxPerPeriod}`, requested: `$${requested.additionalTaxPerPeriod}` });

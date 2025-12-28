@@ -32,12 +32,12 @@ from app.services.payroll import (
     PaystubDataBuilder,
     PaystubGenerator,
 )
-from app.services.payroll.tax_tables import get_province_config
+from app.services.payroll.tax_tables import get_federal_config, get_province_config
 
 logger = logging.getLogger(__name__)
 
-# 2025 Federal Basic Personal Amount (default claim amount)
-DEFAULT_FEDERAL_CLAIM_2025 = Decimal("16129")
+# Fallback Federal BPA when tax table lookup fails
+DEFAULT_FEDERAL_BPA_FALLBACK = Decimal("16129")
 
 # Payroll run statuses that count as "completed" for YTD calculations
 COMPLETED_RUN_STATUSES = ["approved", "paid"]
@@ -65,6 +65,27 @@ def _extract_year_from_date(date_str: str, default: int = DEFAULT_TAX_YEAR) -> i
         return default
     except (ValueError, TypeError):
         return default
+
+
+def get_federal_bpa(
+    year: int = 2025,
+    pay_date: date | None = None
+) -> Decimal:
+    """Get the Federal Basic Personal Amount from tax tables.
+
+    Args:
+        year: Tax year (default: 2025)
+        pay_date: Pay date for edition selection (Jan vs Jul edition)
+
+    Returns:
+        Federal BPA as Decimal
+    """
+    try:
+        config = get_federal_config(year, pay_date)
+        return Decimal(str(config["bpaf"]))
+    except Exception as e:
+        logger.warning(f"Failed to get federal BPA: {e}, using fallback")
+        return DEFAULT_FEDERAL_BPA_FALLBACK
 
 
 def get_provincial_bpa(
@@ -305,8 +326,8 @@ class PayrollRunService:
                 pay_frequency,
                 annual_salary,
                 hourly_rate,
-                federal_claim_amount,
-                provincial_claim_amount,
+                federal_additional_claims,
+                provincial_additional_claims,
                 is_cpp_exempt,
                 is_ei_exempt,
                 cpp2_exempt,
@@ -492,23 +513,25 @@ class PayrollRunService:
                         other_earnings += amount
 
             # Build calculation input
-            # Determine claim amounts (use employee values or province-specific BPA)
+            # Calculate claim amounts: BPA (from tax tables) + Additional Claims (from employee)
             province_code = employee["province_of_employment"]
-            federal_claim = Decimal(
-                str(employee.get("federal_claim_amount"))
-            ) if employee.get("federal_claim_amount") is not None else DEFAULT_FEDERAL_CLAIM_2025
-            provincial_claim = Decimal(
-                str(employee.get("provincial_claim_amount"))
-            ) if employee.get("provincial_claim_amount") is not None else get_provincial_bpa(
-                province_code, tax_year, pay_date_obj
-            )
+
+            # Federal: BPA (dynamic based on pay_date) + additional claims
+            federal_additional = Decimal(str(employee.get("federal_additional_claims", 0)))
+            federal_bpa = get_federal_bpa(tax_year, pay_date_obj)
+            federal_claim = federal_bpa + federal_additional
+
+            # Provincial: BPA (dynamic based on pay_date) + additional claims
+            provincial_additional = Decimal(str(employee.get("provincial_additional_claims", 0)))
+            provincial_bpa = get_provincial_bpa(province_code, tax_year, pay_date_obj)
+            provincial_claim = provincial_bpa + provincial_additional
 
             # DEBUG: Log claim amounts for each employee
             logger.info(
                 f"PAYROLL DEBUG: Employee {employee.get('first_name')} {employee.get('last_name')} "
                 f"(province={province_code}): "
-                f"federal_claim_amount={employee.get('federal_claim_amount')} -> {federal_claim}, "
-                f"provincial_claim_amount={employee.get('provincial_claim_amount')} -> {provincial_claim}, "
+                f"federal_bpa={federal_bpa}, additional={federal_additional} -> {federal_claim}, "
+                f"provincial_bpa={provincial_bpa}, additional={provincial_additional} -> {provincial_claim}, "
                 f"gross={gross_regular + gross_overtime}"
             )
 
@@ -732,8 +755,8 @@ class PayrollRunService:
                 employment_type,
                 annual_salary,
                 hourly_rate,
-                federal_claim_amount,
-                provincial_claim_amount,
+                federal_additional_claims,
+                provincial_additional_claims,
                 is_cpp_exempt,
                 is_ei_exempt,
                 cpp2_exempt,
@@ -974,8 +997,8 @@ class PayrollRunService:
             occupation=data.get("occupation"),
             annual_salary=Decimal(str(data["annual_salary"])) if data.get("annual_salary") else None,
             hourly_rate=Decimal(str(data["hourly_rate"])) if data.get("hourly_rate") else None,
-            federal_claim_amount=Decimal(str(data.get("federal_claim_amount", 16129))),
-            provincial_claim_amount=Decimal(str(data.get("provincial_claim_amount", 12747))),
+            federal_additional_claims=Decimal(str(data.get("federal_additional_claims", 0))),
+            provincial_additional_claims=Decimal(str(data.get("provincial_additional_claims", 0))),
             is_cpp_exempt=data.get("is_cpp_exempt", False),
             is_ei_exempt=data.get("is_ei_exempt", False),
             cpp2_exempt=data.get("cpp2_exempt", False),
@@ -1208,7 +1231,7 @@ class PayrollRunService:
         # Get all active employees from these pay groups
         employees_result = self.supabase.table("employees").select(
             "id, first_name, last_name, province_of_employment, pay_group_id, "
-            "annual_salary, hourly_rate, federal_claim_amount, provincial_claim_amount, "
+            "annual_salary, hourly_rate, federal_additional_claims, provincial_additional_claims, "
             "is_cpp_exempt, is_ei_exempt, cpp2_exempt, vacation_config"
         ).eq("user_id", self.user_id).eq("ledger_id", self.ledger_id).in_(
             "pay_group_id", pay_group_ids
@@ -1345,8 +1368,18 @@ class PayrollRunService:
                 base_earnings = gross_regular + gross_overtime
                 vacation_pay_for_gross = base_earnings * vacation_rate
 
-            # Use province-specific BPA as default if no employee override
+            # Calculate claim amounts: BPA (from tax tables) + Additional Claims (from employee)
             emp_province = emp["province_of_employment"]
+
+            # Federal: BPA (dynamic based on pay_date) + additional claims
+            federal_additional = Decimal(str(emp.get("federal_additional_claims", 0)))
+            federal_bpa = get_federal_bpa(tax_year, pay_date)
+            federal_claim = federal_bpa + federal_additional
+
+            # Provincial: BPA (dynamic based on pay_date) + additional claims
+            provincial_additional = Decimal(str(emp.get("provincial_additional_claims", 0)))
+            provincial_bpa = get_provincial_bpa(emp_province, tax_year, pay_date)
+            provincial_claim = provincial_bpa + provincial_additional
 
             # Get prior YTD for this employee
             emp_prior_ytd = prior_ytd_data.get(emp["id"], {})
@@ -1359,14 +1392,8 @@ class PayrollRunService:
                 gross_overtime=gross_overtime,
                 # Vacation pay for pay_as_you_go method (added to gross)
                 vacation_pay=vacation_pay_for_gross,
-                federal_claim_amount=Decimal(
-                    str(emp.get("federal_claim_amount"))
-                ) if emp.get("federal_claim_amount") is not None else DEFAULT_FEDERAL_CLAIM_2025,
-                provincial_claim_amount=Decimal(
-                    str(emp.get("provincial_claim_amount"))
-                ) if emp.get("provincial_claim_amount") is not None else get_provincial_bpa(
-                    emp_province, tax_year, pay_date
-                ),
+                federal_claim_amount=federal_claim,
+                provincial_claim_amount=provincial_claim,
                 is_cpp_exempt=emp.get("is_cpp_exempt", False),
                 is_ei_exempt=emp.get("is_ei_exempt", False),
                 cpp2_exempt=emp.get("cpp2_exempt", False),
@@ -1618,7 +1645,7 @@ class PayrollRunService:
         # Get all active employees from these pay groups
         employees_result = self.supabase.table("employees").select(
             "id, first_name, last_name, province_of_employment, pay_group_id, "
-            "annual_salary, hourly_rate, federal_claim_amount, provincial_claim_amount, "
+            "annual_salary, hourly_rate, federal_additional_claims, provincial_additional_claims, "
             "is_cpp_exempt, is_ei_exempt, cpp2_exempt, vacation_config"
         ).eq("user_id", self.user_id).eq("ledger_id", self.ledger_id).in_(
             "pay_group_id", pay_group_ids
@@ -1772,7 +1799,7 @@ class PayrollRunService:
         # Get employee data
         employee_result = self.supabase.table("employees").select(
             "id, first_name, last_name, province_of_employment, pay_group_id, "
-            "annual_salary, hourly_rate, federal_claim_amount, provincial_claim_amount, "
+            "annual_salary, hourly_rate, federal_additional_claims, provincial_additional_claims, "
             "is_cpp_exempt, is_ei_exempt, cpp2_exempt, vacation_config"
         ).eq("id", employee_id).eq("user_id", self.user_id).eq(
             "ledger_id", self.ledger_id

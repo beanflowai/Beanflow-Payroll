@@ -58,20 +58,9 @@
 	const federalBPA = $derived(bpaDefaults?.federalBPA ?? FEDERAL_BPA_2025);
 	const provincialBPA = $derived(bpaDefaults?.provincialBPA ?? PROVINCIAL_BPA_2025[province]);
 
-	// On initial load for existing employee, reverse-calculate additional claims from stored total
-	function calculateAdditionalClaims(storedTotal: number, bpa: number): number {
-		const additional = storedTotal - bpa;
-		return additional > 0 ? additional : 0;
-	}
-
-	// Initialize with fallback BPA, will be recalculated when API returns
-	let federalAdditionalClaims = $state(
-		employee ? calculateAdditionalClaims(employee.federalClaimAmount, FEDERAL_BPA_2025) : 0
-	);
-	let provincialAdditionalClaims = $state(
-		employee ? calculateAdditionalClaims(employee.provincialClaimAmount, PROVINCIAL_BPA_2025[employee.provinceOfEmployment]) : 0
-	);
-	let hasInitializedFromApi = $state(false);
+	// Additional claims are now stored directly in the database (not derived from total)
+	let federalAdditionalClaims = $state(employee?.federalAdditionalClaims ?? 0);
+	let provincialAdditionalClaims = $state(employee?.provincialAdditionalClaims ?? 0);
 	let bpaRequestVersion = $state(0);
 	let showProvinceChangeWarning = $state(false);
 	let isCppExempt = $state(employee?.isCppExempt ?? false);
@@ -82,7 +71,7 @@
 	const federalClaimAmount = $derived(federalBPA + federalAdditionalClaims);
 	const provincialClaimAmount = $derived(provincialBPA + provincialAdditionalClaims);
 
-	// Fetch BPA when province changes and recalculate additional claims with correct BPA
+	// Fetch BPA when province changes (additional claims are stored directly, no recalculation needed)
 	$effect(() => {
 		const currentProvince = province;
 		if (currentProvince) {
@@ -92,12 +81,6 @@
 				// Ignore stale responses from previous requests
 				if (requestVersion !== bpaRequestVersion) return;
 				bpaDefaults = defaults;
-				// Recalculate additional claims with correct BPA from API (only on first load for existing employee)
-				if (!hasInitializedFromApi && employee) {
-					federalAdditionalClaims = calculateAdditionalClaims(employee.federalClaimAmount, defaults.federalBPA);
-					provincialAdditionalClaims = calculateAdditionalClaims(employee.provincialClaimAmount, defaults.provincialBPA);
-					hasInitializedFromApi = true;
-				}
 				bpaLoading = false;
 			}).catch(() => {
 				if (requestVersion !== bpaRequestVersion) return;
@@ -176,9 +159,9 @@
 			compensationType = employee.hourlyRate ? 'hourly' : 'salaried';
 			annualSalary = employee.annualSalary ?? 0;
 			hourlyRate = employee.hourlyRate ?? 0;
-			// Reverse-calculate additional claims from stored total
-			federalAdditionalClaims = calculateAdditionalClaims(employee.federalClaimAmount, FEDERAL_BPA_2025);
-			provincialAdditionalClaims = calculateAdditionalClaims(employee.provincialClaimAmount, PROVINCIAL_BPA_2025[employee.provinceOfEmployment]);
+			// Additional claims are now stored directly
+			federalAdditionalClaims = employee.federalAdditionalClaims;
+			provincialAdditionalClaims = employee.provincialAdditionalClaims;
 			isCppExempt = employee.isCppExempt;
 			isEiExempt = employee.isEiExempt;
 			cpp2Exempt = employee.cpp2Exempt;
@@ -319,8 +302,8 @@
 				// Compensation
 				annual_salary: compensationType === 'salaried' ? annualSalary : null,
 				hourly_rate: compensationType === 'hourly' ? hourlyRate : null,
-				federal_claim_amount: federalClaimAmount,
-				provincial_claim_amount: provincialClaimAmount,
+				federal_additional_claims: federalAdditionalClaims,
+				provincial_additional_claims: provincialAdditionalClaims,
 				is_cpp_exempt: isCppExempt,
 				is_ei_exempt: isEiExempt,
 				cpp2_exempt: cpp2Exempt,
@@ -369,8 +352,8 @@
 				// Compensation
 				annual_salary: compensationType === 'salaried' ? annualSalary : null,
 				hourly_rate: compensationType === 'hourly' ? hourlyRate : null,
-				federal_claim_amount: federalClaimAmount,
-				provincial_claim_amount: provincialClaimAmount,
+				federal_additional_claims: federalAdditionalClaims,
+				provincial_additional_claims: provincialAdditionalClaims,
 				is_cpp_exempt: isCppExempt,
 				is_ei_exempt: isEiExempt,
 				cpp2_exempt: cpp2Exempt,

@@ -258,8 +258,8 @@
 						<td class="col-vacation">{formatVacationRate(emp.vacationConfig?.vacationRate ?? '0.04')}</td>
 						<td class="col-balance money">{formatCurrency(emp.vacationBalance)}</td>
 					{:else if activeColumnGroup === 'tax'}
-						<td class="col-claim money">{formatCurrency(emp.federalClaimAmount)}</td>
-						<td class="col-claim money">{formatCurrency(emp.provincialClaimAmount)}</td>
+						<td class="col-claim money">{formatCurrency(emp.federalAdditionalClaims)}</td>
+						<td class="col-claim money">{formatCurrency(emp.provincialAdditionalClaims)}</td>
 						<td class="col-exempt">
 							<span class="exempt-value" class:yes={emp.isCppExempt}>{emp.isCppExempt ? 'Yes' : 'No'}</span>
 						</td>

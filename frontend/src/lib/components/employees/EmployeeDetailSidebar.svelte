@@ -152,12 +152,12 @@
 		<section class="detail-section">
 			<h3 class="section-title">Tax Information (TD1)</h3>
 			<div class="detail-row">
-				<span class="detail-label">Federal Claim</span>
-				<span class="detail-value">{formatCurrency(employee.federalClaimAmount)}</span>
+				<span class="detail-label">Federal Additional Claims</span>
+				<span class="detail-value">{formatCurrency(employee.federalAdditionalClaims)}</span>
 			</div>
 			<div class="detail-row">
-				<span class="detail-label">Provincial Claim</span>
-				<span class="detail-value">{formatCurrency(employee.provincialClaimAmount)}</span>
+				<span class="detail-label">Provincial Additional Claims</span>
+				<span class="detail-value">{formatCurrency(employee.provincialAdditionalClaims)}</span>
 			</div>
 			<div class="detail-row">
 				<span class="detail-label">CPP Exempt</span>
