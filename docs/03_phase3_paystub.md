@@ -53,6 +53,21 @@ Generate compliant PDF paystubs that meet Canadian legal requirements and store 
 - **Quebec**: Not applicable (we don't support Quebec)
 - **BC**: Must show employer portion of CPP/EI
 
+### Vacation Pay Display
+
+系统支持两种 vacation pay 方法，在 paystub 上的显示方式不同：
+
+| 方法 | 字段 | 显示位置 | 说明 |
+|------|------|----------|------|
+| **Pay-as-you-go** | `vacation_pay_paid` | Earnings section | 每期发放 vacation pay，直接加到当期收入 |
+| **Accrual** | `vacation_accrued` | Vacation Tracking section | 累积 vacation，休假时才发放 |
+
+- `vacation_pay_paid`: 在 Earnings section 显示，仅当值 > 0 时
+- `vacation_accrued`: 在 Vacation Tracking section 显示（Ontario 强制要求，其他省可选）
+- 两种方法的计算均基于 `vacation_rate` × `gross_earnings`
+
+详见 `docs/08_holidays_vacation.md` 获取完整的 vacation pay 计算逻辑。
+
 ---
 
 ## 📦 Task 3.1: Create Paystub Generator

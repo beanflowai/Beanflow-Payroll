@@ -7,6 +7,14 @@
 > - **2025年7月1日起**: 121st Edition (14% rate)
 >
 > 系统会根据 `pay_date` 自动选择对应的税率版本。
+>
+> **Provincial Mid-Year BPA Changes:** 某些省份在年中有 BPA (Basic Personal Amount) 变化：
+> - **Saskatchewan (SK)**: $18,991 (Jan-Jun) → $19,991 (Jul-Dec)
+> - **Prince Edward Island (PE)**: $14,250 (Jan-Jun) → $15,050 (Jul-Dec)
+>
+> 系统使用版本化配置文件并根据 `pay_date` 自动选择正确版本：
+> - `backend/config/tax_tables/{year}/provinces_jan.json` (January edition)
+> - `backend/config/tax_tables/{year}/provinces_jul.json` (July edition)
 
 **Duration**: 3 weeks
 **Complexity**: Medium
@@ -1213,6 +1221,49 @@ VALIDATION:
 End-to-end test with realistic employee data.
 ```
 ```
+
+---
+
+## 📦 Task 2.6: Prior YTD Data Handling
+
+### Overview
+
+为确保准确计算 CPP/EI 上限和累进税率，系统需要获取员工在当前税务年度内已完成 payroll runs 的 YTD 数据。
+
+### Implementation
+
+```python
+async def _get_prior_ytd_for_employees(
+    self,
+    employee_ids: list[str],
+    tax_year: int,
+    exclude_run_id: str | None = None
+) -> dict[str, dict]:
+    """
+    获取员工的 prior YTD 数据（来自已完成的 payroll runs）
+
+    Args:
+        employee_ids: 员工 ID 列表
+        tax_year: 税务年份（从 pay_date.year 推导）
+        exclude_run_id: 要排除的 run ID（用于重新计算场景）
+
+    Returns:
+        dict: {employee_id: {ytd_gross, ytd_cpp, ytd_ei, ...}}
+
+    Note:
+        - 只包含 status='approved' 或 'paid' 的 payroll runs
+        - 税务年份从 pay_date 推导，确保跨年 payroll 使用正确的年份
+    """
+```
+
+### Key Points
+
+1. **税务年份推导**: 使用 `pay_date.year` 而不是 `period_end.year`
+   - 这确保跨年 payroll（如 12月工资1月发放）使用正确的税务年度
+
+2. **防止重复计算**: 使用 `exclude_run_id` 排除当前正在计算的 run
+
+3. **只包含已完成的 runs**: 状态为 `approved` 或 `paid`
 
 ---
 

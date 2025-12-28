@@ -80,9 +80,11 @@ CREATE TABLE IF NOT EXISTS employees (
     annual_salary NUMERIC(12, 2),
     hourly_rate NUMERIC(10, 2),
 
-    -- TD1 Claim Amounts (required for tax calculation)
-    federal_claim_amount NUMERIC(12, 2) NOT NULL,
-    provincial_claim_amount NUMERIC(12, 2) NOT NULL,
+    -- TD1 Additional Claims (beyond BPA)
+    -- BPA is fetched dynamically from tax tables based on pay_date
+    -- Total Claim Amount for tax calculation = BPA + Additional Claims
+    federal_additional_claims NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    provincial_additional_claims NUMERIC(12, 2) NOT NULL DEFAULT 0,
 
     -- Exemptions
     is_cpp_exempt BOOLEAN DEFAULT FALSE,
@@ -1011,9 +1013,11 @@ class EmployeeBase(BaseModel):
     annual_salary: Optional[Decimal] = None
     hourly_rate: Optional[Decimal] = None
 
-    # TD1 claim amounts
-    federal_claim_amount: Decimal
-    provincial_claim_amount: Decimal
+    # TD1 additional claims (beyond BPA, from TD1 form)
+    # BPA is fetched dynamically from tax tables based on pay_date
+    # Total Claim Amount for calculation = BPA + Additional Claims
+    federal_additional_claims: Decimal = Decimal("0")
+    provincial_additional_claims: Decimal = Decimal("0")
 
     # Exemptions
     is_cpp_exempt: bool = False
@@ -1067,8 +1071,9 @@ class EmployeeResponse(BaseModel):
     employment_type: EmploymentType
     annual_salary: Optional[Decimal]
     hourly_rate: Optional[Decimal]
-    federal_claim_amount: Decimal
-    provincial_claim_amount: Decimal
+    # Additional claims beyond BPA (BPA is dynamic, fetched from tax tables)
+    federal_additional_claims: Decimal = Decimal("0")
+    provincial_additional_claims: Decimal = Decimal("0")
     is_cpp_exempt: bool
     is_ei_exempt: bool
     hire_date: date
@@ -1198,6 +1203,9 @@ class PayrollCalculationRequest(BaseModel):
     province: Province
     pay_frequency: PayPeriodFrequency
     gross_pay: Decimal
+    # Total Claim Amount for calculation (BPA + Additional Claims)
+    # Note: BPA is fetched dynamically from tax tables based on pay_date
+    # Additional claims come from employee's TD1 form (stored in employees table)
     federal_claim_amount: Decimal
     provincial_claim_amount: Decimal
 
@@ -1342,8 +1350,9 @@ emp = EmployeeCreate(
     last_name="Doe",
     sin="123456789",
     province_of_employment=Province.ON,
-    federal_claim_amount=Decimal("16129"),
-    provincial_claim_amount=Decimal("12747"),
+    # Additional claims beyond BPA (0 means only BPA applies)
+    federal_additional_claims=Decimal("0"),
+    provincial_additional_claims=Decimal("0"),
     annual_salary=Decimal("60000"),
     pay_frequency=PayPeriodFrequency.BIWEEKLY,
     hire_date=date(2024, 1, 1)

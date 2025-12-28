@@ -1,0 +1,44 @@
+{
+  "year": 2024,
+  "effective_date": "2024-07-01",
+  "end_date": "2024-12-31",
+  "source": "CRA T4127 (119th Edition, July 2024) - Table 8.1",
+  "bpaf": 15705.00,
+  "cea": 1433.00,
+  "indexing_rate": 0.047,
+  "brackets": [
+    {
+      "threshold": 0,
+      "rate": 0.15,
+      "constant": 0,
+      "description": "15% on first $55,867"
+    },
+    {
+      "threshold": 55867,
+      "rate": 0.205,
+      "constant": 3072.69,
+      "description": "20.5% on $55,867 to $111,733"
+    },
+    {
+      "threshold": 111733,
+      "rate": 0.26,
+      "constant": 6145.32,
+      "description": "26% on $111,733 to $173,205"
+    },
+    {
+      "threshold": 173205,
+      "rate": 0.29,
+      "constant": 7989.48,
+      "description": "29% on $173,205 to $246,752"
+    },
+    {
+      "threshold": 246752,
+      "rate": 0.33,
+      "constant": 10931.36,
+      "description": "33% on over $246,752"
+    }
+  ],
+  "k1_rate": 0.15,
+  "k2_cpp_ei_rate": 0.15,
+  "k4_canada_employment_rate": 0.15
+}

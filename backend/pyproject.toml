@@ -34,6 +34,9 @@ dependencies = [
 
     # PDF Generation
     "reportlab>=4.0.0",
+
+    # S3-compatible storage (DigitalOcean Spaces)
+    "boto3>=1.26.0",
 ]
 
 [project.optional-dependencies]
