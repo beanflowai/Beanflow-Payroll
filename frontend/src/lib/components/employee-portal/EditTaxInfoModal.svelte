@@ -10,7 +10,8 @@
 	 */
 	import BaseModal from '$lib/shared-base/BaseModal.svelte';
 	import type { TaxInfoFormData } from '$lib/types/employee-portal';
-	import { FEDERAL_BPA_2025, PROVINCIAL_BPA_2025, PROVINCE_LABELS, type Province } from '$lib/types/employee';
+	import { FEDERAL_BPA_2025, PROVINCIAL_BPA_2025, PROVINCE_LABELS, PROVINCES_WITH_EDITION_DIFF, type Province } from '$lib/types/employee';
+	import { getBPADefaults, type BPADefaults } from '$lib/services/taxConfigService';
 
 	interface Props {
 		visible: boolean;
@@ -29,8 +30,15 @@
 
 	// Get provincial BPA based on province (with fallback to ON for unsupported provinces like QC)
 	const province = initialData.provinceOfEmployment as Province;
-	const provincialBPA = PROVINCIAL_BPA_2025[province] ?? PROVINCIAL_BPA_2025.ON;
 	const provinceName = PROVINCE_LABELS[province] ?? initialData.provinceOfEmployment;
+
+	// Dynamic BPA from API (with fallback to hardcoded values)
+	let bpaDefaults = $state<BPADefaults | null>(null);
+	let bpaLoading = $state(true);
+
+	// Derived: Current BPA values (from API or fallback)
+	const federalBPA = $derived(bpaDefaults?.federalBPA ?? FEDERAL_BPA_2025);
+	const provincialBPA = $derived(bpaDefaults?.provincialBPA ?? PROVINCIAL_BPA_2025[province] ?? PROVINCIAL_BPA_2025.ON);
 
 	// Reverse-calculate additional claims from stored total
 	function calculateAdditionalClaims(storedTotal: number, bpa: number): number {
@@ -39,15 +47,42 @@
 	}
 
 	// Form state - user inputs Additional Claims only
+	// Initialize with fallback BPA, will be recalculated when API returns
 	let federalAdditionalClaims = $state(calculateAdditionalClaims(initialData.federalClaimAmount, FEDERAL_BPA_2025));
-	let provincialAdditionalClaims = $state(calculateAdditionalClaims(initialData.provincialClaimAmount, provincialBPA));
+	let provincialAdditionalClaims = $state(calculateAdditionalClaims(initialData.provincialClaimAmount, PROVINCIAL_BPA_2025[province] ?? PROVINCIAL_BPA_2025.ON));
+	let hasInitializedFromApi = $state(false);
+	let bpaRequestVersion = $state(0);
+
+	// Fetch BPA on mount and recalculate additional claims with correct BPA
+	$effect(() => {
+		if (province) {
+			bpaLoading = true;
+			const requestVersion = ++bpaRequestVersion;
+			getBPADefaults(province).then(defaults => {
+				// Ignore stale responses from previous requests
+				if (requestVersion !== bpaRequestVersion) return;
+				bpaDefaults = defaults;
+				// Recalculate additional claims with correct BPA from API (only on first load)
+				if (!hasInitializedFromApi) {
+					federalAdditionalClaims = calculateAdditionalClaims(initialData.federalClaimAmount, defaults.federalBPA);
+					provincialAdditionalClaims = calculateAdditionalClaims(initialData.provincialClaimAmount, defaults.provincialBPA);
+					hasInitializedFromApi = true;
+				}
+				bpaLoading = false;
+			}).catch(() => {
+				if (requestVersion !== bpaRequestVersion) return;
+				// Fallback values are already set via $derived
+				bpaLoading = false;
+			});
+		}
+	});
 	let requestAdditionalTax = $state(initialData.additionalTaxPerPeriod > 0);
 	let additionalTaxAmount = $state(initialData.additionalTaxPerPeriod);
 
 	let isSubmitting = $state(false);
 
 	// Derived: Total claim amounts (BPA + additional claims)
-	const federalTotalClaim = $derived(FEDERAL_BPA_2025 + federalAdditionalClaims);
+	const federalTotalClaim = $derived(federalBPA + federalAdditionalClaims);
 	const provincialTotalClaim = $derived(provincialBPA + provincialAdditionalClaims);
 
 	function formatMoney(amount: number): string {
@@ -108,8 +143,19 @@
 			<label class="form-label">Federal TD1</label>
 			<div class="claim-grid">
 				<div class="claim-item">
-					<span class="claim-sublabel">Basic Personal Amount (2025)</span>
-					<div class="claim-value readonly">{formatMoney(FEDERAL_BPA_2025)}</div>
+					<span class="claim-sublabel">
+						Basic Personal Amount
+						{#if bpaDefaults}
+							({bpaDefaults.year})
+						{/if}
+					</span>
+					<div class="claim-value readonly">
+						{#if bpaLoading}
+							<span class="loading">Loading...</span>
+						{:else}
+							{formatMoney(federalBPA)}
+						{/if}
+					</div>
 				</div>
 				<div class="claim-item">
 					<span class="claim-sublabel">Additional Claims</span>
@@ -139,8 +185,22 @@
 			<label class="form-label">Provincial TD1 ({provinceName})</label>
 			<div class="claim-grid">
 				<div class="claim-item">
-					<span class="claim-sublabel">Basic Personal Amount (2025)</span>
-					<div class="claim-value readonly">{formatMoney(provincialBPA)}</div>
+					<span class="claim-sublabel">
+						Basic Personal Amount
+						{#if bpaDefaults}
+							({bpaDefaults.year})
+						{/if}
+					</span>
+					<div class="claim-value readonly">
+						{#if bpaLoading}
+							<span class="loading">Loading...</span>
+						{:else}
+							{formatMoney(provincialBPA)}
+							{#if bpaDefaults && PROVINCES_WITH_EDITION_DIFF.includes(province as typeof PROVINCES_WITH_EDITION_DIFF[number])}
+								<span class="edition-note">Edition: {bpaDefaults.edition === 'jan' ? 'January' : 'July'}</span>
+							{/if}
+						{/if}
+					</div>
 				</div>
 				<div class="claim-item">
 					<span class="claim-sublabel">Additional Claims</span>
@@ -298,6 +358,18 @@
 	.claim-value.readonly {
 		background: var(--color-surface-100);
 		color: var(--color-surface-600);
+	}
+
+	.claim-value .loading {
+		color: var(--color-surface-400);
+		font-style: italic;
+	}
+
+	.edition-note {
+		display: block;
+		font-size: var(--font-size-caption-text);
+		color: var(--color-surface-500);
+		margin-top: var(--spacing-1);
 	}
 
 	.claim-value.total {

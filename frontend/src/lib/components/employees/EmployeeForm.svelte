@@ -8,10 +8,12 @@
 		VACATION_RATE_LABELS,
 		FEDERAL_BPA_2025,
 		PROVINCIAL_BPA_2025,
+		PROVINCES_WITH_EDITION_DIFF,
 		calculateYearsOfService,
 		suggestVacationRate,
 		getVacationRatePreset
 	} from '$lib/types/employee';
+	import { getBPADefaults, type BPADefaults } from '$lib/services/taxConfigService';
 	import { createEmployee, updateEmployee, checkEmployeeHasPayrollRecords } from '$lib/services/employeeService';
 
 	interface Props {
@@ -48,26 +50,62 @@
 	let hourlyRate = $state(employee?.hourlyRate ?? 0);
 
 	// Tax - BPA is read-only, user inputs Additional Claims only
+	// Dynamic BPA from API (with fallback to hardcoded values)
+	let bpaDefaults = $state<BPADefaults | null>(null);
+	let bpaLoading = $state(false);
+
+	// Derived: Current BPA values (from API or fallback)
+	const federalBPA = $derived(bpaDefaults?.federalBPA ?? FEDERAL_BPA_2025);
+	const provincialBPA = $derived(bpaDefaults?.provincialBPA ?? PROVINCIAL_BPA_2025[province]);
+
 	// On initial load for existing employee, reverse-calculate additional claims from stored total
 	function calculateAdditionalClaims(storedTotal: number, bpa: number): number {
 		const additional = storedTotal - bpa;
 		return additional > 0 ? additional : 0;
 	}
 
+	// Initialize with fallback BPA, will be recalculated when API returns
 	let federalAdditionalClaims = $state(
 		employee ? calculateAdditionalClaims(employee.federalClaimAmount, FEDERAL_BPA_2025) : 0
 	);
 	let provincialAdditionalClaims = $state(
 		employee ? calculateAdditionalClaims(employee.provincialClaimAmount, PROVINCIAL_BPA_2025[employee.provinceOfEmployment]) : 0
 	);
+	let hasInitializedFromApi = $state(false);
+	let bpaRequestVersion = $state(0);
 	let showProvinceChangeWarning = $state(false);
 	let isCppExempt = $state(employee?.isCppExempt ?? false);
 	let isEiExempt = $state(employee?.isEiExempt ?? false);
 	let cpp2Exempt = $state(employee?.cpp2Exempt ?? false);
 
 	// Derived: Total claim amounts (BPA + additional claims)
-	const federalClaimAmount = $derived(FEDERAL_BPA_2025 + federalAdditionalClaims);
-	const provincialClaimAmount = $derived(PROVINCIAL_BPA_2025[province] + provincialAdditionalClaims);
+	const federalClaimAmount = $derived(federalBPA + federalAdditionalClaims);
+	const provincialClaimAmount = $derived(provincialBPA + provincialAdditionalClaims);
+
+	// Fetch BPA when province changes and recalculate additional claims with correct BPA
+	$effect(() => {
+		const currentProvince = province;
+		if (currentProvince) {
+			bpaLoading = true;
+			const requestVersion = ++bpaRequestVersion;
+			getBPADefaults(currentProvince).then(defaults => {
+				// Ignore stale responses from previous requests
+				if (requestVersion !== bpaRequestVersion) return;
+				bpaDefaults = defaults;
+				// Recalculate additional claims with correct BPA from API (only on first load for existing employee)
+				if (!hasInitializedFromApi && employee) {
+					federalAdditionalClaims = calculateAdditionalClaims(employee.federalClaimAmount, defaults.federalBPA);
+					provincialAdditionalClaims = calculateAdditionalClaims(employee.provincialClaimAmount, defaults.provincialBPA);
+					hasInitializedFromApi = true;
+				}
+				bpaLoading = false;
+			}).catch(() => {
+				if (requestVersion !== bpaRequestVersion) return;
+				// Fallback values are already set via $derived
+				bpaLoading = false;
+			});
+		}
+	});
 
 	// Deductions
 	let rrspPerPeriod = $state(employee?.rrspPerPeriod ?? 0);
@@ -703,9 +741,18 @@
 			<h4 class="text-body-small font-semibold text-surface-600 m-0 mb-3">Federal TD1</h4>
 			<div class="grid grid-cols-3 gap-4 max-sm:grid-cols-1">
 				<div class="flex flex-col gap-2">
-					<label class="text-body-small font-medium text-surface-700">Basic Personal Amount (2025)</label>
+					<label class="text-body-small font-medium text-surface-700">
+						Basic Personal Amount
+						{#if bpaDefaults}
+							<span class="text-surface-400">({bpaDefaults.year})</span>
+						{/if}
+					</label>
 					<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600 font-medium">
-						{formatCurrency(FEDERAL_BPA_2025)}
+						{#if bpaLoading}
+							<span class="text-surface-400">Loading...</span>
+						{:else}
+							{formatCurrency(federalBPA)}
+						{/if}
 					</div>
 				</div>
 
@@ -742,9 +789,23 @@
 			<h4 class="text-body-small font-semibold text-surface-600 m-0 mb-3">Provincial TD1 ({PROVINCE_LABELS[province]})</h4>
 			<div class="grid grid-cols-3 gap-4 max-sm:grid-cols-1">
 				<div class="flex flex-col gap-2">
-					<label class="text-body-small font-medium text-surface-700">Basic Personal Amount (2025)</label>
+					<label class="text-body-small font-medium text-surface-700">
+						Basic Personal Amount
+						{#if bpaDefaults}
+							<span class="text-surface-400">({bpaDefaults.year})</span>
+						{/if}
+					</label>
 					<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600 font-medium">
-						{formatCurrency(PROVINCIAL_BPA_2025[province])}
+						{#if bpaLoading}
+							<span class="text-surface-400">Loading...</span>
+						{:else}
+							{formatCurrency(provincialBPA)}
+							{#if bpaDefaults && PROVINCES_WITH_EDITION_DIFF.includes(province as typeof PROVINCES_WITH_EDITION_DIFF[number])}
+								<span class="text-caption text-surface-500 block mt-1">
+									Edition: {bpaDefaults.edition === 'jan' ? 'January' : 'July'}
+								</span>
+							{/if}
+						{/if}
 					</div>
 				</div>
 

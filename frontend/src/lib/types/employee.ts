@@ -167,12 +167,53 @@ export interface EmployeeStatusCounts {
 	terminated: number;
 }
 
-// 2025 Basic Personal Amounts (from T4127 July 2025 edition)
+// ============================================================================
+// BPA Constants (Fallback Values)
+// ============================================================================
+// NOTE: These constants are used as FALLBACK values when API is unavailable.
+// For dynamic BPA that adapts to tax year and edition, use taxConfigService.ts
+// which fetches BPA from the API: /api/v1/payroll/bpa-defaults/{province}
+// ============================================================================
+
+// 2025 Basic Personal Amounts (Fallback)
+// Federal: same for both editions
 export const FEDERAL_BPA_2025 = 16129;
-export const PROVINCIAL_BPA_2025: Record<Province, number> = {
+
+// Provincial BPA - January Edition (T4127 120th Edition, for Jan-Jun payrolls)
+// SK and PE have different BPA in January vs July
+export const PROVINCIAL_BPA_2025_JAN: Record<Province, number> = {
+	AB: 22323, BC: 12932, MB: 15591, NB: 13396, NL: 11067, NS: 11744,
+	NT: 17842, NU: 19274, ON: 12747, PE: 14250, SK: 18991, YT: 16129
+};
+
+// Provincial BPA - July Edition (T4127 121st Edition, for Jul-Dec payrolls)
+export const PROVINCIAL_BPA_2025_JUL: Record<Province, number> = {
 	AB: 22323, BC: 12932, MB: 15591, NB: 13396, NL: 11067, NS: 11744,
 	NT: 17842, NU: 19274, ON: 12747, PE: 15050, SK: 19991, YT: 16129
 };
+
+// Default export (July edition for backward compatibility)
+export const PROVINCIAL_BPA_2025 = PROVINCIAL_BPA_2025_JUL;
+
+// Provinces with different BPA in January vs July editions
+export const PROVINCES_WITH_EDITION_DIFF: readonly Province[] = ['SK', 'PE'] as const;
+
+/**
+ * Get the correct provincial BPA based on pay date.
+ * For 2025, SK and PE have different BPA in January vs July edition.
+ *
+ * @param province - Province code
+ * @param payDate - Pay date (defaults to July edition if not provided)
+ * @returns Provincial BPA for the correct edition
+ */
+export function getProvincialBPA(province: Province, payDate?: Date): number {
+	if (!payDate) {
+		return PROVINCIAL_BPA_2025_JUL[province];
+	}
+	// Before July 1 uses January edition, on/after July 1 uses July edition
+	const useJanEdition = payDate.getMonth() < 6; // 0-based month, 6 = July
+	return useJanEdition ? PROVINCIAL_BPA_2025_JAN[province] : PROVINCIAL_BPA_2025_JUL[province];
+}
 
 // ============================================================================
 // Computed Fields & Helper Functions
