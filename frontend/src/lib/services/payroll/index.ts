@@ -51,6 +51,8 @@ export {
 	addEmployeeToRun,
 	removeEmployeeFromRun,
 	deletePayrollRun,
+	getPaystubDownloadUrl,
+	sendPaystubs,
 	type SyncEmployeesResult,
 	type CreateOrGetRunResult,
 	type PayrollRunListOptionsExt
@@ -66,3 +68,11 @@ export {
 export {
 	startPayrollRun
 } from './calculation';
+
+// Re-export helper functions
+export {
+	getCurrentUserId,
+	ensureAuthenticated,
+	getCurrentLedgerId,
+	getProvincialBpa
+} from './helpers';

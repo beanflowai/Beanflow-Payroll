@@ -41,7 +41,9 @@
 		checkHasModifiedRecords,
 		addEmployeeToRun,
 		removeEmployeeFromRun,
-		deletePayrollRun
+		deletePayrollRun,
+		getPaystubDownloadUrl,
+		sendPaystubs
 	} from '$lib/services/payroll';
 	import {
 		getUnassignedEmployees,
@@ -82,6 +84,9 @@
 	let isFinalizing = $state(false);
 	let isReverting = $state(false);
 	let isDeletingDraft = $state(false);
+
+	// Approved State Variables
+	let isSendingPaystubs = $state(false);
 
 	// ===========================================
 	// Load Data
@@ -243,20 +248,11 @@
 				return;
 			}
 
+			// Update local state - status is now approved, paystubs are generated but not sent
 			payrollRun = {
 				...payrollRun,
 				status: 'approved'
 			};
-
-			payrollRun.payGroups = payrollRun.payGroups.map((pg) => ({
-				...pg,
-				records: pg.records.map((record, index) => ({
-					...record,
-					paystubStatus: (index === 2 ? 'failed' : 'sent') as PaystubStatus,
-					paystubSentAt: index === 2 ? undefined : new Date().toISOString(),
-					paystubSentTo: `${record.employeeName.toLowerCase().replace(' ', '.')}@example.com`
-				}))
-			}));
 		} catch (err) {
 			alert(`Failed to approve: ${err instanceof Error ? err.message : 'Unknown error'}`);
 		}
@@ -270,8 +266,62 @@
 		alert('Resend All: This would resend paystubs to all employees via email.');
 	}
 
-	function handleDownloadPaystub(record: PayrollRecord) {
-		alert(`Download Paystub: This would download the PDF for ${record.employeeName}.`);
+	async function handleSendPaystubs() {
+		if (!payrollRun) return;
+
+		isSendingPaystubs = true;
+		try {
+			const result = await sendPaystubs(payrollRun.id);
+			if (result.error) {
+				alert(`Failed to send paystubs: ${result.error}`);
+				return;
+			}
+
+			// Update local state - only mark successfully sent records
+			const sentRecordIds = new Set(result.data?.sent_record_ids ?? []);
+			payrollRun.payGroups = payrollRun.payGroups.map((pg) => ({
+				...pg,
+				records: pg.records.map((record) => {
+					if (sentRecordIds.has(record.id)) {
+						return {
+							...record,
+							paystubStatus: 'sent' as PaystubStatus,
+							paystubSentAt: new Date().toISOString(),
+							paystubSentTo: `${record.employeeName.toLowerCase().replace(' ', '.')}@example.com`
+						};
+					}
+					return record;
+				})
+			}));
+
+			const sentCount = result.data?.sent ?? 0;
+			const errors = result.data?.errors;
+			if (errors && errors.length > 0) {
+				alert(`Sent ${sentCount} paystubs with ${errors.length} errors:\n${errors.join('\n')}`);
+			} else {
+				alert(`Paystubs sent successfully to ${sentCount} employees!`);
+			}
+		} catch (err) {
+			alert(`Failed to send paystubs: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		} finally {
+			isSendingPaystubs = false;
+		}
+	}
+
+	async function handleDownloadPaystub(record: PayrollRecord) {
+		try {
+			const result = await getPaystubDownloadUrl(record.id);
+			if (result.error) {
+				alert(`Failed to get paystub: ${result.error}`);
+				return;
+			}
+			if (result.data?.downloadUrl) {
+				// Open paystub PDF in new window
+				window.open(result.data.downloadUrl, '_blank');
+			}
+		} catch (err) {
+			alert(`Failed to download paystub: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		}
 	}
 
 	function handleResendPaystub(record: PayrollRecord) {
@@ -510,7 +560,25 @@
 					<i class="fas fa-file-csv"></i>
 					<span>Export CSV</span>
 				</button>
-				{#if isApprovedOrPaid}
+				{#if payrollRun.status === 'approved'}
+					<!-- Approved state: Download Paystubs + Send Paystubs -->
+					<button
+						class="flex items-center gap-2 py-3 px-5 bg-white text-surface-700 border border-surface-200 rounded-lg text-body-content font-medium cursor-pointer transition-all duration-150 hover:bg-surface-50 hover:border-surface-300"
+						onclick={handleDownloadAllPaystubs}
+					>
+						<i class="fas fa-file-archive"></i>
+						<span>Download All Paystubs</span>
+					</button>
+					<button
+						class="flex items-center gap-2 py-3 px-5 bg-gradient-to-br from-primary-600 to-secondary-600 text-white border-none rounded-lg text-body-content font-medium cursor-pointer shadow-md3-1 transition-all duration-150 hover:opacity-90 hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
+						onclick={handleSendPaystubs}
+						disabled={isSendingPaystubs}
+					>
+						<i class="fas fa-paper-plane"></i>
+						<span>{isSendingPaystubs ? 'Sending...' : 'Send Paystubs'}</span>
+					</button>
+				{:else if payrollRun.status === 'paid'}
+					<!-- Paid state: Download + Resend -->
 					<button
 						class="flex items-center gap-2 py-3 px-5 bg-white text-surface-700 border border-surface-200 rounded-lg text-body-content font-medium cursor-pointer transition-all duration-150 hover:bg-surface-50 hover:border-surface-300"
 						onclick={handleDownloadAllPaystubs}
@@ -539,7 +607,7 @@
 						onclick={handleApprove}
 					>
 						<i class="fas fa-check"></i>
-						<span>Approve & Send Paystubs</span>
+						<span>Approve</span>
 					</button>
 				{/if}
 			{/snippet}

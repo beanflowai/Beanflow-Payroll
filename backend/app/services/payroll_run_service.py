@@ -32,6 +32,10 @@ from app.services.payroll import (
     PaystubDataBuilder,
     PaystubGenerator,
 )
+from app.services.payroll.paystub_storage import (
+    PaystubStorage,
+    PaystubStorageConfigError,
+)
 from app.services.payroll.tax_tables import get_federal_config, get_province_config
 
 logger = logging.getLogger(__name__)
@@ -112,13 +116,69 @@ def get_provincial_bpa(
         return Decimal("12747")
 
 
+def _calculate_next_pay_date(current_pay_date: date, pay_frequency: str) -> date:
+    """Calculate the next pay date based on pay frequency.
+
+    Args:
+        current_pay_date: The current/just-completed pay date
+        pay_frequency: One of 'weekly', 'bi_weekly', 'semi_monthly', 'monthly'
+
+    Returns:
+        The next scheduled pay date
+    """
+    from calendar import monthrange
+    from datetime import timedelta
+
+    if pay_frequency == "weekly":
+        return current_pay_date + timedelta(days=7)
+    elif pay_frequency == "bi_weekly":
+        return current_pay_date + timedelta(days=14)
+    elif pay_frequency == "semi_monthly":
+        # If current is around 15th, next is end of month
+        # If current is around end of month, next is 15th of next month
+        if current_pay_date.day <= 15:
+            # Move to end of current month
+            last_day = monthrange(current_pay_date.year, current_pay_date.month)[1]
+            return current_pay_date.replace(day=last_day)
+        else:
+            # Move to 15th of next month
+            if current_pay_date.month == 12:
+                return date(current_pay_date.year + 1, 1, 15)
+            else:
+                return date(current_pay_date.year, current_pay_date.month + 1, 15)
+    elif pay_frequency == "monthly":
+        # Check if current pay date is the last day of its month
+        current_month_last_day = monthrange(
+            current_pay_date.year, current_pay_date.month
+        )[1]
+        is_last_day_of_month = current_pay_date.day == current_month_last_day
+
+        # Calculate next month
+        if current_pay_date.month == 12:
+            next_month = date(current_pay_date.year + 1, 1, 1)
+        else:
+            next_month = date(current_pay_date.year, current_pay_date.month + 1, 1)
+        next_month_last_day = monthrange(next_month.year, next_month.month)[1]
+
+        if is_last_day_of_month:
+            # If paid on last day of month, always use last day
+            # e.g., Jan 31 -> Feb 28 -> Mar 31
+            return next_month.replace(day=next_month_last_day)
+        else:
+            # Use same day, or last day if month is shorter
+            return next_month.replace(day=min(current_pay_date.day, next_month_last_day))
+    else:
+        # Default to bi-weekly
+        return current_pay_date + timedelta(days=14)
+
+
 class PayrollRunService:
     """Service for payroll run operations"""
 
-    def __init__(self, user_id: str, ledger_id: str):
+    def __init__(self, user_id: str, company_id: str):
         """Initialize service with user context"""
         self.user_id = user_id
-        self.ledger_id = ledger_id
+        self.company_id = company_id
         self.supabase = get_supabase_client()
 
     def _get_prior_ytd_for_employees(
@@ -173,7 +233,7 @@ class PayrollRunService:
                 status
             )
             """
-        ).eq("user_id", self.user_id).eq("ledger_id", self.ledger_id).in_(
+        ).eq("user_id", self.user_id).eq("company_id", self.company_id).in_(
             "employee_id", employee_ids
         ).in_(
             "payroll_runs.status", COMPLETED_RUN_STATUSES
@@ -307,7 +367,24 @@ class PayrollRunService:
         """
         result = self.supabase.table("payroll_runs").select("*").eq(
             "id", str(run_id)
-        ).eq("user_id", self.user_id).eq("ledger_id", self.ledger_id).execute()
+        ).eq("user_id", self.user_id).eq("company_id", self.company_id).execute()
+
+        if result.data and len(result.data) > 0:
+            return result.data[0]
+        return None
+
+    async def get_record(self, record_id: UUID | str) -> dict[str, Any] | None:
+        """Get a single payroll record by ID.
+
+        Args:
+            record_id: The payroll record ID (UUID or string)
+
+        Returns:
+            Record data if found, None otherwise
+        """
+        result = self.supabase.table("payroll_records").select("*").eq(
+            "id", str(record_id)
+        ).eq("user_id", self.user_id).eq("company_id", self.company_id).execute()
 
         if result.data and len(result.data) > 0:
             return result.data[0]
@@ -343,7 +420,7 @@ class PayrollRunService:
             )
             """
         ).eq("payroll_run_id", str(run_id)).eq("user_id", self.user_id).eq(
-            "ledger_id", self.ledger_id
+            "company_id", self.company_id
         ).execute()
 
         return result.data or []
@@ -711,11 +788,9 @@ class PayrollRunService:
 
         1. Verifies run is in pending_approval status
         2. Generates paystub PDFs for all records
-        3. Updates status to approved
-        4. Records approval timestamp and approver
-
-        Note: Paystub storage to DO Spaces will be implemented in Phase 3b.
-        Currently, paystubs are generated but not stored.
+        3. Stores paystubs to DigitalOcean Spaces
+        4. Updates status to approved
+        5. Records approval timestamp and approver
 
         Args:
             run_id: The payroll run ID
@@ -795,14 +870,13 @@ class PayrollRunService:
                     statutory_defaults,
                     overtime_policy,
                     wcb_config,
-                    group_benefits,
-                    custom_deductions
+                    group_benefits
                 )
             )
             """
         ).eq("payroll_run_id", str(run_id)).eq(
             "user_id", self.user_id
-        ).eq("ledger_id", self.ledger_id).execute()
+        ).eq("company_id", self.company_id).execute()
 
         records = records_result.data or []
         if not records:
@@ -814,6 +888,15 @@ class PayrollRunService:
         # Initialize services
         paystub_builder = PaystubDataBuilder()
         paystub_generator = PaystubGenerator()
+
+        # Initialize paystub storage - fail early if not configured
+        try:
+            paystub_storage = PaystubStorage()
+        except PaystubStorageConfigError as e:
+            raise ValueError(
+                f"Paystub storage is not configured. Cannot approve payroll run. "
+                f"Please configure DO Spaces environment variables. Error: {e}"
+            ) from e
 
         paystubs_generated = 0
         paystub_errors: list[str] = []
@@ -866,15 +949,20 @@ class PayrollRunService:
                 # Generate PDF bytes
                 pdf_bytes = paystub_generator.generate_paystub_bytes(paystub_data)
 
-                # TODO: Phase 3b - Store to DO Spaces
-                # storage_key = await self._store_paystub_to_spaces(
-                #     pdf_bytes, run_id, record_data["id"]
-                # )
+                # Store to DO Spaces
+                pay_date = date.fromisoformat(run["pay_date"])
+                storage_key = await paystub_storage.save_paystub(
+                    pdf_bytes=pdf_bytes,
+                    company_name=company.company_name,
+                    employee_id=record_data["employee_id"],
+                    pay_date=pay_date,
+                    record_id=record_data["id"],
+                )
 
-                # Update record with paystub info (storage key placeholder for now)
+                # Update record with paystub info
                 self.supabase.table("payroll_records").update({
                     "paystub_generated_at": dt.now().isoformat(),
-                    # "paystub_storage_key": storage_key,  # Phase 3b
+                    "paystub_storage_key": storage_key,
                 }).eq("id", record_data["id"]).execute()
 
                 paystubs_generated += 1
@@ -889,7 +977,16 @@ class PayrollRunService:
                 )
                 paystub_errors.append(f"Record {record_data['id']}: {str(e)}")
 
-        # Update run status to approved
+        # Block approval if any paystub generation failed
+        if paystub_errors:
+            error_summary = f"Failed to generate {len(paystub_errors)} paystub(s). "
+            error_summary += "Cannot approve payroll run until all paystubs are generated. "
+            error_summary += f"Errors: {'; '.join(paystub_errors[:5])}"
+            if len(paystub_errors) > 5:
+                error_summary += f" ... and {len(paystub_errors) - 5} more"
+            raise ValueError(error_summary)
+
+        # Update run status to approved (only if all paystubs generated successfully)
         update_data: dict[str, Any] = {
             "status": "approved",
             "approved_at": dt.now().isoformat(),
@@ -904,10 +1001,133 @@ class PayrollRunService:
         if not update_result.data or len(update_result.data) == 0:
             raise ValueError("Failed to update payroll run status")
 
+        # Update next_pay_date for all affected pay groups
+        # Collect unique pay groups from the records
+        pay_group_updates: dict[str, str] = {}
+        for record_data in records:
+            pay_group_data = record_data["employees"].get("pay_groups")
+            if pay_group_data:
+                pg_id = pay_group_data["id"]
+                if pg_id not in pay_group_updates:
+                    pay_group_updates[pg_id] = pay_group_data.get(
+                        "pay_frequency", "bi_weekly"
+                    )
+
+        # Calculate and update next_pay_date for each pay group
+        from datetime import datetime
+        current_pay_date = datetime.strptime(run["pay_date"], "%Y-%m-%d").date()
+        for pg_id, pay_frequency in pay_group_updates.items():
+            next_pay_date = _calculate_next_pay_date(current_pay_date, pay_frequency)
+            self.supabase.table("pay_groups").update({
+                "next_pay_date": next_pay_date.strftime("%Y-%m-%d")
+            }).eq("id", pg_id).execute()
+            logger.info(
+                f"Updated pay_group {pg_id} next_pay_date to {next_pay_date}"
+            )
+
         return {
             **update_result.data[0],
             "paystubs_generated": paystubs_generated,
-            "paystub_errors": paystub_errors if paystub_errors else None,
+        }
+
+    async def send_paystubs(self, run_id: UUID) -> dict[str, Any]:
+        """
+        Send paystub emails to all employees.
+
+        1. Verifies run is in approved status
+        2. Gets all records with paystub storage keys
+        3. Sends email to each employee (placeholder for now)
+        4. Updates paystub_sent_at for each record
+
+        Args:
+            run_id: The payroll run ID
+
+        Returns:
+            Dict with 'sent' count and optional 'errors' list
+
+        Raises:
+            ValueError: If run is not in approved status
+        """
+        from datetime import datetime as dt
+
+        # Verify run is in approved status
+        run = await self.get_run(run_id)
+        if not run:
+            raise ValueError("Payroll run not found")
+
+        if run["status"] != "approved":
+            raise ValueError(
+                f"Cannot send paystubs: payroll run is in '{run['status']}' status, "
+                "not 'approved'"
+            )
+
+        # Get all records with their employee emails
+        records_result = self.supabase.table("payroll_records").select(
+            """
+            id,
+            employee_id,
+            paystub_storage_key,
+            employees!inner (
+                id,
+                first_name,
+                last_name,
+                email
+            )
+            """
+        ).eq("payroll_run_id", str(run_id)).eq(
+            "user_id", self.user_id
+        ).eq("company_id", self.company_id).execute()
+
+        records = records_result.data or []
+        if not records:
+            raise ValueError("No records found for payroll run")
+
+        sent_count = 0
+        sent_record_ids: list[str] = []
+        send_errors: list[str] = []
+
+        for record in records:
+            try:
+                storage_key = record.get("paystub_storage_key")
+                if not storage_key:
+                    send_errors.append(
+                        f"Record {record['id']}: paystub not generated"
+                    )
+                    continue
+
+                employee = record.get("employees", {})
+                email = employee.get("email")
+                if not email:
+                    send_errors.append(
+                        f"Record {record['id']}: employee has no email"
+                    )
+                    continue
+
+                # TODO: Integrate actual email service (SendGrid, AWS SES, etc.)
+                # For now, just update the sent timestamp as a placeholder
+                logger.info(
+                    f"Would send paystub to {email} for employee "
+                    f"{employee.get('first_name')} {employee.get('last_name')}"
+                )
+
+                # Update record with sent timestamp
+                self.supabase.table("payroll_records").update({
+                    "paystub_sent_at": dt.now().isoformat(),
+                }).eq("id", record["id"]).execute()
+
+                sent_count += 1
+                sent_record_ids.append(record["id"])
+
+            except Exception as e:
+                logger.error(
+                    f"Failed to send paystub for record {record['id']}: {e}"
+                )
+                send_errors.append(f"Record {record['id']}: {str(e)}")
+
+        return {
+            "sent": sent_count,
+            "sent_record_ids": sent_record_ids,
+            "errors": send_errors if send_errors else None,
         }
 
     async def _get_ytd_records_for_employee(
@@ -952,7 +1172,7 @@ class PayrollRunService:
         return PayrollRun(
             id=UUID(data["id"]),
             user_id=data["user_id"],
-            ledger_id=data["ledger_id"],
+            company_id=str(data.get("company_id", "")),
             period_start=date.fromisoformat(data["period_start"]),
             period_end=date.fromisoformat(data["period_end"]),
             pay_date=date.fromisoformat(data["pay_date"]),
@@ -984,7 +1204,7 @@ class PayrollRunService:
         return Employee(
             id=UUID(data["id"]),
             user_id=data.get("user_id", ""),
-            ledger_id=data.get("ledger_id", ""),
+            company_id=str(data.get("company_id", "")),
             first_name=data["first_name"],
             last_name=data["last_name"],
             email=data.get("email"),
@@ -1143,7 +1363,7 @@ class PayrollRunService:
             payroll_run_id=UUID(data["payroll_run_id"]),
             employee_id=UUID(data["employee_id"]),
             user_id=data.get("user_id", ""),
-            ledger_id=data.get("ledger_id", ""),
+            company_id=str(data.get("company_id", "")),
             gross_regular=Decimal(str(data.get("gross_regular", 0))),
             gross_overtime=Decimal(str(data.get("gross_overtime", 0))),
             holiday_pay=Decimal(str(data.get("holiday_pay", 0))),
@@ -1233,7 +1453,7 @@ class PayrollRunService:
             "id, first_name, last_name, province_of_employment, pay_group_id, "
             "annual_salary, hourly_rate, federal_additional_claims, provincial_additional_claims, "
             "is_cpp_exempt, is_ei_exempt, cpp2_exempt, vacation_config"
-        ).eq("user_id", self.user_id).eq("ledger_id", self.ledger_id).in_(
+        ).eq("user_id", self.user_id).eq("company_id", self.company_id).in_(
             "pay_group_id", pay_group_ids
         ).is_("termination_date", "null").execute()
 
@@ -1448,7 +1668,7 @@ class PayrollRunService:
                 "payroll_run_id": str(run_id),
                 "employee_id": result.employee_id,
                 "user_id": self.user_id,
-                "ledger_id": self.ledger_id,
+                "company_id": self.company_id,
                 # Snapshot fields
                 "employee_name_snapshot": employee_name,
                 "province_snapshot": emp["province_of_employment"],
@@ -1621,7 +1841,7 @@ class PayrollRunService:
         # Check if a run already exists for this pay date
         existing_result = self.supabase.table("payroll_runs").select("*").eq(
             "user_id", self.user_id
-        ).eq("ledger_id", self.ledger_id).eq("pay_date", pay_date).execute()
+        ).eq("company_id", self.company_id).eq("pay_date", pay_date).execute()
 
         if existing_result.data and len(existing_result.data) > 0:
             return {
@@ -1647,7 +1867,7 @@ class PayrollRunService:
             "id, first_name, last_name, province_of_employment, pay_group_id, "
             "annual_salary, hourly_rate, federal_additional_claims, provincial_additional_claims, "
             "is_cpp_exempt, is_ei_exempt, cpp2_exempt, vacation_config"
-        ).eq("user_id", self.user_id).eq("ledger_id", self.ledger_id).in_(
+        ).eq("user_id", self.user_id).eq("company_id", self.company_id).in_(
             "pay_group_id", pay_group_ids
         ).is_("termination_date", "null").execute()
 
@@ -1665,10 +1885,21 @@ class PayrollRunService:
         pay_frequency = pay_groups[0].get("pay_frequency", "bi_weekly")
 
         if pay_frequency == "monthly":
-            # Monthly: full month of pay_date (e.g., pay date Nov 30 -> Nov 1-30)
-            period_start = pay_date_obj.replace(day=1)
-            last_day = monthrange(pay_date_obj.year, pay_date_obj.month)[1]
-            period_end = pay_date_obj.replace(day=last_day)
+            # Monthly pay period logic:
+            # - If pay_date is in second half of month (day >= 16): period = current month
+            #   e.g., pay_date Jan 31 -> period Jan 1-31 (same month)
+            # - If pay_date is in first half of month (day <= 15): period = previous month
+            #   e.g., pay_date Feb 5 -> period Jan 1-31 (previous month)
+            if pay_date_obj.day >= 16:
+                # Pay in second half: period is current month
+                period_start = pay_date_obj.replace(day=1)
+                _, last_day = monthrange(pay_date_obj.year, pay_date_obj.month)
+                period_end = pay_date_obj.replace(day=last_day)
+            else:
+                # Pay in first half: period is previous month (arrears)
+                prev_month_end = pay_date_obj.replace(day=1) - timedelta(days=1)
+                period_start = prev_month_end.replace(day=1)
+                period_end = prev_month_end
         elif pay_frequency == "semi_monthly":
             # Semi-monthly: 1-15 or 16-end of month
             if pay_date_obj.day <= 15:
@@ -1692,7 +1923,7 @@ class PayrollRunService:
         # Create the payroll run
         run_insert_result = self.supabase.table("payroll_runs").insert({
             "user_id": self.user_id,
-            "ledger_id": self.ledger_id,
+            "company_id": self.company_id,
             "period_start": period_start.strftime("%Y-%m-%d"),
             "period_end": period_end.strftime("%Y-%m-%d"),
             "pay_date": pay_date,
@@ -1802,7 +2033,7 @@ class PayrollRunService:
             "annual_salary, hourly_rate, federal_additional_claims, provincial_additional_claims, "
             "is_cpp_exempt, is_ei_exempt, cpp2_exempt, vacation_config"
         ).eq("id", employee_id).eq("user_id", self.user_id).eq(
-            "ledger_id", self.ledger_id
+            "company_id", self.company_id
         ).single().execute()
 
         if not employee_result.data:
@@ -1966,7 +2197,7 @@ class PayrollRunService:
         # Delete the run (CASCADE will delete payroll_records)
         self.supabase.table("payroll_runs").delete().eq(
             "id", str(run_id)
-        ).eq("user_id", self.user_id).eq("ledger_id", self.ledger_id).execute()
+        ).eq("user_id", self.user_id).eq("company_id", self.company_id).execute()
 
         return {
             "deleted": True,
@@ -1996,7 +2227,7 @@ class PayrollRunService:
         # Start building query
         query = self.supabase.table("payroll_runs").select(
             "*", count="exact"
-        ).eq("user_id", self.user_id).eq("ledger_id", self.ledger_id)
+        ).eq("user_id", self.user_id).eq("company_id", self.company_id)
 
         # Apply status filter
         if status:
@@ -2019,6 +2250,6 @@ class PayrollRunService:
 
 
 # Factory function for creating service instance
-def get_payroll_run_service(user_id: str, ledger_id: str) -> PayrollRunService:
+def get_payroll_run_service(user_id: str, company_id: str) -> PayrollRunService:
     """Create a PayrollRunService instance with user context"""
-    return PayrollRunService(user_id, ledger_id)
+    return PayrollRunService(user_id, company_id)

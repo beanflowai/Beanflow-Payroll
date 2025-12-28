@@ -54,6 +54,18 @@ class Config(BaseSettings):
         default="http://localhost:5174", validation_alias="VITE_FRONTEND_URL"
     )
 
+    # DigitalOcean Spaces Configuration
+    do_spaces_endpoint: str = Field(
+        default="nyc3.digitaloceanspaces.com", validation_alias="DO_SPACES_ENDPOINT"
+    )
+    do_spaces_access_key: str = Field(default="", validation_alias="DO_SPACES_ACCESS_KEY")
+    do_spaces_secret_key: str = Field(default="", validation_alias="DO_SPACES_SECRET_KEY")
+    do_spaces_bucket: str = Field(default="", validation_alias="DO_SPACES_BUCKET")
+    do_spaces_region: str = Field(default="nyc3", validation_alias="DO_SPACES_REGION")
+    do_spaces_root_prefix: str = Field(
+        default="Beanflow-Payroll", validation_alias="DO_SPACES_ROOT_PREFIX"
+    )
+
 
 # Singleton pattern for configuration
 _config: Config | None = None

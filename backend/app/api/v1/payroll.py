@@ -22,11 +22,47 @@ from app.services.payroll import (
     PayrollCalculationResult,
     PayrollEngine,
 )
+from app.core.supabase_client import get_supabase_client
+from app.services.payroll.paystub_storage import (
+    get_paystub_storage,
+    PaystubStorageConfigError,
+)
 from app.services.payroll_run_service import get_payroll_run_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+async def get_user_company_id(user_id: str) -> str:
+    """Get the primary company ID for a user.
+
+    Note: Currently the system assumes one company per user.
+    This function returns the oldest (first created) company for the user.
+    If multi-company support is added in the future, this should be updated
+    to accept company_id as a parameter or use a user preference.
+
+    Args:
+        user_id: The user's ID
+
+    Returns:
+        The company ID string
+
+    Raises:
+        HTTPException: If no company found for user
+    """
+    supabase = get_supabase_client()
+    result = supabase.table("companies").select("id").eq(
+        "user_id", user_id
+    ).order("created_at", desc=False).limit(1).execute()
+
+    if not result.data or len(result.data) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No company found for user. Please create a company first.",
+        )
+
+    return str(result.data[0]["id"])
 
 
 # =============================================================================
@@ -595,7 +631,8 @@ async def list_payroll_runs(
     Returns runs sorted by pay_date descending.
     """
     try:
-        service = get_payroll_run_service(current_user.id, current_user.id)
+        company_id = await get_user_company_id(current_user.id)
+        service = get_payroll_run_service(current_user.id, company_id)
 
         # Parse excludeStatus into list
         exclude_statuses = None
@@ -740,7 +777,8 @@ async def update_payroll_record(
     The record will be marked as modified, requiring recalculation.
     """
     try:
-        service = get_payroll_run_service(current_user.id, current_user.id)
+        company_id = await get_user_company_id(current_user.id)
+        service = get_payroll_run_service(current_user.id, company_id)
 
         # Build input_data from request
         input_data: dict[str, Any] = {}
@@ -821,7 +859,8 @@ async def recalculate_payroll_run(
     Only works on runs in 'draft' status.
     """
     try:
-        service = get_payroll_run_service(current_user.id, current_user.id)
+        company_id = await get_user_company_id(current_user.id)
+        service = get_payroll_run_service(current_user.id, company_id)
         result = await service.recalculate_run(run_id)
 
         return PayrollRunResponse(
@@ -884,7 +923,8 @@ async def sync_employees(
     Only works on runs in 'draft' status. Non-draft runs return empty result.
     """
     try:
-        service = get_payroll_run_service(current_user.id, current_user.id)
+        company_id = await get_user_company_id(current_user.id)
+        service = get_payroll_run_service(current_user.id, company_id)
         result = await service.sync_employees(run_id)
 
         run_data = result["run"]
@@ -957,7 +997,8 @@ async def create_or_get_run(
     this date as their next_pay_date.
     """
     try:
-        service = get_payroll_run_service(current_user.id, current_user.id)
+        company_id = await get_user_company_id(current_user.id)
+        service = get_payroll_run_service(current_user.id, company_id)
         result = await service.create_or_get_run(request.payDate)
 
         run_data = result["run"]
@@ -1025,7 +1066,8 @@ async def add_employee_to_run(
     Only works on runs in 'draft' status.
     """
     try:
-        service = get_payroll_run_service(current_user.id, current_user.id)
+        company_id = await get_user_company_id(current_user.id)
+        service = get_payroll_run_service(current_user.id, company_id)
         result = await service.add_employee_to_run(run_id, request.employeeId)
 
         return AddEmployeeResponse(
@@ -1071,7 +1113,8 @@ async def remove_employee_from_run(
     Only works on runs in 'draft' status.
     """
     try:
-        service = get_payroll_run_service(current_user.id, current_user.id)
+        company_id = await get_user_company_id(current_user.id)
+        service = get_payroll_run_service(current_user.id, company_id)
         result = await service.remove_employee_from_run(run_id, employee_id)
 
         return RemoveEmployeeResponse(
@@ -1116,7 +1159,8 @@ async def delete_payroll_run(
     Only works on runs in 'draft' status.
     """
     try:
-        service = get_payroll_run_service(current_user.id, current_user.id)
+        company_id = await get_user_company_id(current_user.id)
+        service = get_payroll_run_service(current_user.id, company_id)
         result = await service.delete_run(run_id)
 
         return DeleteRunResponse(
@@ -1156,7 +1200,8 @@ async def finalize_payroll_run(
     - No records can have is_modified = True (must recalculate first)
     """
     try:
-        service = get_payroll_run_service(current_user.id, current_user.id)
+        company_id = await get_user_company_id(current_user.id)
+        service = get_payroll_run_service(current_user.id, company_id)
         result = await service.finalize_run(run_id)
 
         return PayrollRunResponse(
@@ -1183,4 +1228,202 @@ async def finalize_payroll_run(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal error finalizing payroll run",
+        )
+
+
+class ApprovePayrollRunResponse(BaseModel):
+    """Response from approving a payroll run"""
+
+    id: str
+    pay_date: str = Field(alias="payDate")
+    status: str
+    total_employees: int = Field(alias="totalEmployees")
+    total_gross: float = Field(alias="totalGross")
+    total_net_pay: float = Field(alias="totalNetPay")
+    paystubs_generated: int = Field(alias="paystubsGenerated")
+    paystub_errors: list[str] | None = Field(default=None, alias="paystubErrors")
+
+    model_config = {"populate_by_name": True}
+
+
+@router.post(
+    "/runs/{run_id}/approve",
+    response_model=ApprovePayrollRunResponse,
+    summary="Approve payroll run",
+    description="Approve a pending_approval payroll run, generate paystubs, and advance next_pay_date.",
+)
+async def approve_payroll_run(
+    run_id: UUID,
+    current_user: CurrentUser,
+) -> ApprovePayrollRunResponse:
+    """
+    Approve a pending_approval payroll run.
+
+    This:
+    1. Verifies run is in pending_approval status
+    2. Generates paystub PDFs for all records
+    3. Updates status to approved
+    4. Advances next_pay_date for all affected pay groups
+
+    Prerequisites:
+    - Run must be in 'pending_approval' status
+    """
+    try:
+        company_id = await get_user_company_id(current_user.id)
+        service = get_payroll_run_service(current_user.id, company_id)
+        result = await service.approve_run(run_id, approved_by=current_user.id)
+
+        return ApprovePayrollRunResponse(
+            id=result["id"],
+            payDate=result["pay_date"],
+            status=result["status"],
+            totalEmployees=result.get("total_employees", 0),
+            totalGross=float(result.get("total_gross", 0)),
+            totalNetPay=float(result.get("total_net_pay", 0)),
+            paystubsGenerated=result.get("paystubs_generated", 0),
+            paystubErrors=result.get("paystub_errors"),
+        )
+
+    except ValueError as e:
+        logger.error(f"Approve error: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception:
+        logger.exception("Unexpected error approving payroll run")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal error approving payroll run",
+        )
+
+
+# =============================================================================
+# Send Paystubs API
+# =============================================================================
+
+
+class SendPaystubsResponse(BaseModel):
+    """Response from sending paystubs"""
+
+    sent: int = Field(..., description="Number of paystubs sent")
+    errors: list[str] | None = Field(default=None, description="List of send errors")
+
+
+@router.post(
+    "/runs/{run_id}/send-paystubs",
+    response_model=SendPaystubsResponse,
+    summary="Send paystub emails",
+    description="Send paystub emails to all employees for an approved payroll run.",
+)
+async def send_paystubs(
+    run_id: UUID,
+    current_user: CurrentUser,
+) -> SendPaystubsResponse:
+    """
+    Send paystub emails to all employees.
+
+    This:
+    1. Verifies run is in approved status
+    2. Sends paystub PDFs to each employee via email
+    3. Updates paystub_sent_at for each record
+
+    Prerequisites:
+    - Run must be in 'approved' status
+    - Paystubs must have been generated (have storage keys)
+    """
+    try:
+        company_id = await get_user_company_id(current_user.id)
+        service = get_payroll_run_service(current_user.id, company_id)
+        result = await service.send_paystubs(run_id)
+
+        return SendPaystubsResponse(
+            sent=result.get("sent", 0),
+            errors=result.get("errors"),
+        )
+
+    except ValueError as e:
+        logger.error(f"Send paystubs error: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception:
+        logger.exception("Unexpected error sending paystubs")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal error sending paystubs",
+        )
+
+
+# =============================================================================
+# Paystub Download API
+# =============================================================================
+
+
+class PaystubUrlResponse(BaseModel):
+    """Response for paystub download URL."""
+
+    storageKey: str = Field(..., description="Storage key in DO Spaces")
+    downloadUrl: str = Field(..., description="Presigned download URL")
+    expiresIn: int = Field(default=900, description="URL expiration in seconds")
+
+    model_config = {"populate_by_name": True}
+
+
+@router.get(
+    "/records/{record_id}/paystub-url",
+    response_model=PaystubUrlResponse,
+    summary="Get paystub download URL",
+    description="Get a presigned URL to download a paystub PDF for a payroll record.",
+)
+async def get_paystub_download_url(
+    record_id: str,
+    current_user: CurrentUser,
+) -> PaystubUrlResponse:
+    """
+    Get a presigned download URL for a paystub.
+
+    The URL expires after 15 minutes (900 seconds).
+
+    Prerequisites:
+    - Paystub must have been generated (paystub_storage_key must exist)
+    """
+    try:
+        # Get the payroll record to verify access and get storage key
+        company_id = await get_user_company_id(current_user.id)
+        service = get_payroll_run_service(current_user.id, company_id)
+        record = await service.get_record(record_id)
+
+        if not record:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Payroll record not found",
+            )
+
+        storage_key = record.get("paystub_storage_key")
+        if not storage_key:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Paystub not yet generated for this record",
+            )
+
+        # Generate presigned URL
+        storage = get_paystub_storage()
+        expires_in = 900  # 15 minutes
+        download_url = await storage.generate_presigned_url_async(storage_key, expires_in)
+
+        return PaystubUrlResponse(
+            storageKey=storage_key,
+            downloadUrl=download_url,
+            expiresIn=expires_in,
+        )
+
+    except HTTPException:
+        raise
+    except PaystubStorageConfigError as e:
+        logger.error(f"Paystub storage not configured: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Paystub storage is not configured. Please contact administrator.",
+        )
+    except Exception:
+        logger.exception("Unexpected error getting paystub URL")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal error getting paystub URL",
         )

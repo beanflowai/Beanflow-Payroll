@@ -6,7 +6,13 @@
 import { authState } from '$lib/stores/auth.svelte';
 
 /**
- * Get the current authenticated user's ID
+ * Get the current authenticated user's ID.
+ *
+ * This function also serves as an auth guard - when called without using the return value,
+ * it verifies the user is authenticated before proceeding with API calls.
+ * Pattern: `getCurrentUserId();` at the start of a function ensures auth before API calls.
+ *
+ * @returns The authenticated user's ID
  * @throws Error if user is not authenticated
  */
 export function getCurrentUserId(): string {
@@ -16,7 +22,22 @@ export function getCurrentUserId(): string {
 }
 
 /**
+ * Auth guard - ensures user is authenticated before proceeding.
+ * Alias for getCurrentUserId() with clearer intent when the ID isn't needed.
+ *
+ * @throws Error if user is not authenticated
+ */
+export function ensureAuthenticated(): void {
+	getCurrentUserId();
+}
+
+/**
  * Get the current ledger ID (using user ID for simplicity)
+ *
+ * @deprecated The ledger_id concept has been replaced by company_id.
+ * New code should use company_id from the backend API instead.
+ * This function is kept for backwards compatibility with existing code.
+ *
  * @throws Error if user is not authenticated
  */
 export function getCurrentLedgerId(): string {

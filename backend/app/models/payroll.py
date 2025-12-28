@@ -240,7 +240,7 @@ class Employee(EmployeeBase):
     """Complete employee model (from database)."""
     id: UUID
     user_id: str
-    ledger_id: str
+    company_id: str
     sin_encrypted: str = Field(exclude=True)  # Never expose in API
     vacation_balance: Decimal = Decimal("0")
     created_at: datetime
@@ -317,7 +317,7 @@ class PayrollRun(PayrollRunBase):
     """Complete payroll run model."""
     id: UUID
     user_id: str
-    ledger_id: str
+    company_id: str
     status: PayrollRunStatus = PayrollRunStatus.DRAFT
 
     # Summary totals
@@ -365,7 +365,7 @@ class PayrollRecord(PayrollRecordBase):
     payroll_run_id: UUID
     employee_id: UUID
     user_id: str
-    ledger_id: str
+    company_id: str
 
     # Employee deductions
     cpp_employee: Decimal = Decimal("0")

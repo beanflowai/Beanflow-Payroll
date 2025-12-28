@@ -24,7 +24,7 @@ import {
 	type DeductionsConfig,
 	type GroupBenefits
 } from '$lib/types/pay-group';
-import { getCurrentUserId, getCurrentLedgerId } from './helpers';
+import { getCurrentUserId } from './helpers';
 import type { PayrollServiceResult, PayrollRunListOptions, PayrollRunListResult } from './types';
 
 // ===========================================
@@ -39,22 +39,24 @@ export async function getPayrollRunByPayDate(
 ): Promise<PayrollServiceResult<PayrollRunWithGroups>> {
 	try {
 		const userId = getCurrentUserId();
-		const ledgerId = getCurrentLedgerId();
 
-		// Query payroll run for this date
-		const { data: runData, error: runError } = await supabase
+		// Query payroll run for this date (RLS handles access control)
+		// Use order + limit(1) instead of maybeSingle() to safely handle
+		// edge cases where multiple runs exist for the same pay_date
+		const { data: runsData, error: runError } = await supabase
 			.from('payroll_runs')
 			.select('*')
 			.eq('user_id', userId)
-			.eq('ledger_id', ledgerId)
 			.eq('pay_date', payDate)
-			.maybeSingle();
+			.order('created_at', { ascending: false })
+			.limit(1);
 
 		if (runError) {
 			console.error('Failed to get payroll run:', runError);
 			return { data: null, error: runError.message };
 		}
 
+		const runData = runsData?.[0];
 		if (!runData) {
 			return { data: null, error: null };
 		}
@@ -185,14 +187,12 @@ export async function getPayrollRunById(
 ): Promise<PayrollServiceResult<PayrollRunWithGroups>> {
 	try {
 		const userId = getCurrentUserId();
-		const ledgerId = getCurrentLedgerId();
 
-		// Query payroll run by ID
+		// Query payroll run by ID (RLS handles access control)
 		const { data: runData, error: runError } = await supabase
 			.from('payroll_runs')
 			.select('*')
 			.eq('user_id', userId)
-			.eq('ledger_id', ledgerId)
 			.eq('id', runId)
 			.maybeSingle();
 
@@ -219,41 +219,24 @@ export async function getPayrollRunById(
 
 /**
  * Create a new payroll run for a specific date
+ *
+ * @deprecated Use createOrGetPayrollRun instead - it handles both create and get cases
+ * and properly sets company_id via backend API.
  */
 export async function createPayrollRunForDate(
 	payDate: string,
-	periodStart: string,
-	periodEnd: string
+	_periodStart: string,
+	_periodEnd: string
 ): Promise<PayrollServiceResult<PayrollRunWithGroups>> {
-	try {
-		const userId = getCurrentUserId();
-		const ledgerId = getCurrentLedgerId();
-
-		// Create the payroll run
-		const { data: runData, error: runError } = await supabase
-			.from('payroll_runs')
-			.insert({
-				user_id: userId,
-				ledger_id: ledgerId,
-				period_start: periodStart,
-				period_end: periodEnd,
-				pay_date: payDate,
-				status: 'draft'
-			})
-			.select()
-			.single();
-
-		if (runError) {
-			console.error('Failed to create payroll run:', runError);
-			return { data: null, error: runError.message };
-		}
-
-		// Return the created run
-		return getPayrollRunByPayDate(payDate);
-	} catch (err) {
-		const message = err instanceof Error ? err.message : 'Failed to create payroll run';
-		return { data: null, error: message };
+	// Delegate to createOrGetPayrollRun which uses the backend API
+	// Period start/end are calculated by backend based on pay groups
+	const result = await createOrGetPayrollRun(payDate);
+	if (result.error || !result.data) {
+		return { data: null, error: result.error ?? 'Failed to create payroll run' };
 	}
+	// Return just the PayrollRunWithGroups portion (without created/recordsCount metadata)
+	const { created: _created, recordsCount: _recordsCount, ...runData } = result.data;
+	return { data: runData, error: null };
 }
 
 // ===========================================
@@ -269,7 +252,6 @@ export async function updatePayrollRunStatus(
 ): Promise<PayrollServiceResult<PayrollRunWithGroups>> {
 	try {
 		const userId = getCurrentUserId();
-		const ledgerId = getCurrentLedgerId();
 
 		const updateData: Record<string, unknown> = { status };
 
@@ -283,7 +265,6 @@ export async function updatePayrollRunStatus(
 			.from('payroll_runs')
 			.update(updateData)
 			.eq('user_id', userId)
-			.eq('ledger_id', ledgerId)
 			.eq('id', runId)
 			.select()
 			.single();
@@ -303,11 +284,36 @@ export async function updatePayrollRunStatus(
 
 /**
  * Approve a payroll run and send paystubs
+ * Calls the backend API which:
+ * 1. Generates paystub PDFs
+ * 2. Updates status to approved
+ * 3. Advances next_pay_date for affected pay groups
  */
 export async function approvePayrollRun(
 	runId: string
 ): Promise<PayrollServiceResult<PayrollRunWithGroups>> {
-	return updatePayrollRunStatus(runId, 'approved');
+	try {
+		getCurrentUserId();
+
+		// Call backend approve endpoint
+		await api.post<{
+			id: string;
+			payDate: string;
+			status: string;
+			totalEmployees: number;
+			totalGross: number;
+			totalNetPay: number;
+			paystubsGenerated: number;
+			paystubErrors: string[] | null;
+		}>(`/payroll/runs/${runId}/approve`, {});
+
+		// Return the updated run with full details
+		return getPayrollRunById(runId);
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to approve payroll run';
+		console.error('approvePayrollRun error:', message);
+		return { data: null, error: message };
+	}
 }
 
 /**
@@ -512,7 +518,6 @@ export async function revertToDraft(
 ): Promise<PayrollServiceResult<PayrollRunWithGroups>> {
 	try {
 		const userId = getCurrentUserId();
-		const ledgerId = getCurrentLedgerId();
 
 		// Verify run is in pending_approval status
 		const { data: runData, error: runError } = await supabase
@@ -520,7 +525,6 @@ export async function revertToDraft(
 			.select('status')
 			.eq('id', runId)
 			.eq('user_id', userId)
-			.eq('ledger_id', ledgerId)
 			.single();
 
 		if (runError) {
@@ -551,15 +555,13 @@ export async function checkHasModifiedRecords(
 ): Promise<PayrollServiceResult<boolean>> {
 	try {
 		const userId = getCurrentUserId();
-		const ledgerId = getCurrentLedgerId();
 
-		// Query for any records with is_modified = true
+		// Query for any records with is_modified = true (RLS handles access control)
 		const { data, error } = await supabase
 			.from('payroll_records')
 			.select('id')
 			.eq('payroll_run_id', runId)
 			.eq('user_id', userId)
-			.eq('ledger_id', ledgerId)
 			.eq('is_modified', true)
 			.limit(1);
 
@@ -775,6 +777,40 @@ export async function removeEmployeeFromRun(
 }
 
 // ===========================================
+// Paystub Download
+// ===========================================
+
+/**
+ * Get a presigned URL for downloading a paystub PDF
+ */
+export async function getPaystubDownloadUrl(
+	recordId: string
+): Promise<PayrollServiceResult<{ storageKey: string; downloadUrl: string; expiresIn: number }>> {
+	try {
+		getCurrentUserId();
+
+		const response = await api.get<{
+			storageKey: string;
+			downloadUrl: string;
+			expiresIn: number;
+		}>(`/payroll/records/${recordId}/paystub-url`);
+
+		return {
+			data: {
+				storageKey: response.storageKey,
+				downloadUrl: response.downloadUrl,
+				expiresIn: response.expiresIn
+			},
+			error: null
+		};
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to get paystub URL';
+		console.error('getPaystubDownloadUrl error:', message);
+		return { data: null, error: message };
+	}
+}
+
+// ===========================================
 // Delete Draft Run
 // ===========================================
 
@@ -803,6 +839,41 @@ export async function deletePayrollRun(
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Failed to delete payroll run';
 		console.error('deletePayrollRun error:', message);
+		return { data: null, error: message };
+	}
+}
+
+// ===========================================
+// Send Paystubs
+// ===========================================
+
+/**
+ * Send paystub emails to all employees for an approved payroll run.
+ * Only works on runs in 'approved' status.
+ */
+export async function sendPaystubs(
+	runId: string
+): Promise<PayrollServiceResult<{ sent: number; sent_record_ids: string[]; errors: string[] | null }>> {
+	try {
+		getCurrentUserId();
+
+		const response = await api.post<{
+			sent: number;
+			sent_record_ids: string[];
+			errors: string[] | null;
+		}>(`/payroll/runs/${runId}/send-paystubs`, {});
+
+		return {
+			data: {
+				sent: response.sent,
+				sent_record_ids: response.sent_record_ids,
+				errors: response.errors
+			},
+			error: null
+		};
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to send paystubs';
+		console.error('sendPaystubs error:', message);
 		return { data: null, error: message };
 	}
 }
