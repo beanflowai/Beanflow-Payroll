@@ -16,6 +16,7 @@ Reference: T4127 (121st Edition, July 2025)
 from __future__ import annotations
 
 import logging
+from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, NamedTuple
 
@@ -67,6 +68,7 @@ class ProvincialTaxCalculator:
         province_code: str,
         pay_periods_per_year: int = 26,
         year: int = 2025,
+        pay_date: date | None = None,
     ):
         """
         Initialize provincial tax calculator.
@@ -75,12 +77,14 @@ class ProvincialTaxCalculator:
             province_code: Two-letter province code (e.g., "ON", "BC")
             pay_periods_per_year: Number of pay periods (52=weekly, 26=bi-weekly, etc.)
             year: Tax year for configuration lookup
+            pay_date: Pay date for edition selection (SK, PE have different BPA in Jan vs Jul)
         """
         self.province_code = province_code.upper()
         self.P = pay_periods_per_year
         self.year = year
+        self.pay_date = pay_date
 
-        self._config = get_province_config(province_code, year)
+        self._config = get_province_config(province_code, year, pay_date)
         self._cpp_config = get_cpp_config(year)
         self._ei_config = get_ei_config(year)
 
@@ -129,6 +133,7 @@ class ProvincialTaxCalculator:
             annual_income,
             net_income,
             self.year,
+            self.pay_date,
         )
 
     def calculate_k1p(self, total_claim_amount: Decimal) -> Decimal:

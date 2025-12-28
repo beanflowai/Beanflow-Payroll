@@ -56,18 +56,42 @@ def _get_config_path(year: int, filename: str) -> Path:
     return CONFIG_BASE_PATH / str(year) / filename
 
 
-# July 1 cutoff for mid-year rate change (2025: 15% -> 14%)
-FEDERAL_JULY_CUTOFF = date(2025, 7, 1)
+def _get_july_cutoff(year: int) -> date:
+    """Get July 1st cutoff date for a given year (mid-year rate change)."""
+    return date(year, 7, 1)
+
+
+def _get_federal_config_with_edition(year: int, edition: str) -> dict[str, Any]:
+    """
+    Load federal config, auto-detecting versioned vs single file.
+
+    Priority:
+    1. federal_{edition}.json (versioned file)
+    2. federal.json (single file fallback)
+    """
+    # Try versioned file first
+    versioned_path = _get_config_path(year, f"federal_{edition}.json")
+    if versioned_path.exists():
+        return _load_json_file(str(versioned_path))
+
+    # Fallback to single file
+    single_path = _get_config_path(year, "federal.json")
+    if single_path.exists():
+        return _load_json_file(str(single_path))
+
+    raise TaxConfigError(f"No federal config found for year {year}")
 
 
 def get_federal_config(year: int = 2025, pay_date: date | None = None) -> dict[str, Any]:
     """
     Get federal tax configuration for a given year and pay date.
 
-    For 2025, the federal tax rate changed from 15% to 14% on July 1.
-    This function selects the appropriate edition based on the pay date:
-    - Before July 1, 2025: 120th Edition (15% rate) - federal_jan.json
-    - July 1, 2025 onwards: 121st Edition (14% rate) - federal_jul.json
+    Automatically detects whether versioned files (federal_jan.json, federal_jul.json)
+    exist for the year. If they do, selects edition based on pay_date:
+    - Before July 1: January edition
+    - July 1 onwards: July edition (default)
+
+    If only federal.json exists, uses that regardless of pay_date.
 
     Args:
         year: Tax year (default: 2025)
@@ -76,19 +100,13 @@ def get_federal_config(year: int = 2025, pay_date: date | None = None) -> dict[s
     Returns:
         Dict with federal tax configuration for the appropriate edition
     """
-    if year == 2025:
-        # Select edition based on pay date
-        if pay_date is not None and pay_date < FEDERAL_JULY_CUTOFF:
-            filename = "federal_jan.json"
-        else:
-            # Default to July edition (14% rate) for current calculations
-            filename = "federal_jul.json"
+    # Determine edition based on pay date
+    if pay_date is not None and pay_date < _get_july_cutoff(year):
+        edition = "jan"
     else:
-        # For other years, use standard federal.json
-        filename = "federal.json"
+        edition = "jul"
 
-    path = _get_config_path(year, filename)
-    return _load_json_file(str(path))
+    return _get_federal_config_with_edition(year, edition)
 
 
 @lru_cache(maxsize=1)
@@ -113,20 +131,49 @@ def get_ei_config(year: int = 2025) -> dict[str, Any]:
     return data["ei"]
 
 
-@lru_cache(maxsize=1)
-def _get_provinces_config(year: int = 2025) -> dict[str, dict[str, Any]]:
-    """Load all provinces configuration."""
-    data = _load_json_file(str(_get_config_path(year, "provinces.json")))
-    return data["provinces"]
+@lru_cache(maxsize=8)
+def _get_provinces_config_with_edition(year: int, edition: str) -> dict[str, dict[str, Any]]:
+    """
+    Load provinces config, auto-detecting versioned vs single file.
+
+    Priority:
+    1. provinces_{edition}.json (versioned file)
+    2. provinces.json (single file fallback)
+    """
+    # Try versioned file first
+    versioned_path = _get_config_path(year, f"provinces_{edition}.json")
+    if versioned_path.exists():
+        data = _load_json_file(str(versioned_path))
+        return data["provinces"]
+
+    # Fallback to single file
+    single_path = _get_config_path(year, "provinces.json")
+    if single_path.exists():
+        data = _load_json_file(str(single_path))
+        return data["provinces"]
+
+    raise TaxConfigError(f"No provinces config found for year {year}")
 
 
-def get_province_config(province_code: str, year: int = 2025) -> dict[str, Any]:
+def get_province_config(
+    province_code: str,
+    year: int = 2025,
+    pay_date: date | None = None
+) -> dict[str, Any]:
     """
     Get tax configuration for a specific province.
+
+    Automatically detects whether versioned files (provinces_jan.json, provinces_jul.json)
+    exist for the year. If they do, selects edition based on pay_date:
+    - Before July 1: January edition
+    - July 1 onwards: July edition (default)
+
+    If only provinces.json exists, uses that regardless of pay_date.
 
     Args:
         province_code: Two-letter province code (e.g., "ON", "BC")
         year: Tax year (default: 2025)
+        pay_date: Pay period date for edition selection (default: uses July edition)
 
     Returns:
         Dict with province tax configuration
@@ -142,7 +189,13 @@ def get_province_config(province_code: str, year: int = 2025) -> dict[str, Any]:
             f"Supported: {sorted(SUPPORTED_PROVINCES)}"
         )
 
-    provinces = _get_provinces_config(year)
+    # Determine edition based on pay date
+    if pay_date is not None and pay_date < _get_july_cutoff(year):
+        edition = "jan"
+    else:
+        edition = "jul"
+
+    provinces = _get_provinces_config_with_edition(year, edition)
 
     if province_code not in provinces:
         raise TaxConfigError(f"Province '{province_code}' not found in {year} configuration")
@@ -203,7 +256,8 @@ def calculate_dynamic_bpa(
     province_code: str,
     annual_income: Decimal | float,
     net_income: Decimal | float | None = None,
-    year: int = 2025
+    year: int = 2025,
+    pay_date: date | None = None
 ) -> Decimal:
     """
     Calculate Basic Personal Amount for provinces with dynamic BPA.
@@ -218,12 +272,13 @@ def calculate_dynamic_bpa(
         annual_income: Annual taxable income (for NS, YT)
         net_income: Net income (for MB calculation)
         year: Tax year
+        pay_date: Pay period date for edition selection
 
     Returns:
         Calculated BPA as Decimal
     """
     province_code = province_code.upper()
-    config = get_province_config(province_code, year)
+    config = get_province_config(province_code, year, pay_date)
 
     if not config.get("bpa_is_dynamic", False):
         return Decimal(str(config["bpa"]))
@@ -246,8 +301,8 @@ def calculate_dynamic_bpa(
         )
 
     elif dynamic_type == "follows_federal":
-        # Yukon: Same as federal BPA
-        federal = get_federal_config(year)
+        # Yukon: Same as federal BPA (also varies by edition)
+        federal = get_federal_config(year, pay_date)
         return Decimal(str(federal["bpaf"]))
 
     # Fallback to static BPA
@@ -323,9 +378,28 @@ def _calculate_bpa_nova_scotia(
 # Validation
 # =============================================================================
 
+
+def _has_versioned_federal_config(year: int) -> bool:
+    """Check if versioned federal config files exist for the year."""
+    jan_path = _get_config_path(year, "federal_jan.json")
+    jul_path = _get_config_path(year, "federal_jul.json")
+    return jan_path.exists() and jul_path.exists()
+
+
+def _has_versioned_provinces_config(year: int) -> bool:
+    """Check if versioned provinces config files exist for the year."""
+    jan_path = _get_config_path(year, "provinces_jan.json")
+    jul_path = _get_config_path(year, "provinces_jul.json")
+    return jan_path.exists() and jul_path.exists()
+
+
 def validate_tax_tables(year: int = 2025) -> list[str]:
     """
     Validate all tax configuration files.
+
+    Automatically detects whether versioned files exist for the year.
+    If versioned files exist, validates both Jan and Jul editions.
+    Otherwise, validates single file.
 
     Returns:
         List of validation errors (empty if valid)
@@ -333,11 +407,12 @@ def validate_tax_tables(year: int = 2025) -> list[str]:
     errors: list[str] = []
 
     # Validate federal config(s)
-    # For 2025, validate both editions (Jan and Jul)
-    if year == 2025:
+    # Auto-detect if versioned files exist
+    federal_editions: list[tuple[str, date | None]]
+    if _has_versioned_federal_config(year):
         federal_editions = [
-            ("federal_jan", date(2025, 1, 1)),
-            ("federal_jul", date(2025, 7, 1)),
+            ("federal_jan", date(year, 1, 1)),
+            ("federal_jul", date(year, 7, 1)),
         ]
     else:
         federal_editions = [("federal", None)]
@@ -364,30 +439,41 @@ def validate_tax_tables(year: int = 2025) -> list[str]:
         errors.append(f"CPP/EI config error: {e}")
 
     # Validate each province
-    for province_code in SUPPORTED_PROVINCES:
-        try:
-            config = get_province_config(province_code, year)
+    # Auto-detect if versioned files exist
+    province_editions: list[tuple[str, date | None]]
+    if _has_versioned_provinces_config(year):
+        province_editions = [
+            ("provinces_jan", date(year, 1, 1)),
+            ("provinces_jul", date(year, 7, 1)),
+        ]
+    else:
+        province_editions = [("provinces", None)]
 
-            # Check required fields
-            if "brackets" not in config:
-                errors.append(f"{province_code}: missing 'brackets'")
-            elif not config["brackets"]:
-                errors.append(f"{province_code}: empty brackets list")
-            else:
-                # Verify brackets are in ascending order
-                thresholds = [b["threshold"] for b in config["brackets"]]
-                if thresholds != sorted(thresholds):
-                    errors.append(f"{province_code}: brackets not in ascending order")
+    for edition_name, pay_date in province_editions:
+        for province_code in SUPPORTED_PROVINCES:
+            try:
+                config = get_province_config(province_code, year, pay_date)
 
-                # First bracket should start at 0
-                if thresholds[0] != 0:
-                    errors.append(f"{province_code}: first bracket must start at 0")
+                # Check required fields
+                if "brackets" not in config:
+                    errors.append(f"{edition_name}/{province_code}: missing 'brackets'")
+                elif not config["brackets"]:
+                    errors.append(f"{edition_name}/{province_code}: empty brackets list")
+                else:
+                    # Verify brackets are in ascending order
+                    thresholds = [b["threshold"] for b in config["brackets"]]
+                    if thresholds != sorted(thresholds):
+                        errors.append(f"{edition_name}/{province_code}: brackets not in ascending order")
 
-            if "bpa" not in config:
-                errors.append(f"{province_code}: missing 'bpa' (Basic Personal Amount)")
+                    # First bracket should start at 0
+                    if thresholds[0] != 0:
+                        errors.append(f"{edition_name}/{province_code}: first bracket must start at 0")
 
-        except TaxConfigError as e:
-            errors.append(f"{province_code}: {e}")
+                if "bpa" not in config:
+                    errors.append(f"{edition_name}/{province_code}: missing 'bpa' (Basic Personal Amount)")
+
+            except TaxConfigError as e:
+                errors.append(f"{edition_name}/{province_code}: {e}")
 
     if errors:
         logger.warning(f"Tax table validation found {len(errors)} error(s)")

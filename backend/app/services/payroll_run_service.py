@@ -67,10 +67,23 @@ def _extract_year_from_date(date_str: str, default: int = DEFAULT_TAX_YEAR) -> i
         return default
 
 
-def get_provincial_bpa(province_code: str, year: int = 2025) -> Decimal:
-    """Get the Basic Personal Amount for a province from tax tables."""
+def get_provincial_bpa(
+    province_code: str,
+    year: int = 2025,
+    pay_date: date | None = None
+) -> Decimal:
+    """Get the Basic Personal Amount for a province from tax tables.
+
+    Args:
+        province_code: Two-letter province code (e.g., "ON", "SK")
+        year: Tax year (default: 2025)
+        pay_date: Pay date for edition selection (SK, PE have different BPA in Jan vs Jul)
+
+    Returns:
+        Provincial BPA as Decimal
+    """
     try:
-        config = get_province_config(province_code, year)
+        config = get_province_config(province_code, year, pay_date)
         return Decimal(str(config["bpa"]))
     except Exception as e:
         logger.warning(f"Failed to get BPA for {province_code}: {e}, using fallback")
@@ -486,7 +499,9 @@ class PayrollRunService:
             ) if employee.get("federal_claim_amount") is not None else DEFAULT_FEDERAL_CLAIM_2025
             provincial_claim = Decimal(
                 str(employee.get("provincial_claim_amount"))
-            ) if employee.get("provincial_claim_amount") is not None else get_provincial_bpa(province_code)
+            ) if employee.get("provincial_claim_amount") is not None else get_provincial_bpa(
+                province_code, tax_year, pay_date_obj
+            )
 
             # DEBUG: Log claim amounts for each employee
             logger.info(
@@ -1349,7 +1364,9 @@ class PayrollRunService:
                 ) if emp.get("federal_claim_amount") is not None else DEFAULT_FEDERAL_CLAIM_2025,
                 provincial_claim_amount=Decimal(
                     str(emp.get("provincial_claim_amount"))
-                ) if emp.get("provincial_claim_amount") is not None else get_provincial_bpa(emp_province),
+                ) if emp.get("provincial_claim_amount") is not None else get_provincial_bpa(
+                    emp_province, tax_year, pay_date
+                ),
                 is_cpp_exempt=emp.get("is_cpp_exempt", False),
                 is_ei_exempt=emp.get("is_ei_exempt", False),
                 cpp2_exempt=emp.get("cpp2_exempt", False),

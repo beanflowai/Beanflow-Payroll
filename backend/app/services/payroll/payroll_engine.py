@@ -177,7 +177,7 @@ class PayrollEngine:
         self._cpp_calculators: dict[int, CPPCalculator] = {}
         self._ei_calculators: dict[int, EICalculator] = {}
         self._federal_calculators: dict[tuple[int, date | None], FederalTaxCalculator] = {}
-        self._provincial_calculators: dict[tuple[str, int], ProvincialTaxCalculator] = {}
+        self._provincial_calculators: dict[tuple[str, int, date | None], ProvincialTaxCalculator] = {}
 
     def _get_cpp_calculator(self, pay_periods: int) -> CPPCalculator:
         """Get or create CPP calculator for pay frequency."""
@@ -203,13 +203,13 @@ class PayrollEngine:
         return self._federal_calculators[key]
 
     def _get_provincial_calculator(
-        self, province: str, pay_periods: int
+        self, province: str, pay_periods: int, pay_date: date | None = None
     ) -> ProvincialTaxCalculator:
-        """Get or create provincial tax calculator."""
-        key = (province, pay_periods)
+        """Get or create provincial tax calculator for province, pay frequency, and date."""
+        key = (province, pay_periods, pay_date)
         if key not in self._provincial_calculators:
             self._provincial_calculators[key] = ProvincialTaxCalculator(
-                province, pay_periods, self.year
+                province, pay_periods, self.year, pay_date
             )
         return self._provincial_calculators[key]
 
@@ -242,7 +242,9 @@ class PayrollEngine:
         cpp_calc = self._get_cpp_calculator(pay_periods)
         ei_calc = self._get_ei_calculator(pay_periods)
         federal_calc = self._get_federal_calculator(pay_periods, input_data.pay_date)
-        provincial_calc = self._get_provincial_calculator(province_code, pay_periods)
+        provincial_calc = self._get_provincial_calculator(
+            province_code, pay_periods, input_data.pay_date
+        )
 
         calculation_details: dict[str, Any] = {
             "pay_periods_per_year": pay_periods,
