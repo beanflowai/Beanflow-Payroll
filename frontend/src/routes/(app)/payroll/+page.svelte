@@ -1,9 +1,11 @@
 <script lang="ts">
-	import type { UpcomingPayDate, PayrollPageStatus, PayGroupSummary } from '$lib/types/payroll';
+	import type { UpcomingPayDate, PayrollPageStatus, PayGroupSummary, PayrollRunWithGroups } from '$lib/types/payroll';
+	import { PAYROLL_STATUS_LABELS } from '$lib/types/payroll';
 	import { PayDateCard, PayGroupEmployeesPanel } from '$lib/components/payroll';
 	import {
 		checkPayrollPageStatus,
-		getUpcomingPayDates
+		getUpcomingPayDates,
+		getRecentCompletedRuns
 	} from '$lib/services/payroll';
 	import { formatShortDate } from '$lib/utils/dateUtils';
 
@@ -12,6 +14,7 @@
 	// ===========================================
 	let pageStatus = $state<PayrollPageStatus | null>(null);
 	let upcomingPayDates = $state<UpcomingPayDate[]>([]);
+	let recentRuns = $state<PayrollRunWithGroups[]>([]);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 
@@ -35,14 +38,19 @@
 			}
 			pageStatus = statusResult.data;
 
-			// If ready or no_employees, load upcoming pay dates
+			// If ready or no_employees, load upcoming pay dates and recent runs
 			if (pageStatus?.status === 'ready' || pageStatus?.status === 'no_employees') {
-				const payDatesResult = await getUpcomingPayDates();
+				const [payDatesResult, recentRunsResult] = await Promise.all([
+					getUpcomingPayDates(),
+					getRecentCompletedRuns(5)
+				]);
+
 				if (payDatesResult.error) {
 					error = payDatesResult.error;
 					return;
 				}
 				upcomingPayDates = payDatesResult.data ?? [];
+				recentRuns = recentRunsResult.data ?? [];
 			}
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load payroll data';
@@ -72,6 +80,19 @@
 			minimumFractionDigits: 0,
 			maximumFractionDigits: 0
 		}).format(amount);
+	}
+
+	function getStatusBadgeClass(status: string): string {
+		switch (status) {
+			case 'paid':
+				return 'bg-success-100 text-success-700';
+			case 'approved':
+				return 'bg-info-100 text-info-700';
+			case 'pending_approval':
+				return 'bg-warning-100 text-warning-700';
+			default:
+				return 'bg-surface-100 text-surface-600';
+		}
 	}
 
 	// ===========================================
@@ -217,6 +238,52 @@
 				</div>
 			{/if}
 		</section>
+
+		<!-- Recent Completed Runs -->
+		{#if recentRuns.length > 0}
+			<section class="mb-8">
+				<div class="flex items-center justify-between mb-4">
+					<h2 class="text-title-small font-semibold text-surface-800 m-0">Recent Completed</h2>
+					<a href="/payroll/history" class="flex items-center gap-2 text-body-content font-medium text-primary-600 no-underline transition-fast hover:text-primary-700">
+						<span>View All</span>
+						<i class="fas fa-arrow-right text-xs"></i>
+					</a>
+				</div>
+
+				<div class="bg-white rounded-xl shadow-md3-1 overflow-hidden">
+					<table class="w-full border-collapse">
+						<thead>
+							<tr>
+								<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Pay Date</th>
+								<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Employees</th>
+								<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Net Pay</th>
+								<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Status</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each recentRuns as run (run.id)}
+								<tr
+									class="cursor-pointer transition-[150ms] hover:[&>td]:bg-surface-50"
+									onclick={() => window.location.href = '/payroll/history'}
+									role="button"
+									tabindex="0"
+									onkeydown={(e) => e.key === 'Enter' && (window.location.href = '/payroll/history')}
+								>
+									<td class="p-4 px-5 text-body-content border-b border-surface-100 font-medium text-surface-800 last:border-b-0">{formatShortDate(run.payDate)}</td>
+									<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-700 last:border-b-0">{run.totalEmployees}</td>
+									<td class="p-4 px-5 text-body-content border-b border-surface-100 font-mono font-semibold text-surface-800 last:border-b-0">{formatCurrency(run.totalNetPay)}</td>
+									<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-700 last:border-b-0">
+										<span class="inline-flex items-center gap-2 py-1 px-3 rounded-full text-auxiliary-text font-medium {getStatusBadgeClass(run.status)}">
+											{PAYROLL_STATUS_LABELS[run.status]}
+										</span>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			</section>
+		{/if}
 
 		<!-- Quick Actions -->
 		<section class="mb-8">

@@ -45,11 +45,11 @@ This checklist has been updated to reflect standalone product architecture:
 
 | Phase | Status | Start Date | End Date | Notes |
 |-------|--------|------------|----------|-------|
-| **Phase 0: Frontend Setup** | 🔄 In Progress | 2025-12-16 | | Auth + 基础布局已完成 |
+| **Phase 0: Frontend Setup** | ✅ Completed | 2025-12-16 | 2025-12-18 | Auth + 基础布局 + 导航 |
 | Phase 1: Data Layer | ✅ Completed | 2025-12-16 | 2025-12-20 | 税表、模型、服务层全部完成 |
 | Phase 2: Calculations | ✅ Completed | 2025-12-20 | 2025-12-26 | CPP/EI/Federal/Provincial + Engine 全部完成 |
 | Phase 3: Paystub | ⬜ Not Started | | | PDF + DO Spaces storage |
-| Phase 4: API & Integration | 🔄 In Progress | 2025-12-16 | | API endpoints + payroll_run_service 进行中 |
+| Phase 4: API & Integration | ✅ ~95% Done | 2025-12-16 | 2025-12-27 | API + Service + Frontend UI 基本完成 |
 | Phase 5: Testing | ⬜ Not Started | | | Unit + Integration + PDOC |
 | Phase 6: Year-End (Future) | ⬜ Not Started | | | T4 generation |
 | Phase 7: Compliance (Future) | ⬜ Not Started | | | ROE, Remittance |
@@ -454,121 +454,130 @@ This checklist has been updated to reflect standalone product architecture:
 
 ---
 
-## Phase 4: API & Integration (2 weeks) 🔄 IN PROGRESS
+## Phase 4: API & Integration (2 weeks) ✅ ~95% COMPLETED
 
-### Week 7: Service Layer (NEW)
+> **架构说明**: 根据混合架构决策，Employee CRUD 使用前端直连 Supabase，
+> 复杂的薪资计算和 Payroll Run 管理使用后端 API。
+
+### Week 7: Service Layer
 
 - [x] **Task 4.0.1**: Create `backend/app/services/payroll/__init__.py` ✅
   - [x] Export PayrollEngine, EmployeePayrollInput, PayrollCalculationResult
   - [x] Export all calculator classes
+  - [x] Export tax_tables functions
 
-- [ ] **Task 4.0.2**: Create `backend/app/services/payroll/employee_service.py`
-  - [ ] Create EmployeeService class
-  - [ ] Implement SIN encryption/decryption
-  - [ ] Implement `create_employee()` with validation
-  - [ ] Implement `get_employee()`
-  - [ ] Implement `list_employees()`
-  - [ ] Implement `update_employee()`
-  - [ ] Implement `terminate_employee()`
+- [x] **Task 4.0.2**: Employee CRUD ✅ (前端直连 Supabase)
+  - [x] `frontend/src/lib/services/employeeService.ts`:
+    - [x] `listEmployees()` - 列出员工 (带分页/筛选)
+    - [x] `getEmployee()` - 获取单个员工
+    - [x] `createEmployee()` - 创建员工
+    - [x] `updateEmployee()` - 更新员工
+    - [x] `terminateEmployee()` - 终止员工 (软删除)
+    - [x] `getEmployeeCount()` - 统计数量
+    - [x] `maskSin()` - SIN 掩码显示
 
-- [x] **Task 4.0.3**: Create `backend/app/services/payroll_run_service.py` ✅ (部分)
+- [x] **Task 4.0.3**: Create `backend/app/services/payroll_run_service.py` ✅ (1389行)
   - [x] Create PayrollRunService class
-  - [x] Implement `_get_prior_ytd_for_employees()` - YTD 查询
-  - [x] Implement `get_provincial_bpa()` - 省级 BPA 查询
-  - [ ] Implement `create_payroll_run()` (待完成)
-  - [ ] Implement `calculate_payroll_run()` (待完成)
-  - [ ] Implement `approve_payroll_run()` (待完成)
-  - [ ] Implement `list_payroll_runs()` (待完成)
+  - [x] Implement `get_run()` - 获取单个 run
+  - [x] Implement `get_run_records()` - 获取 run 的所有记录
+  - [x] Implement `create_or_get_run()` - 创建或获取 draft run
+  - [x] Implement `update_record()` - 更新 draft 记录的 input_data
+  - [x] Implement `recalculate_run()` - 重新计算整个 run
+  - [x] Implement `finalize_run()` - draft → pending_approval
+  - [x] Implement `sync_employees()` - 同步新员工到 run
+  - [x] Implement `add_employee_to_run()` - 添加单个员工
+  - [x] Implement `remove_employee_from_run()` - 移除员工
+  - [x] Implement `delete_run()` - 删除 draft run
+  - [x] Implement `_get_prior_ytd_for_employees()` - 历史 YTD 查询
+  - [x] Implement `_calculate_taxable_benefits()` - 应税福利计算
+  - [x] Implement `_calculate_benefits_deduction()` - 员工福利扣款
+  - [x] Implement `_calculate_gross_from_input()` - 从 input_data 计算工资
+  - [ ] Implement `approve_payroll_run()` - 批准 run (需要 Phase 3 Paystub)
+  - [ ] Implement `get_remittance_summary()` - 汇款摘要 (Future)
 
 ### Week 7: Backend API
 
-- [x] **Task 4.1.1**: Create `backend/app/api/v1/payroll.py` ✅ (部分)
+- [x] **Task 4.1.1**: Create `backend/app/api/v1/payroll.py` ✅ (1027行)
   - [x] Create request/response models (camelCase):
-    - [x] EmployeeCalculationRequest
-    - [x] CalculationResponse
-    - [x] BatchCalculationRequest
-  - [ ] Employee endpoints:
-    - [ ] POST `/payroll/employees` - Create
-    - [ ] GET `/payroll/employees` - List
-    - [ ] GET `/payroll/employees/{id}` - Get
-    - [ ] PATCH `/payroll/employees/{id}` - Update
-    - [ ] POST `/payroll/employees/{id}/terminate` - Terminate
+    - [x] EmployeeCalculationRequest / CalculationResponse
+    - [x] BatchCalculationRequest / BatchCalculationResponse
+    - [x] PayrollRunResponse / PayrollRecordResponse
+    - [x] UpdatePayrollRecordRequest (含 LeaveEntry, HolidayWork, Adjustment, Overrides)
+    - [x] CreateOrGetRunRequest / CreateOrGetRunResponse
+    - [x] SyncEmployeesResponse / AddEmployeeRequest / RemoveEmployeeResponse
+  - [x] ~~Employee endpoints~~ (N/A - 使用前端 employeeService.ts 直连 Supabase)
   - [x] Payroll calculation endpoints:
-    - [x] POST `/payroll/calculate` - Single calculation ✅
-  - [ ] Payroll run endpoints:
-    - [ ] POST `/payroll/runs` - Create run
-    - [ ] POST `/payroll/runs/{id}/calculate` - Calculate
-    - [ ] POST `/payroll/runs/{id}/approve` - Approve
-    - [ ] GET `/payroll/runs` - List
-    - [ ] GET `/payroll/runs/{id}` - Get
-  - [ ] Paystub endpoints:
+    - [x] POST `/payroll/calculate` - 单员工计算 ✅
+    - [x] POST `/payroll/calculate/batch` - 批量计算 ✅
+    - [x] GET `/payroll/tax-config/{province}` - 省份税务配置 ✅
+    - [x] GET `/payroll/tax-config` - 所有税务配置 ✅
+  - [x] Payroll run endpoints:
+    - [x] POST `/payroll/runs/create-or-get` - 创建或获取 run ✅
+    - [x] PATCH `/payroll/runs/{id}/records/{record_id}` - 更新记录 ✅
+    - [x] POST `/payroll/runs/{id}/recalculate` - 重新计算 ✅
+    - [x] POST `/payroll/runs/{id}/sync-employees` - 同步员工 ✅
+    - [x] POST `/payroll/runs/{id}/employees` - 添加员工 ✅
+    - [x] DELETE `/payroll/runs/{id}/employees/{employee_id}` - 移除员工 ✅
+    - [x] DELETE `/payroll/runs/{id}` - 删除 run ✅
+    - [x] POST `/payroll/runs/{id}/finalize` - 完成 run ✅
+    - [ ] POST `/payroll/runs/{id}/approve` - 批准 run (需要 Phase 3)
+    - [ ] GET `/payroll/runs` - 列出 runs (可通过前端直查 Supabase)
+    - [ ] GET `/payroll/runs/{id}` - 获取详情 (可通过前端直查 Supabase)
+  - [ ] Paystub endpoints (需要 Phase 3):
     - [ ] GET `/payroll/paystubs/{employee_id}` - List
     - [ ] GET `/payroll/paystubs/{employee_id}/{record_id}/download` - Download URL
-  - [ ] Remittance endpoints:
+  - [ ] Remittance endpoints (Future):
     - [ ] GET `/payroll/remittances/summary` - Monthly summary
-  - [ ] Stats endpoint:
+  - [ ] Stats endpoint (Future):
     - [ ] GET `/payroll/stats` - Dashboard stats
   - [x] Register router in `__init__.py` ✅
 
-- [ ] **Task 4.1.2**: Create encryption utility
-  - [ ] Create `backend/app/core/encryption.py`:
-    - [ ] `encrypt_sin()`
-    - [ ] `decrypt_sin()`
-    - [ ] `mask_sin()`
+- [ ] **Task 4.1.2**: Create encryption utility (Optional - SIN 当前存储为明文)
+  - [ ] Create `backend/app/core/encryption.py`
   - [ ] Add ENCRYPTION_KEY to config
 
 ### Week 8: Frontend & Beancount
 
-- [ ] **Task 4.2.1**: Create TypeScript types
-  - [ ] Create `frontend/src/lib/types/payroll.ts`:
-    - [ ] Province type
-    - [ ] PayFrequency type
-    - [ ] Employee interface
-    - [ ] PayrollRun interface
-    - [ ] PayrollCalculationResult interface
+- [x] **Task 4.2.1**: Create TypeScript types ✅
+  - [x] `frontend/src/lib/types/employee.ts` - Employee 类型
+  - [x] `frontend/src/lib/types/payroll.ts` - PayrollRun, PayrollRecord 类型
+  - [x] `frontend/src/lib/types/company.ts` - Company 类型
+  - [x] `frontend/src/lib/types/pay-group.ts` - PayGroup 类型
+  - [x] `frontend/src/lib/types/remittance.ts` - Remittance 类型
 
-- [ ] **Task 4.2.2**: Create API client
-  - [ ] Create `frontend/src/lib/api/payroll.ts`:
-    - [ ] `listEmployees()`
-    - [ ] `createEmployee()`
-    - [ ] `getEmployee()`
-    - [ ] `listPayrollRuns()`
-    - [ ] `createPayrollRun()`
-    - [ ] `calculatePayroll()`
+- [x] **Task 4.2.2**: Create Payroll Service (模块化) ✅
+  - [x] `frontend/src/lib/services/payroll/index.ts` - 统一导出
+  - [x] `frontend/src/lib/services/payroll/types.ts` - 类型定义
+  - [x] `frontend/src/lib/services/payroll/helpers.ts` - 工具函数
+  - [x] `frontend/src/lib/services/payroll/dashboard.ts` - 仪表板
+  - [x] `frontend/src/lib/services/payroll/payroll-runs.ts` - Run CRUD
+  - [x] `frontend/src/lib/services/payroll/pay-groups.ts` - Pay Group 查询
+  - [x] `frontend/src/lib/services/payroll/calculation.ts` - 后端 API 调用
 
-- [ ] **Task 4.2.3**: Create Employee Management UI (Svelte 5)
-  - [ ] Create `frontend/src/routes/(app)/payroll/+page.svelte` (dashboard)
-  - [ ] Create `frontend/src/routes/(app)/payroll/employees/+page.svelte`:
-    - [ ] Use `$state`, `$effect`, `$derived` (Runes)
-    - [ ] Employee list table
-    - [ ] Add employee modal
-    - [ ] Province/frequency dropdowns
-    - [ ] Form validation
-    - [ ] Loading/error states
-  - [ ] Style with TailwindCSS
+- [x] **Task 4.2.3**: Create Employee Management UI ✅
+  - [x] `frontend/src/routes/(app)/employees/+page.svelte` - 员工列表
+  - [x] `frontend/src/routes/(app)/employees/new/+page.svelte` - 新建员工
+  - [x] `frontend/src/routes/(app)/employees/[id]/+page.svelte` - 编辑员工
 
-- [ ] **Task 4.3.1**: Create Beancount Integration
-  - [ ] Create `backend/app/services/payroll/beancount_integration.py`:
-    - [ ] Create PayrollBeancountIntegration class
-    - [ ] `generate_payroll_transaction()`:
-      - [ ] Expenses:Payroll:Salaries:Gross
-      - [ ] Liabilities:Payroll:CPP
-      - [ ] Liabilities:Payroll:EI
-      - [ ] Liabilities:Payroll:Tax:Federal
-      - [ ] Liabilities:Payroll:Tax:Provincial
-      - [ ] Assets:Bank:Operating
-    - [ ] `generate_employer_costs_transaction()`
-    - [ ] `generate_remittance_transaction()`
-    - [ ] `generate_account_definitions()`
+- [x] **Task 4.2.4**: Create Payroll UI ✅
+  - [x] `frontend/src/routes/(app)/payroll/+page.svelte` - Payroll Dashboard
+  - [x] `frontend/src/routes/(app)/payroll/run/[payDate]/+page.svelte` - Run 详情
+  - [x] `frontend/src/routes/(app)/payroll/history/+page.svelte` - 历史记录
+
+- [ ] **Task 4.3.1**: Create Beancount Integration (Future)
+  - [ ] Create `backend/app/services/payroll/beancount_integration.py`
+  - [ ] `generate_payroll_transaction()`
+  - [ ] `generate_employer_costs_transaction()`
+  - [ ] `generate_remittance_transaction()`
 
 **Validation:**
-- [ ] All API endpoints respond correctly
-- [ ] Authentication required (401 without token)
-- [ ] RLS enforces multi-tenancy
-- [ ] Frontend displays employee list
-- [ ] Can add/edit employees via UI
-- [ ] Beancount transactions balance
-- [ ] Transactions visible in Fava
+- [x] Payroll calculation API responds correctly ✅
+- [x] Authentication required (401 without token) ✅
+- [x] RLS enforces multi-tenancy ✅
+- [x] Frontend displays employee list ✅
+- [x] Can add/edit employees via UI ✅
+- [ ] Beancount transactions balance (Future)
+- [ ] Transactions visible in Fava (Future)
 
 ---
 

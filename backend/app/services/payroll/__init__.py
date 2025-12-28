@@ -24,6 +24,8 @@ from app.services.payroll.payroll_engine import (
     EmployeePayrollInput,
     PayrollCalculationResult,
 )
+from app.services.payroll.paystub_generator import PaystubGenerator
+from app.services.payroll.paystub_data_builder import PaystubDataBuilder
 
 __all__ = [
     # Tax Tables
@@ -48,4 +50,7 @@ __all__ = [
     "PayrollEngine",
     "EmployeePayrollInput",
     "PayrollCalculationResult",
+    # Paystub
+    "PaystubGenerator",
+    "PaystubDataBuilder",
 ]

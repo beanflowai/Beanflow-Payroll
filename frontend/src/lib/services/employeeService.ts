@@ -536,3 +536,33 @@ export async function removeEmployeeFromPayGroup(
 		return { error: message };
 	}
 }
+
+// ===========================================
+// Payroll Record Check Functions
+// ===========================================
+
+/**
+ * Check if an employee has any payroll records.
+ * Used to determine if vacation balance can be manually edited.
+ * If employee has payroll records, balance should be managed by the payroll system.
+ */
+export async function checkEmployeeHasPayrollRecords(
+	employeeId: string
+): Promise<boolean> {
+	try {
+		const { count, error } = await supabase
+			.from('payroll_records')
+			.select('id', { count: 'exact', head: true })
+			.eq('employee_id', employeeId)
+			.limit(1);
+
+		if (error) {
+			console.error('Failed to check payroll records:', error);
+			return false; // On error, default to allowing edit
+		}
+
+		return (count ?? 0) > 0;
+	} catch {
+		return false;
+	}
+}

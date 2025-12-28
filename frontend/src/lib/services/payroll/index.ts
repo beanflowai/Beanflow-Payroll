@@ -28,7 +28,8 @@ export type {
 export {
 	checkPayrollPageStatus,
 	getUpcomingPayDates,
-	getPayrollDashboardStats
+	getPayrollDashboardStats,
+	getRecentCompletedRuns
 } from './dashboard';
 
 // Re-export payroll run functions
@@ -51,7 +52,8 @@ export {
 	removeEmployeeFromRun,
 	deletePayrollRun,
 	type SyncEmployeesResult,
-	type CreateOrGetRunResult
+	type CreateOrGetRunResult,
+	type PayrollRunListOptionsExt
 } from './payroll-runs';
 
 // Re-export pay group functions

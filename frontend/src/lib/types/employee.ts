@@ -103,6 +103,12 @@ export interface Employee {
 	status: EmployeeStatus;
 	hireDate: string;
 	terminationDate?: string | null;
+	// Address fields (for paystub)
+	addressStreet?: string | null;
+	addressCity?: string | null;
+	addressPostalCode?: string | null;
+	occupation?: string | null;
+	// Compensation
 	annualSalary?: number | null;
 	hourlyRate?: number | null;
 	federalClaimAmount: number;
@@ -231,6 +237,12 @@ export interface DbEmployee {
 	province_of_employment: Province;
 	pay_frequency: PayFrequency;
 	employment_type: EmploymentType;
+	// Address fields
+	address_street: string | null;
+	address_city: string | null;
+	address_postal_code: string | null;
+	occupation: string | null;
+	// Compensation
 	annual_salary: number | null;
 	hourly_rate: number | null;
 	federal_claim_amount: number;
@@ -265,6 +277,12 @@ export interface EmployeeCreateInput {
 	province_of_employment: Province;
 	pay_frequency: PayFrequency;
 	employment_type?: EmploymentType;
+	// Address fields
+	address_street?: string | null;
+	address_city?: string | null;
+	address_postal_code?: string | null;
+	occupation?: string | null;
+	// Compensation
 	annual_salary?: number | null;
 	hourly_rate?: number | null;
 	federal_claim_amount: number;
@@ -304,6 +322,12 @@ export function dbEmployeeToUi(db: DbEmployee, maskedSin: string): Employee {
 		status: db.termination_date ? 'terminated' : 'active',
 		hireDate: db.hire_date,
 		terminationDate: db.termination_date,
+		// Address fields
+		addressStreet: db.address_street,
+		addressCity: db.address_city,
+		addressPostalCode: db.address_postal_code,
+		occupation: db.occupation,
+		// Compensation
 		annualSalary: db.annual_salary,
 		hourlyRate: db.hourly_rate,
 		federalClaimAmount: db.federal_claim_amount,
@@ -338,6 +362,12 @@ export function uiEmployeeToDbCreate(
 		province_of_employment: ui.provinceOfEmployment,
 		pay_frequency: ui.payFrequency,
 		employment_type: ui.employmentType,
+		// Address fields
+		address_street: ui.addressStreet ?? null,
+		address_city: ui.addressCity ?? null,
+		address_postal_code: ui.addressPostalCode ?? null,
+		occupation: ui.occupation ?? null,
+		// Compensation
 		annual_salary: ui.annualSalary ?? null,
 		hourly_rate: ui.hourlyRate ?? null,
 		federal_claim_amount: ui.federalClaimAmount,

@@ -12,7 +12,7 @@
 		suggestVacationRate,
 		getVacationRatePreset
 	} from '$lib/types/employee';
-	import { createEmployee, updateEmployee } from '$lib/services/employeeService';
+	import { createEmployee, updateEmployee, checkEmployeeHasPayrollRecords } from '$lib/services/employeeService';
 
 	interface Props {
 		employee?: Employee | null;
@@ -29,6 +29,11 @@
 	let lastName = $state(employee?.lastName ?? '');
 	let sin = $state(''); // Only used in create mode
 	let email = $state(employee?.email ?? '');
+	// Address fields
+	let addressStreet = $state(employee?.addressStreet ?? '');
+	let addressCity = $state(employee?.addressCity ?? '');
+	let addressPostalCode = $state(employee?.addressPostalCode ?? '');
+	let occupation = $state(employee?.occupation ?? '');
 	let payGroupId = $state(employee?.payGroupId ?? '');
 	let province = $state<Province>(employee?.provinceOfEmployment ?? 'ON');
 	let hireDate = $state(employee?.hireDate ?? '');
@@ -94,6 +99,9 @@
 	let errors = $state<Record<string, string>>({});
 	let submitError = $state<string | null>(null);
 
+	// Track if employee has payroll records (determines if vacation balance is editable)
+	let hasPayrollRecords = $state(false);
+
 	// Derived: Selected pay group details
 	const selectedPayGroup = $derived(payGroups.find(pg => pg.id === payGroupId) ?? null);
 
@@ -101,12 +109,28 @@
 	const yearsOfService = $derived(calculateYearsOfService(hireDate));
 	const suggestedRate = $derived(suggestVacationRate(yearsOfService));
 
+	// Check if employee has payroll records (for edit mode)
+	$effect(() => {
+		if (mode === 'edit' && employee?.id) {
+			checkEmployeeHasPayrollRecords(employee.id).then(has => {
+				hasPayrollRecords = has;
+			});
+		} else {
+			hasPayrollRecords = false;
+		}
+	});
+
 	// Reset form when employee prop changes (for edit mode)
 	$effect(() => {
 		if (mode === 'edit' && employee) {
 			firstName = employee.firstName;
 			lastName = employee.lastName;
 			email = employee.email ?? '';
+			// Address fields
+			addressStreet = employee.addressStreet ?? '';
+			addressCity = employee.addressCity ?? '';
+			addressPostalCode = employee.addressPostalCode ?? '';
+			occupation = employee.occupation ?? '';
 			payGroupId = employee.payGroupId ?? '';
 			province = employee.provinceOfEmployment;
 			hireDate = employee.hireDate;
@@ -249,6 +273,12 @@
 				pay_frequency: payFrequency,
 				employment_type: employmentType,
 				hire_date: hireDate,
+				// Address fields
+				address_street: addressStreet.trim() || null,
+				address_city: addressCity.trim() || null,
+				address_postal_code: addressPostalCode.trim() || null,
+				occupation: occupation.trim() || null,
+				// Compensation
 				annual_salary: compensationType === 'salaried' ? annualSalary : null,
 				hourly_rate: compensationType === 'hourly' ? hourlyRate : null,
 				federal_claim_amount: federalClaimAmount,
@@ -293,6 +323,12 @@
 				pay_frequency: payFrequency,
 				employment_type: employmentType,
 				hire_date: hireDate,
+				// Address fields
+				address_street: addressStreet.trim() || null,
+				address_city: addressCity.trim() || null,
+				address_postal_code: addressPostalCode.trim() || null,
+				occupation: occupation.trim() || null,
+				// Compensation
 				annual_salary: compensationType === 'salaried' ? annualSalary : null,
 				hourly_rate: compensationType === 'hourly' ? hourlyRate : null,
 				federal_claim_amount: federalClaimAmount,
@@ -305,7 +341,10 @@
 				vacation_config: {
 					payout_method: vacationPayoutMethod,
 					vacation_rate: vacationRate
-				}
+				},
+				// Only include vacation_balance if employee has no payroll records
+				// Once payroll runs exist, the balance is managed by the payroll system
+				...(vacationPayoutMethod === 'accrual' && !hasPayrollRecords ? { vacation_balance: vacationBalance } : {})
 			};
 
 			const result = await updateEmployee(employee.id, updateInput);
@@ -422,6 +461,41 @@
 					<span class="text-auxiliary-text text-error-600">{errors.email}</span>
 				{/if}
 			</div>
+
+			<!-- Address Fields -->
+			<div class="flex flex-col gap-2 col-span-full">
+				<label for="addressStreet" class="text-body-small font-medium text-surface-700">Street Address</label>
+				<input
+					id="addressStreet"
+					type="text"
+					class="p-3 border border-surface-300 rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10"
+					bind:value={addressStreet}
+					placeholder="e.g., 123 Main St, Unit 4"
+				/>
+			</div>
+
+			<div class="flex flex-col gap-2">
+				<label for="addressCity" class="text-body-small font-medium text-surface-700">City</label>
+				<input
+					id="addressCity"
+					type="text"
+					class="p-3 border border-surface-300 rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10"
+					bind:value={addressCity}
+					placeholder="e.g., Toronto"
+				/>
+			</div>
+
+			<div class="flex flex-col gap-2">
+				<label for="addressPostalCode" class="text-body-small font-medium text-surface-700">Postal Code</label>
+				<input
+					id="addressPostalCode"
+					type="text"
+					class="p-3 border border-surface-300 rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10"
+					bind:value={addressPostalCode}
+					placeholder="e.g., M5V 1A1"
+					maxlength="7"
+				/>
+			</div>
 		</div>
 	</section>
 
@@ -493,6 +567,17 @@
 				{#if hireDate}
 					<span class="text-auxiliary-text text-surface-500">Years of service: {yearsOfService.toFixed(1)} years</span>
 				{/if}
+			</div>
+
+			<div class="flex flex-col gap-2">
+				<label for="occupation" class="text-body-small font-medium text-surface-700">Job Title / Occupation</label>
+				<input
+					id="occupation"
+					type="text"
+					class="p-3 border border-surface-300 rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10"
+					bind:value={occupation}
+					placeholder="e.g., Software Developer"
+				/>
 			</div>
 
 			<div class="flex flex-col gap-2 col-span-full">
@@ -812,9 +897,12 @@
 				</div>
 
 				{#if vacationPayoutMethod === 'accrual'}
-					{#if mode === 'create'}
+					{@const canEditBalance = mode === 'create' || !hasPayrollRecords}
+					{#if canEditBalance}
 						<div class="flex flex-col gap-2">
-							<label for="vacationBalance" class="text-body-small font-medium text-surface-700">Initial Vacation Balance</label>
+							<label for="vacationBalance" class="text-body-small font-medium text-surface-700">
+								{mode === 'create' ? 'Initial Vacation Balance' : 'Vacation Balance'}
+							</label>
 							<div class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10">
 								<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
 								<input
@@ -826,7 +914,9 @@
 									step="0.01"
 								/>
 							</div>
-							<span class="text-auxiliary-text text-surface-500">Opening balance for vacation pay accrual</span>
+							<span class="text-auxiliary-text text-surface-500">
+								{mode === 'create' ? 'Opening balance for vacation pay accrual' : 'Editable until first payroll is processed'}
+							</span>
 						</div>
 					{:else}
 						<div class="flex flex-col gap-2">

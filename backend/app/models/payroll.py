@@ -167,6 +167,12 @@ class EmployeeBase(BaseModel):
     pay_frequency: PayFrequency
     employment_type: EmploymentType = EmploymentType.FULL_TIME
 
+    # Address fields (for paystub)
+    address_street: str | None = None
+    address_city: str | None = None
+    address_postal_code: str | None = None
+    occupation: str | None = None
+
     # Compensation (at least one required)
     annual_salary: Decimal | None = None
     hourly_rate: Decimal | None = None
@@ -210,6 +216,12 @@ class EmployeeUpdate(BaseModel):
     province_of_employment: Province | None = None
     pay_frequency: PayFrequency | None = None
     employment_type: EmploymentType | None = None
+    # Address fields
+    address_street: str | None = None
+    address_city: str | None = None
+    address_postal_code: str | None = None
+    occupation: str | None = None
+    # Compensation
     annual_salary: Decimal | None = None
     hourly_rate: Decimal | None = None
     federal_claim_amount: Decimal | None = None
@@ -259,6 +271,12 @@ class EmployeeResponse(BaseModel):
     province_of_employment: Province
     pay_frequency: PayFrequency
     employment_type: EmploymentType
+    # Address fields
+    address_street: str | None
+    address_city: str | None
+    address_postal_code: str | None
+    occupation: str | None
+    # Compensation
     annual_salary: Decimal | None
     hourly_rate: Decimal | None
     federal_claim_amount: Decimal
@@ -580,6 +598,11 @@ class CompanyBase(BaseModel):
     )
     province: Province
 
+    # Address fields (for paystub)
+    address_street: str | None = None
+    address_city: str | None = None
+    address_postal_code: str | None = None
+
     # CRA Remittance
     remitter_type: RemitterType = RemitterType.REGULAR
 
@@ -604,6 +627,11 @@ class CompanyUpdate(BaseModel):
     business_number: str | None = None
     payroll_account_number: str | None = None
     province: Province | None = None
+    # Address fields
+    address_street: str | None = None
+    address_city: str | None = None
+    address_postal_code: str | None = None
+    # Other fields
     remitter_type: RemitterType | None = None
     auto_calculate_deductions: bool | None = None
     send_paystub_emails: bool | None = None

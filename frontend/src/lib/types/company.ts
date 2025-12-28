@@ -61,6 +61,11 @@ export interface CompanySettings {
 	payrollAccountNumber: string;     // 15-char (e.g., 123456789RP0001)
 	province: Province;               // Company's primary province
 
+	// Address fields (for paystub)
+	addressStreet?: string | null;
+	addressCity?: string | null;
+	addressPostalCode?: string | null;
+
 	// CRA Remittance
 	remitterType: RemitterType;
 
@@ -175,6 +180,11 @@ export interface CompanyProfile {
 	businessNumber: string;           // 9-digit CRA BN
 	payrollAccountNumber: string;     // 15-char (e.g., 123456789RP0001)
 	province: Province;               // Company's primary province
+
+	// Address fields (for paystub)
+	addressStreet?: string | null;
+	addressCity?: string | null;
+	addressPostalCode?: string | null;
 
 	// CRA Remittance
 	remitterType: RemitterType;

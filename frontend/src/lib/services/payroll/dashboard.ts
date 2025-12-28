@@ -7,10 +7,12 @@ import { supabase } from '$lib/api/supabase';
 import type {
 	UpcomingPayDate,
 	PayrollRunStatus,
-	PayrollPageStatus
+	PayrollPageStatus,
+	PayrollRunWithGroups
 } from '$lib/types/payroll';
 import { getCurrentUserId } from './helpers';
 import type { PayrollServiceResult, PayrollDashboardStats } from './types';
+import { listPayrollRuns, type PayrollRunListOptionsExt } from './payroll-runs';
 
 // ===========================================
 // Page Status Check
@@ -191,6 +193,37 @@ export async function getPayrollDashboardStats(): Promise<PayrollServiceResult<P
 		return { data: stats, error: null };
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Failed to get dashboard stats';
+		return { data: null, error: message };
+	}
+}
+
+// ===========================================
+// Recent Completed Runs
+// ===========================================
+
+/**
+ * Get recent completed payroll runs for dashboard display.
+ * Returns runs with status 'approved' or 'paid', sorted by pay_date descending.
+ */
+export async function getRecentCompletedRuns(
+	limit: number = 5
+): Promise<PayrollServiceResult<PayrollRunWithGroups[]>> {
+	try {
+		// Use listPayrollRuns with excludeStatuses to get only completed runs
+		// Completed = all runs except draft, pending_approval, cancelled
+		const result = await listPayrollRuns({
+			excludeStatuses: ['draft', 'pending_approval', 'cancelled'],
+			limit,
+			offset: 0
+		} as PayrollRunListOptionsExt);
+
+		if (result.error) {
+			return { data: null, error: result.error };
+		}
+
+		return { data: result.data, error: null };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to get recent completed runs';
 		return { data: null, error: message };
 	}
 }

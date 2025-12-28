@@ -1,260 +1,143 @@
 <script lang="ts">
-	import type { PayrollRun, PayrollRecord, PayrollRunStatus } from '$lib/types/payroll';
+	import { goto } from '$app/navigation';
+	import type { PayrollRunWithGroups, PayrollRunStatus, PayrollRecord } from '$lib/types/payroll';
 	import { PAYROLL_STATUS_LABELS } from '$lib/types/payroll';
+	import { listPayrollRuns, getPayrollRunById, type PayrollRunListOptionsExt } from '$lib/services/payroll';
 	import PayrollRunDetailPanel from '$lib/components/payroll/PayrollRunDetailPanel.svelte';
 	import { formatShortDate } from '$lib/utils/dateUtils';
 
-	// Mock data - will be replaced with API calls
-	const mockPayrollRuns: PayrollRun[] = [
-		{
-			id: '1',
-			periodStart: '2025-12-01',
-			periodEnd: '2025-12-15',
-			payDate: '2025-12-20',
-			status: 'paid',
-			totalEmployees: 4,
-			totalGross: 11538.46,
-			totalCppEmployee: 560.42,
-			totalCppEmployer: 560.42,
-			totalEiEmployee: 196.15,
-			totalEiEmployer: 274.61,
-			totalFederalTax: 1200.0,
-			totalProvincialTax: 800.0,
-			totalDeductions: 2756.57,
-			totalNetPay: 8781.89,
-			totalEmployerCost: 835.03
-		},
-		{
-			id: '2',
-			periodStart: '2025-11-16',
-			periodEnd: '2025-11-30',
-			payDate: '2025-12-05',
-			status: 'paid',
-			totalEmployees: 4,
-			totalGross: 11538.46,
-			totalCppEmployee: 560.42,
-			totalCppEmployer: 560.42,
-			totalEiEmployee: 196.15,
-			totalEiEmployer: 274.61,
-			totalFederalTax: 1200.0,
-			totalProvincialTax: 800.0,
-			totalDeductions: 2756.57,
-			totalNetPay: 8781.89,
-			totalEmployerCost: 835.03
-		},
-		{
-			id: '3',
-			periodStart: '2025-11-01',
-			periodEnd: '2025-11-15',
-			payDate: '2025-11-20',
-			status: 'paid',
-			totalEmployees: 4,
-			totalGross: 11538.46,
-			totalCppEmployee: 560.42,
-			totalCppEmployer: 560.42,
-			totalEiEmployee: 196.15,
-			totalEiEmployer: 274.61,
-			totalFederalTax: 1200.0,
-			totalProvincialTax: 800.0,
-			totalDeductions: 2756.57,
-			totalNetPay: 8781.89,
-			totalEmployerCost: 835.03
-		},
-		{
-			id: '4',
-			periodStart: '2025-10-16',
-			periodEnd: '2025-10-31',
-			payDate: '2025-11-05',
-			status: 'paid',
-			totalEmployees: 4,
-			totalGross: 11538.46,
-			totalCppEmployee: 560.42,
-			totalCppEmployer: 560.42,
-			totalEiEmployee: 196.15,
-			totalEiEmployer: 274.61,
-			totalFederalTax: 1200.0,
-			totalProvincialTax: 800.0,
-			totalDeductions: 2756.57,
-			totalNetPay: 8781.89,
-			totalEmployerCost: 835.03
-		},
-		{
-			id: '5',
-			periodStart: '2025-10-01',
-			periodEnd: '2025-10-15',
-			payDate: '2025-10-20',
-			status: 'paid',
-			totalEmployees: 4,
-			totalGross: 11538.46,
-			totalCppEmployee: 560.42,
-			totalCppEmployer: 560.42,
-			totalEiEmployee: 196.15,
-			totalEiEmployer: 274.61,
-			totalFederalTax: 1200.0,
-			totalProvincialTax: 800.0,
-			totalDeductions: 2756.57,
-			totalNetPay: 8781.89,
-			totalEmployerCost: 835.03
-		}
+	// Filter tabs configuration
+	type FilterTab = 'all' | 'draft' | 'pending' | 'completed' | 'cancelled';
+	const filterTabs: { key: FilterTab; label: string }[] = [
+		{ key: 'all', label: 'All' },
+		{ key: 'draft', label: 'Draft' },
+		{ key: 'pending', label: 'Pending Approval' },
+		{ key: 'completed', label: 'Completed' },
+		{ key: 'cancelled', label: 'Cancelled' }
 	];
 
-	// Mock payroll records for selected run
-	function getMockRecords(runId: string): PayrollRecord[] {
-		return [
-			{
-				id: `${runId}-1`,
-				employeeId: 'emp-1',
-				employeeName: 'Jane Doe',
-				employeeProvince: 'ON',
-				grossRegular: 2884.62,
-				grossOvertime: 0,
-				holidayPay: 0,
-				holidayPremiumPay: 0,
-				vacationPayPaid: 0,
-				otherEarnings: 0,
-				totalGross: 2884.62,
-				cppEmployee: 140.11,
-				cppAdditional: 0,
-				eiEmployee: 49.04,
-				federalTax: 300.0,
-				provincialTax: 200.0,
-				rrsp: 0,
-				unionDues: 0,
-				garnishments: 0,
-				otherDeductions: 0,
-				totalDeductions: 689.15,
-				netPay: 2195.47,
-				cppEmployer: 140.11,
-				eiEmployer: 68.66,
-				totalEmployerCost: 208.77,
-				ytdGross: 69230.88,
-				ytdCpp: 3362.64,
-				ytdEi: 1049.12,
-				ytdFederalTax: 7200.0,
-				ytdProvincialTax: 4800.0,
-				ytdNetPay: 52619.28
-			},
-			{
-				id: `${runId}-2`,
-				employeeId: 'emp-2',
-				employeeName: 'John Smith',
-				employeeProvince: 'ON',
-				grossRegular: 2884.62,
-				grossOvertime: 0,
-				holidayPay: 0,
-				holidayPremiumPay: 0,
-				vacationPayPaid: 0,
-				otherEarnings: 0,
-				totalGross: 2884.62,
-				cppEmployee: 140.11,
-				cppAdditional: 0,
-				eiEmployee: 49.04,
-				federalTax: 300.0,
-				provincialTax: 200.0,
-				rrsp: 0,
-				unionDues: 0,
-				garnishments: 0,
-				otherDeductions: 0,
-				totalDeductions: 689.15,
-				netPay: 2195.47,
-				cppEmployer: 140.11,
-				eiEmployer: 68.66,
-				totalEmployerCost: 208.77,
-				ytdGross: 69230.88,
-				ytdCpp: 3362.64,
-				ytdEi: 1049.12,
-				ytdFederalTax: 7200.0,
-				ytdProvincialTax: 4800.0,
-				ytdNetPay: 52619.28
-			},
-			{
-				id: `${runId}-3`,
-				employeeId: 'emp-3',
-				employeeName: 'Mary Johnson',
-				employeeProvince: 'ON',
-				grossRegular: 2884.62,
-				grossOvertime: 0,
-				holidayPay: 0,
-				holidayPremiumPay: 0,
-				vacationPayPaid: 0,
-				otherEarnings: 0,
-				totalGross: 2884.62,
-				cppEmployee: 140.11,
-				cppAdditional: 0,
-				eiEmployee: 49.04,
-				federalTax: 300.0,
-				provincialTax: 200.0,
-				rrsp: 0,
-				unionDues: 0,
-				garnishments: 0,
-				otherDeductions: 0,
-				totalDeductions: 689.15,
-				netPay: 2195.47,
-				cppEmployer: 140.11,
-				eiEmployer: 68.66,
-				totalEmployerCost: 208.77,
-				ytdGross: 69230.88,
-				ytdCpp: 3362.64,
-				ytdEi: 1049.12,
-				ytdFederalTax: 7200.0,
-				ytdProvincialTax: 4800.0,
-				ytdNetPay: 52619.28
-			},
-			{
-				id: `${runId}-4`,
-				employeeId: 'emp-4',
-				employeeName: 'James Wilson',
-				employeeProvince: 'ON',
-				grossRegular: 2884.6,
-				grossOvertime: 0,
-				holidayPay: 0,
-				holidayPremiumPay: 0,
-				vacationPayPaid: 0,
-				otherEarnings: 0,
-				totalGross: 2884.6,
-				cppEmployee: 140.09,
-				cppAdditional: 0,
-				eiEmployee: 49.03,
-				federalTax: 300.0,
-				provincialTax: 200.0,
-				rrsp: 0,
-				unionDues: 0,
-				garnishments: 0,
-				otherDeductions: 0,
-				totalDeductions: 689.12,
-				netPay: 2195.48,
-				cppEmployer: 140.09,
-				eiEmployer: 68.63,
-				totalEmployerCost: 208.72,
-				ytdGross: 69230.4,
-				ytdCpp: 3362.16,
-				ytdEi: 1048.72,
-				ytdFederalTax: 7200.0,
-				ytdProvincialTax: 4800.0,
-				ytdNetPay: 52619.52
-			}
-		];
-	}
-
 	// State
-	let selectedRun = $state<PayrollRun | null>(null);
+	let runs = $state<PayrollRunWithGroups[]>([]);
+	let loading = $state(true);
+	let error = $state<string | null>(null);
+	let activeTab = $state<FilterTab>('all');
+	let currentPage = $state(1);
+	let totalCount = $state(0);
+	let selectedRun = $state<PayrollRunWithGroups | null>(null);
 	let selectedRecords = $state<PayrollRecord[]>([]);
 
-	// Computed
-	const ytdTotalPaid = $derived(
-		mockPayrollRuns.reduce((sum, run) => sum + run.totalNetPay, 0)
-	);
+	// Constants
+	const PAGE_SIZE = 20;
 
-	// Handlers
-	function selectRun(run: PayrollRun) {
-		selectedRun = run;
-		selectedRecords = getMockRecords(run.id);
+	// Get filter options based on active tab
+	function getFilterOptions(): PayrollRunListOptionsExt {
+		const offset = (currentPage - 1) * PAGE_SIZE;
+
+		switch (activeTab) {
+			case 'draft':
+				return {
+					status: 'draft',
+					limit: PAGE_SIZE,
+					offset
+				};
+			case 'pending':
+				return {
+					status: 'pending_approval',
+					limit: PAGE_SIZE,
+					offset
+				};
+			case 'completed':
+				return {
+					excludeStatuses: ['draft', 'pending_approval', 'cancelled'],
+					limit: PAGE_SIZE,
+					offset
+				};
+			case 'cancelled':
+				return {
+					status: 'cancelled',
+					limit: PAGE_SIZE,
+					offset
+				};
+			default:
+				// All - include everything
+				return {
+					limit: PAGE_SIZE,
+					offset
+				};
+		}
+	}
+
+	// Load payroll runs
+	async function loadRuns() {
+		loading = true;
+		error = null;
+
+		const options = getFilterOptions();
+		const result = await listPayrollRuns(options);
+
+		if (result.error) {
+			error = result.error;
+			runs = [];
+			totalCount = 0;
+		} else {
+			runs = result.data;
+			totalCount = result.count;
+		}
+
+		loading = false;
+	}
+
+	// Initial load
+	$effect(() => {
+		loadRuns();
+	});
+
+	// Reload when tab or page changes
+	function changeTab(tab: FilterTab) {
+		if (activeTab !== tab) {
+			activeTab = tab;
+			currentPage = 1;
+			loadRuns();
+		}
+	}
+
+	function changePage(page: number) {
+		if (page !== currentPage && page >= 1 && page <= totalPages) {
+			currentPage = page;
+			loadRuns();
+		}
+	}
+
+	// Select a run to view details or navigate to edit page
+	async function selectRun(run: PayrollRunWithGroups) {
+		// Incomplete status: navigate to payroll run page for continued operation
+		if (run.status === 'draft' || run.status === 'pending_approval') {
+			goto(`/payroll/run/${run.payDate}`);
+			return;
+		}
+
+		// Completed status: show Detail Panel
+		const result = await getPayrollRunById(run.id);
+		if (result.data) {
+			selectedRun = result.data;
+			// Extract records from pay groups - they are already PayrollRecord type
+			selectedRecords = result.data.payGroups.flatMap(pg => pg.records);
+		} else {
+			selectedRun = run;
+			selectedRecords = [];
+		}
 	}
 
 	function closePanel() {
 		selectedRun = null;
 		selectedRecords = [];
 	}
+
+	// Computed
+	const totalPages = $derived(Math.ceil(totalCount / PAGE_SIZE));
+	const ytdTotalPaid = $derived(runs.reduce((sum, run) => sum + run.totalNetPay, 0));
+	const showingStart = $derived((currentPage - 1) * PAGE_SIZE + 1);
+	const showingEnd = $derived(Math.min(currentPage * PAGE_SIZE, totalCount));
 
 	// Helpers
 	function formatCurrency(amount: number): string {
@@ -288,6 +171,30 @@
 				return '';
 		}
 	}
+
+	// Convert PayrollRunWithGroups to PayrollRun for the detail panel
+	function toPayrollRun(run: PayrollRunWithGroups) {
+		return {
+			id: run.id,
+			periodStart: run.payGroups[0]?.periodStart ?? '',
+			periodEnd: run.payGroups[0]?.periodEnd ?? '',
+			payDate: run.payDate,
+			status: run.status,
+			totalEmployees: run.totalEmployees,
+			totalGross: run.totalGross,
+			totalCppEmployee: run.totalCppEmployee,
+			totalCppEmployer: run.totalCppEmployer,
+			totalEiEmployee: run.totalEiEmployee,
+			totalEiEmployer: run.totalEiEmployer,
+			totalFederalTax: run.totalFederalTax,
+			totalProvincialTax: run.totalProvincialTax,
+			totalDeductions: run.totalDeductions,
+			totalNetPay: run.totalNetPay,
+			totalEmployerCost: run.totalEmployerCost,
+			totalPayrollCost: run.totalPayrollCost ?? (run.totalGross + run.totalEmployerCost),
+			totalRemittance: run.totalRemittance ?? 0
+		};
+	}
 </script>
 
 <svelte:head>
@@ -310,107 +217,179 @@
 			</div>
 		</header>
 
-		<!-- Summary Stats -->
-		<div class="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4 mb-6">
-			<div class="flex items-center gap-4 p-5 bg-white rounded-xl shadow-md3-1">
-				<div class="w-12 h-12 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center text-xl">
-					<i class="fas fa-calendar-check"></i>
-				</div>
-				<div class="flex flex-col">
-					<span class="text-title-large font-semibold text-surface-800">{mockPayrollRuns.length}</span>
-					<span class="text-auxiliary-text text-surface-600">Payroll Runs (YTD)</span>
-				</div>
-			</div>
-			<div class="flex items-center gap-4 p-5 bg-white rounded-xl shadow-md3-1">
-				<div class="w-12 h-12 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center text-xl">
-					<i class="fas fa-dollar-sign"></i>
-				</div>
-				<div class="flex flex-col">
-					<span class="text-title-large font-semibold text-surface-800">{formatCurrency(ytdTotalPaid)}</span>
-					<span class="text-auxiliary-text text-surface-600">Total Paid (YTD)</span>
-				</div>
-			</div>
-			<div class="flex items-center gap-4 p-5 bg-white rounded-xl shadow-md3-1">
-				<div class="w-12 h-12 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center text-xl">
-					<i class="fas fa-users"></i>
-				</div>
-				<div class="flex flex-col">
-					<span class="text-title-large font-semibold text-surface-800">4</span>
-					<span class="text-auxiliary-text text-surface-600">Active Employees</span>
-				</div>
-			</div>
+		<!-- Filter Tabs -->
+		<div class="flex gap-1 mb-6 border-b border-surface-200">
+			{#each filterTabs as tab}
+				<button
+					class="py-3 px-4 text-body-content font-medium border-b-2 -mb-px transition-colors cursor-pointer bg-transparent border-l-0 border-r-0 border-t-0 {activeTab === tab.key
+						? 'text-primary-600 border-primary-600'
+						: 'text-surface-600 border-transparent hover:text-surface-800'}"
+					onclick={() => changeTab(tab.key)}
+				>
+					{tab.label}
+				</button>
+			{/each}
 		</div>
 
-		<!-- History Table -->
-		<div class="bg-white rounded-xl shadow-md3-1 overflow-hidden mb-4 max-md:overflow-x-auto">
-			<table class="w-full border-collapse max-md:min-w-[700px]">
-				<thead>
-					<tr>
-						<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Pay Period</th>
-						<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Pay Date</th>
-						<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Employees</th>
-						<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Gross Pay</th>
-						<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Net Pay</th>
-						<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Status</th>
-						<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200"></th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each mockPayrollRuns as run (run.id)}
-						<tr
-							class="cursor-pointer transition-[150ms] {selectedRun?.id === run.id ? '[&>td]:bg-primary-50' : ''} hover:[&>td]:bg-surface-50"
-							onclick={() => selectRun(run)}
-							role="button"
-							tabindex="0"
-							onkeydown={(e) => e.key === 'Enter' && selectRun(run)}
-						>
-							<td class="p-4 px-5 text-body-content border-b border-surface-100 font-medium text-surface-800 last:border-b-0">{formatPeriod(run.periodStart, run.periodEnd)}</td>
-							<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-600 last:border-b-0">{formatShortDate(run.payDate)}</td>
-							<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-700 last:border-b-0">{run.totalEmployees}</td>
-							<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-700 font-mono last:border-b-0">{formatCurrency(run.totalGross)}</td>
-							<td class="p-4 px-5 text-body-content border-b border-surface-100 font-mono font-semibold text-surface-800 last:border-b-0">{formatCurrency(run.totalNetPay)}</td>
-							<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-700 last:border-b-0">
-								<span class="inline-flex items-center gap-2 py-1 px-3 rounded-full text-auxiliary-text font-medium {getStatusBadgeClass(run.status)}">
-									{PAYROLL_STATUS_LABELS[run.status]}
-								</span>
-							</td>
-							<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-700 last:border-b-0">
-								<button
-									class="p-2 bg-transparent border-none rounded-md text-surface-400 cursor-pointer transition-[150ms] hover:bg-surface-100 hover:text-primary-600"
-									title="View details"
-									onclick={(e) => {
-										e.stopPropagation();
-										selectRun(run);
-									}}
-								>
-									<i class="fas fa-chevron-right"></i>
-								</button>
-							</td>
+		<!-- Loading State -->
+		{#if loading}
+			<div class="flex items-center justify-center py-16">
+				<div class="flex flex-col items-center gap-4">
+					<i class="fas fa-spinner fa-spin text-3xl text-primary-500"></i>
+					<span class="text-body-content text-surface-600">Loading payroll history...</span>
+				</div>
+			</div>
+		{:else if error}
+			<!-- Error State -->
+			<div class="bg-error-50 border border-error-200 rounded-xl p-6 text-center">
+				<i class="fas fa-exclamation-circle text-3xl text-error-500 mb-3"></i>
+				<p class="text-body-content text-error-700 m-0 mb-4">{error}</p>
+				<button
+					class="py-2 px-4 bg-error-600 text-white rounded-lg text-body-content font-medium cursor-pointer hover:bg-error-700"
+					onclick={() => loadRuns()}
+				>
+					Try Again
+				</button>
+			</div>
+		{:else if runs.length === 0}
+			<!-- Empty State -->
+			<div class="bg-white rounded-xl shadow-md3-1 p-12 text-center">
+				<i class="fas fa-history text-5xl text-surface-300 mb-4"></i>
+				<h3 class="text-title-medium font-semibold text-surface-800 m-0 mb-2">No Payroll Runs Found</h3>
+				<p class="text-body-content text-surface-600 m-0">
+					{#if activeTab === 'all'}
+						You haven't created any payroll runs yet.
+					{:else if activeTab === 'draft'}
+						No draft payroll runs.
+					{:else if activeTab === 'pending'}
+						No payroll runs are pending approval.
+					{:else if activeTab === 'completed'}
+						No completed payroll runs.
+					{:else}
+						No cancelled payroll runs.
+					{/if}
+				</p>
+			</div>
+		{:else}
+			<!-- Summary Stats -->
+			<div class="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4 mb-6">
+				<div class="flex items-center gap-4 p-5 bg-white rounded-xl shadow-md3-1">
+					<div class="w-12 h-12 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center text-xl">
+						<i class="fas fa-calendar-check"></i>
+					</div>
+					<div class="flex flex-col">
+						<span class="text-title-large font-semibold text-surface-800">{totalCount}</span>
+						<span class="text-auxiliary-text text-surface-600">Payroll Runs</span>
+					</div>
+				</div>
+				<div class="flex items-center gap-4 p-5 bg-white rounded-xl shadow-md3-1">
+					<div class="w-12 h-12 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center text-xl">
+						<i class="fas fa-dollar-sign"></i>
+					</div>
+					<div class="flex flex-col">
+						<span class="text-title-large font-semibold text-surface-800">{formatCurrency(ytdTotalPaid)}</span>
+						<span class="text-auxiliary-text text-surface-600">Total Net Pay (This Page)</span>
+					</div>
+				</div>
+			</div>
+
+			<!-- History Table -->
+			<div class="bg-white rounded-xl shadow-md3-1 overflow-hidden mb-4 max-md:overflow-x-auto">
+				<table class="w-full border-collapse max-md:min-w-[700px]">
+					<thead>
+						<tr>
+							<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Pay Date</th>
+							<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Employees</th>
+							<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Gross Pay</th>
+							<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Net Pay</th>
+							<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Status</th>
+							<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200"></th>
 						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-
-		<!-- Pagination -->
-		<div class="flex items-center justify-between max-md:flex-col max-md:gap-3">
-			<span class="text-body-content text-surface-600">Showing 1-{mockPayrollRuns.length} of {mockPayrollRuns.length} payroll runs</span>
-			<div class="flex gap-2">
-				<button class="min-w-9 h-9 px-3 bg-white border border-surface-200 rounded-md text-body-content text-surface-700 cursor-pointer transition-[150ms] hover:bg-surface-50 hover:border-primary-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled aria-label="Previous page">
-					<i class="fas fa-chevron-left"></i>
-				</button>
-				<button class="min-w-9 h-9 px-3 bg-primary-500 border border-primary-500 rounded-md text-body-content text-white cursor-pointer transition-[150ms]">1</button>
-				<button class="min-w-9 h-9 px-3 bg-white border border-surface-200 rounded-md text-body-content text-surface-700 cursor-pointer transition-[150ms] hover:bg-surface-50 hover:border-primary-300" aria-label="Next page">
-					<i class="fas fa-chevron-right"></i>
-				</button>
+					</thead>
+					<tbody>
+						{#each runs as run (run.id)}
+							<tr
+								class="cursor-pointer transition-[150ms] {selectedRun?.id === run.id ? '[&>td]:bg-primary-50' : ''} hover:[&>td]:bg-surface-50"
+								onclick={() => selectRun(run)}
+								role="button"
+								tabindex="0"
+								onkeydown={(e) => e.key === 'Enter' && selectRun(run)}
+							>
+								<td class="p-4 px-5 text-body-content border-b border-surface-100 font-medium text-surface-800 last:border-b-0">{formatShortDate(run.payDate)}</td>
+								<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-700 last:border-b-0">{run.totalEmployees}</td>
+								<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-700 font-mono last:border-b-0">{formatCurrency(run.totalGross)}</td>
+								<td class="p-4 px-5 text-body-content border-b border-surface-100 font-mono font-semibold text-surface-800 last:border-b-0">{formatCurrency(run.totalNetPay)}</td>
+								<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-700 last:border-b-0">
+									<span class="inline-flex items-center gap-2 py-1 px-3 rounded-full text-auxiliary-text font-medium {getStatusBadgeClass(run.status)}">
+										{PAYROLL_STATUS_LABELS[run.status]}
+									</span>
+								</td>
+								<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-700 last:border-b-0">
+									<button
+										class="p-2 bg-transparent border-none rounded-md text-surface-400 cursor-pointer transition-[150ms] hover:bg-surface-100 hover:text-primary-600"
+										title="View details"
+										onclick={(e) => {
+											e.stopPropagation();
+											selectRun(run);
+										}}
+									>
+										<i class="fas fa-chevron-right"></i>
+									</button>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
 			</div>
-		</div>
+
+			<!-- Pagination -->
+			{#if totalPages > 1}
+				<div class="flex items-center justify-between max-md:flex-col max-md:gap-3">
+					<span class="text-body-content text-surface-600">
+						Showing {showingStart}-{showingEnd} of {totalCount} payroll runs
+					</span>
+					<div class="flex gap-2">
+						<button
+							class="min-w-9 h-9 px-3 bg-white border border-surface-200 rounded-md text-body-content text-surface-700 cursor-pointer transition-[150ms] hover:bg-surface-50 hover:border-primary-300 disabled:opacity-50 disabled:cursor-not-allowed"
+							disabled={currentPage === 1}
+							onclick={() => changePage(currentPage - 1)}
+							aria-label="Previous page"
+						>
+							<i class="fas fa-chevron-left"></i>
+						</button>
+						{#each Array(Math.min(totalPages, 5)) as _, i}
+							{@const page = i + 1}
+							<button
+								class="min-w-9 h-9 px-3 rounded-md text-body-content cursor-pointer transition-[150ms] {currentPage === page
+									? 'bg-primary-500 border border-primary-500 text-white'
+									: 'bg-white border border-surface-200 text-surface-700 hover:bg-surface-50 hover:border-primary-300'}"
+								onclick={() => changePage(page)}
+							>
+								{page}
+							</button>
+						{/each}
+						<button
+							class="min-w-9 h-9 px-3 bg-white border border-surface-200 rounded-md text-body-content text-surface-700 cursor-pointer transition-[150ms] hover:bg-surface-50 hover:border-primary-300 disabled:opacity-50 disabled:cursor-not-allowed"
+							disabled={currentPage === totalPages}
+							onclick={() => changePage(currentPage + 1)}
+							aria-label="Next page"
+						>
+							<i class="fas fa-chevron-right"></i>
+						</button>
+					</div>
+				</div>
+			{:else}
+				<div class="text-body-content text-surface-600">
+					Showing {runs.length} payroll run{runs.length !== 1 ? 's' : ''}
+				</div>
+			{/if}
+		{/if}
 	</div>
 
 	<!-- Detail Panel -->
 	{#if selectedRun}
 		<PayrollRunDetailPanel
-			payrollRun={selectedRun}
+			payrollRun={toPayrollRun(selectedRun)}
 			payrollRecords={selectedRecords}
 			onClose={closePanel}
 		/>
