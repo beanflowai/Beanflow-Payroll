@@ -26,6 +26,21 @@ from app.services.payroll.payroll_engine import (
 )
 from app.services.payroll.paystub_generator import PaystubGenerator
 from app.services.payroll.paystub_data_builder import PaystubDataBuilder
+from app.services.payroll.sick_leave_service import (
+    SickLeaveService,
+    SickLeaveConfig,
+    SickLeaveBalance,
+    SickPayResult,
+    AverageDayPayResult,
+)
+from app.services.payroll.sick_leave_config_loader import (
+    SickLeaveConfigLoader,
+    get_config as get_sick_leave_config,
+    get_all_configs as get_all_sick_leave_configs,
+    get_provinces_with_paid_sick_leave,
+    get_provinces_with_sick_leave_carryover,
+    get_config_metadata as get_sick_leave_config_metadata,
+)
 
 __all__ = [
     # Tax Tables
@@ -53,4 +68,16 @@ __all__ = [
     # Paystub
     "PaystubGenerator",
     "PaystubDataBuilder",
+    # Sick Leave
+    "SickLeaveService",
+    "SickLeaveConfig",
+    "SickLeaveBalance",
+    "SickPayResult",
+    "AverageDayPayResult",
+    "SickLeaveConfigLoader",
+    "get_sick_leave_config",
+    "get_all_sick_leave_configs",
+    "get_provinces_with_paid_sick_leave",
+    "get_provinces_with_sick_leave_carryover",
+    "get_sick_leave_config_metadata",
 ]
