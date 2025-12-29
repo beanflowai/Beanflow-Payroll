@@ -341,13 +341,16 @@ class SickLeaveService:
 
         # Determine paid vs unpaid days
         paid_days_available = balance.paid_days_remaining
+        unpaid_days_available = balance.unpaid_days_remaining
 
         if sick_days <= paid_days_available:
             paid_days = sick_days
             unpaid_days = Decimal("0")
         else:
             paid_days = paid_days_available
-            unpaid_days = sick_days - paid_days_available
+            # Cap unpaid days at remaining unpaid entitlement
+            requested_unpaid = sick_days - paid_days_available
+            unpaid_days = min(requested_unpaid, unpaid_days_available)
 
         # Calculate payment
         sick_pay = self._round(average_day_pay * paid_days)
@@ -355,14 +358,22 @@ class SickLeaveService:
         # Calculate balance after
         balance_after = paid_days_available - paid_days
 
+        # Check if request exceeds total entitlement
+        total_covered = paid_days + unpaid_days
+        reason: str | None = None
+        if total_covered < sick_days:
+            excess_days = sick_days - total_covered
+            reason = f"Request exceeds entitlement by {excess_days} day(s)"
+
         return SickPayResult(
             eligible=True,
-            days_used=sick_days,
+            days_used=total_covered,  # Only count covered days
             paid_days=paid_days,
             unpaid_days=unpaid_days,
             amount=sick_pay,
             average_day_pay=average_day_pay,
             balance_after=balance_after,
+            reason=reason,
         )
 
     def calculate_year_end_carryover(
@@ -393,6 +404,7 @@ class SickLeaveService:
         province_code: str,
         hire_date: date,
         carried_over_days: Decimal = Decimal("0"),
+        reference_date: date | None = None,
     ) -> SickLeaveBalance:
         """
         Create a new year's sick leave balance for an employee.
@@ -403,6 +415,7 @@ class SickLeaveService:
             province_code: Province of employment
             hire_date: Employee's hire date
             carried_over_days: Days carried over from previous year
+            reference_date: Date to check eligibility against (defaults to today)
 
         Returns:
             New SickLeaveBalance for the year
@@ -422,8 +435,9 @@ class SickLeaveService:
                 is_eligible=False,
             )
 
-        # Check eligibility
-        reference_date = date(year, 1, 1)
+        # Check eligibility using provided date or start of target year
+        if reference_date is None:
+            reference_date = date(year, 1, 1)
         is_eligible, eligibility_date = self.check_eligibility(
             hire_date, province_code, reference_date
         )

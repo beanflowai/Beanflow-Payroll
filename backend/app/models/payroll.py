@@ -242,6 +242,7 @@ class Employee(EmployeeBase):
     company_id: str
     sin_encrypted: str = Field(exclude=True)  # Never expose in API
     vacation_balance: Decimal = Decimal("0")
+    sick_balance: Decimal = Decimal("0")  # Paid sick days remaining
     created_at: datetime
     updated_at: datetime
 

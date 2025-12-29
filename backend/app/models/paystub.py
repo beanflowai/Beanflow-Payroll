@@ -9,6 +9,7 @@ __all__ = [
     "TaxLine",
     "BenefitLine",
     "VacationInfo",
+    "SickLeaveInfo",
     "PaystubData",
 ]
 
@@ -49,6 +50,15 @@ class VacationInfo:
     earned: Decimal  # Current period accrual
     ytdUsed: Decimal  # YTD hours/dollars used  # noqa: N815
     available: Decimal  # Current available balance
+
+
+@dataclass
+class SickLeaveInfo:
+    """Sick leave tracking information."""
+
+    paidDaysRemaining: Decimal  # Remaining paid sick days  # noqa: N815
+    unpaidDaysRemaining: Decimal  # Remaining unpaid sick days  # noqa: N815
+    daysUsedYtd: Decimal  # YTD days used  # noqa: N815
 
 
 @dataclass
@@ -100,6 +110,9 @@ class PaystubData:
 
     # === Vacation ===
     vacation: VacationInfo | None = None
+
+    # === Sick Leave ===
+    sickLeave: SickLeaveInfo | None = None  # noqa: N815
 
     # === Optional fields ===
     occupation: str | None = None

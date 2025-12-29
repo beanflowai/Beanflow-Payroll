@@ -99,6 +99,7 @@ class ModelBuilder:
             ),
             sin_encrypted=data.get("sin_encrypted", ""),
             vacation_balance=Decimal(str(data.get("vacation_balance", 0))),
+            sick_balance=Decimal(str(data.get("sick_balance", 0))),
             created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.now(),
             updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else datetime.now(),
         )

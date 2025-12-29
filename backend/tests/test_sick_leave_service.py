@@ -464,6 +464,41 @@ class TestSickPayCalculation:
         assert result.paid_days == Decimal("0")
         assert result.amount == Decimal("0")
 
+    def test_request_exceeds_total_entitlement(
+        self, sick_leave_service: SickLeaveService
+    ):
+        """Request exceeding both paid and unpaid balance should be capped and flagged."""
+        balance = SickLeaveBalance(
+            employee_id="test-123",
+            year=2025,
+            paid_days_entitled=Decimal("5"),
+            unpaid_days_entitled=Decimal("3"),
+            paid_days_used=Decimal("4"),     # Only 1 paid day remaining
+            unpaid_days_used=Decimal("2"),   # Only 1 unpaid day remaining
+            carried_over_days=Decimal("0"),
+            is_eligible=True,
+        )
+
+        # Request 5 days (40 hours) - but only 1 paid + 1 unpaid = 2 days available
+        result = sick_leave_service.calculate_sick_pay(
+            province_code="BC",
+            sick_hours_taken=Decimal("40"),  # 5 days requested
+            average_day_pay=Decimal("200.00"),
+            balance=balance,
+        )
+
+        # Should only cover 2 days total (1 paid + 1 unpaid)
+        assert result.eligible is True
+        assert result.days_used == Decimal("2.00")  # Only covered days
+        assert result.paid_days == Decimal("1.00")
+        assert result.unpaid_days == Decimal("1.00")
+        assert result.amount == Decimal("200.00")  # Only 1 paid day
+        assert result.balance_after == Decimal("0")
+        # Should have reason explaining the excess
+        assert result.reason is not None
+        assert "exceeds" in result.reason.lower()
+        assert "3" in result.reason  # 5 requested - 2 covered = 3 excess days
+
 
 # =============================================================================
 # YEAR-END CARRYOVER TESTS

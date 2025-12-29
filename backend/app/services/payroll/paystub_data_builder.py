@@ -21,6 +21,7 @@ from app.models.paystub import (
     BenefitLine,
     EarningLine,
     PaystubData,
+    SickLeaveInfo,
     TaxLine,
     VacationInfo,
 )
@@ -126,6 +127,9 @@ class PaystubDataBuilder:
         # Build vacation info
         vacation = self._build_vacation(record, employee)
 
+        # Build sick leave info
+        sick_leave = self._build_sick_leave(employee)
+
         # Calculate YTD net pay
         ytd_net_pay = self._calculate_ytd_net_pay(record, ytd_records)
 
@@ -168,6 +172,8 @@ class PaystubDataBuilder:
             ytdNetPay=ytd_net_pay,
             # Vacation
             vacation=vacation,
+            # Sick Leave
+            sickLeave=sick_leave,
             # Company branding
             logoUrl=company.logo_url,
             logoBytes=logo_bytes,
@@ -474,16 +480,39 @@ class PaystubDataBuilder:
         employee: Employee,
     ) -> VacationInfo | None:
         """Build vacation info from payroll record and employee data."""
+        # Calculate available balance: old balance + accrued - paid
+        available_balance = (
+            employee.vacation_balance
+            + record.vacation_accrued
+            - record.vacation_pay_paid
+        )
+
         # Only include if there's vacation accrued or balance
         if (
             record.vacation_accrued > 0
             or record.vacation_hours_taken > 0
-            or employee.vacation_balance > 0
+            or available_balance > 0
         ):
             return VacationInfo(
                 earned=record.vacation_accrued,
                 ytdUsed=record.vacation_hours_taken,  # This might need YTD calculation
-                available=employee.vacation_balance,
+                available=available_balance,
+            )
+        return None
+
+    def _build_sick_leave(
+        self,
+        employee: Employee,
+    ) -> SickLeaveInfo | None:
+        """Build sick leave info from employee data."""
+        sick_balance = employee.sick_balance or Decimal("0")
+
+        # Only include if there's a balance
+        if sick_balance > 0:
+            return SickLeaveInfo(
+                paidDaysRemaining=Decimal(str(sick_balance)),
+                unpaidDaysRemaining=Decimal("0"),  # Would need province config
+                daysUsedYtd=Decimal("0"),  # Would need YTD tracking
             )
         return None
 

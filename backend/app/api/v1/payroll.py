@@ -1444,6 +1444,8 @@ class SickLeaveConfigResponse(BaseModel):
     allowsCarryover: bool = Field(alias="allows_carryover")
     maxCarryoverDays: int = Field(alias="max_carryover_days")
     accrualMethod: str = Field(alias="accrual_method")
+    initialDaysAfterQualifying: int = Field(alias="initial_days_after_qualifying")
+    daysPerMonthAfterInitial: int = Field(alias="days_per_month_after_initial")
     notes: str | None = None
 
     model_config = {"populate_by_name": True}
@@ -1501,6 +1503,8 @@ async def get_sick_leave_configs(
             allows_carryover=config.allows_carryover,
             max_carryover_days=config.max_carryover_days,
             accrual_method=config.accrual_method,
+            initial_days_after_qualifying=config.initial_days_after_qualifying,
+            days_per_month_after_initial=config.days_per_month_after_initial,
         )
         for config in configs.values()
     ]
@@ -1541,6 +1545,8 @@ async def get_sick_leave_config_by_province(
         allows_carryover=config.allows_carryover,
         max_carryover_days=config.max_carryover_days,
         accrual_method=config.accrual_method,
+        initial_days_after_qualifying=config.initial_days_after_qualifying,
+        days_per_month_after_initial=config.days_per_month_after_initial,
     )
 
 
