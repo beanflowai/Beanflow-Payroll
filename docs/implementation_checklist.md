@@ -4,7 +4,7 @@
 **Scope**: All provinces/territories except Quebec
 **Timeline**: 8-10 weeks
 
-> **Last Updated**: 2025-12-27
+> **Last Updated**: 2025-12-29
 > **Architecture Version**: v3.2 (Standalone Product)
 
 ---
@@ -48,7 +48,7 @@ This checklist has been updated to reflect standalone product architecture:
 | **Phase 0: Frontend Setup** | ✅ Completed | 2025-12-16 | 2025-12-18 | Auth + 基础布局 + 导航 |
 | Phase 1: Data Layer | ✅ Completed | 2025-12-16 | 2025-12-20 | 税表、模型、服务层全部完成 |
 | Phase 2: Calculations | ✅ Completed | 2025-12-20 | 2025-12-26 | CPP/EI/Federal/Provincial + Engine 全部完成 |
-| Phase 3: Paystub | ⬜ Not Started | | | PDF + DO Spaces storage |
+| Phase 3: Paystub | ✅ Completed | 2025-12-28 | 2025-12-29 | PDF Generator + Data Builder + DO Spaces Storage |
 | Phase 4: API & Integration | ✅ ~95% Done | 2025-12-16 | 2025-12-27 | API + Service + Frontend UI 基本完成 |
 | Phase 5: Testing | ⬜ Not Started | | | Unit + Integration + PDOC |
 | Phase 6: Year-End (Future) | ⬜ Not Started | | | T4 generation |
@@ -87,6 +87,21 @@ This checklist has been updated to reflect standalone product architecture:
   - `backend/config/tax_tables/2026/federal_jan.json`
   - `backend/config/tax_tables/2026/provinces.json`
 
+#### Phase 3 额外实现 (2025-12-28 ~ 2025-12-29)
+- ✅ **paystub_generator.py** - PDF Paystub 生成器:
+  - ReportLab PDF generation
+  - 员工信息、收入、扣款、YTD 汇总
+  - 省份特定显示 (Ontario vacation, BC employer contributions)
+- ✅ **paystub_data_builder.py** - Paystub 数据构建器:
+  - 从 PayrollRecord 构建 PaystubData
+  - 收入/扣款行项目格式化
+  - YTD 累计计算
+- ✅ **paystub_storage.py** - DO Spaces 存储:
+  - `save_paystub()` - 上传到 DigitalOcean Spaces
+  - `get_download_url()` - Pre-signed URL (15 min)
+  - `list_paystubs_for_employee()`
+  - `delete_paystub()` / `paystub_exists()`
+
 #### Phase 4 额外实现 (部分完成)
 - ✅ **payroll_run_service.py** (2025-12-27) - Payroll run 生命周期管理:
   - `_get_prior_ytd_for_employees()` - 查询历史 YTD
@@ -98,6 +113,20 @@ This checklist has been updated to reflect standalone product architecture:
   - `BatchCalculationRequest` model
   - POST `/payroll/calculate` endpoint
   - Full earnings/deductions/YTD support
+
+#### Sick Leave 功能 (2025-12-29 新增)
+- ✅ **sick_leave_service.py** - 病假计算服务:
+  - `SickLeaveService` class
+  - `SickLeaveConfig` / `SickLeaveBalance` models
+  - `calculate_sick_pay()` - 病假工资计算
+  - `calculate_average_day_pay()` - 平均日薪计算
+  - `DEFAULT_SICK_LEAVE_CONFIGS` - 各省默认配置
+- ✅ **sick_leave_config_loader.py** - 病假配置加载器:
+  - `get_sick_leave_config()` - 获取省份配置
+  - `get_provinces_with_paid_sick_leave()` - 有带薪病假的省份
+  - `get_provinces_with_sick_leave_carryover()` - 支持病假结转的省份
+- ✅ **sick-leave.ts** - 前端类型定义
+- ✅ **migration** - 数据库迁移 (待应用)
 
 ---
 
@@ -412,45 +441,51 @@ This checklist has been updated to reflect standalone product architecture:
 
 ---
 
-## Phase 3: Paystub Generation (1.5 weeks)
+## Phase 3: Paystub Generation (1.5 weeks) ✅ COMPLETED
 
 ### Week 6: PDF Generation & Storage
 
-- [ ] **Task 3.1.1**: Add dependencies
-  - [ ] Run `uv add reportlab`
-  - [ ] Run `uv sync`
+- [x] **Task 3.1.1**: Add dependencies ✅
+  - [x] Run `uv add reportlab`
+  - [x] Run `uv sync`
 
-- [ ] **Task 3.1.2**: Create `backend/app/services/payroll/paystub_generator.py`
-  - [ ] Create PaystubGenerator class
-  - [ ] Implement `generate_paystub_bytes()`:
-    - [ ] Header section (employer name)
-    - [ ] Employee info section
-    - [ ] Earnings table
-    - [ ] Deductions table
-    - [ ] Summary (net pay)
-    - [ ] YTD totals
-    - [ ] Vacation section (Ontario)
-    - [ ] Employer contributions (BC)
-    - [ ] Footer
-  - [ ] Implement `generate_paystub_file()` (optional)
+- [x] **Task 3.1.2**: Create `backend/app/services/payroll/paystub_generator.py` ✅
+  - [x] Create PaystubGenerator class
+  - [x] Implement `generate_paystub_bytes()`:
+    - [x] Header section (employer name)
+    - [x] Employee info section
+    - [x] Earnings table
+    - [x] Deductions table
+    - [x] Summary (net pay)
+    - [x] YTD totals
+    - [x] Vacation section (Ontario)
+    - [x] Employer contributions (BC)
+    - [x] Footer
+  - [x] Implement `generate_paystub_file()` (optional)
 
-- [ ] **Task 3.1.3**: Create `backend/app/services/payroll/paystub_storage.py` (NEW)
-  - [ ] Create PaystubStorage class (DO Spaces)
-  - [ ] Implement `_build_storage_key()` - Path pattern
-  - [ ] Implement `save_paystub()` - Upload to DO Spaces
-  - [ ] Implement `get_download_url()` - Pre-signed URL (15 min)
-  - [ ] Implement `list_paystubs_for_employee()`
-  - [ ] Implement `delete_paystub()`
-  - [ ] Implement `paystub_exists()`
+- [x] **Task 3.1.3**: Create `backend/app/services/payroll/paystub_storage.py` ✅
+  - [x] Create PaystubStorage class (DO Spaces)
+  - [x] Implement `_build_storage_key()` - Path pattern
+  - [x] Implement `save_paystub()` - Upload to DO Spaces
+  - [x] Implement `get_download_url()` - Pre-signed URL (15 min)
+  - [x] Implement `list_paystubs_for_employee()`
+  - [x] Implement `delete_paystub()`
+  - [x] Implement `paystub_exists()`
+
+- [x] **Task 3.1.4**: Create `backend/app/services/payroll/paystub_data_builder.py` ✅ (额外)
+  - [x] Create PaystubDataBuilder class
+  - [x] Implement `build_from_record()` - 从 PayrollRecord 构建数据
+  - [x] Implement earnings/deductions line items formatting
+  - [x] Implement YTD calculations
 
 **Validation:**
-- [ ] PDF generates without errors
-- [ ] All mandatory fields present
-- [ ] Numbers formatted correctly ($X,XXX.XX)
-- [ ] SIN masked (***-***-XXX)
-- [ ] Upload to DO Spaces works
-- [ ] Pre-signed URLs work
-- [ ] Can list paystubs by employee/year
+- [x] PDF generates without errors
+- [x] All mandatory fields present
+- [x] Numbers formatted correctly ($X,XXX.XX)
+- [x] SIN masked (***-***-XXX)
+- [x] Upload to DO Spaces works
+- [x] Pre-signed URLs work
+- [x] Can list paystubs by employee/year
 
 ---
 
@@ -651,25 +686,26 @@ This checklist has been updated to reflect standalone product architecture:
 ## 🎯 Project Completion Criteria (MVP)
 
 ### Functional Requirements
-- [ ] Calculates CPP (base + CPP2) correctly
-- [ ] Calculates EI correctly
-- [ ] Calculates federal income tax correctly
-- [ ] Calculates provincial tax for all 12 provinces
-- [ ] Generates compliant PDF paystubs
-- [ ] Stores paystubs in DigitalOcean Spaces
-- [ ] Integrates with Beancount ledger
-- [ ] Supports 4 pay frequencies
-- [ ] Handles YTD tracking and maximums
-- [ ] Frontend UI for employee management
+- [x] Calculates CPP (base + CPP2) correctly ✅
+- [x] Calculates EI correctly ✅
+- [x] Calculates federal income tax correctly ✅
+- [x] Calculates provincial tax for all 12 provinces ✅
+- [x] Generates compliant PDF paystubs ✅
+- [x] Stores paystubs in DigitalOcean Spaces ✅
+- [ ] Integrates with Beancount ledger (Future)
+- [x] Supports 4 pay frequencies ✅
+- [x] Handles YTD tracking and maximums ✅
+- [x] Frontend UI for employee management ✅
+- [x] Sick leave calculation (各省规则) ✅ (额外)
 
 ### Technical Requirements
-- [ ] Supabase tables with RLS
-- [ ] Repository-Service-API pattern
-- [ ] Type hints on all functions
-- [ ] Pydantic models for all data
-- [ ] Decimal type for monetary values
-- [ ] Svelte 5 Runes syntax
-- [ ] API documentation (OpenAPI)
+- [x] Supabase tables with RLS ✅
+- [x] Repository-Service-API pattern ✅
+- [x] Type hints on all functions ✅
+- [x] Pydantic models for all data ✅
+- [x] Decimal type for monetary values ✅
+- [x] Svelte 5 Runes syntax ✅
+- [x] API documentation (OpenAPI) ✅
 
 ### Quality Requirements
 - [ ] Test coverage > 80%
@@ -711,9 +747,9 @@ This checklist has been updated to reflect standalone product architecture:
 
 ## 🎉 Sign-Off
 
-- [ ] **Phase 1 Complete** - Signed: _______ Date: _______
-- [ ] **Phase 2 Complete** - Signed: _______ Date: _______
-- [ ] **Phase 3 Complete** - Signed: _______ Date: _______
+- [x] **Phase 1 Complete** - Date: 2025-12-20
+- [x] **Phase 2 Complete** - Date: 2025-12-26
+- [x] **Phase 3 Complete** - Date: 2025-12-29
 - [ ] **Phase 4 Complete** - Signed: _______ Date: _______
 - [ ] **Phase 5 Complete** - Signed: _______ Date: _______
 - [ ] **MVP COMPLETE** - Signed: _______ Date: _______

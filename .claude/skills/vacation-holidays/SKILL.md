@@ -110,15 +110,37 @@ daily_rate = accrued ÷ vacation_days_entitled
 
 ---
 
-## Sick Leave by Province (Minimum)
+## Sick Leave by Province (2025)
 
-| Province | Unpaid Days | Paid Days | Notes |
-|----------|-------------|-----------|-------|
-| **BC** | 3 | 5 | After 90 days employment |
-| **ON** | 3 | 0 | ESA minimum |
-| **AB** | 0 | 0 | No provincial minimum |
-| **MB** | 0 | 0 | No provincial minimum |
-| **Federal** | 0 | 10 | Federally regulated employers |
+| Province | Paid Days | Unpaid Days | Waiting Period | Carryover |
+|----------|-----------|-------------|----------------|-----------|
+| **BC** | 5 | 3 | 90 days | No |
+| **ON** | 0 | 3 (IDEL) | None | No |
+| **AB** | 0 | 0 | N/A | N/A |
+| **MB** | 0 | 0 | N/A | N/A |
+| **SK** | 0 | 0 | N/A | N/A |
+| **Federal** | 10 | 0 | 30 days | Yes (max 10) |
+
+### Part-Time Employee Rule
+**Important**: Part-time employees are **NOT pro-rated** - they receive full entitlement.
+
+### Sick Pay Calculation
+
+**BC (Average Day's Pay)**:
+```
+Sick Pay = (Wages past 30 days) ÷ (Days worked past 30 days)
+- Excludes overtime
+- Includes vacation pay
+```
+
+**Federal (Variable Hours)**:
+```
+Sick Pay = Average daily earnings for last 20 days worked
+- Excludes overtime
+- Accrual: 3 days after 30-day period, +1 day/month (max 10)
+```
+
+> **Full details**: `docs/08_holidays_vacation.md:2476-2838`
 
 ---
 

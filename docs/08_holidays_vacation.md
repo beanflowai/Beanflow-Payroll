@@ -2473,6 +2473,371 @@ Response:
 
 ---
 
+## 🏥 Task 8.7: Sick Leave Calculation System
+
+### Overview
+
+Canadian sick leave entitlements vary significantly by province and federal jurisdiction.
+**Key distinction: Part-time employees are NOT pro-rated** - they receive full entitlement.
+
+### Provincial Sick Leave Entitlements (2025)
+
+| Province | Paid Days | Unpaid Days | Waiting Period | Carryover | Reset |
+|----------|-----------|-------------|----------------|-----------|-------|
+| **BC** | 5 | 3 | 90 days | No | Calendar Year |
+| **ON** | 0 | 3 (IDEL) | None | No | Calendar Year |
+| **AB** | 0 | 0 | N/A | N/A | N/A |
+| **MB** | 0 | 0 | N/A | N/A | N/A |
+| **SK** | 0 | 0 | N/A | N/A | N/A |
+| **NB** | 0 | 5 | None | No | Calendar Year |
+| **NS** | 0 | 3 | None | No | Calendar Year |
+| **PE** | 0 | 3 | None | No | Calendar Year |
+| **NL** | 0 | 7 | None | No | Calendar Year |
+| **NT** | 0 | 5 | None | No | Calendar Year |
+| **NU** | 0 | 5 | None | No | Calendar Year |
+| **YT** | 0 | 0 | N/A | N/A | N/A |
+| **Federal** | 10 | 0 | 30 days | Yes (max 10) | Calendar Year |
+
+**References:**
+- BC: https://www2.gov.bc.ca/gov/content/employment-business/employment-standards-advice/paid-sick-leave
+- Federal: https://www.canada.ca/en/employment-social-development/programs/laws-regulations/labour/interpretations-policies/medical-leave-pay.html
+
+---
+
+### BC Sick Leave Calculation
+
+**Eligibility**: Employee must have 90+ days of continuous employment
+
+**Entitlement**: 5 paid days + 3 unpaid days per calendar year
+
+**Part-Time Rule**: NO pro-rating. All employees get 5 full days regardless of hours worked.
+
+**Average Day's Pay Formula**:
+
+```python
+def calculate_bc_sick_pay(
+    wages_past_30_days: Decimal,
+    days_worked_past_30_days: int
+) -> Decimal:
+    """
+    BC Employment Standards Act - Average Day's Pay
+
+    Reference: https://www2.gov.bc.ca/gov/content/employment-business/employment-standards-advice/paid-sick-leave
+
+    Calculation:
+    - Total wages in past 30 calendar days
+    - Divided by number of days actually worked
+    - EXCLUDES overtime pay
+    - INCLUDES vacation pay paid/payable in that period
+    """
+    if days_worked_past_30_days == 0:
+        return Decimal("0")
+    return wages_past_30_days / Decimal(str(days_worked_past_30_days))
+```
+
+**Example (Part-Time Employee):**
+```python
+# Part-time employee works 3 days/week at $20/hour, 6 hours/day
+# Past 30 days: worked 12 days, earned $1,440
+wages_past_30_days = Decimal("1440.00")
+days_worked = 12
+
+average_day_pay = wages_past_30_days / Decimal("12")
+# average_day_pay = $120.00
+
+# If employee takes 1 sick day:
+sick_pay = Decimal("120.00")  # Full average day's pay
+```
+
+**Important BC Rules**:
+1. Taking even 1 hour off = 1 full day of entitlement used
+2. No partial sick days under ESA
+3. Resets on January 1 each year
+4. No payout on termination
+5. Cannot be carried over to next year
+
+---
+
+### Federal Sick Leave Calculation (Canada Labour Code)
+
+**Eligibility**: 30 days continuous employment
+
+**Entitlement**: Up to 10 paid days per calendar year
+
+**Part-Time Rule**: NO pro-rating. Part-time, seasonal, temporary, casual and contract workers all receive full 10 days.
+
+**Accrual Method**:
+
+```python
+def calculate_federal_sick_accrual(
+    days_employed: int,
+    current_month: int,  # 1-12
+    sick_days_used_ytd: int,
+    sick_days_carried_over: int
+) -> int:
+    """
+    Canada Labour Code - Medical Leave with Pay (Section 239)
+
+    Reference: https://www.canada.ca/en/employment-social-development/programs/laws-regulations/labour/interpretations-policies/medical-leave-pay.html
+
+    Accrual:
+    - 3 days after 30-day qualifying period
+    - +1 day at start of each subsequent month
+    - Maximum 10 days per year
+    """
+    if days_employed < 30:
+        return 0
+
+    # Initial 3 days after qualifying period
+    base_days = 3
+
+    # Calculate months of employment after qualifying period
+    # Simplified: assume 30 days = 1 month
+    months_after_qualifying = max(0, (days_employed - 30) // 30)
+
+    # Accrue 1 day per month after qualifying, up to max 10
+    accrued = min(base_days + months_after_qualifying, 10)
+
+    # Add carryover (max 10 total at any time)
+    total_available = min(accrued + sick_days_carried_over, 10)
+
+    return max(0, total_available - sick_days_used_ytd)
+```
+
+**Variable Hours Employee Pay Calculation**:
+
+```python
+def calculate_federal_sick_pay_variable_hours(
+    employee_id: str,
+    reference_date: date
+) -> Decimal:
+    """
+    For employees with varying daily hours (part-time, variable schedule).
+
+    Canada Labour Standards Regulations Section 17:
+    Average of daily earnings (excluding overtime) for the 20 days
+    worked immediately before the first day of leave.
+    """
+    # Fetch last 20 days of work
+    work_days = get_last_n_work_days(employee_id, reference_date, n=20)
+
+    total_earnings = sum(day.earnings_excluding_overtime for day in work_days)
+    days_count = len(work_days)
+
+    if days_count == 0:
+        return Decimal("0")
+
+    return total_earnings / Decimal(str(days_count))
+```
+
+**Example (Federal Part-Time Employee):**
+```python
+# Part-time employee, variable hours
+# Last 20 days worked: total earnings $2,400 (excluding OT)
+
+earnings_past_20_days = Decimal("2400.00")
+average_day_pay = earnings_past_20_days / Decimal("20")
+# average_day_pay = $120.00
+
+# If employee takes 2 sick days:
+sick_pay = Decimal("120.00") * 2
+# sick_pay = $240.00
+```
+
+**Carryover Rules**:
+- Unused days carry to next year
+- Maximum balance at any time: 10 days
+- Employee only accrues new days in new year after using carried-over balance
+- Example: 4 days carried over + new year accrual starts from 0, earns up to 6 more = max 10
+
+---
+
+### Sick Leave Data Model
+
+```python
+class SickLeaveConfig(BaseModel):
+    """Sick leave configuration per province/jurisdiction"""
+    province_code: str
+    paid_days_per_year: int
+    unpaid_days_per_year: int
+    waiting_period_days: int  # Days of employment before eligible
+    allows_carryover: bool
+    max_carryover_days: int
+    accrual_method: Literal["immediate", "monthly"]  # BC=immediate, Federal=monthly
+    effective_date: date
+
+
+class EmployeeSickLeaveBalance(BaseModel):
+    """Track employee sick leave balance"""
+    employee_id: str
+    year: int
+
+    # Entitlement
+    paid_days_entitled: int
+    unpaid_days_entitled: int
+
+    # Usage
+    paid_days_used: Decimal  # Can be fractional if tracking partial days
+    unpaid_days_used: Decimal
+
+    # Carryover (Federal only)
+    carried_over_days: int
+
+    # Eligibility
+    hire_date: date
+    is_eligible: bool  # Based on waiting period
+    eligibility_date: Optional[date]  # When employee becomes eligible
+
+    @computed_field
+    @property
+    def paid_days_remaining(self) -> Decimal:
+        """Paid sick days remaining for the year."""
+        return Decimal(str(self.paid_days_entitled)) - self.paid_days_used
+
+    @computed_field
+    @property
+    def unpaid_days_remaining(self) -> Decimal:
+        """Unpaid sick days remaining for the year."""
+        return Decimal(str(self.unpaid_days_entitled)) - self.unpaid_days_used
+```
+
+---
+
+### Sick Leave Integration with Payroll
+
+```python
+async def process_sick_leave_payment(
+    employee: Employee,
+    sick_hours_taken: Decimal,
+    pay_period_start: date,
+    pay_period_end: date
+) -> SickPayResult:
+    """
+    Process sick leave payment for an employee.
+
+    Args:
+        employee: Employee record
+        sick_hours_taken: Hours of sick leave taken this period
+        pay_period_start: Start of pay period
+        pay_period_end: End of pay period
+
+    Returns:
+        SickPayResult with payment details
+    """
+    province = employee.province_of_employment
+
+    # Check eligibility based on waiting period
+    if not is_eligible_for_sick_leave(employee, province):
+        return SickPayResult(
+            eligible=False,
+            reason="Waiting period not met",
+            amount=Decimal("0")
+        )
+
+    # Calculate average day's pay based on jurisdiction
+    if province == "BC":
+        avg_day_pay = await calculate_bc_average_day_pay(
+            employee_id=employee.id,
+            reference_date=pay_period_start
+        )
+    elif is_federal_employer(employee.employer_id):
+        avg_day_pay = await calculate_federal_average_day_pay(
+            employee_id=employee.id,
+            reference_date=pay_period_start
+        )
+    else:
+        # Province without statutory paid sick leave
+        # Check if employer provides voluntary sick pay
+        avg_day_pay = Decimal("0")
+
+    # Convert hours to days (assume 8-hour day)
+    sick_days = sick_hours_taken / Decimal("8")
+
+    # Check remaining entitlement
+    balance = await get_sick_leave_balance(employee.id, pay_period_start.year)
+    if sick_days > balance.paid_days_remaining:
+        # Partial paid, rest unpaid
+        paid_days = balance.paid_days_remaining
+        unpaid_days = sick_days - paid_days
+    else:
+        paid_days = sick_days
+        unpaid_days = Decimal("0")
+
+    # Calculate payment
+    sick_pay = avg_day_pay * paid_days
+
+    # Update balance
+    await update_sick_leave_balance(
+        employee_id=employee.id,
+        year=pay_period_start.year,
+        paid_days_used_delta=paid_days,
+        unpaid_days_used_delta=unpaid_days
+    )
+
+    return SickPayResult(
+        eligible=True,
+        days_used=sick_days,
+        paid_days=paid_days,
+        unpaid_days=unpaid_days,
+        amount=sick_pay,
+        average_day_pay=avg_day_pay,
+        balance_after=balance.paid_days_remaining - paid_days
+    )
+```
+
+---
+
+### Year-End Sick Leave Processing
+
+```python
+async def process_sick_leave_year_end(year: int) -> None:
+    """
+    Process sick leave balances at year end.
+
+    - Federal: Carry over unused days (max 10)
+    - All others: Reset to 0
+    """
+    employees = await get_all_active_employees()
+
+    for employee in employees:
+        balance = await get_sick_leave_balance(employee.id, year)
+        config = get_sick_leave_config(employee.province_of_employment)
+
+        if config.allows_carryover:
+            # Federal jurisdiction - carry over
+            carryover = min(
+                balance.paid_days_remaining,
+                config.max_carryover_days
+            )
+            await create_sick_leave_balance(
+                employee_id=employee.id,
+                year=year + 1,
+                carried_over_days=carryover
+            )
+        else:
+            # Province - reset to 0 (no carryover)
+            await create_sick_leave_balance(
+                employee_id=employee.id,
+                year=year + 1,
+                carried_over_days=0
+            )
+```
+
+---
+
+### Employer-Provided Sick Leave (Beyond Statutory)
+
+Many employers provide sick leave benefits beyond statutory minimums. For employer-provided sick leave:
+
+- **Accumulation**: At employer's discretion (e.g., 1 day per month)
+- **Payout**: At employer's discretion (most do NOT pay out unused sick leave)
+- **Carryover**: At employer's discretion
+- **Configuration**: Should be configurable per pay group or company
+
+**Recommendation**: Track employer-provided sick leave separately from statutory entitlements.
+
+---
+
 ## 🎓 Key Takeaways
 
 ### Why Configuration-Driven Approach?
