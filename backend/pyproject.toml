@@ -12,31 +12,25 @@ dependencies = [
     # FastAPI Framework
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
-
     # Data Validation and Settings
     "pydantic>=2.10.0",
     "pydantic-settings>=2.7.0",
-
     # Supabase Client
     "supabase>=2.10.0",
-
     # JWT and Security
     "python-jose[cryptography]>=3.5.0",
     "cryptography>=44.0.0",
-
     # HTTP Client
     "httpx>=0.28.0",
-
     # Environment and Utilities
     "python-dotenv>=1.0.0",
     "python-dateutil>=2.8.2",
     "email-validator>=2.0.0",
-
     # PDF Generation
     "reportlab>=4.0.0",
-
     # S3-compatible storage (DigitalOcean Spaces)
     "boto3>=1.26.0",
+    "pillow>=12.0.0",
 ]
 
 [project.optional-dependencies]
