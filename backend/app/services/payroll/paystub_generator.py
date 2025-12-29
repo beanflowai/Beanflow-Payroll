@@ -130,9 +130,9 @@ class PaystubGenerator:
             elements.append(Spacer(1, 12))
             self._build_employer_contributions_section(elements, data)
 
-        if data.vacation:
+        if data.vacation or data.sickLeave:
             elements.append(Spacer(1, 12))
-            self._build_vacation_section(elements, data)
+            self._build_leave_balances_section(elements, data)
 
         doc.build(elements)
         pdf_bytes = buffer.getvalue()
@@ -188,14 +188,30 @@ class PaystubGenerator:
                 # Get actual image dimensions and scale proportionally
                 logo_buffer.seek(0)
                 pil_img = PILImage.open(logo_buffer)
-                orig_width, orig_height = pil_img.size
+                orig_width_px, orig_height_px = pil_img.size
+
+                # Get DPI from image metadata (default to 72 if not specified)
+                dpi_info = pil_img.info.get("dpi", (72, 72))
+                dpi_x = dpi_info[0] if isinstance(dpi_info, tuple) else 72
+                dpi_y = dpi_info[1] if isinstance(dpi_info, tuple) else 72
+
+                # Validate DPI values - prevent division by zero
+                if not dpi_x or dpi_x <= 0:
+                    dpi_x = 72
+                if not dpi_y or dpi_y <= 0:
+                    dpi_y = 72
+
+                # Convert pixel dimensions to points (72 points per inch)
+                # points = pixels * 72 / dpi
+                orig_width_pts = orig_width_px * 72 / dpi_x
+                orig_height_pts = orig_height_px * 72 / dpi_y
 
                 # Scale to fit within max bounds while preserving aspect ratio
                 max_width = 2 * inch
                 max_height = 1 * inch
-                scale = min(max_width / orig_width, max_height / orig_height)
-                final_width = orig_width * scale
-                final_height = orig_height * scale
+                scale = min(max_width / orig_width_pts, max_height / orig_height_pts)
+                final_width = orig_width_pts * scale
+                final_height = orig_height_pts * scale
 
                 logo_buffer.seek(0)
                 img = Image(logo_buffer, width=final_width, height=final_height)
@@ -570,26 +586,41 @@ class PaystubGenerator:
         )
         elements.append(contrib_table)
 
-    def _build_vacation_section(self, elements: list[Any], data: PaystubData) -> None:
-        """Build vacation details section."""
-        if not data.vacation:
+    def _build_leave_balances_section(
+        self, elements: list[Any], data: PaystubData
+    ) -> None:
+        """Build leave balances section (Vacation + Sick Leave)."""
+        if not data.vacation and not data.sickLeave:
             return
 
-        vac_header = ["VACATION PAY", "EARNED", "YTD USED", "AVAILABLE"]
-        vac_row = [
-            "Vacation ($)",
-            self._format_currency(data.vacation.earned),
-            self._format_currency(data.vacation.ytdUsed)
-            if data.vacation.ytdUsed is not None
-            else "0.00",
-            self._format_currency(data.vacation.available),
-        ]
+        header = ["LEAVE BALANCES", "EARNED", "YTD USED", "AVAILABLE"]
+        rows = [header]
 
-        vac_table = Table(
-            [vac_header, vac_row],
+        # Add vacation row if available
+        if data.vacation:
+            rows.append([
+                "Vacation ($)",
+                self._format_currency(data.vacation.earned),
+                self._format_currency(data.vacation.ytdUsed)
+                if data.vacation.ytdUsed is not None
+                else "0.00",
+                self._format_currency(data.vacation.available),
+            ])
+
+        # Add sick leave row if available
+        if data.sickLeave:
+            rows.append([
+                "Sick Leave (days)",
+                "-",  # Sick leave doesn't show "earned"
+                f"{data.sickLeave.daysUsedYtd:.1f}",
+                f"{data.sickLeave.paidDaysRemaining:.1f}",
+            ])
+
+        leave_table = Table(
+            rows,
             colWidths=[3 * inch, 1.5 * inch, 1.5 * inch, 1.5 * inch],  # 7.5" total
         )
-        vac_table.setStyle(
+        leave_table.setStyle(
             TableStyle(
                 [
                     ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
@@ -602,4 +633,4 @@ class PaystubGenerator:
                 ]
             )
         )
-        elements.append(vac_table)
+        elements.append(leave_table)
