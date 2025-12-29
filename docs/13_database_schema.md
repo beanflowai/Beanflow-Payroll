@@ -1,6 +1,6 @@
 # Database Schema - Payroll Module
 
-**Last Updated**: 2025-12-26
+**Last Updated**: 2025-12-29
 **Database**: Supabase (PostgreSQL)
 
 ---
@@ -367,6 +367,7 @@ CREATE TABLE IF NOT EXISTS payroll_records (
     ytd_ei NUMERIC(10, 2) DEFAULT 0,
     ytd_federal_tax NUMERIC(12, 2) DEFAULT 0,
     ytd_provincial_tax NUMERIC(12, 2) DEFAULT 0,
+    ytd_net_pay NUMERIC(12, 2) DEFAULT 0,  -- Added 2025-12-28
 
     -- Vacation Tracking
     vacation_accrued NUMERIC(10, 2) DEFAULT 0,
@@ -763,7 +764,7 @@ CREATE TABLE IF NOT EXISTS companies (
 
 ---
 
-## Table: pay_groups (Updated 2025-12-24)
+## Table: pay_groups (Updated 2025-12-28)
 
 Pay Group "Policy Template" - defines payroll configuration for groups of employees.
 
@@ -787,8 +788,8 @@ CREATE TABLE IF NOT EXISTS pay_groups (
         employment_type IN ('full_time', 'part_time')
     ),
 
-    -- Pay Schedule
-    next_pay_date DATE NOT NULL,
+    -- Pay Schedule (renamed 2025-12-28: next_pay_date → next_period_end)
+    next_period_end DATE NOT NULL,  -- Period end date; pay date calculated based on province
     period_start_day TEXT NOT NULL DEFAULT 'monday',
 
     -- Leave Policy

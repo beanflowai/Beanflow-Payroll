@@ -561,7 +561,7 @@ This checklist has been updated to reflect standalone product architecture:
 
 - [x] **Task 4.2.4**: Create Payroll UI ✅
   - [x] `frontend/src/routes/(app)/payroll/+page.svelte` - Payroll Dashboard
-  - [x] `frontend/src/routes/(app)/payroll/run/[payDate]/+page.svelte` - Run 详情
+  - [x] `frontend/src/routes/(app)/payroll/run/[periodEnd]/+page.svelte` - Run 详情
   - [x] `frontend/src/routes/(app)/payroll/history/+page.svelte` - 历史记录
 
 - [ ] **Task 4.3.1**: Create Beancount Integration (Future)

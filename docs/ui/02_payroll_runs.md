@@ -15,7 +15,7 @@
 
 Each Pay Group must be run **separately** because:
 1. **Tax calculations differ by frequency** - Weekly uses 52 periods, bi-weekly uses 26, etc.
-2. **Different pay dates** - Each group has its own `nextPayDate`
+2. **Different pay dates** - Each group has its own `nextPeriodEnd` (pay date is calculated based on province regulations)
 3. **Leave policies** - Groups can have different leave settings
 
 ### Payroll Page Flow
@@ -507,7 +507,7 @@ payroll-frontend/src/lib/components/payroll/
 
 ### Overview
 
-The payroll run page (`/payroll/run/[payDate]`) supports multiple states:
+The payroll run page (`/payroll/run/[periodEnd]`) supports multiple states:
 
 | State | Data Input | Calculation | Next Action |
 |-------|-----------|-------------|-------------|
@@ -874,8 +874,8 @@ After Finalize, the payroll run can be approved:
 ### 8.11 Route Structure
 
 ```
-/payroll                    → Payroll Dashboard (upcoming pay dates)
-/payroll/run/[payDate]      → Payroll Run Page (before/after run)
+/payroll                    → Payroll Dashboard (upcoming pay periods)
+/payroll/run/[periodEnd]    → Payroll Run Page (before/after run)
 /payroll/history            → Past payroll runs
 ```
 

@@ -589,7 +589,7 @@ interface PayGroup {
   description?: string;                 // 新增: 描述
   payFrequency: PayFrequency;
   employmentType: EmploymentType;
-  nextPayDate: string;
+  nextPeriodEnd: string;                // Period end date (pay date calculated from this)
   periodStartDay: PeriodStartDay;
 
   // === 假期追踪 (现有) ===
