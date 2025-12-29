@@ -167,6 +167,34 @@
 		return getLeaveHours(record, 'vacation') + getLeaveHours(record, 'sick');
 	}
 
+	/**
+	 * Calculate vacation pay for the given vacation hours
+	 * Uses the employee's hourly rate (or annual_salary / 2080 for salaried)
+	 */
+	function calculateVacationPay(record: PayrollRecord, vacationHours: number): number {
+		if (vacationHours <= 0) return 0;
+		// Use vacation hourly rate if available, otherwise calculate from salary/hourly
+		const hourlyRate = record.vacationHourlyRate
+			?? record.hourlyRate
+			?? (record.annualSalary ? record.annualSalary / 2080 : 0);
+		return vacationHours * hourlyRate;
+	}
+
+	/**
+	 * Check if vacation balance is insufficient for the requested vacation pay
+	 */
+	function hasInsufficientBalance(record: PayrollRecord): boolean {
+		// Only check for accrual method
+		if (record.vacationPayoutMethod !== 'accrual') return false;
+
+		const vacationHours = getLeaveHours(record, 'vacation');
+		if (vacationHours <= 0) return false;
+
+		const vacationPay = calculateVacationPay(record, vacationHours);
+		const balance = record.vacationBalance ?? 0;
+		return vacationPay > balance;
+	}
+
 	function getAdjustments(record: PayrollRecord): Adjustment[] {
 		const local = getLocalInput(record.id);
 		if (local.adjustments !== undefined) {
@@ -754,20 +782,41 @@
 												<h4 class="text-caption font-semibold text-surface-600 uppercase tracking-wider m-0 pb-2 border-b border-surface-200">Leave</h4>
 												<div class="flex flex-col gap-2">
 													<!-- Vacation Used -->
-													<div class="flex justify-between items-center gap-2" onclick={(e) => e.stopPropagation()}>
-														<span class="text-body-content text-surface-600">Vacation Used</span>
-														<div class="flex items-center gap-1">
-															<input
-																type="number"
-																class="w-16 py-1 px-2 border border-surface-300 rounded text-body-small text-center focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
-																value={getLeaveHours(record, 'vacation')}
-																min="0"
-																step="0.5"
-																onchange={(e) => handleLeaveChange(record, 'vacation', parseFloat(e.currentTarget.value) || 0)}
-															/>
-															<span class="text-caption text-surface-500">hrs</span>
+													{#if true}
+													{@const vacationHours = getLeaveHours(record, 'vacation')}
+													{@const vacationPay = calculateVacationPay(record, vacationHours)}
+													{@const insufficientBalance = hasInsufficientBalance(record)}
+													<div class="flex flex-col gap-1" onclick={(e) => e.stopPropagation()}>
+														<div class="flex justify-between items-center gap-2">
+															<span class="text-body-content text-surface-600">Vacation Used</span>
+															<div class="flex items-center gap-1">
+																<input
+																	type="number"
+																	class="w-16 py-1 px-2 border rounded text-body-small text-center focus:outline-none focus:ring-2 {insufficientBalance ? 'border-error-400 focus:border-error-500 focus:ring-error-100' : 'border-surface-300 focus:border-primary-500 focus:ring-primary-100'}"
+																	value={vacationHours}
+																	min="0"
+																	step="0.5"
+																	onchange={(e) => handleLeaveChange(record, 'vacation', parseFloat(e.currentTarget.value) || 0)}
+																/>
+																<span class="text-caption text-surface-500">hrs</span>
+															</div>
 														</div>
+														<!-- Show calculated vacation pay when hours > 0 -->
+														{#if vacationHours > 0}
+															<div class="flex justify-between items-center pl-4">
+																<span class="text-caption text-surface-500">= Vacation Pay</span>
+																<span class="text-body-small text-surface-700 font-medium">{formatCurrency(vacationPay)}</span>
+															</div>
+														{/if}
+														<!-- Insufficient balance warning -->
+														{#if insufficientBalance}
+															<div class="flex items-center gap-1 pl-4 text-error-600">
+																<i class="fas fa-exclamation-triangle text-xs"></i>
+																<span class="text-caption">Insufficient balance</span>
+															</div>
+														{/if}
 													</div>
+													{/if}
 
 													<!-- Sick Used -->
 													<div class="flex justify-between items-center gap-2" onclick={(e) => e.stopPropagation()}>
@@ -788,11 +837,20 @@
 													<!-- Separator -->
 													<div class="border-t border-surface-200 my-1"></div>
 
-													<!-- Vacation Balance (display only, from employee data) -->
-													<div class="flex justify-between items-center">
-														<span class="text-body-content text-surface-600">Vacation Balance</span>
-														<span class="text-body-content text-surface-800 font-medium">40h</span>
-													</div>
+													<!-- Vacation Balance (for accrual method employees) -->
+													{#if record.vacationPayoutMethod === 'accrual'}
+														<div class="flex justify-between items-center">
+															<span class="text-body-content text-surface-600">Available Balance</span>
+															<span class="text-body-content font-medium {hasInsufficientBalance(record) ? 'text-error-600' : 'text-surface-800'}">
+																{formatCurrency(record.vacationBalance ?? 0)}
+															</span>
+														</div>
+													{:else if record.vacationPayoutMethod === 'pay_as_you_go'}
+														<div class="flex items-center gap-1 text-surface-500">
+															<i class="fas fa-info-circle text-xs"></i>
+															<span class="text-caption">Pay-as-you-go (no balance)</span>
+														</div>
+													{/if}
 												</div>
 											</div>
 										</div>

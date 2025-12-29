@@ -256,10 +256,10 @@
 									<span class="leave-icon">{LEAVE_TYPE_LABELS.vacation.icon}</span>
 									Vacation
 								</span>
-								<span class="balance-value">
-									{record.vacationBalanceHours ?? 0}h
+								<span class="balance-value-container">
+									<span class="balance-hours">{record.vacationBalanceHours ?? 0}h</span>
 									{#if record.vacationBalanceDollars}
-										<span class="balance-dollars">({formatCurrency(record.vacationBalanceDollars)})</span>
+										<span class="balance-dollars">{formatCurrency(record.vacationBalanceDollars)}</span>
 									{/if}
 								</span>
 							</div>
@@ -268,7 +268,9 @@
 									<span class="leave-icon">{LEAVE_TYPE_LABELS.sick.icon}</span>
 									Sick
 								</span>
-								<span class="balance-value">{record.sickBalanceHours ?? 0}h</span>
+								<span class="balance-value-container">
+									<span class="balance-hours">{record.sickBalanceHours ?? 0}h</span>
+								</span>
 							</div>
 						</div>
 					</div>
@@ -710,24 +712,31 @@
 		color: var(--color-surface-700);
 	}
 
-	.balance-value {
-		font-size: var(--font-size-body-content);
-		font-family: monospace;
-		font-weight: var(--font-weight-medium);
+	.balance-value-container {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 2px;
 	}
 
-	.balance-item.vacation .balance-value {
+	.balance-hours {
+		font-size: var(--font-size-body-content);
+		font-family: monospace;
+		font-weight: var(--font-weight-semibold);
+	}
+
+	.balance-item.vacation .balance-hours {
 		color: var(--color-info-700, #1d4ed8);
 	}
 
-	.balance-item.sick .balance-value {
+	.balance-item.sick .balance-hours {
 		color: var(--color-warning-700, #c2410c);
 	}
 
 	.balance-dollars {
 		font-size: var(--font-size-auxiliary-text);
 		color: var(--color-surface-500);
-		margin-left: var(--spacing-1);
+		font-family: monospace;
 		font-weight: var(--font-weight-regular);
 	}
 

@@ -11,8 +11,6 @@
 		onToggleExpand: (id: string) => void;
 		onDownloadPaystub?: (record: PayrollRecord) => void;
 		onResendPaystub?: (record: PayrollRecord) => void;
-		onLeaveClick?: (record: PayrollRecord) => void;
-		onOvertimeClick?: (record: PayrollRecord) => void;
 	}
 
 	let {
@@ -21,9 +19,7 @@
 		expandedRecordId,
 		onToggleExpand,
 		onDownloadPaystub,
-		onResendPaystub,
-		onLeaveClick,
-		onOvertimeClick
+		onResendPaystub
 	}: Props = $props();
 
 	let isCollapsed = $state(false);
@@ -99,11 +95,7 @@
 						<th class="col-overtime">Overtime</th>
 						<th class="col-deductions">Deductions</th>
 						<th class="col-net">Net Pay</th>
-						{#if isApprovedOrPaid}
-							<th class="col-actions">Paystub</th>
-						{:else}
-							<th class="col-actions"></th>
-						{/if}
+						<th class="col-actions">{isApprovedOrPaid ? 'Actions' : ''}</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -121,13 +113,7 @@
 								<span class="province-badge">{record.employeeProvince}</span>
 							</td>
 							<td class="col-gross">{formatCurrency(record.totalGross)}</td>
-							<td
-								class="col-leave"
-								onclick={(e) => {
-									e.stopPropagation();
-									onLeaveClick?.(record);
-								}}
-							>
+							<td class="col-leave">
 								{#if record.leaveEntries && record.leaveEntries.length > 0}
 									<div class="leave-badges">
 										{#each record.leaveEntries as entry}
@@ -138,13 +124,7 @@
 									<span class="no-leave">-</span>
 								{/if}
 							</td>
-							<td
-								class="col-overtime"
-								onclick={(e) => {
-									e.stopPropagation();
-									onOvertimeClick?.(record);
-								}}
-							>
+							<td class="col-overtime">
 								{#if record.overtimeEntries && record.overtimeEntries.length > 0}
 									{@const totalHours = record.overtimeEntries.reduce((sum, e) => sum + e.hours, 0)}
 									<span class="overtime-badge">
@@ -181,6 +161,12 @@
 											}}
 										>
 											<i class="fas fa-paper-plane"></i>
+										</button>
+										<button
+											class="expand-btn"
+											title={expandedRecordId === record.id ? 'Collapse' : 'Expand'}
+										>
+											<i class="fas fa-chevron-{expandedRecordId === record.id ? 'up' : 'down'}"></i>
 										</button>
 									</div>
 								{:else}
@@ -374,24 +360,14 @@
 
 	.col-leave {
 		width: 10%;
-		cursor: pointer;
-	}
-
-	.col-leave:hover {
-		background: var(--color-surface-100);
 	}
 
 	.col-overtime {
 		width: 10%;
-		cursor: pointer;
-	}
-
-	.col-overtime:hover {
-		background: var(--color-surface-100);
 	}
 
 	.col-actions {
-		width: 8%;
+		width: 12%;
 		text-align: right;
 	}
 
