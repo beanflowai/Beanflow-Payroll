@@ -5,11 +5,12 @@
 
 import { supabase } from '$lib/api/supabase';
 import type {
-	UpcomingPayDate,
+	UpcomingPeriod,
 	PayrollRunStatus,
 	PayrollPageStatus,
 	PayrollRunWithGroups
 } from '$lib/types/payroll';
+import { calculatePayDate } from '$lib/types/pay-group';
 import { getCurrentUserId } from './helpers';
 import type { PayrollServiceResult, PayrollDashboardStats } from './types';
 import { listPayrollRuns, type PayrollRunListOptionsExt } from './payroll-runs';
@@ -72,22 +73,23 @@ export async function checkPayrollPageStatus(): Promise<PayrollServiceResult<Pay
 }
 
 // ===========================================
-// Upcoming Pay Dates
+// Upcoming Pay Periods
 // ===========================================
 
 /**
- * Get upcoming pay dates for the dashboard
- * Queries pay_groups to calculate upcoming pay dates based on next_pay_date
+ * Get upcoming pay periods for the dashboard
+ * Queries pay_groups to get next_period_end, groups by period_end
+ * pay_date is auto-calculated as period_end + 6 days (SK)
  */
-export async function getUpcomingPayDates(): Promise<PayrollServiceResult<UpcomingPayDate[]>> {
+export async function getUpcomingPeriods(): Promise<PayrollServiceResult<UpcomingPeriod[]>> {
 	try {
 		getCurrentUserId();
 
-		// Query pay groups with employee counts
+		// Query pay groups with employee counts (ordered by next_period_end)
 		const { data: payGroups, error: pgError } = await supabase
 			.from('v_pay_group_summary')
 			.select('*')
-			.order('next_pay_date');
+			.order('next_period_end');
 
 		if (pgError) {
 			console.error('Failed to query pay groups:', pgError);
@@ -98,21 +100,22 @@ export async function getUpcomingPayDates(): Promise<PayrollServiceResult<Upcomi
 			return { data: [], error: null };
 		}
 
-		// Group pay groups by next_pay_date
-		const payDateMap = new Map<string, UpcomingPayDate>();
+		// Group pay groups by period_end (the authoritative date)
+		const periodMap = new Map<string, UpcomingPeriod>();
 
 		for (const pg of payGroups) {
-			const payDate = pg.next_pay_date;
-			if (!payDate) continue;
+			const periodEnd = pg.next_period_end;
+			if (!periodEnd) continue;
 
-			// Calculate period start/end (simplified: 2 weeks before pay date for bi-weekly)
-			const payDateObj = new Date(payDate);
-			const periodEnd = new Date(payDateObj);
-			periodEnd.setDate(periodEnd.getDate() - 6); // 6 days before pay date
-			const periodStart = new Date(periodEnd);
+			// Calculate pay_date from period_end (SK: +6 days)
+			const payDate = calculatePayDate(periodEnd, 'SK');
+
+			// Calculate period start (simplified: 14 day period for bi-weekly)
+			const periodEndObj = new Date(periodEnd);
+			const periodStart = new Date(periodEndObj);
 			periodStart.setDate(periodStart.getDate() - 13); // 14 day period
 
-			const existing = payDateMap.get(payDate);
+			const existing = periodMap.get(periodEnd);
 			const payGroupSummary = {
 				id: pg.id,
 				name: pg.name,
@@ -121,14 +124,15 @@ export async function getUpcomingPayDates(): Promise<PayrollServiceResult<Upcomi
 				employeeCount: pg.employee_count ?? 0,
 				estimatedGross: 0, // Would need salary data to estimate
 				periodStart: periodStart.toISOString().split('T')[0],
-				periodEnd: periodEnd.toISOString().split('T')[0]
+				periodEnd: periodEnd
 			};
 
 			if (existing) {
 				existing.payGroups.push(payGroupSummary);
 				existing.totalEmployees += pg.employee_count ?? 0;
 			} else {
-				payDateMap.set(payDate, {
+				periodMap.set(periodEnd, {
+					periodEnd,
 					payDate,
 					payGroups: [payGroupSummary],
 					totalEmployees: pg.employee_count ?? 0,
@@ -137,37 +141,42 @@ export async function getUpcomingPayDates(): Promise<PayrollServiceResult<Upcomi
 			}
 		}
 
-		// Check for existing payroll runs for these dates
-		const payDates = Array.from(payDateMap.keys());
-		if (payDates.length > 0) {
+		// Check for existing payroll runs for these period ends
+		const periodEnds = Array.from(periodMap.keys());
+		if (periodEnds.length > 0) {
 			const { data: runs } = await supabase
 				.from('payroll_runs')
-				.select('id, pay_date, status')
-				.in('pay_date', payDates);
+				.select('id, period_end, status')
+				.in('period_end', periodEnds);
 
 			if (runs) {
 				for (const run of runs) {
-					const upcomingPayDate = payDateMap.get(run.pay_date);
-					if (upcomingPayDate) {
-						upcomingPayDate.runId = run.id;
-						upcomingPayDate.runStatus = run.status as PayrollRunStatus;
+					const upcomingPeriod = periodMap.get(run.period_end);
+					if (upcomingPeriod) {
+						upcomingPeriod.runId = run.id;
+						upcomingPeriod.runStatus = run.status as PayrollRunStatus;
 					}
 				}
 			}
 		}
 
-		// Sort by pay date
-		const result = Array.from(payDateMap.values()).sort(
-			(a, b) => new Date(a.payDate).getTime() - new Date(b.payDate).getTime()
+		// Sort by period_end
+		const result = Array.from(periodMap.values()).sort(
+			(a, b) => new Date(a.periodEnd).getTime() - new Date(b.periodEnd).getTime()
 		);
 
 		return { data: result, error: null };
 	} catch (err) {
-		const message = err instanceof Error ? err.message : 'Failed to get upcoming pay dates';
-		console.error('getUpcomingPayDates error:', message);
+		const message = err instanceof Error ? err.message : 'Failed to get upcoming periods';
+		console.error('getUpcomingPeriods error:', message);
 		return { data: null, error: message };
 	}
 }
+
+/**
+ * @deprecated Use getUpcomingPeriods instead
+ */
+export const getUpcomingPayDates = getUpcomingPeriods;
 
 // ===========================================
 // Dashboard Statistics
@@ -175,19 +184,19 @@ export async function getUpcomingPayDates(): Promise<PayrollServiceResult<Upcomi
 
 export async function getPayrollDashboardStats(): Promise<PayrollServiceResult<PayrollDashboardStats>> {
 	try {
-		const { data: upcomingPayDates, error } = await getUpcomingPayDates();
+		const { data: upcomingPeriods, error } = await getUpcomingPeriods();
 
-		if (error || !upcomingPayDates) {
-			return { data: null, error: error ?? 'Failed to get upcoming pay dates' };
+		if (error || !upcomingPeriods) {
+			return { data: null, error: error ?? 'Failed to get upcoming periods' };
 		}
 
-		const nextPayDate = upcomingPayDates.length > 0 ? upcomingPayDates[0] : null;
+		const nextPeriod = upcomingPeriods.length > 0 ? upcomingPeriods[0] : null;
 
 		const stats: PayrollDashboardStats = {
-			upcomingCount: upcomingPayDates.length,
-			nextPayDate: nextPayDate?.payDate ?? null,
-			nextPayDateEmployees: nextPayDate?.totalEmployees ?? 0,
-			nextPayDateEstimatedGross: nextPayDate?.totalEstimatedGross ?? 0
+			upcomingCount: upcomingPeriods.length,
+			nextPayDate: nextPeriod?.periodEnd ?? null,  // Now returns periodEnd
+			nextPayDateEmployees: nextPeriod?.totalEmployees ?? 0,
+			nextPayDateEstimatedGross: nextPeriod?.totalEstimatedGross ?? 0
 		};
 
 		return { data: stats, error: null };

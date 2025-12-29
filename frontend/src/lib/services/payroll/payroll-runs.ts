@@ -75,6 +75,7 @@ export async function getPayrollRunByPayDate(
 					email,
 					hourly_rate,
 					annual_salary,
+					vacation_balance,
 					pay_groups (
 						id,
 						name,
@@ -149,6 +150,7 @@ export async function getPayrollRunByPayDate(
 
 		const result: PayrollRunWithGroups = {
 			id: dbRun.id,
+			periodEnd: dbRun.period_end,
 			payDate: dbRun.pay_date,
 			status: dbRun.status,
 			payGroups: Array.from(payGroupMap.values()),
@@ -175,6 +177,150 @@ export async function getPayrollRunByPayDate(
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Failed to get payroll run';
 		console.error('getPayrollRunByPayDate error:', message);
+		return { data: null, error: message };
+	}
+}
+
+/**
+ * Get a payroll run by period end date
+ * Uses period_end as the primary query key (new approach)
+ */
+export async function getPayrollRunByPeriodEnd(
+	periodEnd: string
+): Promise<PayrollServiceResult<PayrollRunWithGroups>> {
+	try {
+		const userId = getCurrentUserId();
+
+		// Query payroll run for this period end (RLS handles access control)
+		const { data: runsData, error: runError } = await supabase
+			.from('payroll_runs')
+			.select('*')
+			.eq('user_id', userId)
+			.eq('period_end', periodEnd)
+			.order('created_at', { ascending: false })
+			.limit(1);
+
+		if (runError) {
+			console.error('Failed to get payroll run:', runError);
+			return { data: null, error: runError.message };
+		}
+
+		const runData = runsData?.[0];
+		if (!runData) {
+			return { data: null, error: null };
+		}
+
+		// Get payroll records with employee and pay group info
+		const { data: recordsData, error: recordsError } = await supabase
+			.from('payroll_records')
+			.select(`
+				*,
+				employees!inner (
+					id,
+					first_name,
+					last_name,
+					province_of_employment,
+					pay_group_id,
+					email,
+					hourly_rate,
+					annual_salary,
+					vacation_balance,
+					pay_groups (
+						id,
+						name,
+						pay_frequency,
+						employment_type,
+						earnings_config,
+						taxable_benefits_config,
+						deductions_config,
+						group_benefits
+					)
+				)
+			`)
+			.eq('payroll_run_id', runData.id);
+
+		if (recordsError) {
+			console.error('Failed to get payroll records:', recordsError);
+			return { data: null, error: recordsError.message };
+		}
+
+		// Group records by pay group (use snapshot fields for historical accuracy)
+		const payGroupMap = new Map<string, PayrollRunPayGroup>();
+
+		for (const record of (recordsData as DbPayrollRecordWithEmployee[]) ?? []) {
+			const payGroup = record.employees.pay_groups;
+			const payGroupId = record.pay_group_id_snapshot ?? payGroup?.id ?? 'unknown';
+			const payGroupName = record.pay_group_name_snapshot ?? payGroup?.name ?? 'Unknown Pay Group';
+
+			const existing = payGroupMap.get(payGroupId);
+			const uiRecord = dbPayrollRecordToUi(record);
+
+			if (existing) {
+				existing.records.push(uiRecord);
+				existing.totalEmployees += 1;
+				existing.totalGross += uiRecord.totalGross;
+				existing.totalDeductions += uiRecord.totalDeductions;
+				existing.totalNetPay += uiRecord.netPay;
+				existing.totalEmployerCost += uiRecord.totalEmployerCost;
+			} else {
+				payGroupMap.set(payGroupId, {
+					payGroupId,
+					payGroupName,
+					payFrequency: (payGroup?.pay_frequency ?? 'bi_weekly') as 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly',
+					employmentType: (payGroup?.employment_type ?? 'full_time') as 'full_time' | 'part_time',
+					periodStart: runData.period_start,
+					periodEnd: runData.period_end,
+					totalEmployees: 1,
+					totalGross: uiRecord.totalGross,
+					totalDeductions: uiRecord.totalDeductions,
+					totalNetPay: uiRecord.netPay,
+					totalEmployerCost: uiRecord.totalEmployerCost,
+					records: [uiRecord],
+					earningsConfig: (payGroup?.earnings_config as EarningsConfig | undefined) ?? DEFAULT_EARNINGS_CONFIG,
+					taxableBenefitsConfig: (payGroup?.taxable_benefits_config as TaxableBenefitsConfig | undefined) ?? DEFAULT_TAXABLE_BENEFITS_CONFIG,
+					deductionsConfig: (payGroup?.deductions_config as DeductionsConfig | undefined) ?? DEFAULT_DEDUCTIONS_CONFIG,
+					groupBenefits: (payGroup?.group_benefits as GroupBenefits | undefined) ?? DEFAULT_GROUP_BENEFITS
+				});
+			}
+		}
+
+		const dbRun = runData as DbPayrollRun;
+		const totalGross = Number(dbRun.total_gross);
+		const totalNetPay = Number(dbRun.total_net_pay);
+		const totalCppEmployee = Number(dbRun.total_cpp_employee);
+		const totalCppEmployer = Number(dbRun.total_cpp_employer);
+		const totalEiEmployee = Number(dbRun.total_ei_employee);
+		const totalEiEmployer = Number(dbRun.total_ei_employer);
+		const totalFederalTax = Number(dbRun.total_federal_tax);
+		const totalProvincialTax = Number(dbRun.total_provincial_tax);
+		const totalEmployerCost = Number(dbRun.total_employer_cost);
+
+		const result: PayrollRunWithGroups = {
+			id: dbRun.id,
+			periodEnd: dbRun.period_end,
+			payDate: dbRun.pay_date,
+			status: dbRun.status,
+			payGroups: Array.from(payGroupMap.values()),
+			totalEmployees: dbRun.total_employees,
+			totalGross,
+			totalCppEmployee,
+			totalCppEmployer,
+			totalEiEmployee,
+			totalEiEmployer,
+			totalFederalTax,
+			totalProvincialTax,
+			totalDeductions: totalGross - totalNetPay,
+			totalNetPay,
+			totalEmployerCost,
+			totalPayrollCost: totalGross + totalEmployerCost,
+			totalRemittance: totalCppEmployee + totalCppEmployer + totalEiEmployee + totalEiEmployer + totalFederalTax + totalProvincialTax,
+			holidays: []
+		};
+
+		return { data: result, error: null };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to get payroll run';
+		console.error('getPayrollRunByPeriodEnd error:', message);
 		return { data: null, error: message };
 	}
 }
@@ -387,6 +533,7 @@ export async function listPayrollRuns(
 
 			return {
 				id: run.id,
+				periodEnd: run.periodEnd,
 				payDate: run.payDate,
 				status: run.status as PayrollRunStatus,
 				payGroups: [],
@@ -708,6 +855,61 @@ export async function createOrGetPayrollRun(
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Failed to create or get payroll run';
 		console.error('createOrGetPayrollRun error:', message);
+		return { data: null, error: message };
+	}
+}
+
+/**
+ * Create or get a draft payroll run for a specific period end.
+ * Uses period_end as the primary identifier (pay_date is auto-calculated).
+ *
+ * This is the new entry point using period_end instead of pay_date.
+ */
+export async function createOrGetPayrollRunByPeriodEnd(
+	periodEnd: string
+): Promise<PayrollServiceResult<PayrollRunWithGroups & CreateOrGetRunResult>> {
+	try {
+		getCurrentUserId();
+
+		// Call backend create-or-get endpoint with periodEnd
+		const response = await api.post<{
+			run: {
+				id: string;
+				periodEnd: string;
+				payDate: string;
+				status: string;
+				totalEmployees: number;
+				totalGross: number;
+				totalCppEmployee: number;
+				totalCppEmployer: number;
+				totalEiEmployee: number;
+				totalEiEmployer: number;
+				totalFederalTax: number;
+				totalProvincialTax: number;
+				totalNetPay: number;
+				totalEmployerCost: number;
+			};
+			created: boolean;
+			recordsCount: number;
+		}>('/payroll/runs/create-or-get', { periodEnd });
+
+		// Get the full payroll run data with records using period_end
+		const runResult = await getPayrollRunByPeriodEnd(periodEnd);
+		if (runResult.error || !runResult.data) {
+			return { data: null, error: runResult.error ?? 'Failed to load payroll run' };
+		}
+
+		return {
+			data: {
+				...runResult.data,
+				created: response.created,
+				recordsCount: response.recordsCount
+			},
+			error: null
+		};
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to create or get payroll run';
+		console.error('createOrGetPayrollRunByPeriodEnd error:', message);
 		return { data: null, error: message };
 	}
 }

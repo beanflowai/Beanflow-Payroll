@@ -40,7 +40,7 @@ export interface DbPayGroup {
 	description: string | null;
 	pay_frequency: PayFrequency;
 	employment_type: EmploymentType;
-	next_pay_date: string;
+	next_period_end: string;
 	period_start_day: PeriodStartDay;
 	leave_enabled: boolean;
 	tax_calculation_method: TaxCalculationMethod;
@@ -64,7 +64,7 @@ export interface PayGroupCreateInput {
 	description?: string;
 	pay_frequency: PayFrequency;
 	employment_type?: EmploymentType;
-	next_pay_date: string;
+	next_period_end: string;
 	period_start_day?: PeriodStartDay;
 	leave_enabled?: boolean;
 	tax_calculation_method?: TaxCalculationMethod;
@@ -85,7 +85,7 @@ export interface PayGroupUpdateInput {
 	description?: string;
 	pay_frequency?: PayFrequency;
 	employment_type?: EmploymentType;
-	next_pay_date?: string;
+	next_period_end?: string;
 	period_start_day?: PeriodStartDay;
 	leave_enabled?: boolean;
 	tax_calculation_method?: TaxCalculationMethod;
@@ -109,7 +109,7 @@ export function dbPayGroupToUi(db: DbPayGroup): PayGroup {
 		description: db.description ?? undefined,
 		payFrequency: db.pay_frequency,
 		employmentType: db.employment_type,
-		nextPayDate: db.next_pay_date,
+		nextPeriodEnd: db.next_period_end,
 		periodStartDay: db.period_start_day,
 		leaveEnabled: db.leave_enabled,
 		taxCalculationMethod: db.tax_calculation_method ?? DEFAULT_TAX_CALCULATION_METHOD,
@@ -280,7 +280,7 @@ export async function createPayGroup(
 			description: input.description ?? null,
 			pay_frequency: input.pay_frequency,
 			employment_type: input.employment_type ?? 'full_time',
-			next_pay_date: input.next_pay_date,
+			next_period_end: input.next_period_end,
 			period_start_day: input.period_start_day ?? 'monday',
 			leave_enabled: input.leave_enabled ?? true,
 			statutory_defaults: input.statutory_defaults ?? {
@@ -345,7 +345,7 @@ export async function updatePayGroup(
 		if (input.description !== undefined) updateData.description = input.description;
 		if (input.pay_frequency !== undefined) updateData.pay_frequency = input.pay_frequency;
 		if (input.employment_type !== undefined) updateData.employment_type = input.employment_type;
-		if (input.next_pay_date !== undefined) updateData.next_pay_date = input.next_pay_date;
+		if (input.next_period_end !== undefined) updateData.next_period_end = input.next_period_end;
 		if (input.period_start_day !== undefined) updateData.period_start_day = input.period_start_day;
 		if (input.leave_enabled !== undefined) updateData.leave_enabled = input.leave_enabled;
 		if (input.statutory_defaults !== undefined)
@@ -481,7 +481,7 @@ export async function duplicatePayGroup(
 			description: original.description,
 			pay_frequency: original.payFrequency,
 			employment_type: original.employmentType,
-			next_pay_date: original.nextPayDate,
+			next_period_end: original.nextPeriodEnd,
 			period_start_day: original.periodStartDay,
 			leave_enabled: original.leaveEnabled,
 			statutory_defaults: original.statutoryDefaults,

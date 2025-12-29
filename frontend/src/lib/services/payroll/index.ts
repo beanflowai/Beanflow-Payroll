@@ -27,7 +27,8 @@ export type {
 // Re-export dashboard functions
 export {
 	checkPayrollPageStatus,
-	getUpcomingPayDates,
+	getUpcomingPeriods,
+	getUpcomingPayDates,  // @deprecated - use getUpcomingPeriods
 	getPayrollDashboardStats,
 	getRecentCompletedRuns
 } from './dashboard';
@@ -35,6 +36,7 @@ export {
 // Re-export payroll run functions
 export {
 	getPayrollRunByPayDate,
+	getPayrollRunByPeriodEnd,
 	getPayrollRunById,
 	createPayrollRunForDate,
 	updatePayrollRunStatus,
@@ -48,6 +50,7 @@ export {
 	checkHasModifiedRecords,
 	syncEmployeesToRun,
 	createOrGetPayrollRun,
+	createOrGetPayrollRunByPeriodEnd,
 	addEmployeeToRun,
 	removeEmployeeFromRun,
 	deletePayrollRun,
@@ -60,8 +63,10 @@ export {
 
 // Re-export pay group functions
 export {
-	getPayGroupsForPayDate,
-	getPayGroupsWithEmployeesForPayDate
+	getPayGroupsForPeriodEnd,
+	getPayGroupsWithEmployeesForPeriodEnd,
+	getPayGroupsForPayDate,  // @deprecated - use getPayGroupsForPeriodEnd
+	getPayGroupsWithEmployeesForPayDate  // @deprecated - use getPayGroupsWithEmployeesForPeriodEnd
 } from './pay-groups';
 
 // Re-export calculation functions

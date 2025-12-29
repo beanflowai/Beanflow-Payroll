@@ -5,7 +5,7 @@
 
 import { supabase } from '$lib/api/supabase';
 import type {
-	UpcomingPayDate,
+	UpcomingPeriod,
 	PayrollRunStatus
 } from '$lib/types/payroll';
 import {
@@ -14,7 +14,8 @@ import {
 	DEFAULT_DEDUCTIONS_CONFIG,
 	DEFAULT_OVERTIME_POLICY,
 	DEFAULT_GROUP_BENEFITS,
-	DEFAULT_STATUTORY_DEFAULTS
+	DEFAULT_STATUTORY_DEFAULTS,
+	calculatePayDate
 } from '$lib/types/pay-group';
 import { getCurrentUserId, getCurrentLedgerId } from './helpers';
 import type {
@@ -26,24 +27,26 @@ import type {
 } from './types';
 
 // ===========================================
-// Pay Groups for Specific Pay Date
+// Pay Groups for Specific Period End
 // ===========================================
 
 /**
- * Get pay groups for a specific pay date
+ * Get pay groups for a specific period end date
  * Used on the Payroll Run page to show pay groups even when no payroll run exists
+ *
+ * @param periodEnd Period end date (ISO string) - the authoritative grouping key
  */
-export async function getPayGroupsForPayDate(
-	payDate: string
-): Promise<PayrollServiceResult<UpcomingPayDate | null>> {
+export async function getPayGroupsForPeriodEnd(
+	periodEnd: string
+): Promise<PayrollServiceResult<UpcomingPeriod | null>> {
 	try {
 		getCurrentUserId();
 
-		// Query pay groups with this next_pay_date
+		// Query pay groups with this next_period_end
 		const { data: payGroups, error: pgError } = await supabase
 			.from('v_pay_group_summary')
 			.select('*')
-			.eq('next_pay_date', payDate);
+			.eq('next_period_end', periodEnd);
 
 		if (pgError) {
 			console.error('Failed to query pay groups:', pgError);
@@ -54,14 +57,17 @@ export async function getPayGroupsForPayDate(
 			return { data: null, error: null };
 		}
 
-		// Calculate period dates (simplified: 2 weeks before pay date for bi-weekly)
-		const payDateObj = new Date(payDate);
-		const periodEnd = new Date(payDateObj);
-		periodEnd.setDate(periodEnd.getDate() - 6);
-		const periodStart = new Date(periodEnd);
+		// Calculate pay date from period end (SK: +6 days)
+		const payDate = calculatePayDate(periodEnd, 'SK');
+
+		// Period start is calculated based on frequency
+		// For bi-weekly: period_start = period_end - 13 days
+		const periodEndObj = new Date(periodEnd);
+		const periodStart = new Date(periodEndObj);
 		periodStart.setDate(periodStart.getDate() - 13);
 
-		const result: UpcomingPayDate = {
+		const result: UpcomingPeriod = {
+			periodEnd,
 			payDate,
 			payGroups: payGroups.map((pg) => ({
 				id: pg.id,
@@ -71,17 +77,17 @@ export async function getPayGroupsForPayDate(
 				employeeCount: pg.employee_count ?? 0,
 				estimatedGross: 0,
 				periodStart: periodStart.toISOString().split('T')[0],
-				periodEnd: periodEnd.toISOString().split('T')[0]
+				periodEnd
 			})),
 			totalEmployees: payGroups.reduce((sum, pg) => sum + (pg.employee_count ?? 0), 0),
 			totalEstimatedGross: 0
 		};
 
-		// Check for existing payroll run
+		// Check for existing payroll run by period_end
 		const { data: runs } = await supabase
 			.from('payroll_runs')
 			.select('id, status')
-			.eq('pay_date', payDate)
+			.eq('period_end', periodEnd)
 			.maybeSingle();
 
 		if (runs) {
@@ -91,32 +97,39 @@ export async function getPayGroupsForPayDate(
 
 		return { data: result, error: null };
 	} catch (err) {
-		const message = err instanceof Error ? err.message : 'Failed to get pay groups for date';
-		console.error('getPayGroupsForPayDate error:', message);
+		const message = err instanceof Error ? err.message : 'Failed to get pay groups for period';
+		console.error('getPayGroupsForPeriodEnd error:', message);
 		return { data: null, error: message };
 	}
 }
+
+/**
+ * @deprecated Use getPayGroupsForPeriodEnd instead
+ */
+export const getPayGroupsForPayDate = getPayGroupsForPeriodEnd;
 
 // ===========================================
 // Pay Groups with Employees (Before Run State)
 // ===========================================
 
 /**
- * Get pay groups with employees for a specific pay date (before payroll run is created)
+ * Get pay groups with employees for a specific period end (before payroll run is created)
  * This is used to display the full UI with employee list before clicking "Start Payroll Run"
+ *
+ * @param periodEnd Period end date (ISO string) - the authoritative grouping key
  */
-export async function getPayGroupsWithEmployeesForPayDate(
-	payDate: string
+export async function getPayGroupsWithEmployeesForPeriodEnd(
+	periodEnd: string
 ): Promise<PayrollServiceResult<BeforeRunData>> {
 	try {
 		const userId = getCurrentUserId();
 		const ledgerId = getCurrentLedgerId();
 
-		// Query pay groups with this next_pay_date
+		// Query pay groups with this next_period_end
 		const { data: payGroups, error: pgError } = await supabase
 			.from('v_pay_group_summary')
 			.select('*')
-			.eq('next_pay_date', payDate);
+			.eq('next_period_end', periodEnd);
 
 		if (pgError) {
 			console.error('Failed to query pay groups:', pgError);
@@ -127,15 +140,17 @@ export async function getPayGroupsWithEmployeesForPayDate(
 			return { data: null, error: null };
 		}
 
-		// Calculate period dates (simplified: 2 weeks before pay date for bi-weekly)
-		const payDateObj = new Date(payDate);
-		const periodEnd = new Date(payDateObj);
-		periodEnd.setDate(periodEnd.getDate() - 6);
-		const periodStart = new Date(periodEnd);
+		// Calculate pay date from period end (SK: +6 days)
+		const payDate = calculatePayDate(periodEnd, 'SK');
+
+		// Period start is calculated based on frequency
+		// For bi-weekly: period_start = period_end - 13 days
+		const periodEndObj = new Date(periodEnd);
+		const periodStart = new Date(periodEndObj);
 		periodStart.setDate(periodStart.getDate() - 13);
 
 		const periodStartStr = periodStart.toISOString().split('T')[0];
-		const periodEndStr = periodEnd.toISOString().split('T')[0];
+		const periodEndStr = periodEnd;
 
 		// Get employees for each pay group
 		const payGroupsWithEmployees: PayGroupWithEmployees[] = [];
@@ -202,6 +217,7 @@ export async function getPayGroupsWithEmployeesForPayDate(
 
 		return {
 			data: {
+				periodEnd,
 				payDate,
 				payGroups: payGroupsWithEmployees,
 				totalEmployees,
@@ -211,7 +227,12 @@ export async function getPayGroupsWithEmployeesForPayDate(
 		};
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Failed to get pay groups with employees';
-		console.error('getPayGroupsWithEmployeesForPayDate error:', message);
+		console.error('getPayGroupsWithEmployeesForPeriodEnd error:', message);
 		return { data: null, error: message };
 	}
 }
+
+/**
+ * @deprecated Use getPayGroupsWithEmployeesForPeriodEnd instead
+ */
+export const getPayGroupsWithEmployeesForPayDate = getPayGroupsWithEmployeesForPeriodEnd;

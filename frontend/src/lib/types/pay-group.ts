@@ -428,7 +428,7 @@ export interface PayGroup {
 	employmentType: EmploymentType;
 
 	// Pay Schedule
-	nextPayDate: string; // ISO date string
+	nextPeriodEnd: string; // ISO date string (period end, NOT pay date)
 	periodStartDay: PeriodStartDay;
 
 	// Leave Policy
@@ -475,7 +475,7 @@ export interface PayGroupFormData {
 	description?: string;
 	payFrequency: PayFrequency;
 	employmentType: EmploymentType;
-	nextPayDate: string;
+	nextPeriodEnd: string;
 	periodStartDay: PeriodStartDay;
 	leaveEnabled: boolean;
 }
@@ -686,7 +686,7 @@ export function createDefaultPayGroup(companyId: string): Omit<PayGroup, 'id' | 
 		name: '',
 		payFrequency: 'bi_weekly',
 		employmentType: 'full_time',
-		nextPayDate: '',
+		nextPeriodEnd: '',
 		periodStartDay: 'monday',
 		leaveEnabled: true,
 		taxCalculationMethod: DEFAULT_TAX_CALCULATION_METHOD,
@@ -899,4 +899,55 @@ export function getPayGroupPolicySummary(payGroup: PayGroup): {
 		cpp2Exempt: payGroup.statutoryDefaults.cpp2ExemptByDefault,
 		eiExempt: payGroup.statutoryDefaults.eiExemptByDefault
 	};
+}
+
+// ============================================
+// Pay Date Calculation
+// ============================================
+
+/**
+ * Maximum days after period end to pay employees (by province)
+ * Saskatchewan: must pay within 6 days of period end
+ */
+export const PAY_DATE_DELAY_DAYS: Record<string, number> = {
+	SK: 6,
+	ON: 7,
+	BC: 8,
+	AB: 10,
+	MB: 10,
+	QC: 16,
+	NB: 5,
+	NS: 5,
+	PE: 7,
+	NL: 7,
+	NT: 10,
+	NU: 10,
+	YT: 10
+};
+
+export const DEFAULT_PAY_DATE_DELAY = 7;
+
+/**
+ * Calculate pay date from period end based on province regulations.
+ * Saskatchewan law requires paying employees within 6 days of pay period end.
+ *
+ * @param periodEnd - Period end date (ISO string or Date)
+ * @param province - Two-letter province code (default: "SK")
+ * @returns Pay date as ISO string
+ */
+export function calculatePayDate(periodEnd: string | Date, province: string = 'SK'): string {
+	const endDate = typeof periodEnd === 'string' ? new Date(periodEnd) : periodEnd;
+	const delayDays = PAY_DATE_DELAY_DAYS[province] ?? DEFAULT_PAY_DATE_DELAY;
+	const payDate = new Date(endDate);
+	payDate.setDate(payDate.getDate() + delayDays);
+	return payDate.toISOString().split('T')[0];
+}
+
+/**
+ * Format pay date for display with province info
+ */
+export function formatPayDateInfo(periodEnd: string, province: string = 'SK'): string {
+	const payDate = calculatePayDate(periodEnd, province);
+	const delay = PAY_DATE_DELAY_DAYS[province] ?? DEFAULT_PAY_DATE_DELAY;
+	return `${payDate} (${delay} days after period end)`;
 }

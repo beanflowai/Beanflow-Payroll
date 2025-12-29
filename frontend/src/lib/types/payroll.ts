@@ -194,6 +194,11 @@ export interface PayrollRecord {
 	vacationBalanceDollars?: number;
 	sickBalanceHours?: number;
 
+	// Employee vacation info (for UI display during draft editing)
+	vacationBalance?: number;         // Current available balance ($)
+	vacationHourlyRate?: number;      // Hourly rate for vacation pay calculation
+	vacationPayoutMethod?: 'accrual' | 'pay_as_you_go';
+
 	// YTD Leave (Year-to-Date leave usage)
 	ytdVacationHours?: number;
 	ytdSickHours?: number;
@@ -270,11 +275,13 @@ export interface PayGroupSummary {
 }
 
 /**
- * Upcoming pay date with associated pay groups
+ * Upcoming pay period with associated pay groups
  * Used in the Payroll Dashboard
+ * Groups by period_end (the authoritative date), pay_date is auto-calculated
  */
-export interface UpcomingPayDate {
-	payDate: string; // ISO date string
+export interface UpcomingPeriod {
+	periodEnd: string; // ISO date string - grouping key
+	payDate: string;   // Auto-calculated: periodEnd + 6 days (SK)
 	payGroups: PayGroupSummary[];
 	totalEmployees: number;
 	totalEstimatedGross: number;
@@ -282,6 +289,11 @@ export interface UpcomingPayDate {
 	runStatus?: PayrollRunStatus;
 	runId?: string;
 }
+
+/**
+ * @deprecated Use UpcomingPeriod instead
+ */
+export type UpcomingPayDate = UpcomingPeriod;
 
 /**
  * Extended PayrollRecord with Pay Group info
@@ -322,6 +334,7 @@ export interface PayrollRunPayGroup {
  */
 export interface PayrollRunWithGroups {
 	id: string;
+	periodEnd: string;
 	payDate: string;
 	status: PayrollRunStatus;
 	// All pay groups in this run
@@ -456,6 +469,7 @@ export interface DbPayrollRecord {
 	ytd_ei: number;
 	ytd_federal_tax: number;
 	ytd_provincial_tax: number;
+	ytd_net_pay?: number;
 	// Vacation
 	vacation_accrued: number;
 	vacation_hours_taken: number;
@@ -483,6 +497,11 @@ export interface DbPayrollRecordWithEmployee extends DbPayrollRecord {
 		email: string | null;
 		annual_salary: number | null;
 		hourly_rate: number | null;
+		vacation_config?: {
+			payout_method?: 'accrual' | 'pay_as_you_go';
+			vacation_rate?: string;
+		} | null;
+		vacation_balance?: number | null;
 		pay_groups: {
 			id: string;
 			name: string;
@@ -555,6 +574,20 @@ export function dbPayrollRecordToUi(db: DbPayrollRecordWithEmployee): PayrollRec
 	const annualSalary = db.annual_salary_snapshot ?? employee.annual_salary;
 	const hourlyRate = db.hourly_rate_snapshot ?? employee.hourly_rate;
 
+	// Calculate vacation hourly rate for UI display
+	// For hourly employees: use hourly_rate
+	// For salaried employees: annual_salary / 2080
+	let vacationHourlyRate: number | undefined;
+	if (hourlyRate != null) {
+		vacationHourlyRate = hourlyRate;
+	} else if (annualSalary != null) {
+		vacationHourlyRate = annualSalary / 2080;
+	}
+
+	// Extract vacation config from employee data
+	const vacationConfig = employee.vacation_config;
+	const vacationPayoutMethod = vacationConfig?.payout_method ?? 'accrual';
+
 	return {
 		id: db.id,
 		employeeId: db.employee_id,
@@ -599,10 +632,18 @@ export function dbPayrollRecordToUi(db: DbPayrollRecordWithEmployee): PayrollRec
 		ytdEi: Number(db.ytd_ei),
 		ytdFederalTax: Number(db.ytd_federal_tax),
 		ytdProvincialTax: Number(db.ytd_provincial_tax),
-		ytdNetPay: Number(db.ytd_gross) - Number(db.ytd_cpp) - Number(db.ytd_ei) - Number(db.ytd_federal_tax) - Number(db.ytd_provincial_tax),
+		ytdNetPay: Number(db.ytd_net_pay ?? 0),
 		// Vacation
 		vacationAccrued: Number(db.vacation_accrued),
 		vacationHoursTaken: Number(db.vacation_hours_taken),
+		// Employee vacation info for UI
+		vacationBalance: employee.vacation_balance ?? undefined,
+		vacationBalanceHours: vacationHourlyRate && vacationHourlyRate > 0
+			? Math.round(((employee.vacation_balance ?? 0) / vacationHourlyRate) * 100) / 100
+			: 0,
+		vacationBalanceDollars: employee.vacation_balance ?? undefined,
+		vacationHourlyRate: vacationHourlyRate,
+		vacationPayoutMethod: vacationPayoutMethod,
 		// Holiday work hours - empty by default, would be loaded separately
 		holidayWorkHours: [],
 		// Paystub status
