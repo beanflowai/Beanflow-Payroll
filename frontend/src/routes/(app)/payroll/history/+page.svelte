@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import type { PayrollRunWithGroups, PayrollRunStatus, PayrollRecord } from '$lib/types/payroll';
+	import type { PayrollRunWithGroups, PayrollRunStatus } from '$lib/types/payroll';
 	import { PAYROLL_STATUS_LABELS } from '$lib/types/payroll';
-	import { listPayrollRuns, getPayrollRunById, type PayrollRunListOptionsExt } from '$lib/services/payroll';
-	import PayrollRunDetailPanel from '$lib/components/payroll/PayrollRunDetailPanel.svelte';
+	import { listPayrollRuns, type PayrollRunListOptionsExt } from '$lib/services/payroll';
 	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	// Filter tabs configuration
@@ -23,8 +22,6 @@
 	let activeTab = $state<FilterTab>('all');
 	let currentPage = $state(1);
 	let totalCount = $state(0);
-	let selectedRun = $state<PayrollRunWithGroups | null>(null);
-	let selectedRecords = $state<PayrollRecord[]>([]);
 
 	// Constants
 	const PAGE_SIZE = 20;
@@ -108,29 +105,9 @@
 		}
 	}
 
-	// Select a run to view details or navigate to edit page
-	async function selectRun(run: PayrollRunWithGroups) {
-		// Incomplete status: navigate to payroll run page for continued operation
-		if (run.status === 'draft' || run.status === 'pending_approval') {
-			goto(`/payroll/run/${run.payDate}`);
-			return;
-		}
-
-		// Completed status: show Detail Panel
-		const result = await getPayrollRunById(run.id);
-		if (result.data) {
-			selectedRun = result.data;
-			// Extract records from pay groups - they are already PayrollRecord type
-			selectedRecords = result.data.payGroups.flatMap(pg => pg.records);
-		} else {
-			selectedRun = run;
-			selectedRecords = [];
-		}
-	}
-
-	function closePanel() {
-		selectedRun = null;
-		selectedRecords = [];
+	// Select a run to navigate to payroll run page
+	function selectRun(run: PayrollRunWithGroups) {
+		goto(`/payroll/run/${run.periodEnd}`);
 	}
 
 	// Computed
@@ -171,39 +148,15 @@
 				return '';
 		}
 	}
-
-	// Convert PayrollRunWithGroups to PayrollRun for the detail panel
-	function toPayrollRun(run: PayrollRunWithGroups) {
-		return {
-			id: run.id,
-			periodStart: run.payGroups[0]?.periodStart ?? '',
-			periodEnd: run.payGroups[0]?.periodEnd ?? '',
-			payDate: run.payDate,
-			status: run.status,
-			totalEmployees: run.totalEmployees,
-			totalGross: run.totalGross,
-			totalCppEmployee: run.totalCppEmployee,
-			totalCppEmployer: run.totalCppEmployer,
-			totalEiEmployee: run.totalEiEmployee,
-			totalEiEmployer: run.totalEiEmployer,
-			totalFederalTax: run.totalFederalTax,
-			totalProvincialTax: run.totalProvincialTax,
-			totalDeductions: run.totalDeductions,
-			totalNetPay: run.totalNetPay,
-			totalEmployerCost: run.totalEmployerCost,
-			totalPayrollCost: run.totalPayrollCost ?? (run.totalGross + run.totalEmployerCost),
-			totalRemittance: run.totalRemittance ?? 0
-		};
-	}
 </script>
 
 <svelte:head>
 	<title>Payroll History - BeanFlow Payroll</title>
 </svelte:head>
 
-<div class="flex gap-6 max-w-[1400px] max-lg:flex-col">
+<div class="max-w-[1400px]">
 	<!-- Main Content -->
-	<div class="flex-1 min-w-0 {selectedRun ? 'max-lg:max-w-full max-w-[calc(100%-400px-1.5rem)]' : ''}">
+	<div class="flex-1 min-w-0">
 		<header class="flex items-start justify-between mb-6 max-md:flex-col max-md:gap-4">
 			<div class="flex-1">
 				<h1 class="text-headline-minimum font-semibold text-surface-800 m-0 mb-1">Payroll History</h1>
@@ -298,7 +251,7 @@
 				<table class="w-full border-collapse max-md:min-w-[700px]">
 					<thead>
 						<tr>
-							<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Pay Date</th>
+							<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Period End</th>
 							<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Employees</th>
 							<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Gross Pay</th>
 							<th class="text-left p-4 px-5 bg-surface-50 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide border-b border-surface-200">Net Pay</th>
@@ -309,13 +262,13 @@
 					<tbody>
 						{#each runs as run (run.id)}
 							<tr
-								class="cursor-pointer transition-[150ms] {selectedRun?.id === run.id ? '[&>td]:bg-primary-50' : ''} hover:[&>td]:bg-surface-50"
+								class="cursor-pointer transition-[150ms] hover:[&>td]:bg-surface-50"
 								onclick={() => selectRun(run)}
 								role="button"
 								tabindex="0"
 								onkeydown={(e) => e.key === 'Enter' && selectRun(run)}
 							>
-								<td class="p-4 px-5 text-body-content border-b border-surface-100 font-medium text-surface-800 last:border-b-0">{formatShortDate(run.payDate)}</td>
+								<td class="p-4 px-5 text-body-content border-b border-surface-100 font-medium text-surface-800 last:border-b-0">{formatShortDate(run.periodEnd)}</td>
 								<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-700 last:border-b-0">{run.totalEmployees}</td>
 								<td class="p-4 px-5 text-body-content border-b border-surface-100 text-surface-700 font-mono last:border-b-0">{formatCurrency(run.totalGross)}</td>
 								<td class="p-4 px-5 text-body-content border-b border-surface-100 font-mono font-semibold text-surface-800 last:border-b-0">{formatCurrency(run.totalNetPay)}</td>
@@ -385,13 +338,4 @@
 			{/if}
 		{/if}
 	</div>
-
-	<!-- Detail Panel -->
-	{#if selectedRun}
-		<PayrollRunDetailPanel
-			payrollRun={toPayrollRun(selectedRun)}
-			payrollRecords={selectedRecords}
-			onClose={closePanel}
-		/>
-	{/if}
 </div>

@@ -5,10 +5,8 @@
 		PayrollRunWithGroups,
 		PayrollRecord,
 		HolidayWorkEntry,
-		LeaveEntry,
-		OvertimeEntry,
 		PaystubStatus,
-		UpcomingPayDate,
+		UpcomingPeriod,
 		EmployeePayrollInput
 	} from '$lib/types/payroll';
 	import type { Employee } from '$lib/types/employee';
@@ -19,9 +17,6 @@
 		PayrollSummaryCards,
 		HolidayAlert,
 		HolidayWorkModal,
-		LeaveAlert,
-		LeaveModal,
-		OvertimeModal,
 		AddEmployeesPanel,
 		PayrollLoadingState,
 		PayrollErrorState,
@@ -30,10 +25,9 @@
 		DraftPayrollView
 	} from '$lib/components/payroll';
 	import {
-		getPayrollRunByPayDate,
 		approvePayrollRun,
-		getPayGroupsForPayDate,
-		createOrGetPayrollRun,
+		getPayGroupsForPeriodEnd,
+		createOrGetPayrollRunByPeriodEnd,
 		updatePayrollRecord,
 		recalculatePayrollRun,
 		finalizePayrollRun,
@@ -54,23 +48,17 @@
 	// ===========================================
 	// Route Params
 	// ===========================================
-	const payDate = $derived($page.params.payDate ?? '');
+	const periodEnd = $derived($page.params.periodEnd ?? '');
 
 	// ===========================================
 	// State
 	// ===========================================
 	let payrollRun = $state<PayrollRunWithGroups | null>(null);
-	let payDateInfo = $state<UpcomingPayDate | null>(null);
+	let periodInfo = $state<UpcomingPeriod | null>(null);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let expandedRecordId = $state<string | null>(null);
 	let showHolidayModal = $state(false);
-	let showLeaveModal = $state(false);
-	let showOvertimeModal = $state(false);
-	let leaveEntries = $state<LeaveEntry[]>([]);
-	let overtimeEntries = $state<OvertimeEntry[]>([]);
-	let selectedLeaveEmployee = $state<PayrollRecord | null>(null);
-	let selectedOvertimeEmployee = $state<PayrollRecord | null>(null);
 
 	// Add Employees Modal State
 	let showAddEmployeesModal = $state(false);
@@ -86,28 +74,29 @@
 	let isDeletingDraft = $state(false);
 
 	// Approved State Variables
+	let isApproving = $state(false);
 	let isSendingPaystubs = $state(false);
 
 	// ===========================================
 	// Load Data
 	// ===========================================
 	async function loadPayrollRun() {
-		if (!payDate) return;
+		if (!periodEnd) return;
 
 		isLoading = true;
 		error = null;
 
 		try {
-			// First, get pay groups for this date (for display info)
-			const payGroupsResult = await getPayGroupsForPayDate(payDate);
+			// First, get pay groups for this period end (for display info)
+			const payGroupsResult = await getPayGroupsForPeriodEnd(periodEnd);
 			if (payGroupsResult.error) {
 				error = payGroupsResult.error;
 				return;
 			}
-			payDateInfo = payGroupsResult.data;
+			periodInfo = payGroupsResult.data;
 
-			// Use createOrGetPayrollRun - this will either get existing or create new draft
-			const result = await createOrGetPayrollRun(payDate);
+			// Use createOrGetPayrollRunByPeriodEnd - this will either get existing or create new draft
+			const result = await createOrGetPayrollRunByPeriodEnd(periodEnd);
 			if (result.error) {
 				error = result.error;
 				return;
@@ -129,7 +118,7 @@
 		}
 	}
 
-	// Load data when payDate changes
+	// Load data when periodEnd changes
 	$effect(() => {
 		loadPayrollRun();
 	});
@@ -154,6 +143,7 @@
 					periodEnd: payrollRun.payGroups[0]?.periodEnd || '',
 					payDate: payrollRun.payDate,
 					status: payrollRun.status,
+					payGroups: payrollRun.payGroups,
 					totalEmployees: payrollRun.totalEmployees,
 					totalGross: payrollRun.totalGross,
 					totalCppEmployee: payrollRun.totalCppEmployee,
@@ -206,41 +196,10 @@
 		showHolidayModal = false;
 	}
 
-	function openLeaveModal(employee?: PayrollRecord) {
-		selectedLeaveEmployee = employee || null;
-		showLeaveModal = true;
-	}
-
-	function closeLeaveModal() {
-		showLeaveModal = false;
-		selectedLeaveEmployee = null;
-	}
-
-	function handleLeaveSave(entries: LeaveEntry[]) {
-		console.log('Leave entries saved:', entries);
-		leaveEntries = entries;
-		showLeaveModal = false;
-	}
-
-	function openOvertimeModal(employee?: PayrollRecord) {
-		selectedOvertimeEmployee = employee || null;
-		showOvertimeModal = true;
-	}
-
-	function closeOvertimeModal() {
-		showOvertimeModal = false;
-		selectedOvertimeEmployee = null;
-	}
-
-	function handleOvertimeSave(entries: OvertimeEntry[]) {
-		console.log('Overtime entries saved:', entries);
-		overtimeEntries = entries;
-		showOvertimeModal = false;
-	}
-
 	async function handleApprove() {
-		if (!payrollRun) return;
+		if (!payrollRun || isApproving) return;
 
+		isApproving = true;
 		try {
 			const result = await approvePayrollRun(payrollRun.id);
 			if (result.error) {
@@ -255,6 +214,8 @@
 			};
 		} catch (err) {
 			alert(`Failed to approve: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		} finally {
+			isApproving = false;
 		}
 	}
 
@@ -518,15 +479,15 @@
 </script>
 
 <svelte:head>
-	<title>Payroll Run - {payDate} - BeanFlow Payroll</title>
+	<title>Payroll Run - {periodEnd} - BeanFlow Payroll</title>
 </svelte:head>
 
 {#if isLoading}
 	<PayrollLoadingState />
 {:else if error}
 	<PayrollErrorState {error} onRetry={loadPayrollRun} />
-{:else if !payrollRun && !payDateInfo}
-	<PayrollNotFound payDateFormatted={formatFullDate(payDate)} onBack={handleBack} />
+{:else if !payrollRun && !periodInfo}
+	<PayrollNotFound payDateFormatted={formatFullDate(periodEnd)} onBack={handleBack} />
 {:else if payrollRun && isDraft}
 	<!-- Draft View - Editable Payroll Run (includes initial setup) -->
 	<div class="max-w-[1200px]">
@@ -603,11 +564,12 @@
 						<span>{isReverting ? 'Reverting...' : 'Revert to Draft'}</span>
 					</button>
 					<button
-						class="flex items-center gap-2 py-3 px-5 bg-gradient-to-br from-primary-600 to-secondary-600 text-white border-none rounded-lg text-body-content font-medium cursor-pointer shadow-md3-1 transition-all duration-150 hover:opacity-90 hover:-translate-y-px"
+						class="flex items-center gap-2 py-3 px-5 bg-gradient-to-br from-primary-600 to-secondary-600 text-white border-none rounded-lg text-body-content font-medium cursor-pointer shadow-md3-1 transition-all duration-150 hover:opacity-90 hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
 						onclick={handleApprove}
+						disabled={isApproving}
 					>
-						<i class="fas fa-check"></i>
-						<span>Approve</span>
+						<i class="fas {isApproving ? 'fa-spinner fa-spin' : 'fa-check'}"></i>
+						<span>{isApproving ? 'Approving...' : 'Approve'}</span>
 					</button>
 				{/if}
 			{/snippet}
@@ -617,9 +579,6 @@
 		{#if payrollRun.holidays && payrollRun.holidays.length > 0}
 			<HolidayAlert holidays={payrollRun.holidays} onManageHolidayHours={openHolidayModal} />
 		{/if}
-
-		<!-- Leave Alert -->
-		<LeaveAlert {leaveEntries} onManageLeaveHours={() => openLeaveModal()} />
 
 		<!-- Summary Cards -->
 		{#if payrollRunCompat}
@@ -636,8 +595,6 @@
 					onToggleExpand={toggleExpand}
 					onDownloadPaystub={handleDownloadPaystub}
 					onResendPaystub={handleResendPaystub}
-					onLeaveClick={openLeaveModal}
-					onOvertimeClick={openOvertimeModal}
 				/>
 			{/each}
 		</div>
@@ -652,32 +609,6 @@
 			periodEnd={payrollRunCompat.periodEnd}
 			onClose={closeHolidayModal}
 			onSave={handleHolidayWorkSave}
-		/>
-	{/if}
-
-	<!-- Leave Modal -->
-	{#if showLeaveModal && payrollRunCompat}
-		<LeaveModal
-			payrollRecords={allRecords}
-			periodStart={payrollRunCompat.periodStart}
-			periodEnd={payrollRunCompat.periodEnd}
-			existingLeaveEntries={leaveEntries}
-			selectedEmployee={selectedLeaveEmployee ?? undefined}
-			onClose={closeLeaveModal}
-			onSave={handleLeaveSave}
-		/>
-	{/if}
-
-	<!-- Overtime Modal -->
-	{#if showOvertimeModal && payrollRunCompat}
-		<OvertimeModal
-			payrollRecords={allRecords}
-			periodStart={payrollRunCompat.periodStart}
-			periodEnd={payrollRunCompat.periodEnd}
-			existingOvertimeEntries={overtimeEntries}
-			selectedEmployee={selectedOvertimeEmployee ?? undefined}
-			onClose={closeOvertimeModal}
-			onSave={handleOvertimeSave}
 		/>
 	{/if}
 {/if}

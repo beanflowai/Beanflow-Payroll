@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { UpcomingPayDate, PayrollPageStatus, PayGroupSummary, PayrollRunWithGroups } from '$lib/types/payroll';
+	import type { UpcomingPeriod, PayrollPageStatus, PayGroupSummary, PayrollRunWithGroups } from '$lib/types/payroll';
 	import { PAYROLL_STATUS_LABELS } from '$lib/types/payroll';
-	import { PayDateCard, PayGroupEmployeesPanel } from '$lib/components/payroll';
+	import { PayPeriodCard, PayGroupEmployeesPanel } from '$lib/components/payroll';
 	import {
 		checkPayrollPageStatus,
-		getUpcomingPayDates,
+		getUpcomingPeriods,
 		getRecentCompletedRuns
 	} from '$lib/services/payroll';
 	import { formatShortDate } from '$lib/utils/dateUtils';
@@ -13,7 +13,7 @@
 	// State
 	// ===========================================
 	let pageStatus = $state<PayrollPageStatus | null>(null);
-	let upcomingPayDates = $state<UpcomingPayDate[]>([]);
+	let upcomingPeriods = $state<UpcomingPeriod[]>([]);
 	let recentRuns = $state<PayrollRunWithGroups[]>([]);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
@@ -38,18 +38,18 @@
 			}
 			pageStatus = statusResult.data;
 
-			// If ready or no_employees, load upcoming pay dates and recent runs
+			// If ready or no_employees, load upcoming periods and recent runs
 			if (pageStatus?.status === 'ready' || pageStatus?.status === 'no_employees') {
-				const [payDatesResult, recentRunsResult] = await Promise.all([
-					getUpcomingPayDates(),
+				const [periodsResult, recentRunsResult] = await Promise.all([
+					getUpcomingPeriods(),
 					getRecentCompletedRuns(5)
 				]);
 
-				if (payDatesResult.error) {
-					error = payDatesResult.error;
+				if (periodsResult.error) {
+					error = periodsResult.error;
 					return;
 				}
-				upcomingPayDates = payDatesResult.data ?? [];
+				upcomingPeriods = periodsResult.data ?? [];
 				recentRuns = recentRunsResult.data ?? [];
 			}
 		} catch (err) {
@@ -67,8 +67,8 @@
 	// ===========================================
 	// Computed
 	// ===========================================
-	const totalUpcoming = $derived(upcomingPayDates.length);
-	const nextPayDate = $derived(upcomingPayDates.length > 0 ? upcomingPayDates[0] : null);
+	const totalUpcoming = $derived(upcomingPeriods.length);
+	const nextPeriod = $derived(upcomingPeriods.length > 0 ? upcomingPeriods[0] : null);
 
 	// ===========================================
 	// Helpers
@@ -178,17 +178,17 @@
 				</div>
 				<div class="flex flex-col">
 					<span class="text-title-large font-semibold text-surface-800">{totalUpcoming}</span>
-					<span class="text-auxiliary-text text-surface-600">Upcoming Pay Dates</span>
+					<span class="text-auxiliary-text text-surface-600">Upcoming Periods</span>
 				</div>
 			</div>
-			{#if nextPayDate}
+			{#if nextPeriod}
 				<div class="flex items-center gap-4 p-5 bg-white rounded-xl shadow-md3-1">
 					<div class="w-12 h-12 rounded-lg flex items-center justify-center text-[20px] bg-warning-100 text-warning-600">
 						<i class="fas fa-clock"></i>
 					</div>
 					<div class="flex flex-col">
-						<span class="text-title-large font-semibold text-surface-800">{formatShortDate(nextPayDate.payDate)}</span>
-						<span class="text-auxiliary-text text-surface-600">Next Pay Date</span>
+						<span class="text-title-large font-semibold text-surface-800">{formatShortDate(nextPeriod.periodEnd)}</span>
+						<span class="text-auxiliary-text text-surface-600">Next Period End</span>
 					</div>
 				</div>
 				<div class="flex items-center gap-4 p-5 bg-white rounded-xl shadow-md3-1">
@@ -196,7 +196,7 @@
 						<i class="fas fa-users"></i>
 					</div>
 					<div class="flex flex-col">
-						<span class="text-title-large font-semibold text-surface-800">{nextPayDate.totalEmployees}</span>
+						<span class="text-title-large font-semibold text-surface-800">{nextPeriod.totalEmployees}</span>
 						<span class="text-auxiliary-text text-surface-600">Employees (Next Run)</span>
 					</div>
 				</div>
@@ -205,35 +205,35 @@
 						<i class="fas fa-dollar-sign"></i>
 					</div>
 					<div class="flex flex-col">
-						<span class="text-title-large font-semibold text-surface-800">{formatCurrency(nextPayDate.totalEstimatedGross)}</span>
+						<span class="text-title-large font-semibold text-surface-800">{formatCurrency(nextPeriod.totalEstimatedGross)}</span>
 						<span class="text-auxiliary-text text-surface-600">Est. Gross (Next Run)</span>
 					</div>
 				</div>
 			{/if}
 		</div>
 
-		<!-- Pay Date Cards -->
+		<!-- Pay Period Cards -->
 		<section class="mb-8">
 			<div class="flex items-center justify-between mb-4">
-				<h2 class="text-title-small font-semibold text-surface-800 m-0">Upcoming Pay Dates</h2>
+				<h2 class="text-title-small font-semibold text-surface-800 m-0">Upcoming Pay Periods</h2>
 				<a href="/payroll/history" class="flex items-center gap-2 text-body-content font-medium text-primary-600 no-underline transition-fast hover:text-primary-700">
 					<span>View History</span>
 					<i class="fas fa-arrow-right text-xs"></i>
 				</a>
 			</div>
 
-			{#if upcomingPayDates.length === 0}
+			{#if upcomingPeriods.length === 0}
 				<div class="flex flex-col items-center py-12 px-6 bg-white rounded-xl shadow-md3-1 text-center">
 					<div class="w-20 h-20 rounded-full bg-surface-100 text-surface-400 flex items-center justify-center text-[32px] mb-4">
 						<i class="fas fa-calendar-check"></i>
 					</div>
-					<h3 class="text-title-small font-semibold text-surface-800 m-0 mb-2">No Upcoming Pay Dates</h3>
+					<h3 class="text-title-small font-semibold text-surface-800 m-0 mb-2">No Upcoming Pay Periods</h3>
 					<p class="text-body-content text-surface-600 m-0 mb-6">All scheduled payroll runs have been completed.</p>
 				</div>
 			{:else}
 				<div class="flex flex-col gap-4">
-					{#each upcomingPayDates as payDateData (payDateData.payDate)}
-						<PayDateCard {payDateData} onPayGroupClick={handlePayGroupClick} />
+					{#each upcomingPeriods as periodData (periodData.periodEnd)}
+						<PayPeriodCard {periodData} onPayGroupClick={handlePayGroupClick} />
 					{/each}
 				</div>
 			{/if}
