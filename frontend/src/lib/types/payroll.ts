@@ -502,6 +502,7 @@ export interface DbPayrollRecordWithEmployee extends DbPayrollRecord {
 			vacation_rate?: string;
 		} | null;
 		vacation_balance?: number | null;
+		sick_balance?: number | null;
 		pay_groups: {
 			id: string;
 			name: string;
@@ -644,6 +645,8 @@ export function dbPayrollRecordToUi(db: DbPayrollRecordWithEmployee): PayrollRec
 		vacationBalanceDollars: employee.vacation_balance ?? undefined,
 		vacationHourlyRate: vacationHourlyRate,
 		vacationPayoutMethod: vacationPayoutMethod,
+		// Sick balance - stored in days, convert to hours (8 hours/day)
+		sickBalanceHours: (employee.sick_balance ?? 0) * 8,
 		// Holiday work hours - empty by default, would be loaded separately
 		holidayWorkHours: [],
 		// Paystub status
@@ -757,6 +760,14 @@ export interface EmployeePayrollInput {
 		regularPay?: number;
 		overtimePay?: number;
 		holidayPay?: number;
+	};
+
+	// Sick leave allocation tracking
+	// Stores original sick hours input and auto-generated vacation from sick overflow
+	// This is needed because leaveEntries only stores the paid sick portion
+	sickAllocation?: {
+		sickHoursInput: number;      // Original sick hours the user entered
+		vacationFromSick: number;    // Auto-generated vacation from sick overflow
 	};
 }
 

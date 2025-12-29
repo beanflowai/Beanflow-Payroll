@@ -76,6 +76,7 @@ export async function getPayrollRunByPayDate(
 					hourly_rate,
 					annual_salary,
 					vacation_balance,
+					sick_balance,
 					pay_groups (
 						id,
 						name,
@@ -225,6 +226,7 @@ export async function getPayrollRunByPeriodEnd(
 					hourly_rate,
 					annual_salary,
 					vacation_balance,
+					sick_balance,
 					pay_groups (
 						id,
 						name,
