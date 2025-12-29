@@ -8,9 +8,13 @@ from app.services.payroll_run.benefits_calculator import BenefitsCalculator
 from app.services.payroll_run.constants import (
     COMPLETED_RUN_STATUSES,
     DEFAULT_FEDERAL_BPA_FALLBACK,
+    DEFAULT_PAY_DATE_DELAY,
     DEFAULT_TAX_YEAR,
+    PAY_DATE_DELAY_DAYS,
     PERIODS_PER_YEAR,
     calculate_next_pay_date,
+    calculate_next_period_end,
+    calculate_pay_date,
     extract_year_from_date,
     get_federal_bpa,
     get_provincial_bpa,
@@ -24,12 +28,16 @@ from app.services.payroll_run.ytd_calculator import YtdCalculator
 __all__ = [
     # Constants
     "DEFAULT_FEDERAL_BPA_FALLBACK",
+    "DEFAULT_PAY_DATE_DELAY",
     "COMPLETED_RUN_STATUSES",
     "DEFAULT_TAX_YEAR",
+    "PAY_DATE_DELAY_DAYS",
     "PERIODS_PER_YEAR",
     # Utility functions
     "extract_year_from_date",
     "calculate_next_pay_date",
+    "calculate_next_period_end",
+    "calculate_pay_date",
     "get_federal_bpa",
     "get_provincial_bpa",
     # Classes

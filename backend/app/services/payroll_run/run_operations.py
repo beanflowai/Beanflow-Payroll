@@ -12,7 +12,6 @@ Core lifecycle operations for payroll runs:
 from __future__ import annotations
 
 import logging
-from calendar import monthrange
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -33,7 +32,8 @@ from app.services.payroll.paystub_storage import (
 )
 from app.services.payroll_run.benefits_calculator import BenefitsCalculator
 from app.services.payroll_run.constants import (
-    calculate_next_pay_date,
+    calculate_next_period_end,
+    calculate_pay_date,
     extract_year_from_date,
     get_federal_bpa,
     get_provincial_bpa,
@@ -152,11 +152,23 @@ class PayrollRunOperations:
             vacation_config = employee.get("vacation_config") or {}
             payout_method = vacation_config.get("payout_method", "accrual")
             vacation_pay_for_gross = Decimal("0")
+            vacation_hours_taken = Decimal("0")
 
             if payout_method == "pay_as_you_go":
                 vacation_rate = Decimal(str(vacation_config.get("vacation_rate", "0.04")))
                 base_earnings = gross_regular + gross_overtime
                 vacation_pay_for_gross = base_earnings * vacation_rate
+            elif payout_method == "accrual":
+                # For accrual method: extract vacation hours from leaveEntries
+                leave_entries = input_data.get("leaveEntries") or []
+                for leave in leave_entries:
+                    if leave.get("type") == "vacation":
+                        vacation_hours_taken += Decimal(str(leave.get("hours", 0)))
+
+                # Calculate vacation pay from hours taken
+                if vacation_hours_taken > 0:
+                    hourly_rate = GrossCalculator.calculate_hourly_rate(employee)
+                    vacation_pay_for_gross = vacation_hours_taken * hourly_rate
 
             # Calculate additional earnings from input_data
             holiday_pay = Decimal("0")
@@ -226,7 +238,10 @@ class PayrollRunOperations:
                 ytd_provincial_tax=emp_prior_ytd.get("ytd_provincial_tax", Decimal("0")),
             )
             calculation_inputs.append(calc_input)
-            record_map[record["employee_id"]] = record
+            record_map[record["employee_id"]] = {
+                **record,
+                "_vacation_hours_taken": vacation_hours_taken,
+            }
 
         # Calculate using PayrollEngine
         engine = PayrollEngine(year=tax_year)
@@ -237,6 +252,7 @@ class PayrollRunOperations:
             record = record_map[result.employee_id]
             input_data = record.get("input_data") or {}
             employee = record["employees"]
+            emp_prior_ytd = prior_ytd_data.get(result.employee_id, {})
 
             # Calculate vacation accrued
             vacation_config = employee.get("vacation_config") or {}
@@ -251,11 +267,15 @@ class PayrollRunOperations:
             else:
                 vacation_accrued = Decimal("0")
 
+            # Get vacation hours taken from record_map
+            vacation_hours_taken = record.get("_vacation_hours_taken", Decimal("0"))
+
             self.supabase.table("payroll_records").update({
                 "gross_regular": float(result.gross_regular),
                 "gross_overtime": float(result.gross_overtime),
                 "holiday_pay": float(result.holiday_pay),
                 "vacation_pay_paid": float(result.vacation_pay),
+                "vacation_hours_taken": float(vacation_hours_taken),
                 "other_earnings": float(result.other_earnings),
                 "cpp_employee": float(result.cpp_base),
                 "cpp_additional": float(result.cpp_additional),
@@ -270,6 +290,9 @@ class PayrollRunOperations:
                 "ytd_ei": float(result.new_ytd_ei),
                 "ytd_federal_tax": float(result.new_ytd_federal_tax),
                 "ytd_provincial_tax": float(result.new_ytd_provincial_tax),
+                "ytd_net_pay": float(
+                    emp_prior_ytd.get("ytd_net_pay", Decimal("0")) + result.net_pay
+                ),
                 "vacation_accrued": float(vacation_accrued),
                 "is_modified": False,
                 "regular_hours_worked": input_data.get("regularHours"),
@@ -384,7 +407,7 @@ class PayrollRunOperations:
                 ),
                 pay_groups (
                     id, name, description, pay_frequency, employment_type,
-                    next_pay_date, period_start_day, leave_enabled,
+                    next_period_end, period_start_day, leave_enabled,
                     statutory_defaults, overtime_policy, wcb_config, group_benefits
                 )
             )
@@ -396,6 +419,15 @@ class PayrollRunOperations:
         records = records_result.data or []
         if not records:
             raise ValueError("No records found for payroll run")
+
+        # Validate vacation balances for accrual method employees
+        balance_errors = self._validate_vacation_balances(records)
+        if balance_errors:
+            error_msg = "Cannot approve: insufficient vacation balance. "
+            error_msg += "; ".join(balance_errors[:5])
+            if len(balance_errors) > 5:
+                error_msg += f" ... and {len(balance_errors) - 5} more"
+            raise ValueError(error_msg)
 
         # Build PayrollRun model
         payroll_run = ModelBuilder.build_payroll_run(run)
@@ -502,6 +534,9 @@ class PayrollRunOperations:
                 error_summary += f" ... and {len(paystub_errors) - 5} more"
             raise ValueError(error_summary)
 
+        # Update vacation balance for accrual method employees (+accrued -paid)
+        await self._update_vacation_balances(records)
+
         update_data: dict[str, Any] = {
             "status": "approved",
             "approved_at": datetime.now().isoformat(),
@@ -516,7 +551,7 @@ class PayrollRunOperations:
         if not update_result.data or len(update_result.data) == 0:
             raise ValueError("Failed to update payroll run status")
 
-        # Update next_pay_date for all affected pay groups
+        # Update next_period_end for all affected pay groups
         pay_group_updates: dict[str, str] = {}
         for record_data in records:
             pay_group_data = record_data["employees"].get("pay_groups")
@@ -525,13 +560,13 @@ class PayrollRunOperations:
                 if pg_id not in pay_group_updates:
                     pay_group_updates[pg_id] = pay_group_data.get("pay_frequency", "bi_weekly")
 
-        current_pay_date = datetime.strptime(run["pay_date"], "%Y-%m-%d").date()
+        current_period_end = datetime.strptime(run["period_end"], "%Y-%m-%d").date()
         for pg_id, pay_frequency in pay_group_updates.items():
-            next_pay_date = calculate_next_pay_date(current_pay_date, pay_frequency)
+            next_period_end = calculate_next_period_end(current_period_end, pay_frequency)
             self.supabase.table("pay_groups").update({
-                "next_pay_date": next_pay_date.strftime("%Y-%m-%d")
+                "next_period_end": next_period_end.strftime("%Y-%m-%d")
             }).eq("id", pg_id).execute()
-            logger.info("Updated pay_group %s next_pay_date to %s", pg_id, next_pay_date)
+            logger.info("Updated pay_group %s next_period_end to %s", pg_id, next_period_end)
 
         return {
             **update_result.data[0],
@@ -613,13 +648,31 @@ class PayrollRunOperations:
     async def create_or_get_run(self, pay_date: str) -> dict[str, Any]:
         """Create a new draft payroll run or get existing one for a pay date.
 
+        DEPRECATED: Use create_or_get_run_by_period_end() instead.
+        This method converts pay_date to period_end (pay_date - 6 days for SK)
+        and delegates to the new method.
+
         Returns:
             Dict with 'run', 'created' bool, and 'records_count'
         """
-        # Check if run already exists
+        # Convert pay_date to period_end (assuming SK: pay_date = period_end + 6)
+        pay_date_obj = datetime.strptime(pay_date, "%Y-%m-%d").date()
+        period_end = pay_date_obj - timedelta(days=6)
+        return await self.create_or_get_run_by_period_end(period_end.strftime("%Y-%m-%d"))
+
+    async def create_or_get_run_by_period_end(self, period_end: str) -> dict[str, Any]:
+        """Create a new draft payroll run or get existing one for a period end.
+
+        This is the new entry point that uses period_end as the primary identifier.
+        Pay date is auto-calculated based on province regulations.
+
+        Returns:
+            Dict with 'run', 'created' bool, and 'records_count'
+        """
+        # Check if run already exists for this period_end
         existing_result = self.supabase.table("payroll_runs").select("*").eq(
             "user_id", self.user_id
-        ).eq("company_id", self.company_id).eq("pay_date", pay_date).execute()
+        ).eq("company_id", self.company_id).eq("period_end", period_end).execute()
 
         if existing_result.data and len(existing_result.data) > 0:
             return {
@@ -628,14 +681,14 @@ class PayrollRunOperations:
                 "records_count": 0,
             }
 
-        # Get pay groups with matching next_pay_date
+        # Get pay groups with matching next_period_end
         pay_groups_result = self.supabase.table("pay_groups").select(
             "id, name, pay_frequency, employment_type, group_benefits"
-        ).eq("next_pay_date", pay_date).execute()
+        ).eq("next_period_end", period_end).execute()
 
         pay_groups = pay_groups_result.data or []
         if not pay_groups:
-            raise ValueError(f"No pay groups found with pay date {pay_date}")
+            raise ValueError(f"No pay groups found with period end {period_end}")
 
         pay_group_ids = [pg["id"] for pg in pay_groups]
         pay_group_map = {pg["id"]: pg for pg in pay_groups}
@@ -653,41 +706,33 @@ class PayrollRunOperations:
         if not employees:
             raise ValueError("No active employees found for these pay groups")
 
-        # Calculate period dates
-        pay_date_obj = datetime.strptime(pay_date, "%Y-%m-%d")
+        # Parse period_end and calculate dates
+        period_end_obj = datetime.strptime(period_end, "%Y-%m-%d").date()
         pay_frequency = pay_groups[0].get("pay_frequency", "bi_weekly")
 
+        # Calculate period_start based on frequency
         if pay_frequency == "monthly":
-            if pay_date_obj.day >= 16:
-                period_start = pay_date_obj.replace(day=1)
-                _, last_day = monthrange(pay_date_obj.year, pay_date_obj.month)
-                period_end = pay_date_obj.replace(day=last_day)
-            else:
-                prev_month_end = pay_date_obj.replace(day=1) - timedelta(days=1)
-                period_start = prev_month_end.replace(day=1)
-                period_end = prev_month_end
+            period_start = period_end_obj.replace(day=1)
         elif pay_frequency == "semi_monthly":
-            if pay_date_obj.day <= 15:
-                prev_month = pay_date_obj.replace(day=1) - timedelta(days=1)
-                period_start = prev_month.replace(day=16)
-                period_end = prev_month
+            if period_end_obj.day <= 15:
+                period_start = period_end_obj.replace(day=1)
             else:
-                period_start = pay_date_obj.replace(day=1)
-                period_end = pay_date_obj.replace(day=15)
+                period_start = period_end_obj.replace(day=16)
         elif pay_frequency == "weekly":
-            period_end = pay_date_obj - timedelta(days=1)
-            period_start = period_end - timedelta(days=6)
-        else:
-            period_end = pay_date_obj - timedelta(days=1)
-            period_start = period_end - timedelta(days=13)
+            period_start = period_end_obj - timedelta(days=6)
+        else:  # bi_weekly
+            period_start = period_end_obj - timedelta(days=13)
+
+        # Calculate pay_date from period_end (default: +6 days for SK)
+        pay_date_obj = calculate_pay_date(period_end_obj, "SK")
 
         # Create the payroll run
         run_insert_result = self.supabase.table("payroll_runs").insert({
             "user_id": self.user_id,
             "company_id": self.company_id,
             "period_start": period_start.strftime("%Y-%m-%d"),
-            "period_end": period_end.strftime("%Y-%m-%d"),
-            "pay_date": pay_date,
+            "period_end": period_end,
+            "pay_date": pay_date_obj.strftime("%Y-%m-%d"),
             "status": "draft",
             "total_employees": len(employees),
             "total_gross": 0,
@@ -707,10 +752,10 @@ class PayrollRunOperations:
         run = run_insert_result.data[0]
         run_id = run["id"]
 
-        tax_year = extract_year_from_date(pay_date)
+        tax_year = extract_year_from_date(period_end)
 
         _, results = await self._create_records_for_employees(
-            UUID(run_id), employees, pay_group_map, tax_year, pay_date_obj.date()
+            UUID(run_id), employees, pay_group_map, tax_year, pay_date_obj
         )
 
         if results:
@@ -743,3 +788,73 @@ class PayrollRunOperations:
             "created": True,
             "records_count": len(employees),
         }
+
+    async def _update_vacation_balances(self, records: list[dict[str, Any]]) -> None:
+        """Update employee vacation_balance: +accrued -paid.
+
+        Only processes employees with payout_method = "accrual".
+        Called during payroll run approval.
+
+        Args:
+            records: List of payroll records with employee data
+        """
+        for record in records:
+            employee_data = record.get("employees", {})
+            vacation_config = employee_data.get("vacation_config") or {}
+
+            # Only process accrual method employees
+            if vacation_config.get("payout_method") != "accrual":
+                continue
+
+            vacation_accrued = Decimal(str(record.get("vacation_accrued", 0)))
+            vacation_pay_paid = Decimal(str(record.get("vacation_pay_paid", 0)))
+
+            # Skip if no changes
+            if vacation_accrued == 0 and vacation_pay_paid == 0:
+                continue
+
+            current_balance = Decimal(str(employee_data.get("vacation_balance", 0)))
+            new_balance = max(current_balance + vacation_accrued - vacation_pay_paid, Decimal("0"))
+
+            self.supabase.table("employees").update({
+                "vacation_balance": float(new_balance)
+            }).eq("id", employee_data["id"]).execute()
+
+            logger.info(
+                "Updated vacation balance for employee %s %s: $%.2f -> $%.2f (accrued: $%.2f, paid: $%.2f)",
+                employee_data.get("first_name"),
+                employee_data.get("last_name"),
+                float(current_balance),
+                float(new_balance),
+                float(vacation_accrued),
+                float(vacation_pay_paid),
+            )
+
+    def _validate_vacation_balances(self, records: list[dict[str, Any]]) -> list[str]:
+        """Validate vacation balances are sufficient for all employees.
+
+        Returns:
+            List of error messages for employees with insufficient balance
+        """
+        errors: list[str] = []
+
+        for record in records:
+            employee_data = record.get("employees", {})
+            vacation_config = employee_data.get("vacation_config") or {}
+
+            # Only validate accrual method employees
+            if vacation_config.get("payout_method") != "accrual":
+                continue
+
+            vacation_pay_paid = Decimal(str(record.get("vacation_pay_paid", 0)))
+            if vacation_pay_paid <= 0:
+                continue
+
+            current_balance = Decimal(str(employee_data.get("vacation_balance", 0)))
+            if vacation_pay_paid > current_balance:
+                name = f"{employee_data.get('first_name')} {employee_data.get('last_name')}"
+                errors.append(
+                    f"{name}: balance ${current_balance:.2f}, requested ${vacation_pay_paid:.2f}"
+                )
+
+        return errors

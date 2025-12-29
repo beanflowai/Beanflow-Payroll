@@ -106,6 +106,7 @@ class PayrollRunService:
                 is_ei_exempt,
                 cpp2_exempt,
                 vacation_config,
+                vacation_balance,
                 pay_group_id,
                 pay_groups (
                     id,
@@ -236,6 +237,14 @@ class PayrollRunService:
     async def create_or_get_run(self, pay_date: str) -> dict[str, Any]:
         """Create a new draft payroll run or get existing one for a pay date."""
         return await self._run_ops.create_or_get_run(pay_date)
+
+    async def create_or_get_run_by_period_end(self, period_end: str) -> dict[str, Any]:
+        """Create a new draft payroll run or get existing one for a period end.
+
+        This is the new entry point that uses period_end as the primary identifier.
+        The pay_date is auto-calculated based on province regulations.
+        """
+        return await self._run_ops.create_or_get_run_by_period_end(period_end)
 
     async def recalculate_run(self, run_id: UUID) -> dict[str, Any]:
         """Recalculate all records in a draft payroll run."""

@@ -962,7 +962,7 @@ async def sync_employees(
 class CreateOrGetRunRequest(BaseModel):
     """Request to create or get a draft payroll run."""
 
-    payDate: str = Field(..., description="Pay date in YYYY-MM-DD format")
+    periodEnd: str = Field(..., description="Period end date in YYYY-MM-DD format")
 
 
 class CreateOrGetRunResponse(BaseModel):
@@ -979,27 +979,27 @@ class CreateOrGetRunResponse(BaseModel):
     "/runs/create-or-get",
     response_model=CreateOrGetRunResponse,
     summary="Create or get a draft payroll run",
-    description="Create a new draft payroll run or return existing one for a pay date.",
+    description="Create a new draft payroll run or return existing one for a period end.",
 )
 async def create_or_get_run(
     request: CreateOrGetRunRequest,
     current_user: CurrentUser,
 ) -> CreateOrGetRunResponse:
     """
-    Create a new draft payroll run or get existing one for a pay date.
+    Create a new draft payroll run or get existing one for a period end.
 
     This endpoint:
-    1. Checks if a payroll run already exists for this pay date
+    1. Checks if a payroll run already exists for this period end
     2. If exists, returns the existing run
     3. If not, creates a new draft run with payroll records for all eligible employees
 
     The run is automatically populated with employees from pay groups that have
-    this date as their next_pay_date.
+    this date as their next_period_end.
     """
     try:
         company_id = await get_user_company_id(current_user.id)
         service = get_payroll_run_service(current_user.id, company_id)
-        result = await service.create_or_get_run(request.payDate)
+        result = await service.create_or_get_run_by_period_end(request.periodEnd)
 
         run_data = result["run"]
         return CreateOrGetRunResponse(

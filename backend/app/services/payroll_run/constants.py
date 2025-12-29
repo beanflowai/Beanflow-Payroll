@@ -110,6 +110,95 @@ def get_provincial_bpa(
         return Decimal("12747")
 
 
+# Maximum days after period end to pay employees (by province)
+# Saskatchewan: must pay within 6 days of period end
+PAY_DATE_DELAY_DAYS = {
+    "SK": 6,
+    "ON": 7,  # Ontario
+    "BC": 8,  # British Columbia
+    "AB": 10,  # Alberta
+    "MB": 10,  # Manitoba
+    "QC": 16,  # Quebec (can be longer based on contract)
+    "NB": 5,  # New Brunswick
+    "NS": 5,  # Nova Scotia
+    "PE": 7,  # Prince Edward Island
+    "NL": 7,  # Newfoundland and Labrador
+    "NT": 10,  # Northwest Territories
+    "NU": 10,  # Nunavut
+    "YT": 10,  # Yukon
+}
+DEFAULT_PAY_DATE_DELAY = 7  # Default to 7 days if province not specified
+
+
+def calculate_pay_date(period_end: date, province: str = "SK") -> date:
+    """Calculate pay date based on period end and province regulations.
+
+    Saskatchewan law requires paying employees within 6 days of pay period end.
+    Other provinces have different requirements.
+
+    Args:
+        period_end: The pay period end date
+        province: Two-letter province code (default: "SK")
+
+    Returns:
+        The calculated pay date
+    """
+    delay_days = PAY_DATE_DELAY_DAYS.get(province, DEFAULT_PAY_DATE_DELAY)
+    return period_end + timedelta(days=delay_days)
+
+
+def calculate_next_period_end(current_period_end: date, pay_frequency: str) -> date:
+    """Calculate the next period end date based on pay frequency.
+
+    Args:
+        current_period_end: The current pay period end date
+        pay_frequency: One of 'weekly', 'bi_weekly', 'semi_monthly', 'monthly'
+
+    Returns:
+        The next period end date
+    """
+    if pay_frequency == "weekly":
+        return current_period_end + timedelta(days=7)
+    elif pay_frequency == "bi_weekly":
+        return current_period_end + timedelta(days=14)
+    elif pay_frequency == "semi_monthly":
+        # Period ends are either 15th or last day of month
+        if current_period_end.day <= 15:
+            # Current is 15th, next is end of month
+            last_day = monthrange(current_period_end.year, current_period_end.month)[1]
+            return current_period_end.replace(day=last_day)
+        else:
+            # Current is end of month, next is 15th of next month
+            if current_period_end.month == 12:
+                return date(current_period_end.year + 1, 1, 15)
+            else:
+                return date(current_period_end.year, current_period_end.month + 1, 15)
+    elif pay_frequency == "monthly":
+        # Check if current period end is the last day of its month
+        current_month_last_day = monthrange(
+            current_period_end.year, current_period_end.month
+        )[1]
+        is_last_day_of_month = current_period_end.day == current_month_last_day
+
+        # Calculate next month
+        if current_period_end.month == 12:
+            next_month = date(current_period_end.year + 1, 1, 1)
+        else:
+            next_month = date(current_period_end.year, current_period_end.month + 1, 1)
+        next_month_last_day = monthrange(next_month.year, next_month.month)[1]
+
+        if is_last_day_of_month:
+            # If period ends on last day of month, always use last day
+            return next_month.replace(day=next_month_last_day)
+        else:
+            # Use same day, or last day if month is shorter
+            return next_month.replace(day=min(current_period_end.day, next_month_last_day))
+    else:
+        # Default to bi-weekly
+        return current_period_end + timedelta(days=14)
+
+
+# Legacy function - kept for backward compatibility
 def calculate_next_pay_date(current_pay_date: date, pay_frequency: str) -> date:
     """Calculate the next pay date based on pay frequency.
 

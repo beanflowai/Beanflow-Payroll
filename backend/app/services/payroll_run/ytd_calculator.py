@@ -101,6 +101,7 @@ class YtdCalculator:
                 "ytd_ei": Decimal("0"),
                 "ytd_federal_tax": Decimal("0"),
                 "ytd_provincial_tax": Decimal("0"),
+                "ytd_net_pay": Decimal("0"),
             }
 
         # Sum up prior records (year filtering already done at database level)
@@ -133,6 +134,9 @@ class YtdCalculator:
             )
             ytd_data[emp_id]["ytd_provincial_tax"] += Decimal(
                 str(record.get("provincial_tax", 0))
+            )
+            ytd_data[emp_id]["ytd_net_pay"] += Decimal(
+                str(record.get("net_pay", 0))
             )
 
         return ytd_data

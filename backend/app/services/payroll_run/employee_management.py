@@ -76,12 +76,12 @@ class EmployeeManagement:
                 "run": run,
             }
 
-        pay_date = run["pay_date"]
+        period_end = run["period_end"]
 
-        # Get pay groups with matching next_pay_date
+        # Get pay groups with matching next_period_end
         pay_groups_result = self.supabase.table("pay_groups").select(
             "id, name, pay_frequency, employment_type, group_benefits"
-        ).eq("next_pay_date", pay_date).execute()
+        ).eq("next_period_end", period_end).execute()
 
         pay_groups = pay_groups_result.data or []
         if not pay_groups:
@@ -126,6 +126,7 @@ class EmployeeManagement:
                 "run": run,
             }
 
+        pay_date = run["pay_date"]
         tax_year = extract_year_from_date(pay_date)
         pay_date_obj = datetime.strptime(pay_date, "%Y-%m-%d").date() if pay_date else None
 
@@ -420,6 +421,7 @@ class EmployeeManagement:
             emp = employee_map[result.employee_id]
             pay_group = pay_group_map.get(emp.get("pay_group_id", ""), {})
             employee_name = f"{emp['first_name']} {emp['last_name']}"
+            emp_prior_ytd = prior_ytd_data.get(result.employee_id, {})
 
             # Calculate vacation accrued
             vacation_config = emp.get("vacation_config") or {}
@@ -469,6 +471,9 @@ class EmployeeManagement:
                 "ytd_ei": float(result.new_ytd_ei),
                 "ytd_federal_tax": float(result.new_ytd_federal_tax),
                 "ytd_provincial_tax": float(result.new_ytd_provincial_tax),
+                "ytd_net_pay": float(
+                    emp_prior_ytd.get("ytd_net_pay", Decimal("0")) + result.net_pay
+                ),
                 "vacation_accrued": float(vacation_accrued),
                 "vacation_hours_taken": 0,
                 "input_data": {

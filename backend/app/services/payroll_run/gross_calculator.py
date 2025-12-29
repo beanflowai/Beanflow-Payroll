@@ -19,6 +19,29 @@ class GrossCalculator:
     """Calculates gross regular and overtime pay for employees."""
 
     @staticmethod
+    def calculate_hourly_rate(employee: dict[str, Any]) -> Decimal:
+        """Calculate employee's hourly rate for vacation pay calculation.
+
+        For salaried employees: annual_salary / 2080
+        For hourly employees: use their hourly_rate directly
+
+        Args:
+            employee: Employee data dict with annual_salary or hourly_rate
+
+        Returns:
+            Hourly rate as Decimal
+        """
+        hourly_rate = employee.get("hourly_rate")
+        annual_salary = employee.get("annual_salary")
+
+        if hourly_rate:
+            return Decimal(str(hourly_rate))
+        elif annual_salary:
+            # 2080 = 52 weeks × 40 hours/week (standard annual working hours)
+            return Decimal(str(annual_salary)) / Decimal("2080")
+        return Decimal("0")
+
+    @staticmethod
     def calculate_initial_gross(
         employee: dict[str, Any], pay_frequency: str
     ) -> tuple[Decimal, Decimal]:
