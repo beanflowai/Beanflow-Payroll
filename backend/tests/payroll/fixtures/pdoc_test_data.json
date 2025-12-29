@@ -1,0 +1,538 @@
+{
+  "version": "2025-07",
+  "collected_date": "2025-12-29",
+  "pdoc_version": "T4127 - Version 2025-12-08",
+  "pdoc_url": "https://www.canada.ca/en/revenue-agency/services/e-services/digital-services-businesses/payroll-deductions-online-calculator.html",
+  "notes": "PDOC data collected from CRA website. Pay date 2025-07-18 uses post-July 1 federal tax rate (14%).",
+  "tolerance": "0.05",
+
+  "test_cases": [
+    {
+      "id": "ON_60K_BIWEEKLY",
+      "tier": 1,
+      "description": "Ontario standard $60k annual, bi-weekly, YTD=$0",
+      "status": "VERIFIED",
+      "input": {
+        "province": "ON",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-07-18",
+        "federal_claim": "16129.00",
+        "provincial_claim": "12747.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
+        "cpp2": "0.00",
+        "ei": "37.85",
+        "federal_tax": "210.07",
+        "provincial_tax": "116.76",
+        "total_deductions": "493.98",
+        "net_pay": "1813.71",
+        "taxable_income_per_period": "2285.96",
+        "pensionable_earnings": "2307.69",
+        "insurable_earnings": "2307.69"
+      },
+      "notes": "Verified from PDOC on 2025-12-29. Federal rate is 14% post July 1, 2025."
+    },
+
+    {
+      "id": "AB_60K_BIWEEKLY",
+      "tier": 1,
+      "description": "Alberta $60k annual, bi-weekly - flat 10% rate, high BPA, K5P credit",
+      "status": "PENDING",
+      "input": {
+        "province": "AB",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-07-18",
+        "federal_claim": "16129.00",
+        "provincial_claim": "22323.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp2": "0.00",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "total_deductions": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "TO BE COLLECTED - Tests Alberta flat 10% rate and K5P supplemental credit"
+    },
+
+    {
+      "id": "BC_60K_BIWEEKLY",
+      "tier": 1,
+      "description": "BC $60k annual, bi-weekly - tax reduction (Factor S)",
+      "status": "PENDING",
+      "input": {
+        "province": "BC",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-07-18",
+        "federal_claim": "16129.00",
+        "provincial_claim": "12932.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp2": "0.00",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "total_deductions": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "TO BE COLLECTED - Tests BC tax reduction"
+    },
+
+    {
+      "id": "MB_60K_BIWEEKLY",
+      "tier": 1,
+      "description": "Manitoba $60k annual, bi-weekly - dynamic BPA",
+      "status": "PENDING",
+      "input": {
+        "province": "MB",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-07-18",
+        "federal_claim": "16129.00",
+        "provincial_claim": "15780.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp2": "0.00",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "total_deductions": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "TO BE COLLECTED - Tests Manitoba dynamic BPA"
+    },
+
+    {
+      "id": "SK_60K_BIWEEKLY",
+      "tier": 1,
+      "description": "Saskatchewan $60k annual, bi-weekly - mid-year BPA change",
+      "status": "PENDING",
+      "input": {
+        "province": "SK",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-07-18",
+        "federal_claim": "16129.00",
+        "provincial_claim": "19991.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp2": "0.00",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "total_deductions": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "TO BE COLLECTED - Tests Saskatchewan mid-year BPA ($18,991 → $19,991 Jul 1)"
+    },
+
+    {
+      "id": "NB_60K_BIWEEKLY",
+      "tier": 1,
+      "description": "New Brunswick $60k annual, bi-weekly - standard rules",
+      "status": "PENDING",
+      "input": {
+        "province": "NB",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-07-18",
+        "federal_claim": "16129.00",
+        "provincial_claim": "13396.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp2": "0.00",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "total_deductions": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "TO BE COLLECTED"
+    },
+
+    {
+      "id": "NL_60K_BIWEEKLY",
+      "tier": 1,
+      "description": "Newfoundland $60k annual, bi-weekly - standard rules",
+      "status": "PENDING",
+      "input": {
+        "province": "NL",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-07-18",
+        "federal_claim": "16129.00",
+        "provincial_claim": "11067.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp2": "0.00",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "total_deductions": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "TO BE COLLECTED"
+    },
+
+    {
+      "id": "NS_60K_BIWEEKLY",
+      "tier": 1,
+      "description": "Nova Scotia $60k annual, bi-weekly - two-tier BPA, surtax",
+      "status": "PENDING",
+      "input": {
+        "province": "NS",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-07-18",
+        "federal_claim": "16129.00",
+        "provincial_claim": "11744.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp2": "0.00",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "total_deductions": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "TO BE COLLECTED - Tests Nova Scotia two-tier BPA and surtax"
+    },
+
+    {
+      "id": "PE_60K_BIWEEKLY",
+      "tier": 1,
+      "description": "PEI $60k annual, bi-weekly - mid-year BPA change",
+      "status": "PENDING",
+      "input": {
+        "province": "PE",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-07-18",
+        "federal_claim": "16129.00",
+        "provincial_claim": "15050.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp2": "0.00",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "total_deductions": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "TO BE COLLECTED - Tests PEI mid-year BPA ($14,250 → $15,050 Jul 1)"
+    },
+
+    {
+      "id": "NT_60K_BIWEEKLY",
+      "tier": 1,
+      "description": "Northwest Territories $60k annual, bi-weekly - standard rules",
+      "status": "PENDING",
+      "input": {
+        "province": "NT",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-07-18",
+        "federal_claim": "16129.00",
+        "provincial_claim": "17842.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp2": "0.00",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "total_deductions": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "TO BE COLLECTED"
+    },
+
+    {
+      "id": "NU_60K_BIWEEKLY",
+      "tier": 1,
+      "description": "Nunavut $60k annual, bi-weekly - standard rules",
+      "status": "PENDING",
+      "input": {
+        "province": "NU",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-07-18",
+        "federal_claim": "16129.00",
+        "provincial_claim": "19274.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp2": "0.00",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "total_deductions": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "TO BE COLLECTED"
+    },
+
+    {
+      "id": "YT_60K_BIWEEKLY",
+      "tier": 1,
+      "description": "Yukon $60k annual, bi-weekly - follows federal BPA formula",
+      "status": "PENDING",
+      "input": {
+        "province": "YT",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-07-18",
+        "federal_claim": "16129.00",
+        "provincial_claim": "16129.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp2": "0.00",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "total_deductions": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "TO BE COLLECTED - Tests Yukon follows federal BPA formula"
+    },
+
+    {
+      "id": "ON_120K_MONTHLY",
+      "tier": 2,
+      "description": "Ontario high income $120k annual, monthly - full surtax, health premium",
+      "status": "PENDING",
+      "input": {
+        "province": "ON",
+        "gross_pay": "10000.00",
+        "pay_frequency": "monthly",
+        "pay_periods": 12,
+        "pay_date": "2025-07-18",
+        "federal_claim": "16129.00",
+        "provincial_claim": "12747.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp2": "TO_BE_VERIFIED",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "total_deductions": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "TO BE COLLECTED - Tests Ontario surtax and health premium at $120k"
+    },
+
+    {
+      "id": "BC_30K_BIWEEKLY",
+      "tier": 2,
+      "description": "BC low income $30k annual, bi-weekly - tax reduction (Factor S) active",
+      "status": "PENDING",
+      "input": {
+        "province": "BC",
+        "gross_pay": "1153.85",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-07-18",
+        "federal_claim": "16129.00",
+        "provincial_claim": "12932.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp2": "0.00",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "total_deductions": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "TO BE COLLECTED - Tests BC tax reduction for low income"
+    },
+
+    {
+      "id": "AB_120K_MONTHLY",
+      "tier": 2,
+      "description": "Alberta high income $120k annual, monthly - CPP2 range",
+      "status": "PENDING",
+      "input": {
+        "province": "AB",
+        "gross_pay": "10000.00",
+        "pay_frequency": "monthly",
+        "pay_periods": 12,
+        "pay_date": "2025-07-18",
+        "federal_claim": "16129.00",
+        "provincial_claim": "22323.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp2": "TO_BE_VERIFIED",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "total_deductions": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "TO BE COLLECTED - Tests Alberta flat rate at high income + CPP2"
+    }
+  ]
+}
