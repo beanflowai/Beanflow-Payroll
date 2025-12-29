@@ -88,7 +88,7 @@
 			description: updatedPayGroup.description,
 			pay_frequency: updatedPayGroup.payFrequency,
 			employment_type: updatedPayGroup.employmentType,
-			next_pay_date: updatedPayGroup.nextPayDate,
+			next_period_end: updatedPayGroup.nextPeriodEnd,
 			period_start_day: updatedPayGroup.periodStartDay,
 			leave_enabled: updatedPayGroup.leaveEnabled,
 			statutory_defaults: updatedPayGroup.statutoryDefaults,

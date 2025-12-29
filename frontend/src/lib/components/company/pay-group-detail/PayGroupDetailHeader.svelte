@@ -1,17 +1,18 @@
 <script lang="ts">
 	// PayGroupDetailHeader - Header with back navigation, title, and actions
 	import type { PayGroup } from '$lib/types/pay-group';
-	import { PAY_FREQUENCY_INFO, EMPLOYMENT_TYPE_INFO } from '$lib/types/pay-group';
+	import { PAY_FREQUENCY_INFO, EMPLOYMENT_TYPE_INFO, calculatePayDate } from '$lib/types/pay-group';
 	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	interface Props {
 		payGroup: PayGroup;
+		companyProvince?: string;
 		isNew?: boolean;
 		onBack: () => void;
 		onDelete: () => void;
 	}
 
-	let { payGroup, isNew = false, onBack, onDelete }: Props = $props();
+	let { payGroup, companyProvince = 'SK', isNew = false, onBack, onDelete }: Props = $props();
 
 	// Calculate days until next pay date
 	function getDaysUntilPayDate(dateStr: string): number {
@@ -35,7 +36,11 @@
 	// Derived values
 	const frequencyLabel = $derived(PAY_FREQUENCY_INFO[payGroup.payFrequency].label);
 	const typeLabel = $derived(EMPLOYMENT_TYPE_INFO[payGroup.employmentType].label);
-	const daysUntilPay = $derived(getDaysUntilPayDate(payGroup.nextPayDate));
+	// Calculate pay date from period end based on company province
+	const computedPayDate = $derived(
+		payGroup.nextPeriodEnd ? calculatePayDate(payGroup.nextPeriodEnd, companyProvince) : ''
+	);
+	const daysUntilPay = $derived(computedPayDate ? getDaysUntilPayDate(computedPayDate) : 0);
 	const badgeVariant = $derived(getBadgeVariant(daysUntilPay));
 </script>
 
@@ -73,11 +78,11 @@
 						<span class="metadata-separator">&middot;</span>
 						<span class="metadata-item">{typeLabel}</span>
 
-						{#if payGroup.nextPayDate}
+						{#if computedPayDate}
 							<span class="metadata-separator">&middot;</span>
 							<span class="next-pay-inline">
 								<i class="fas fa-calendar-alt"></i>
-								<span class="pay-date">{formatShortDate(payGroup.nextPayDate)}</span>
+								<span class="pay-date">{formatShortDate(computedPayDate)}</span>
 								<span class="pay-badge {badgeVariant}">
 									{#if daysUntilPay < 0}
 										Overdue

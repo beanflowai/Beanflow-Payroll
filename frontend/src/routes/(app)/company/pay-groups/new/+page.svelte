@@ -78,16 +78,16 @@
 			validationError = 'Pay group name is required';
 			return false;
 		}
-		if (!payGroup.nextPayDate) {
-			validationError = 'Next pay date is required';
+		if (!payGroup.nextPeriodEnd) {
+			validationError = 'Next period end date is required';
 			return false;
 		}
-		// Check if next pay date is in the future
-		const nextPayDateValue = new Date(payGroup.nextPayDate);
+		// Check if next period end is not in the past
+		const nextPeriodEndValue = new Date(payGroup.nextPeriodEnd);
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
-		if (nextPayDateValue <= today) {
-			validationError = 'Next pay date must be in the future';
+		if (nextPeriodEndValue < today) {
+			validationError = 'Next period end date cannot be in the past';
 			return false;
 		}
 		return true;
@@ -111,7 +111,7 @@
 			description: payGroup.description,
 			pay_frequency: payGroup.payFrequency,
 			employment_type: payGroup.employmentType,
-			next_pay_date: payGroup.nextPayDate,
+			next_period_end: payGroup.nextPeriodEnd,
 			period_start_day: payGroup.periodStartDay,
 			leave_enabled: payGroup.leaveEnabled,
 			statutory_defaults: payGroup.statutoryDefaults,

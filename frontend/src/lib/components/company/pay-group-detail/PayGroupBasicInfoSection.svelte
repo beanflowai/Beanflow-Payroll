@@ -12,17 +12,19 @@
 		PAY_FREQUENCY_INFO,
 		EMPLOYMENT_TYPE_INFO,
 		PERIOD_START_DAY_OPTIONS,
-		TAX_CALCULATION_METHOD_INFO
+		TAX_CALCULATION_METHOD_INFO,
+		calculatePayDate
 	} from '$lib/types/pay-group';
 	import { formatLongDate } from '$lib/utils/dateUtils';
 
 	interface Props {
 		payGroup: PayGroup;
+		companyProvince?: string;
 		onUpdate: (payGroup: PayGroup) => void;
 		startInEditMode?: boolean;
 	}
 
-	let { payGroup, onUpdate, startInEditMode = false }: Props = $props();
+	let { payGroup, companyProvince = 'SK', onUpdate, startInEditMode = false }: Props = $props();
 
 	// Edit mode state - start in edit mode if requested
 	let isEditing = $state(startInEditMode);
@@ -36,7 +38,7 @@
 	let editEmploymentType = $state<EmploymentType>(
 		startInEditMode ? payGroup.employmentType : 'full_time'
 	);
-	let editNextPayDate = $state(startInEditMode ? payGroup.nextPayDate : '');
+	let editNextPeriodEnd = $state(startInEditMode ? payGroup.nextPeriodEnd : '');
 	let editPeriodStartDay = $state<PeriodStartDay>(
 		startInEditMode ? payGroup.periodStartDay : 'monday'
 	);
@@ -51,12 +53,22 @@
 		editDescription = payGroup.description ?? '';
 		editPayFrequency = payGroup.payFrequency;
 		editEmploymentType = payGroup.employmentType;
-		editNextPayDate = payGroup.nextPayDate;
+		editNextPeriodEnd = payGroup.nextPeriodEnd;
 		editPeriodStartDay = payGroup.periodStartDay;
 		editLeaveEnabled = payGroup.leaveEnabled;
 		editTaxCalculationMethod = payGroup.taxCalculationMethod;
 		isEditing = true;
 	}
+
+	// Computed pay date (auto-calculated from period end based on company province)
+	const computedPayDate = $derived(
+		editNextPeriodEnd ? calculatePayDate(editNextPeriodEnd, companyProvince) : ''
+	);
+
+	// Display pay date for view mode
+	const displayPayDate = $derived(
+		payGroup.nextPeriodEnd ? calculatePayDate(payGroup.nextPeriodEnd, companyProvince) : ''
+	);
 
 	// Cancel edit mode
 	function cancelEdit() {
@@ -71,7 +83,7 @@
 			description: editDescription.trim() || undefined,
 			payFrequency: editPayFrequency,
 			employmentType: editEmploymentType,
-			nextPayDate: editNextPayDate,
+			nextPeriodEnd: editNextPeriodEnd,
 			periodStartDay: editPeriodStartDay,
 			leaveEnabled: editLeaveEnabled,
 			taxCalculationMethod: editTaxCalculationMethod,
@@ -90,7 +102,7 @@
 
 
 	// Validation
-	const isValid = $derived(editName.trim().length > 0 && editNextPayDate.length > 0);
+	const isValid = $derived(editName.trim().length > 0 && editNextPeriodEnd.length > 0);
 
 	// When startInEditMode is true, sync changes back to parent in real-time
 	// This is needed for the "new" page where the parent has a separate save button
@@ -102,7 +114,7 @@
 			const desc = editDescription;
 			const freq = editPayFrequency;
 			const empType = editEmploymentType;
-			const nextDate = editNextPayDate;
+			const nextPeriodEnd = editNextPeriodEnd;
 			const startDay = editPeriodStartDay;
 			const leave = editLeaveEnabled;
 			const taxMethod = editTaxCalculationMethod;
@@ -115,7 +127,7 @@
 					description: desc.trim() || undefined,
 					payFrequency: freq,
 					employmentType: empType,
-					nextPayDate: nextDate,
+					nextPeriodEnd: nextPeriodEnd,
 					periodStartDay: startDay,
 					leaveEnabled: leave,
 					taxCalculationMethod: taxMethod
@@ -192,8 +204,20 @@
 				</div>
 
 				<div class="form-group">
-					<label for="nextPayDate">Next Pay Date *</label>
-					<input type="date" id="nextPayDate" bind:value={editNextPayDate} />
+					<label for="nextPeriodEnd">Next Period End *</label>
+					<input type="date" id="nextPeriodEnd" bind:value={editNextPeriodEnd} />
+				</div>
+
+				<div class="form-group">
+					<label for="payDate">Pay Date (auto-calculated)</label>
+					<input
+						type="text"
+						id="payDate"
+						value={computedPayDate ? formatLongDate(computedPayDate) : '—'}
+						readonly
+						class="readonly-field"
+					/>
+					<p class="field-hint">Saskatchewan law: pay within 6 days of period end</p>
 				</div>
 
 				<div class="form-group">
@@ -273,8 +297,16 @@
 				</div>
 
 				<div class="info-item">
-					<span class="info-label">Next Pay Date</span>
-					<span class="info-value">{formatLongDate(payGroup.nextPayDate)}</span>
+					<span class="info-label">Next Period End</span>
+					<span class="info-value">{formatLongDate(payGroup.nextPeriodEnd)}</span>
+				</div>
+
+				<div class="info-item">
+					<span class="info-label">Pay Date</span>
+					<span class="info-value auto-calculated">
+						{displayPayDate ? formatLongDate(displayPayDate) : '—'}
+						<span class="auto-badge">auto</span>
+					</span>
 				</div>
 
 				<div class="info-item">
@@ -507,6 +539,28 @@
 
 	.form-group input.error {
 		border-color: var(--color-error-400);
+	}
+
+	.form-group input.readonly-field {
+		background: var(--color-surface-50);
+		color: var(--color-surface-600);
+		cursor: not-allowed;
+	}
+
+	.auto-calculated {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
+	}
+
+	.auto-badge {
+		padding: 2px 6px;
+		background: var(--color-primary-100);
+		color: var(--color-primary-700);
+		font-size: 10px;
+		font-weight: var(--font-weight-medium);
+		border-radius: var(--radius-full);
+		text-transform: uppercase;
 	}
 
 	.checkbox-group {

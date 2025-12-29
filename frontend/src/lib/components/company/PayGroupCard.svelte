@@ -5,23 +5,30 @@
 		PAY_FREQUENCY_INFO,
 		EMPLOYMENT_TYPE_INFO,
 		getPayGroupPolicySummary,
-		countEnabledBenefits
+		countEnabledBenefits,
+		calculatePayDate
 	} from '$lib/types/pay-group';
 	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	interface Props {
 		payGroup: PayGroup;
+		companyProvince?: string;
 		onView: (payGroup: PayGroup) => void;
 		onDelete: (payGroup: PayGroup) => void;
 	}
 
-	let { payGroup, onView, onDelete }: Props = $props();
+	let { payGroup, companyProvince = 'SK', onView, onDelete }: Props = $props();
 
 	// Get policy summary for badges
 	const policySummary = $derived(getPayGroupPolicySummary(payGroup));
 
 	// Count benefits for display
 	const enabledBenefitsCount = $derived(countEnabledBenefits(payGroup.groupBenefits));
+
+	// Calculate pay date from period end based on company province
+	const computedPayDate = $derived(
+		payGroup.nextPeriodEnd ? calculatePayDate(payGroup.nextPeriodEnd, companyProvince) : ''
+	);
 
 	// Handle card click (navigate to detail)
 	function handleCardClick() {
@@ -77,7 +84,7 @@
 			</div>
 			<div class="stat-item">
 				<span class="stat-label">Next Pay</span>
-				<span class="stat-value">{formatShortDate(payGroup.nextPayDate)}</span>
+				<span class="stat-value">{computedPayDate ? formatShortDate(computedPayDate) : '—'}</span>
 			</div>
 		</div>
 
