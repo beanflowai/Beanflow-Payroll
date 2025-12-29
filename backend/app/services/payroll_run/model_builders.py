@@ -128,43 +128,64 @@ class ModelBuilder:
         )
 
     @staticmethod
+    def _get_benefit_field(
+        data: dict[str, Any], camel: str, snake: str, default: Any = 0
+    ) -> Any:
+        """Get field value supporting both camelCase and snake_case keys.
+
+        Frontend stores camelCase, but backend models use snake_case.
+        This helper supports both formats for backwards compatibility.
+        """
+        return data.get(camel, data.get(snake, default))
+
+    @staticmethod
+    def _build_benefit_config(data: dict[str, Any]) -> BenefitConfig:
+        """Build BenefitConfig supporting both camelCase and snake_case fields."""
+        return BenefitConfig(
+            enabled=data.get("enabled", False),
+            employee_deduction=Decimal(
+                str(ModelBuilder._get_benefit_field(data, "employeeDeduction", "employee_deduction", 0))
+            ),
+            employer_contribution=Decimal(
+                str(ModelBuilder._get_benefit_field(data, "employerContribution", "employer_contribution", 0))
+            ),
+            is_taxable=ModelBuilder._get_benefit_field(data, "isTaxable", "is_taxable", False),
+        )
+
+    @staticmethod
     def build_pay_group(data: dict[str, Any]) -> PayGroup:
         """Build PayGroup model from database row."""
         # Parse group_benefits JSONB
+        # Supports both camelCase (frontend) and snake_case field names
         gb_data = data.get("group_benefits") or {}
+
+        # Get benefit data - support both camelCase and snake_case keys
+        health_data = gb_data.get("health", {})
+        dental_data = gb_data.get("dental", {})
+        vision_data = gb_data.get("vision", {})
+        # life_insurance: frontend uses "lifeInsurance", backend uses "life_insurance"
+        life_data = gb_data.get("lifeInsurance", gb_data.get("life_insurance", {}))
+        disability_data = gb_data.get("disability", {})
+
         group_benefits = GroupBenefits(
             enabled=gb_data.get("enabled", False),
-            health=BenefitConfig(
-                enabled=gb_data.get("health", {}).get("enabled", False),
-                employee_deduction=Decimal(str(gb_data.get("health", {}).get("employee_deduction", 0))),
-                employer_contribution=Decimal(str(gb_data.get("health", {}).get("employer_contribution", 0))),
-                is_taxable=gb_data.get("health", {}).get("is_taxable", False),
-            ),
-            dental=BenefitConfig(
-                enabled=gb_data.get("dental", {}).get("enabled", False),
-                employee_deduction=Decimal(str(gb_data.get("dental", {}).get("employee_deduction", 0))),
-                employer_contribution=Decimal(str(gb_data.get("dental", {}).get("employer_contribution", 0))),
-                is_taxable=gb_data.get("dental", {}).get("is_taxable", False),
-            ),
-            vision=BenefitConfig(
-                enabled=gb_data.get("vision", {}).get("enabled", False),
-                employee_deduction=Decimal(str(gb_data.get("vision", {}).get("employee_deduction", 0))),
-                employer_contribution=Decimal(str(gb_data.get("vision", {}).get("employer_contribution", 0))),
-                is_taxable=gb_data.get("vision", {}).get("is_taxable", False),
-            ),
+            health=ModelBuilder._build_benefit_config(health_data),
+            dental=ModelBuilder._build_benefit_config(dental_data),
+            vision=ModelBuilder._build_benefit_config(vision_data),
             life_insurance=LifeInsuranceConfig(
-                enabled=gb_data.get("life_insurance", {}).get("enabled", False),
-                employee_deduction=Decimal(str(gb_data.get("life_insurance", {}).get("employee_deduction", 0))),
-                employer_contribution=Decimal(str(gb_data.get("life_insurance", {}).get("employer_contribution", 0))),
-                is_taxable=gb_data.get("life_insurance", {}).get("is_taxable", False),
-                coverage_amount=Decimal(str(gb_data.get("life_insurance", {}).get("coverage_amount", 0))),
+                enabled=life_data.get("enabled", False),
+                employee_deduction=Decimal(
+                    str(ModelBuilder._get_benefit_field(life_data, "employeeDeduction", "employee_deduction", 0))
+                ),
+                employer_contribution=Decimal(
+                    str(ModelBuilder._get_benefit_field(life_data, "employerContribution", "employer_contribution", 0))
+                ),
+                is_taxable=ModelBuilder._get_benefit_field(life_data, "isTaxable", "is_taxable", False),
+                coverage_amount=Decimal(
+                    str(ModelBuilder._get_benefit_field(life_data, "coverageAmount", "coverage_amount", 0))
+                ),
             ),
-            disability=BenefitConfig(
-                enabled=gb_data.get("disability", {}).get("enabled", False),
-                employee_deduction=Decimal(str(gb_data.get("disability", {}).get("employee_deduction", 0))),
-                employer_contribution=Decimal(str(gb_data.get("disability", {}).get("employer_contribution", 0))),
-                is_taxable=gb_data.get("disability", {}).get("is_taxable", False),
-            ),
+            disability=ModelBuilder._build_benefit_config(disability_data),
         )
 
         # Parse other JSONB fields

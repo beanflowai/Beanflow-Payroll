@@ -133,6 +133,9 @@ class PaystubDataBuilder:
         if masked_sin is None:
             masked_sin = "***-***-***"  # Placeholder if SIN decryption not available
 
+        # Build pay rate string
+        pay_rate = self._build_pay_rate(employee)
+
         return PaystubData(
             # Employee info
             employeeName=f"{employee.first_name} {employee.last_name}",
@@ -168,6 +171,8 @@ class PaystubDataBuilder:
             # Company branding
             logoUrl=company.logo_url,
             logoBytes=logo_bytes,
+            # Pay rate
+            payRate=pay_rate,
         )
 
     def _build_address(
@@ -490,6 +495,18 @@ class PaystubDataBuilder:
         """Calculate YTD net pay from current and historical records."""
         ytd_net = sum(r.net_pay for r in ytd_records)
         return ytd_net + current_record.net_pay
+
+    def _build_pay_rate(self, employee: Employee) -> str | None:
+        """Build pay rate string from employee salary/hourly rate.
+
+        Returns:
+            Formatted string like "$100,000.00/yr" or "$25.00/hr", or None if not available
+        """
+        if employee.annual_salary and employee.annual_salary > 0:
+            return f"${employee.annual_salary:,.2f}/yr"
+        elif employee.hourly_rate and employee.hourly_rate > 0:
+            return f"${employee.hourly_rate:,.2f}/hr"
+        return None
 
 
 # Export types for type hints

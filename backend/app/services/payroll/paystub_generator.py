@@ -1,4 +1,14 @@
-"""Paystub PDF generator using ReportLab."""
+"""Paystub PDF generator using ReportLab.
+
+Layout follows the Avalon reference template with:
+- Header: Company logo/name on left, "PAY STUB" title on right
+- Employer/Employee info in two columns
+- Pay details section with rate, period, date, accrued vacation
+- INCOME section with gross pay
+- DEDUCTIONS section (taxes + benefit deductions)
+- NET PAY row
+- Optional: Employer Contributions, Vacation Details
+"""
 
 import logging
 from decimal import Decimal
@@ -6,7 +16,9 @@ from io import BytesIO
 from typing import Any
 
 import httpx
+from PIL import Image as PILImage
 from reportlab.lib import colors
+from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
@@ -20,16 +32,14 @@ logger = logging.getLogger(__name__)
 class PaystubGenerator:
     """Generate PDF paystubs using ReportLab.
 
-    Layout matches the reference image (Test/Haifeng-paystub.png):
-    - Header with employee info and pay period
-    - Earnings table
-    - Non-taxable Company Items (employer contributions)
-    - Taxes section
-    - Adjustments to Net Pay (employee deductions)
-    - Net Pay
-    - Vacation section
-    - Taxable Company Items (employer life insurance)
-    - Footer with company address
+    Layout follows the Avalon reference template:
+    - Header with company logo and PAY STUB title
+    - Employer/Employee info columns
+    - Pay details (rate, period, date, accrued vacation)
+    - INCOME table with GROSS PAY total
+    - DEDUCTIONS table with totals
+    - NET PAY row
+    - Optional: Employer Contributions, Vacation Details
     """
 
     def __init__(self) -> None:
@@ -43,16 +53,16 @@ class PaystubGenerator:
             ParagraphStyle(
                 "SectionHeader",
                 parent=self.styles["Normal"],
-                fontSize=9,
+                fontSize=10,
                 fontName="Helvetica-Bold",
-                spaceAfter=2,
+                spaceAfter=4,
             )
         )
         self.styles.add(
             ParagraphStyle(
                 "TableText",
                 parent=self.styles["Normal"],
-                fontSize=8,
+                fontSize=9,
                 fontName="Helvetica",
             )
         )
@@ -60,7 +70,23 @@ class PaystubGenerator:
             ParagraphStyle(
                 "CompanyName",
                 parent=self.styles["Normal"],
-                fontSize=10,
+                fontSize=12,
+                fontName="Helvetica-Bold",
+            )
+        )
+        self.styles.add(
+            ParagraphStyle(
+                "PayStubTitle",
+                parent=self.styles["Normal"],
+                fontSize=16,
+                fontName="Helvetica-Bold",
+            )
+        )
+        self.styles.add(
+            ParagraphStyle(
+                "LabelStyle",
+                parent=self.styles["Normal"],
+                fontSize=9,
                 fontName="Helvetica-Bold",
             )
         )
@@ -86,24 +112,27 @@ class PaystubGenerator:
 
         elements: list[Any] = []
 
-        # Build all sections
-        self._build_memo_section(elements, data)
-        elements.append(Spacer(1, 12))
+        # Build all sections in order
         self._build_header_section(elements, data)
-        elements.append(Spacer(1, 8))
-        self._build_earnings_and_benefits_section(elements, data)
-        elements.append(Spacer(1, 6))
-        self._build_taxes_section(elements, data)
-        elements.append(Spacer(1, 6))
-        self._build_adjustments_section(elements, data)
-        elements.append(Spacer(1, 6))
-        self._build_net_pay_section(elements, data)
-        elements.append(Spacer(1, 6))
-        self._build_vacation_section(elements, data)
-        elements.append(Spacer(1, 6))
-        self._build_taxable_benefits_section(elements, data)
+        elements.append(Spacer(1, 16))
+        self._build_employer_employee_section(elements, data)
         elements.append(Spacer(1, 12))
-        self._build_footer_section(elements, data)
+        self._build_pay_details_section(elements, data)
+        elements.append(Spacer(1, 16))
+        self._build_income_section(elements, data)
+        elements.append(Spacer(1, 12))
+        self._build_deductions_section(elements, data)
+        elements.append(Spacer(1, 8))
+        self._build_net_pay_section(elements, data)
+
+        # Optional sections
+        if data.nonTaxableBenefits or data.taxableBenefits:
+            elements.append(Spacer(1, 12))
+            self._build_employer_contributions_section(elements, data)
+
+        if data.vacation:
+            elements.append(Spacer(1, 12))
+            self._build_vacation_section(elements, data)
 
         doc.build(elements)
         pdf_bytes = buffer.getvalue()
@@ -142,8 +171,8 @@ class PaystubGenerator:
             logger.warning("Failed to download logo from %s: %s", url, e)
             return None
 
-    def _build_memo_section(self, elements: list[Any], data: PaystubData) -> None:
-        """Build header section with logo/company name and employee info."""
+    def _build_header_section(self, elements: list[Any], data: PaystubData) -> None:
+        """Build header with company logo/name on left and PAY STUB title on right."""
         # Build left side content (logo or company name)
         left_content: list[Any] = []
 
@@ -156,8 +185,20 @@ class PaystubGenerator:
 
         if logo_buffer:
             try:
-                # Create image with max width 1.5 inch, maintain aspect ratio
-                img = Image(logo_buffer, width=1.5 * inch, height=0.75 * inch)
+                # Get actual image dimensions and scale proportionally
+                logo_buffer.seek(0)
+                pil_img = PILImage.open(logo_buffer)
+                orig_width, orig_height = pil_img.size
+
+                # Scale to fit within max bounds while preserving aspect ratio
+                max_width = 2 * inch
+                max_height = 1 * inch
+                scale = min(max_width / orig_width, max_height / orig_height)
+                final_width = orig_width * scale
+                final_height = orig_height * scale
+
+                logo_buffer.seek(0)
+                img = Image(logo_buffer, width=final_width, height=final_height)
                 img.hAlign = "LEFT"
                 left_content.append(img)
             except Exception as e:
@@ -172,25 +213,71 @@ class PaystubGenerator:
                 Paragraph(f"<b>{data.employerName}</b>", self.styles["CompanyName"])
             )
 
-        # Add employer address below logo/name
-        if data.employerAddress:
-            for line in data.employerAddress.split("\n"):
-                left_content.append(Paragraph(line, self.styles["TableText"]))
+        # Build right side content (PAY STUB title) - right-aligned
+        paystub_title_style = ParagraphStyle(
+            "PayStubTitleRight",
+            parent=self.styles["PayStubTitle"],
+            alignment=TA_RIGHT,
+        )
+        right_content = [Paragraph("<b>PAY STUB</b>", paystub_title_style)]
 
-        # Build right side content (employee info)
-        right_content: list[Any] = []
-        right_content.append(Paragraph(data.employeeName, self.styles["Normal"]))
-        if data.employeeAddress:
-            for line in data.employeeAddress.split("\n"):
-                right_content.append(Paragraph(line, self.styles["TableText"]))
-
-        # Create header table with logo/company on left, employee on right
+        # Create header table with logo/company on left, title on right
         header_row = [left_content, right_content]
         header_table = Table(
             [header_row],
-            colWidths=[3.75 * inch, 3.75 * inch],
+            colWidths=[5 * inch, 2.5 * inch],
         )
         header_table.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("ALIGN", (0, 0), (0, 0), "LEFT"),
+                    ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+                ]
+            )
+        )
+        elements.append(header_table)
+
+    def _build_employer_employee_section(
+        self, elements: list[Any], data: PaystubData
+    ) -> None:
+        """Build employer/employee info in two columns."""
+        # Create right-aligned style for employee info
+        employee_label_style = ParagraphStyle(
+            "EmployeeLabelRight",
+            parent=self.styles["LabelStyle"],
+            alignment=TA_RIGHT,
+        )
+        employee_text_style = ParagraphStyle(
+            "EmployeeTextRight",
+            parent=self.styles["TableText"],
+            alignment=TA_RIGHT,
+        )
+
+        # Left column: Employer info (left-aligned)
+        employer_lines = [
+            Paragraph("<b>EMPLOYER NAME/ADDRESS:</b>", self.styles["LabelStyle"]),
+            Paragraph(data.employerName, self.styles["TableText"]),
+        ]
+        if data.employerAddress:
+            for line in data.employerAddress.split("\n"):
+                employer_lines.append(Paragraph(line, self.styles["TableText"]))
+
+        # Right column: Employee info (right-aligned)
+        employee_lines = [
+            Paragraph("<b>EMPLOYEE NAME/ADDRESS:</b>", employee_label_style),
+            Paragraph(data.employeeName, employee_text_style),
+        ]
+        if data.employeeAddress:
+            for line in data.employeeAddress.split("\n"):
+                employee_lines.append(Paragraph(line, employee_text_style))
+
+        # Create two-column table (4" + 3.5" = 7.5" total width)
+        info_table = Table(
+            [[employer_lines, employee_lines]],
+            colWidths=[4 * inch, 3.5 * inch],
+        )
+        info_table.setStyle(
             TableStyle(
                 [
                     ("VALIGN", (0, 0), (-1, -1), "TOP"),
@@ -199,251 +286,209 @@ class PaystubGenerator:
                 ]
             )
         )
-        elements.append(header_table)
+        elements.append(info_table)
 
-        elements.append(Spacer(1, 8))
+    def _build_pay_details_section(self, elements: list[Any], data: PaystubData) -> None:
+        """Build pay details section with rate, period, date, accrued vacation."""
+        details_rows: list[list[str]] = []
 
-        # MEMO line
-        period_str = f"{data.periodStart.strftime('%m/%d/%Y')} - {data.periodEnd.strftime('%m/%d/%Y')}"
-        memo_text = data.memo or f"Pay Period: {period_str}"
-        memo_table = Table(
-            [["MEMO", memo_text]],
-            colWidths=[0.6 * inch, 5 * inch],
+        # Pay Rate (if available)
+        if data.payRate:
+            details_rows.append(["Pay Rate:", data.payRate])
+
+        # Pay Period (Cycle)
+        period_str = f"{data.periodStart.strftime('%Y-%m-%d')} - {data.periodEnd.strftime('%Y-%m-%d')}"
+        details_rows.append(["Pay Period:", period_str])
+
+        # Pay Date
+        pay_date_str = data.payDate.strftime("%Y-%m-%d")
+        details_rows.append(["Pay Date:", pay_date_str])
+
+        # Accrued Vacation (if available)
+        if data.vacation and data.vacation.available > 0:
+            details_rows.append(
+                ["Accrued Vacation:", f"${self._format_currency(data.vacation.available)}"]
+            )
+
+        if not details_rows:
+            return
+
+        details_table = Table(
+            details_rows,
+            colWidths=[1.5 * inch, 3 * inch],
+            hAlign="LEFT",  # Align table to left edge of page
         )
-        memo_table.setStyle(
+        details_table.setStyle(
             TableStyle(
                 [
-                    ("FONTNAME", (0, 0), (0, 0), "Helvetica-Bold"),
+                    ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
                     ("FONTSIZE", (0, 0), (-1, -1), 9),
                     ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("ALIGN", (0, 0), (-1, -1), "LEFT"),  # Left-align cell content
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                    ("TOPPADDING", (0, 0), (-1, -1), 2),
                 ]
             )
         )
-        elements.append(memo_table)
+        elements.append(details_table)
 
-    def _build_header_section(self, elements: list[Any], data: PaystubData) -> None:
-        """Build header with employee info and pay period details."""
-        # Two-column header: Employee info | Occupation/Period/Date
-        period_str = f"{data.periodStart.strftime('%m/%d/%Y')} - {data.periodEnd.strftime('%m/%d/%Y')}"
-        pay_date_str = data.payDate.strftime("%m/%d/%Y")
+    def _build_income_section(self, elements: list[Any], data: PaystubData) -> None:
+        """Build INCOME section with earnings and GROSS PAY total."""
+        # Header row
+        income_header = ["INCOME", "CURRENT HOURS", "CURRENT AMOUNT", "YEAR-TO-DATE"]
+        income_rows = [income_header]
 
-        # Build address string
-        address_lines = data.employeeAddress.split("\n") if data.employeeAddress else []
-        employee_info = f"<b>Employee</b><br/>{data.employeeName}"
-        if address_lines:
-            employee_info += "<br/>" + "<br/>".join(address_lines)
-
-        occupation_info = f"<b>Occupation</b><br/>{data.occupation or ''}"
-        period_info = f"<b>Pay Period:</b> {period_str}<br/><b>Cheque Date:</b> {pay_date_str}"
-
-        header_data = [
-            [
-                Paragraph(employee_info, self.styles["TableText"]),
-                Paragraph(occupation_info, self.styles["TableText"]),
-            ],
-            [
-                "",
-                Paragraph(period_info, self.styles["TableText"]),
-            ],
-        ]
-
-        header_table = Table(header_data, colWidths=[3.5 * inch, 3.5 * inch])
-        header_table.setStyle(
-            TableStyle(
-                [
-                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("LINEBELOW", (0, -1), (-1, -1), 0.5, colors.black),
-                ]
-            )
-        )
-        elements.append(header_table)
-
-    def _build_earnings_and_benefits_section(self, elements: list[Any], data: PaystubData) -> None:
-        """Build earnings table and non-taxable benefits side by side."""
-        # Left side: Earnings
-        earnings_header = ["Earnings and Hours", "Qty", "Rate", "Current", "YTD Amount"]
-        earnings_rows = [earnings_header]
-
+        # Earnings rows
         for earning in data.earnings:
-            # For salaried employees, show "Salary" in Qty column if no qty/rate
-            qty_display = earning.qty or ""
-            if not earning.qty and not earning.rate and earning.description == "Regular Earnings":
-                qty_display = "Salary"
+            # For salaried employees, show "-" in hours column
+            hours_display = earning.qty if earning.qty else "-"
 
-            earnings_rows.append(
+            income_rows.append(
                 [
                     earning.description,
-                    qty_display,
-                    self._format_currency(earning.rate) if earning.rate else "",
+                    hours_display,
                     self._format_currency(earning.current),
                     self._format_currency(earning.ytd),
                 ]
             )
 
-        # Always add Gross Pay row (labeled total row)
-        earnings_rows.append(
-            [
-                "Gross Pay",
-                "",
-                "",
-                self._format_currency(data.totalEarnings),
-                self._format_currency(data.ytdEarnings),
-            ]
+        # GROSS PAY row
+        gross_pay_row = [
+            "GROSS PAY",
+            "",
+            self._format_currency(data.totalEarnings),
+            self._format_currency(data.ytdEarnings),
+        ]
+
+        income_table = Table(
+            income_rows,
+            colWidths=[3 * inch, 1.5 * inch, 1.5 * inch, 1.5 * inch],  # 7.5" total
         )
-
-        # Right side: Non-taxable Company Items
-        benefits_header = ["Non-taxable Company Items", "Current", "YTD Amount"]
-        benefits_rows = [benefits_header]
-
-        for benefit in data.nonTaxableBenefits:
-            benefits_rows.append(
-                [
-                    benefit.description,
-                    self._format_currency(benefit.current),
-                    self._format_currency(benefit.ytd),
-                ]
-            )
-
-        # Create side-by-side tables
-        earnings_table = Table(
-            earnings_rows, colWidths=[1.5 * inch, 0.6 * inch, 0.6 * inch, 0.8 * inch, 0.9 * inch]
-        )
-        earnings_table.setStyle(
+        income_table.setStyle(
             TableStyle(
                 [
+                    # Header styling
                     ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
                     ("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.black),
+                    # Data alignment
                     ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
                     ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-                    ("TOPPADDING", (0, 0), (-1, -1), 2),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
                 ]
             )
         )
+        elements.append(income_table)
 
-        if data.nonTaxableBenefits:
-            benefits_table = Table(benefits_rows, colWidths=[1.8 * inch, 0.8 * inch, 0.9 * inch])
-            benefits_table.setStyle(
-                TableStyle(
-                    [
-                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                        ("FONTSIZE", (0, 0), (-1, -1), 8),
-                        ("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.black),
-                        ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-                        ("TOPPADDING", (0, 0), (-1, -1), 2),
-                    ]
-                )
+        # GROSS PAY row as separate table with top border
+        gross_table = Table(
+            [gross_pay_row],
+            colWidths=[3 * inch, 1.5 * inch, 1.5 * inch, 1.5 * inch],  # 7.5" total
+        )
+        gross_table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("LINEABOVE", (0, 0), (-1, 0), 0.5, colors.black),
+                    ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ]
             )
+        )
+        elements.append(gross_table)
 
-            # Combine into side-by-side layout
-            combined_table = Table(
-                [[earnings_table, benefits_table]], colWidths=[4.5 * inch, 3.5 * inch]
-            )
-            combined_table.setStyle(
-                TableStyle(
-                    [
-                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ]
-                )
-            )
-            elements.append(combined_table)
-        else:
-            elements.append(earnings_table)
+    def _build_deductions_section(self, elements: list[Any], data: PaystubData) -> None:
+        """Build DEDUCTIONS section combining taxes and benefit deductions."""
+        # Header row
+        deduction_header = ["DEDUCTIONS", "CURRENT AMOUNT", "YEAR-TO-DATE"]
+        deduction_rows = [deduction_header]
 
-    def _build_taxes_section(self, elements: list[Any], data: PaystubData) -> None:
-        """Build taxes deduction section."""
-        if not data.taxes:
-            return
-
-        tax_header = ["Taxes", "Current", "YTD Amount"]
-        tax_rows = [tax_header]
+        # Tax lines (with renamed descriptions for clarity)
+        tax_name_map = {
+            "CPP": "Federal Employee CPP",
+            "EI": "Federal Employee EI",
+            "Federal Tax": "Federal Income Tax",
+            "Provincial Tax": "Provincial Income Tax",
+        }
 
         for tax in data.taxes:
-            tax_rows.append(
+            display_name = tax_name_map.get(tax.description, tax.description)
+            deduction_rows.append(
                 [
-                    tax.description,
-                    self._format_currency(tax.current),
-                    self._format_currency(tax.ytd),
+                    display_name,
+                    self._format_currency(abs(tax.current)),
+                    self._format_currency(abs(tax.ytd)),
                 ]
             )
 
-        # Add total row with label
-        tax_rows.append(
-            [
-                "Total Deductions",
-                self._format_currency(data.totalTaxes),
-                self._format_currency(data.ytdTaxes),
-            ]
-        )
-
-        tax_table = Table(tax_rows, colWidths=[2.5 * inch, 0.9 * inch, 0.9 * inch])
-        tax_table.setStyle(
-            TableStyle(
-                [
-                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("FONTSIZE", (0, 0), (-1, -1), 8),
-                    ("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.black),
-                    ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
-                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-                    ("TOPPADDING", (0, 0), (-1, -1), 2),
-                    # Bold the total row
-                    ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-                    ("LINEABOVE", (0, -1), (-1, -1), 0.5, colors.black),
-                ]
-            )
-        )
-        elements.append(tax_table)
-
-    def _build_adjustments_section(self, elements: list[Any], data: PaystubData) -> None:
-        """Build adjustments to net pay section (employee benefit deductions)."""
-        if not data.benefitDeductions:
-            return
-
-        adj_header = ["Adjustments to Net Pay", "Current", "YTD Amount"]
-        adj_rows = [adj_header]
-
+        # Benefit deduction lines (employee portions)
         for deduction in data.benefitDeductions:
-            adj_rows.append(
+            # Remove "- Employee" suffix for cleaner display
+            display_name = deduction.description.replace(" - Employee", "")
+            deduction_rows.append(
                 [
-                    deduction.description,
-                    self._format_currency(deduction.current),
-                    self._format_currency(deduction.ytd),
+                    display_name,
+                    self._format_currency(abs(deduction.current)),
+                    self._format_currency(abs(deduction.ytd)),
                 ]
             )
 
-        # Add total row
-        adj_rows.append(
-            [
-                "",
-                self._format_currency(data.totalBenefitDeductions),
-                self._format_currency(data.ytdBenefitDeductions),
-            ]
-        )
+        # Calculate total deductions
+        total_current = abs(data.totalTaxes) + abs(data.totalBenefitDeductions)
+        total_ytd = abs(data.ytdTaxes) + abs(data.ytdBenefitDeductions)
 
-        adj_table = Table(adj_rows, colWidths=[2.5 * inch, 0.9 * inch, 0.9 * inch])
-        adj_table.setStyle(
+        deduction_table = Table(
+            deduction_rows,
+            colWidths=[4.5 * inch, 1.5 * inch, 1.5 * inch],  # 7.5" total
+        )
+        deduction_table.setStyle(
             TableStyle(
                 [
+                    # Header styling
                     ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
                     ("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.black),
+                    # Data alignment
                     ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
                     ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-                    ("TOPPADDING", (0, 0), (-1, -1), 2),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
                 ]
             )
         )
-        elements.append(adj_table)
+        elements.append(deduction_table)
+
+        # DEDUCTION TOTALS row as separate table with top border
+        totals_row = [
+            "DEDUCTION TOTALS",
+            self._format_currency(total_current),
+            self._format_currency(total_ytd),
+        ]
+        totals_table = Table(
+            [totals_row],
+            colWidths=[4.5 * inch, 1.5 * inch, 1.5 * inch],  # 7.5" total
+        )
+        totals_table.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("LINEABOVE", (0, 0), (-1, 0), 0.5, colors.black),
+                    ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ]
+            )
+        )
+        elements.append(totals_table)
 
     def _build_net_pay_section(self, elements: list[Any], data: PaystubData) -> None:
-        """Build net pay section with enhanced styling."""
-        # Add column headers
-        net_pay_header = ["", "Current", "YTD Amount"]
+        """Build NET PAY row."""
         net_pay_row = [
             "NET PAY",
             self._format_currency(data.netPay),
@@ -451,134 +496,110 @@ class PaystubGenerator:
         ]
 
         net_pay_table = Table(
-            [net_pay_header, net_pay_row],
-            colWidths=[2.5 * inch, 0.9 * inch, 0.9 * inch],
+            [net_pay_row],
+            colWidths=[4.5 * inch, 1.5 * inch, 1.5 * inch],  # 7.5" total
         )
         net_pay_table.setStyle(
             TableStyle(
                 [
-                    # Header row styling
-                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("FONTSIZE", (0, 0), (-1, 0), 8),
-                    ("ALIGN", (1, 0), (-1, 0), "RIGHT"),
-                    # Net pay row styling - larger, bold, with light gray background
-                    ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
-                    ("FONTSIZE", (0, 1), (-1, 1), 11),
-                    ("ALIGN", (1, 1), (-1, 1), "RIGHT"),
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 10),
+                    ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
                     ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    # Light gray background for net pay row
-                    ("BACKGROUND", (0, 1), (-1, 1), colors.Color(0.95, 0.95, 0.95)),
-                    # Box around net pay row
-                    ("BOX", (0, 1), (-1, 1), 1, colors.black),
-                    ("BOTTOMPADDING", (0, 1), (-1, 1), 6),
-                    ("TOPPADDING", (0, 1), (-1, 1), 6),
-                    ("BOTTOMPADDING", (0, 0), (-1, 0), 2),
-                    ("TOPPADDING", (0, 0), (-1, 0), 2),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                    ("TOPPADDING", (0, 0), (-1, -1), 6),
                 ]
             )
         )
         elements.append(net_pay_table)
 
-    def _build_vacation_section(self, elements: list[Any], data: PaystubData) -> None:
-        """Build vacation/sick hours section."""
-        if not data.vacation:
+    def _build_employer_contributions_section(
+        self, elements: list[Any], data: PaystubData
+    ) -> None:
+        """Build optional Employer Contributions section (non-taxable + taxable benefits)."""
+        if not data.nonTaxableBenefits and not data.taxableBenefits:
             return
 
-        vac_header = ["Sick Hours and Vacation Pay", "Earned", "YTD Used", "Available"]
-        vac_data = [
-            vac_header,
-            [
-                "Vacation ($)",
-                self._format_currency(data.vacation.earned),
-                self._format_currency(data.vacation.ytdUsed)
-                if data.vacation.ytdUsed is not None
-                else "",
-                self._format_currency(data.vacation.available),
-            ],
-        ]
+        # Header row - with TAXABLE column
+        contrib_header = ["EMPLOYER CONTRIBUTIONS", "TAXABLE", "CURRENT AMOUNT", "YEAR-TO-DATE"]
+        contrib_rows = [contrib_header]
 
-        vac_table = Table(vac_data, colWidths=[2 * inch, 0.8 * inch, 0.8 * inch, 0.9 * inch])
-        vac_table.setStyle(
-            TableStyle(
+        # Non-taxable benefits
+        for benefit in data.nonTaxableBenefits:
+            display_name = benefit.description.replace(" - Employer", "")
+            contrib_rows.append(
                 [
-                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("FONTSIZE", (0, 0), (-1, -1), 8),
-                    ("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.black),
-                    ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
-                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-                    ("TOPPADDING", (0, 0), (-1, -1), 2),
-                ]
-            )
-        )
-        elements.append(vac_table)
-
-    def _build_taxable_benefits_section(self, elements: list[Any], data: PaystubData) -> None:
-        """Build taxable company items section (employer-paid life insurance)."""
-        if not data.taxableBenefits:
-            return
-
-        taxable_header = ["Taxable Company Items", "Current", "YTD Amount"]
-        taxable_rows = [taxable_header]
-
-        for benefit in data.taxableBenefits:
-            taxable_rows.append(
-                [
-                    benefit.description,
+                    display_name,
+                    "No",
                     self._format_currency(benefit.current),
                     self._format_currency(benefit.ytd),
                 ]
             )
 
-        taxable_table = Table(taxable_rows, colWidths=[2.5 * inch, 0.9 * inch, 0.9 * inch])
-        taxable_table.setStyle(
+        # Taxable benefits
+        for benefit in data.taxableBenefits:
+            display_name = benefit.description.replace(" - Employer", "")
+            contrib_rows.append(
+                [
+                    display_name,
+                    "Yes",
+                    self._format_currency(benefit.current),
+                    self._format_currency(benefit.ytd),
+                ]
+            )
+
+        contrib_table = Table(
+            contrib_rows,
+            colWidths=[3 * inch, 1 * inch, 1.5 * inch, 2 * inch],  # 7.5" total
+        )
+        contrib_table.setStyle(
+            TableStyle(
+                [
+                    # Header styling
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.black),
+                    # Data alignment
+                    ("ALIGN", (1, 0), (1, -1), "CENTER"),  # TAXABLE column centered
+                    ("ALIGN", (2, 0), (-1, -1), "RIGHT"),  # Amount columns right-aligned
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ]
+            )
+        )
+        elements.append(contrib_table)
+
+    def _build_vacation_section(self, elements: list[Any], data: PaystubData) -> None:
+        """Build vacation details section."""
+        if not data.vacation:
+            return
+
+        vac_header = ["VACATION PAY", "EARNED", "YTD USED", "AVAILABLE"]
+        vac_row = [
+            "Vacation ($)",
+            self._format_currency(data.vacation.earned),
+            self._format_currency(data.vacation.ytdUsed)
+            if data.vacation.ytdUsed is not None
+            else "0.00",
+            self._format_currency(data.vacation.available),
+        ]
+
+        vac_table = Table(
+            [vac_header, vac_row],
+            colWidths=[3 * inch, 1.5 * inch, 1.5 * inch, 1.5 * inch],  # 7.5" total
+        )
+        vac_table.setStyle(
             TableStyle(
                 [
                     ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
                     ("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.black),
                     ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
                     ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-                    ("TOPPADDING", (0, 0), (-1, -1), 2),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
                 ]
             )
         )
-        elements.append(taxable_table)
-
-    def _build_footer_section(self, elements: list[Any], data: PaystubData) -> None:
-        """Build footer with separator, company info, and official statement."""
-        # Add horizontal separator line
-        separator_table = Table(
-            [[""]],
-            colWidths=[7.5 * inch],
-        )
-        separator_table.setStyle(
-            TableStyle(
-                [
-                    ("LINEABOVE", (0, 0), (-1, 0), 1, colors.black),
-                ]
-            )
-        )
-        elements.append(separator_table)
-        elements.append(Spacer(1, 8))
-
-        # Company name and address
-        elements.append(Paragraph(data.employerName, self.styles["CompanyName"]))
-        if data.employerAddress:
-            for line in data.employerAddress.split("\n"):
-                elements.append(Paragraph(line, self.styles["TableText"]))
-
-        elements.append(Spacer(1, 8))
-
-        # Official statement
-        statement_style = ParagraphStyle(
-            "FooterStatement",
-            parent=self.styles["Normal"],
-            fontSize=8,
-            fontName="Helvetica-Oblique",
-            textColor=colors.Color(0.4, 0.4, 0.4),
-        )
-        elements.append(
-            Paragraph("This is your official pay statement.", statement_style)
-        )
+        elements.append(vac_table)

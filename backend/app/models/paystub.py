@@ -106,3 +106,4 @@ class PaystubData:
     memo: str | None = None  # e.g., "Pay Period: 11/01/2025 - 11/30/2025"
     logoUrl: str | None = None  # Company logo URL for paystub branding
     logoBytes: bytes | None = None  # Pre-downloaded logo bytes (preferred over URL)
+    payRate: str | None = None  # e.g., "$100,000.00/yr" or "$25.00/hr"
