@@ -7,18 +7,25 @@
 
 ## Test Structure (Modular)
 
-The PDOC validation tests are organized in a modular tier-based structure:
+The PDOC validation tests are organized in a modular tier-based structure with edition separation:
 
 ```
 backend/tests/payroll/pdoc/
-├── conftest.py                      # Shared fixtures + utilities (~320 lines)
+├── conftest.py                      # Shared fixtures + utilities (~420 lines)
 ├── fixtures/
 │   └── 2025/                        # Year-based fixture directory
-│       ├── tier1_province_coverage.json  # 12 tests (~435 lines)
-│       ├── tier2_income_levels.json      # 12 tests (~444 lines)
-│       ├── tier3_cpp_ei_boundary.json    # 8 tests (~301 lines)
-│       ├── tier4_special_conditions.json # 8 tests (~305 lines)
-│       └── tier5_federal_rate_change.json # 4 tests (~157 lines)
+│       ├── jan/                     # 120th Edition (Jan-Jun, 15% federal rate)
+│       │   ├── tier1_province_coverage.json
+│       │   ├── tier2_income_levels.json
+│       │   ├── tier3_cpp_ei_boundary.json
+│       │   ├── tier4_special_conditions.json
+│       │   └── tier5_federal_rate_change.json
+│       └── jul/                     # 121st Edition (Jul+, 14% federal rate)
+│           ├── tier1_province_coverage.json  # 12 verified tests
+│           ├── tier2_income_levels.json      # 12 verified tests
+│           ├── tier3_cpp_ei_boundary.json    # 9 verified tests
+│           ├── tier4_special_conditions.json # 8 verified tests
+│           └── tier5_federal_rate_change.json # 4 verified tests
 ├── test_tier1_provinces.py           # Core 12省覆盖 (~133 lines)
 ├── test_tier2_income_levels.py       # 收入级别测试 (~147 lines)
 ├── test_tier3_cpp_ei.py              # CPP/EI边界 (~199 lines)
@@ -26,10 +33,21 @@ backend/tests/payroll/pdoc/
 └── test_tier5_rate_change.py         # 联邦税率变更 (~201 lines)
 ```
 
+### Edition Differences (2025)
+
+| Field | Jan Edition (120th) | Jul Edition (121st) |
+|-------|---------------------|---------------------|
+| `pay_date` | `2025-01-17` ~ `2025-06-30` | `2025-07-01`+ |
+| Federal Rate | 15% | 14% |
+| SK provincial_claim | $18,991 | $19,991 |
+| PE provincial_claim | $14,250 | $15,050 |
+
+**Note**: CPP/EI rates are unchanged for the entire year.
+
 ### Running Tests
 
 ```bash
-# Run all PDOC tests
+# Run all PDOC tests (default: jul edition)
 pytest backend/tests/payroll/pdoc/
 
 # Run specific tier
@@ -40,6 +58,9 @@ pytest backend/tests/payroll/pdoc/ -k "verified"
 
 # Run with verbose output
 pytest backend/tests/payroll/pdoc/ -v
+
+# Run both editions (when jan fixtures are verified)
+# Modify conftest.py: edition fixture params=["jan", "jul"]
 ```
 
 ---
@@ -362,14 +383,25 @@ The PDOC validation tests are implemented in a modular tier-based structure. Eac
 
 ### Test Fixtures
 
-Test data is stored in JSON fixtures under `pdoc/fixtures/<year>/` (e.g., `fixtures/2025/`):
-- `tier1_province_coverage.json`
-- `tier2_income_levels.json`
-- `tier3_cpp_ei_boundary.json`
-- `tier4_special_conditions.json`
-- `tier5_federal_rate_change.json`
+Test data is stored in JSON fixtures under `pdoc/fixtures/<year>/<edition>/`:
 
-The year-based directory structure allows testing against multiple tax years (2024, 2025, 2026, etc.).
+```
+fixtures/2025/
+├── jan/   # 120th Edition - 15% federal rate (Jan-Jun 2025)
+│   └── tier*.json
+└── jul/   # 121st Edition - 14% federal rate (Jul+ 2025)
+    └── tier*.json
+```
+
+**Edition Selection**:
+- `jan`: 120th Edition, effective January-June 2025, federal lowest bracket rate is 15%
+- `jul`: 121st Edition, effective July 2025 onwards, federal lowest bracket rate is 14%
+
+**Jan Edition Status**: Fixtures created with structure; most cases marked `TO_BE_VERIFIED` pending PDOC validation. SK and PE have different provincial BPA values.
+
+The year + edition directory structure allows testing against:
+- Multiple tax years (2024, 2025, 2026, etc.)
+- Mid-year rate changes (jan/jul editions)
 
 ### Variance Tolerance
 

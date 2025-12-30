@@ -26,6 +26,8 @@ from app.services.payroll.payroll_engine import EmployeePayrollInput, PayrollEng
 FIXTURES_BASE_DIR = Path(__file__).parent / "fixtures"
 VARIANCE_TOLERANCE = Decimal("0.05")  # $0.05 max variance per component
 DEFAULT_TAX_YEAR = 2025  # Default tax year for tests
+DEFAULT_EDITION = "jul"  # Default edition (121st Edition, Jul+, 14% federal rate)
+VALID_EDITIONS = frozenset(["jan", "jul"])  # Valid editions for tax year
 
 
 # =============================================================================
@@ -89,12 +91,18 @@ class ValidationResult:
 # =============================================================================
 
 
-def load_tier_fixture(tier: int, year: int = DEFAULT_TAX_YEAR) -> dict:
-    """Load fixture data for a specific tier and year.
+def load_tier_fixture(
+    tier: int,
+    year: int = DEFAULT_TAX_YEAR,
+    edition: str | None = None,
+) -> dict:
+    """Load fixture data for a specific tier, year, and edition.
 
     Args:
         tier: Test tier (1-5)
         year: Tax year (default: 2025)
+        edition: Tax edition ("jan" for 120th/15%, "jul" for 121st/14%)
+                 Defaults to DEFAULT_EDITION if not specified.
 
     Returns:
         Dictionary containing fixture data
@@ -111,44 +119,77 @@ def load_tier_fixture(tier: int, year: int = DEFAULT_TAX_YEAR) -> dict:
     if not filename:
         raise ValueError(f"Invalid tier: {tier}")
 
-    # Support year-based directory structure
-    filepath = FIXTURES_BASE_DIR / str(year) / filename
-    if not filepath.exists():
-        pytest.skip(f"Fixture file not found: {filepath}")
+    effective_edition = edition or DEFAULT_EDITION
 
-    with open(filepath) as f:
-        return json.load(f)
+    # Validate edition
+    if effective_edition not in VALID_EDITIONS:
+        raise ValueError(
+            f"Invalid edition: {effective_edition}. Must be one of {VALID_EDITIONS}"
+        )
+
+    # Primary path: year/edition/filename
+    filepath = FIXTURES_BASE_DIR / str(year) / effective_edition / filename
+    if filepath.exists():
+        with open(filepath) as f:
+            return json.load(f)
+
+    # Fallback path: year/filename (for backward compatibility during migration)
+    fallback_path = FIXTURES_BASE_DIR / str(year) / filename
+    if fallback_path.exists():
+        with open(fallback_path) as f:
+            return json.load(f)
+
+    pytest.skip(f"Fixture file not found: {filepath}")
 
 
-def load_tier_cases(tier: int, year: int = DEFAULT_TAX_YEAR) -> list[PDOCTestCase]:
-    """Load all test cases for a specific tier and year."""
-    data = load_tier_fixture(tier, year)
+def load_tier_cases(
+    tier: int,
+    year: int = DEFAULT_TAX_YEAR,
+    edition: str | None = None,
+) -> list[PDOCTestCase]:
+    """Load all test cases for a specific tier, year, and edition."""
+    data = load_tier_fixture(tier, year, edition)
     return [PDOCTestCase.from_dict(case) for case in data.get("test_cases", [])]
 
 
-def get_verified_cases(tier: int, year: int = DEFAULT_TAX_YEAR) -> list[PDOCTestCase]:
-    """Get only verified test cases for a tier and year."""
-    cases = load_tier_cases(tier, year)
+def get_verified_cases(
+    tier: int,
+    year: int = DEFAULT_TAX_YEAR,
+    edition: str | None = None,
+) -> list[PDOCTestCase]:
+    """Get only verified test cases for a tier, year, and edition."""
+    cases = load_tier_cases(tier, year, edition)
     return [case for case in cases if case.is_verified]
 
 
 def get_case_by_id(
-    tier: int, case_id: str, year: int = DEFAULT_TAX_YEAR
+    tier: int,
+    case_id: str,
+    year: int = DEFAULT_TAX_YEAR,
+    edition: str | None = None,
 ) -> PDOCTestCase | None:
     """Get a specific test case by ID."""
-    cases = load_tier_cases(tier, year)
+    cases = load_tier_cases(tier, year, edition)
     return next((c for c in cases if c.id == case_id), None)
 
 
-def get_all_case_ids(tier: int, year: int = DEFAULT_TAX_YEAR) -> list[str]:
-    """Get all case IDs for a tier and year."""
-    cases = load_tier_cases(tier, year)
+def get_all_case_ids(
+    tier: int,
+    year: int = DEFAULT_TAX_YEAR,
+    edition: str | None = None,
+) -> list[str]:
+    """Get all case IDs for a tier, year, and edition."""
+    cases = load_tier_cases(tier, year, edition)
     return [c.id for c in cases]
 
 
-def get_verified_case_ids(tier: int, year: int = DEFAULT_TAX_YEAR) -> list[str]:
-    """Get only verified case IDs for a tier and year."""
-    cases = get_verified_cases(tier, year)
+def get_verified_case_ids(
+    tier: int,
+    year: int = DEFAULT_TAX_YEAR,
+    edition: str | None = None,
+) -> list[str]:
+    """Get only verified case IDs for a tier, year, and edition."""
+    cases = get_verified_cases(tier, year, edition)
     return [c.id for c in cases]
 
 
@@ -329,9 +370,24 @@ def assert_validations_pass(
 # =============================================================================
 
 
-@pytest.fixture(params=[2025])  # Extend to [2024, 2025, 2026] when fixtures available
+@pytest.fixture(params=[2025, 2026])  # Multi-year testing
 def tax_year(request):
     """Parameterized tax year fixture for multi-year testing."""
+    return request.param
+
+
+@pytest.fixture(params=["jan", "jul"])  # Both editions for multi-edition testing
+def edition(request):
+    """Parameterized edition fixture for multi-edition testing.
+
+    Editions for 2025:
+        jan: 120th Edition (Jan-Jun 2025, 15% federal rate)
+        jul: 121st Edition (Jul+ 2025, 14% federal rate)
+
+    Editions for 2026:
+        jan: 122nd Edition (January 2026, 14% federal rate)
+        jul: TBD (expected mid-2026)
+    """
     return request.param
 
 
@@ -342,30 +398,30 @@ def payroll_engine(tax_year):
 
 
 @pytest.fixture
-def tier1_cases(tax_year):
-    """Load Tier 1 test cases for the current tax year."""
-    return load_tier_cases(1, tax_year)
+def tier1_cases(tax_year, edition):
+    """Load Tier 1 test cases for the current tax year and edition."""
+    return load_tier_cases(1, tax_year, edition)
 
 
 @pytest.fixture
-def tier2_cases(tax_year):
-    """Load Tier 2 test cases for the current tax year."""
-    return load_tier_cases(2, tax_year)
+def tier2_cases(tax_year, edition):
+    """Load Tier 2 test cases for the current tax year and edition."""
+    return load_tier_cases(2, tax_year, edition)
 
 
 @pytest.fixture
-def tier3_cases(tax_year):
-    """Load Tier 3 test cases for the current tax year."""
-    return load_tier_cases(3, tax_year)
+def tier3_cases(tax_year, edition):
+    """Load Tier 3 test cases for the current tax year and edition."""
+    return load_tier_cases(3, tax_year, edition)
 
 
 @pytest.fixture
-def tier4_cases(tax_year):
-    """Load Tier 4 test cases for the current tax year."""
-    return load_tier_cases(4, tax_year)
+def tier4_cases(tax_year, edition):
+    """Load Tier 4 test cases for the current tax year and edition."""
+    return load_tier_cases(4, tax_year, edition)
 
 
 @pytest.fixture
-def tier5_cases(tax_year):
-    """Load Tier 5 test cases for the current tax year."""
-    return load_tier_cases(5, tax_year)
+def tier5_cases(tax_year, edition):
+    """Load Tier 5 test cases for the current tax year and edition."""
+    return load_tier_cases(5, tax_year, edition)

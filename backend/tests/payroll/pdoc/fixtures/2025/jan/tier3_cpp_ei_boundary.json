@@ -1,0 +1,183 @@
+{
+  "tier": 3,
+  "name": "CPP/EI Boundary Tests - Jan Edition",
+  "description": "Tests for CPP/EI contribution maximums and CPP2 calculations (15% federal rate)",
+  "version": "2025-01",
+  "collected_date": "2025-12-30",
+  "pdoc_version": "T4127 - Version 2025-12-08",
+  "tolerance": "0.05",
+  "notes": "Jan edition: All cases use 15% federal rate. CPP/EI values unchanged, federal tax needs PDOC verification.",
+
+  "test_cases": [
+    {
+      "id": "ON_72K_BIWEEKLY",
+      "tier": 3,
+      "description": "Ontario $72k - just above YMPE, CPP2 starts",
+      "status": "TO_BE_VERIFIED",
+      "category": "cpp2_start",
+      "special_rules": ["CPP2 starts above YMPE"],
+      "input": {
+        "province": "ON",
+        "gross_pay": "2769.23",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-01-17",
+        "federal_claim": "16129.00",
+        "provincial_claim": "12747.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "156.76",
+        "cpp2": "0.00",
+        "ei": "45.42",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "157.30",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "CPP/EI unchanged. Federal tax needs PDOC verification for 15% rate."
+    },
+    {
+      "id": "ON_82K_BIWEEKLY",
+      "tier": 3,
+      "description": "Ontario $82k - above YAMPE, CPP2 at ceiling",
+      "status": "TO_BE_VERIFIED",
+      "category": "cpp2_ceiling",
+      "special_rules": ["CPP2 at maximum"],
+      "input": {
+        "province": "ON",
+        "gross_pay": "3153.85",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-01-17",
+        "federal_claim": "16129.00",
+        "provincial_claim": "12747.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "179.64",
+        "cpp2": "0.00",
+        "ei": "51.72",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "197.91",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "CPP/EI unchanged. Federal tax needs PDOC verification for 15% rate."
+    },
+    {
+      "id": "ON_66K_BIWEEKLY",
+      "tier": 3,
+      "description": "Ontario $66k - at EI MIE threshold",
+      "status": "TO_BE_VERIFIED",
+      "category": "ei_maximum",
+      "special_rules": ["EI at maximum rate"],
+      "input": {
+        "province": "ON",
+        "gross_pay": "2538.46",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-01-17",
+        "federal_claim": "16129.00",
+        "provincial_claim": "12747.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "143.03",
+        "cpp2": "0.00",
+        "ei": "41.63",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "136.90",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "CPP/EI unchanged. Federal tax needs PDOC verification for 15% rate."
+    },
+    {
+      "id": "AB_85K_CPP2",
+      "tier": 3,
+      "description": "Alberta $85k - CPP2 range verification",
+      "status": "TO_BE_VERIFIED",
+      "category": "cpp2_verification",
+      "special_rules": ["CPP2 in range", "Alberta flat rate"],
+      "input": {
+        "province": "AB",
+        "gross_pay": "3269.23",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-01-17",
+        "federal_claim": "16129.00",
+        "provincial_claim": "22323.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "186.51",
+        "cpp2": "0.00",
+        "ei": "53.62",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "169.73",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "CPP/EI unchanged. Federal tax needs PDOC verification for 15% rate."
+    },
+    {
+      "id": "BC_90K_CPP2_TAX_REDUCTION",
+      "tier": 3,
+      "description": "BC $90k - CPP2 + tax reduction combined rules",
+      "status": "TO_BE_VERIFIED",
+      "category": "combined_rules",
+      "special_rules": ["CPP2", "Tax reduction interaction"],
+      "input": {
+        "province": "BC",
+        "gross_pay": "3461.54",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-01-17",
+        "federal_claim": "16129.00",
+        "provincial_claim": "12932.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "197.95",
+        "cpp2": "0.00",
+        "ei": "56.77",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "180.14",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "CPP/EI unchanged. Federal tax needs PDOC verification for 15% rate."
+    }
+  ]
+}

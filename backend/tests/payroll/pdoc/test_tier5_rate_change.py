@@ -40,12 +40,15 @@ class TestTier5PreJulyRate:
 
     Tests calculations before July 1, 2025 when federal lowest
     bracket rate is 15%.
+    Parameterized by tax_year and edition from conftest.py fixtures.
     """
 
     @pytest.fixture(autouse=True)
-    def setup(self, payroll_engine):
-        """Set up PayrollEngine for tests."""
+    def setup(self, payroll_engine, tax_year, edition):
+        """Set up PayrollEngine and context for tests."""
         self.engine = payroll_engine
+        self.tax_year = tax_year
+        self.edition = edition
 
     @pytest.mark.parametrize(
         "case_id",
@@ -63,9 +66,9 @@ class TestTier5PreJulyRate:
         - Higher federal tax than 14%
         - Different K1, K2 credit calculations
         """
-        case = get_case_by_id(TIER, case_id)
+        case = get_case_by_id(TIER, case_id, self.tax_year, self.edition)
         if not case:
-            pytest.skip(f"Test case {case_id} not found")
+            pytest.skip(f"Test case {case_id} not found for {self.tax_year}/{self.edition}")
 
         if not case.is_verified:
             pytest.skip(f"Test case {case_id} not yet verified with PDOC")
@@ -83,12 +86,15 @@ class TestTier5PostJulyRate:
 
     Tests calculations after July 1, 2025 when federal lowest
     bracket rate is 14%.
+    Parameterized by tax_year and edition from conftest.py fixtures.
     """
 
     @pytest.fixture(autouse=True)
-    def setup(self, payroll_engine):
-        """Set up PayrollEngine for tests."""
+    def setup(self, payroll_engine, tax_year, edition):
+        """Set up PayrollEngine and context for tests."""
         self.engine = payroll_engine
+        self.tax_year = tax_year
+        self.edition = edition
 
     def test_post_july_rate(self):
         """
@@ -98,9 +104,9 @@ class TestTier5PostJulyRate:
         - Lower federal tax than 15%
         - Different K1, K2 credit calculations
         """
-        case = get_case_by_id(TIER, "ON_60K_JUL")
+        case = get_case_by_id(TIER, "ON_60K_JUL", self.tax_year, self.edition)
         if not case:
-            pytest.skip("Test case ON_60K_JUL not found")
+            pytest.skip(f"Test case ON_60K_JUL not found for {self.tax_year}/{self.edition}")
 
         if not case.is_verified:
             pytest.skip("Test case not yet verified with PDOC")
@@ -118,12 +124,15 @@ class TestTier5RateComparison:
 
     These tests verify the expected difference between
     15% and 14% federal rate calculations.
+    Parameterized by tax_year and edition from conftest.py fixtures.
     """
 
     @pytest.fixture(autouse=True)
-    def setup(self, payroll_engine):
-        """Set up PayrollEngine for tests."""
+    def setup(self, payroll_engine, tax_year, edition):
+        """Set up PayrollEngine and context for tests."""
         self.engine = payroll_engine
+        self.tax_year = tax_year
+        self.edition = edition
 
     def test_rate_change_impact(self):
         """
@@ -132,11 +141,11 @@ class TestTier5RateComparison:
         For $60k income, the rate change should result in
         approximately 1% lower federal tax at 14% vs 15%.
         """
-        jan_case = get_case_by_id(TIER, "ON_60K_JAN")
-        jul_case = get_case_by_id(TIER, "ON_60K_JUL")
+        jan_case = get_case_by_id(TIER, "ON_60K_JAN", self.tax_year, self.edition)
+        jul_case = get_case_by_id(TIER, "ON_60K_JUL", self.tax_year, self.edition)
 
         if not jan_case or not jul_case:
-            pytest.skip("Rate comparison cases not found")
+            pytest.skip(f"Rate comparison cases not found for {self.tax_year}/{self.edition}")
 
         if not jan_case.is_verified or not jul_case.is_verified:
             pytest.skip("Rate comparison cases not yet verified with PDOC")

@@ -40,13 +40,15 @@ class TestTier1ProvinceCoverage:
     PDOC Validation: Core Province Coverage
 
     Validates standard $60k annual, bi-weekly calculations for all provinces.
-    Pay date: 2025-07-18 (post July 1, federal rate 14%)
+    Parameterized by tax_year and edition from conftest.py fixtures.
     """
 
     @pytest.fixture(autouse=True)
-    def setup(self, payroll_engine):
-        """Set up PayrollEngine for tests."""
+    def setup(self, payroll_engine, tax_year, edition):
+        """Set up PayrollEngine and context for tests."""
         self.engine = payroll_engine
+        self.tax_year = tax_year
+        self.edition = edition
 
     @pytest.mark.parametrize(
         "case_id",
@@ -78,9 +80,9 @@ class TestTier1ProvinceCoverage:
 
         All within $0.05 tolerance.
         """
-        case = get_case_by_id(TIER, case_id)
+        case = get_case_by_id(TIER, case_id, self.tax_year, self.edition)
         if not case:
-            pytest.skip(f"Test case {case_id} not found in fixtures")
+            pytest.skip(f"Test case {case_id} not found for {self.tax_year}/{self.edition}")
 
         if not case.is_verified:
             pytest.skip(f"Test case {case_id} not yet verified with PDOC")

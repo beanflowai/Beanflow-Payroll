@@ -36,12 +36,15 @@ class TestTier2LowIncome:
     PDOC Validation: Low Income Tests ($30k annual)
 
     Tests scenarios where tax credits and reductions are maximized.
+    Parameterized by tax_year and edition from conftest.py fixtures.
     """
 
     @pytest.fixture(autouse=True)
-    def setup(self, payroll_engine):
-        """Set up PayrollEngine for tests."""
+    def setup(self, payroll_engine, tax_year, edition):
+        """Set up PayrollEngine and context for tests."""
         self.engine = payroll_engine
+        self.tax_year = tax_year
+        self.edition = edition
 
     @pytest.mark.parametrize(
         "case_id",
@@ -62,9 +65,9 @@ class TestTier2LowIncome:
         - Maximum dynamic BPA (MB)
         - Higher BPA tier (NS)
         """
-        case = get_case_by_id(TIER, case_id)
+        case = get_case_by_id(TIER, case_id, self.tax_year, self.edition)
         if not case:
-            pytest.skip(f"Test case {case_id} not found in fixtures")
+            pytest.skip(f"Test case {case_id} not found for {self.tax_year}/{self.edition}")
 
         if not case.is_verified:
             pytest.skip(f"Test case {case_id} not yet verified with PDOC")
@@ -81,12 +84,15 @@ class TestTier2HighIncome:
     PDOC Validation: High Income Tests ($120k+ annual)
 
     Tests scenarios with full surtax, health premiums, and CPP2.
+    Parameterized by tax_year and edition from conftest.py fixtures.
     """
 
     @pytest.fixture(autouse=True)
-    def setup(self, payroll_engine):
-        """Set up PayrollEngine for tests."""
+    def setup(self, payroll_engine, tax_year, edition):
+        """Set up PayrollEngine and context for tests."""
         self.engine = payroll_engine
+        self.tax_year = tax_year
+        self.edition = edition
 
     @pytest.mark.parametrize(
         "case_id",
@@ -112,9 +118,9 @@ class TestTier2HighIncome:
         - No tax reduction (BC at high income)
         - Top tax bracket calculations
         """
-        case = get_case_by_id(TIER, case_id)
+        case = get_case_by_id(TIER, case_id, self.tax_year, self.edition)
         if not case:
-            pytest.skip(f"Test case {case_id} not found in fixtures")
+            pytest.skip(f"Test case {case_id} not found for {self.tax_year}/{self.edition}")
 
         if not case.is_verified:
             pytest.skip(f"Test case {case_id} not yet verified with PDOC")

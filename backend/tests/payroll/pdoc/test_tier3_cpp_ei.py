@@ -45,12 +45,15 @@ class TestTier3CPP2Calculations:
 
     CPP2 applies to pensionable earnings between YMPE and YAMPE.
     Rate: 4% (employee portion)
+    Parameterized by tax_year and edition from conftest.py fixtures.
     """
 
     @pytest.fixture(autouse=True)
-    def setup(self, payroll_engine):
-        """Set up PayrollEngine for tests."""
+    def setup(self, payroll_engine, tax_year, edition):
+        """Set up PayrollEngine and context for tests."""
         self.engine = payroll_engine
+        self.tax_year = tax_year
+        self.edition = edition
 
     @pytest.mark.parametrize(
         "case_id",
@@ -70,9 +73,9 @@ class TestTier3CPP2Calculations:
         - CPP2 maxes at YAMPE ($81,200)
         - Correct CPP2 rate application
         """
-        case = get_case_by_id(TIER, case_id)
+        case = get_case_by_id(TIER, case_id, self.tax_year, self.edition)
         if not case:
-            pytest.skip(f"Test case {case_id} not found in fixtures")
+            pytest.skip(f"Test case {case_id} not found for {self.tax_year}/{self.edition}")
 
         if not case.is_verified:
             pytest.skip(f"Test case {case_id} not yet verified with PDOC")
@@ -89,18 +92,21 @@ class TestTier3EIBoundary:
     PDOC Validation: EI Boundary Tests
 
     Tests EI at maximum insurable earnings threshold.
+    Parameterized by tax_year and edition from conftest.py fixtures.
     """
 
     @pytest.fixture(autouse=True)
-    def setup(self, payroll_engine):
-        """Set up PayrollEngine for tests."""
+    def setup(self, payroll_engine, tax_year, edition):
+        """Set up PayrollEngine and context for tests."""
         self.engine = payroll_engine
+        self.tax_year = tax_year
+        self.edition = edition
 
     def test_ei_at_mie_threshold(self):
         """Test EI at Maximum Insurable Earnings threshold."""
-        case = get_case_by_id(TIER, "ON_66K_BIWEEKLY")
+        case = get_case_by_id(TIER, "ON_66K_BIWEEKLY", self.tax_year, self.edition)
         if not case:
-            pytest.skip("Test case ON_66K_BIWEEKLY not found")
+            pytest.skip(f"Test case ON_66K_BIWEEKLY not found for {self.tax_year}/{self.edition}")
 
         if not case.is_verified:
             pytest.skip("Test case not yet verified with PDOC")
@@ -117,12 +123,15 @@ class TestTier3YTDMaximums:
     PDOC Validation: YTD Near Maximum Tests
 
     Tests partial CPP/EI deductions when YTD is near annual maximum.
+    Parameterized by tax_year and edition from conftest.py fixtures.
     """
 
     @pytest.fixture(autouse=True)
-    def setup(self, payroll_engine):
-        """Set up PayrollEngine for tests."""
+    def setup(self, payroll_engine, tax_year, edition):
+        """Set up PayrollEngine and context for tests."""
         self.engine = payroll_engine
+        self.tax_year = tax_year
+        self.edition = edition
 
     @pytest.mark.parametrize(
         "case_id",
@@ -139,9 +148,9 @@ class TestTier3YTDMaximums:
         - YTD CPP near $4,034.10 max
         - YTD EI near $1,077.48 max
         """
-        case = get_case_by_id(TIER, case_id)
+        case = get_case_by_id(TIER, case_id, self.tax_year, self.edition)
         if not case:
-            pytest.skip(f"Test case {case_id} not found")
+            pytest.skip(f"Test case {case_id} not found for {self.tax_year}/{self.edition}")
 
         if not case.is_verified:
             pytest.skip(f"Test case {case_id} not yet verified with PDOC")
@@ -154,9 +163,9 @@ class TestTier3YTDMaximums:
 
     def test_all_contributions_maxed(self):
         """Test zero CPP/EI when all contributions are maxed."""
-        case = get_case_by_id(TIER, "ON_100K_ALL_MAXED")
+        case = get_case_by_id(TIER, "ON_100K_ALL_MAXED", self.tax_year, self.edition)
         if not case:
-            pytest.skip("Test case ON_100K_ALL_MAXED not found")
+            pytest.skip(f"Test case ON_100K_ALL_MAXED not found for {self.tax_year}/{self.edition}")
 
         if not case.is_verified:
             pytest.skip("Test case not yet verified with PDOC")
@@ -183,12 +192,15 @@ class TestTier3K2EffectivePeriods:
     Tests the K2 P-1 logic when CPP/EI reaches maximum in current period.
     When (ytd_cpp_base + cpp_per_period) >= max_cpp_credit, the K2 tax
     credit calculation uses P-1 periods instead of P periods.
+    Parameterized by tax_year and edition from conftest.py fixtures.
     """
 
     @pytest.fixture(autouse=True)
-    def setup(self, payroll_engine):
-        """Set up PayrollEngine for tests."""
+    def setup(self, payroll_engine, tax_year, edition):
+        """Set up PayrollEngine and context for tests."""
         self.engine = payroll_engine
+        self.tax_year = tax_year
+        self.edition = edition
 
     def test_cpp_reaches_max_triggers_k2_logic(self):
         """
@@ -202,9 +214,9 @@ class TestTier3K2EffectivePeriods:
         Note: Using slightly relaxed tolerance ($1.00) for tax components due to
         input parameter differences between PDOC collection and fixture values.
         """
-        case = get_case_by_id(TIER, "ON_80K_CPP_REACHES_MAX_K2")
+        case = get_case_by_id(TIER, "ON_80K_CPP_REACHES_MAX_K2", self.tax_year, self.edition)
         if not case:
-            pytest.skip("Test case ON_80K_CPP_REACHES_MAX_K2 not found")
+            pytest.skip(f"Test case ON_80K_CPP_REACHES_MAX_K2 not found for {self.tax_year}/{self.edition}")
 
         if not case.is_verified:
             pytest.skip("Test case not yet verified with PDOC")

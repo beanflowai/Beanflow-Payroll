@@ -35,12 +35,15 @@ class TestTier4RRSP:
     PDOC Validation: RRSP Deduction Tests
 
     RRSP contributions reduce taxable income.
+    Parameterized by tax_year and edition from conftest.py fixtures.
     """
 
     @pytest.fixture(autouse=True)
-    def setup(self, payroll_engine):
-        """Set up PayrollEngine for tests."""
+    def setup(self, payroll_engine, tax_year, edition):
+        """Set up PayrollEngine and context for tests."""
         self.engine = payroll_engine
+        self.tax_year = tax_year
+        self.edition = edition
 
     @pytest.mark.parametrize(
         "case_id",
@@ -58,9 +61,9 @@ class TestTier4RRSP:
         - Reduce taxable income for provincial tax
         - Do NOT affect CPP/EI contributions
         """
-        case = get_case_by_id(TIER, case_id)
+        case = get_case_by_id(TIER, case_id, self.tax_year, self.edition)
         if not case:
-            pytest.skip(f"Test case {case_id} not found")
+            pytest.skip(f"Test case {case_id} not found for {self.tax_year}/{self.edition}")
 
         if not case.is_verified:
             pytest.skip(f"Test case {case_id} not yet verified with PDOC")
@@ -77,18 +80,21 @@ class TestTier4UnionDues:
     PDOC Validation: Union Dues Tests
 
     Union dues affect tax calculation.
+    Parameterized by tax_year and edition from conftest.py fixtures.
     """
 
     @pytest.fixture(autouse=True)
-    def setup(self, payroll_engine):
-        """Set up PayrollEngine for tests."""
+    def setup(self, payroll_engine, tax_year, edition):
+        """Set up PayrollEngine and context for tests."""
         self.engine = payroll_engine
+        self.tax_year = tax_year
+        self.edition = edition
 
     def test_union_dues_credit(self):
         """Test union dues provide tax credit."""
-        case = get_case_by_id(TIER, "ON_60K_UNION")
+        case = get_case_by_id(TIER, "ON_60K_UNION", self.tax_year, self.edition)
         if not case:
-            pytest.skip("Test case ON_60K_UNION not found")
+            pytest.skip(f"Test case ON_60K_UNION not found for {self.tax_year}/{self.edition}")
 
         if not case.is_verified:
             pytest.skip("Test case not yet verified with PDOC")
@@ -105,18 +111,21 @@ class TestTier4Exemptions:
     PDOC Validation: Exemption Tests
 
     Tests for CPP, EI, and CPP2 exempt employees.
+    Parameterized by tax_year and edition from conftest.py fixtures.
     """
 
     @pytest.fixture(autouse=True)
-    def setup(self, payroll_engine):
-        """Set up PayrollEngine for tests."""
+    def setup(self, payroll_engine, tax_year, edition):
+        """Set up PayrollEngine and context for tests."""
         self.engine = payroll_engine
+        self.tax_year = tax_year
+        self.edition = edition
 
     def test_cpp_exempt(self):
         """Test CPP exempt employee has zero CPP contribution."""
-        case = get_case_by_id(TIER, "ON_60K_CPP_EXEMPT")
+        case = get_case_by_id(TIER, "ON_60K_CPP_EXEMPT", self.tax_year, self.edition)
         if not case:
-            pytest.skip("Test case ON_60K_CPP_EXEMPT not found")
+            pytest.skip(f"Test case ON_60K_CPP_EXEMPT not found for {self.tax_year}/{self.edition}")
 
         if not case.is_verified:
             pytest.skip("Test case not yet verified with PDOC")
@@ -136,9 +145,9 @@ class TestTier4Exemptions:
 
     def test_ei_exempt(self):
         """Test EI exempt employee has zero EI contribution."""
-        case = get_case_by_id(TIER, "ON_60K_EI_EXEMPT")
+        case = get_case_by_id(TIER, "ON_60K_EI_EXEMPT", self.tax_year, self.edition)
         if not case:
-            pytest.skip("Test case ON_60K_EI_EXEMPT not found")
+            pytest.skip(f"Test case ON_60K_EI_EXEMPT not found for {self.tax_year}/{self.edition}")
 
         if not case.is_verified:
             pytest.skip("Test case not yet verified with PDOC")
@@ -158,9 +167,9 @@ class TestTier4Exemptions:
 
     def test_cpp2_exempt(self):
         """Test CPP2 exempt employee has zero CPP2 contribution."""
-        case = get_case_by_id(TIER, "ON_100K_CPP2_EXEMPT")
+        case = get_case_by_id(TIER, "ON_100K_CPP2_EXEMPT", self.tax_year, self.edition)
         if not case:
-            pytest.skip("Test case ON_100K_CPP2_EXEMPT not found")
+            pytest.skip(f"Test case ON_100K_CPP2_EXEMPT not found for {self.tax_year}/{self.edition}")
 
         if not case.is_verified:
             pytest.skip("Test case not yet verified with PDOC")
@@ -180,12 +189,15 @@ class TestTier4TaxableBenefits:
     PDOC Validation: Taxable Benefits Tests
 
     Tests for taxable benefits added to income.
+    Parameterized by tax_year and edition from conftest.py fixtures.
     """
 
     @pytest.fixture(autouse=True)
-    def setup(self, payroll_engine):
-        """Set up PayrollEngine for tests."""
+    def setup(self, payroll_engine, tax_year, edition):
+        """Set up PayrollEngine and context for tests."""
         self.engine = payroll_engine
+        self.tax_year = tax_year
+        self.edition = edition
 
     @pytest.mark.parametrize(
         "case_id",
@@ -203,9 +215,9 @@ class TestTier4TaxableBenefits:
         - May affect pensionable/insurable earnings
         - Interact with tax credits (BC tax reduction)
         """
-        case = get_case_by_id(TIER, case_id)
+        case = get_case_by_id(TIER, case_id, self.tax_year, self.edition)
         if not case:
-            pytest.skip(f"Test case {case_id} not found")
+            pytest.skip(f"Test case {case_id} not found for {self.tax_year}/{self.edition}")
 
         if not case.is_verified:
             pytest.skip(f"Test case {case_id} not yet verified with PDOC")

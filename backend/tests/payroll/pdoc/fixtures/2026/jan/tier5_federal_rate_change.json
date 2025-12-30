@@ -1,0 +1,121 @@
+{
+  "tier": 5,
+  "name": "Federal Rate Change Tests - 2026",
+  "description": "Tests for 2026 federal rate (14% throughout year, no mid-year change expected)",
+  "version": "2026-01",
+  "collected_date": "2025-12-30",
+  "pdoc_version": "T4127 - 122nd Edition (January 2026)",
+  "tolerance": "0.05",
+  "notes": "2026: Federal first bracket rate is 14% (same as 2025 Jul edition). No mid-year rate change expected for 2026.",
+
+  "test_cases": [
+    {
+      "id": "ON_60K_JAN",
+      "tier": 5,
+      "description": "Ontario $60k, bi-weekly, January 2026 - 14% federal rate",
+      "status": "TO_BE_VERIFIED",
+      "category": "federal_rate",
+      "special_rules": ["14% federal rate"],
+      "input": {
+        "province": "ON",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2026-01-16",
+        "federal_claim": "16452.00",
+        "provincial_claim": "12989.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp2": "0.00",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "total_deductions": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "2026: Ontario $60k January - 14% federal first bracket rate"
+    },
+    {
+      "id": "AB_60K_JAN",
+      "tier": 5,
+      "description": "Alberta $60k, bi-weekly, January 2026 - 14% federal rate",
+      "status": "TO_BE_VERIFIED",
+      "category": "federal_rate",
+      "special_rules": ["14% federal rate", "Flat provincial rate"],
+      "input": {
+        "province": "AB",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2026-01-16",
+        "federal_claim": "16452.00",
+        "provincial_claim": "22769.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp2": "0.00",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "total_deductions": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "2026: Alberta $60k January - 14% federal, 10% provincial flat rate"
+    },
+    {
+      "id": "BC_60K_JAN",
+      "tier": 5,
+      "description": "BC $60k, bi-weekly, January 2026 - 14% federal rate",
+      "status": "TO_BE_VERIFIED",
+      "category": "federal_rate",
+      "special_rules": ["14% federal rate", "BC tax reduction"],
+      "input": {
+        "province": "BC",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2026-01-16",
+        "federal_claim": "16452.00",
+        "provincial_claim": "13216.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp2": "0.00",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "total_deductions": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "2026: BC $60k January - 14% federal, BC tax reduction active"
+    }
+  ]
+}
