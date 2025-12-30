@@ -45,6 +45,7 @@ class PDOCTestCase:
     status: str
     input: dict[str, Any]
     pdoc_expected: dict[str, str]
+    category: str = ""  # Category for grouping tests (e.g., "cpp2", "low_income")
     notes: str = ""
 
     @property
@@ -62,6 +63,7 @@ class PDOCTestCase:
             status=data.get("status", "PENDING"),
             input=data["input"],
             pdoc_expected=data["pdoc_expected"],
+            category=data.get("category", ""),
             notes=data.get("notes", ""),
         )
 
@@ -191,6 +193,27 @@ def get_verified_case_ids(
     """Get only verified case IDs for a tier, year, and edition."""
     cases = get_verified_cases(tier, year, edition)
     return [c.id for c in cases]
+
+
+def get_cases_by_category(
+    tier: int,
+    category: str,
+    year: int = DEFAULT_TAX_YEAR,
+    edition: str | None = None,
+) -> list[PDOCTestCase]:
+    """Get verified test cases filtered by category.
+
+    Args:
+        tier: Test tier (1-5)
+        category: Category to filter by (e.g., "cpp2", "low_income")
+        year: Tax year
+        edition: Tax edition
+
+    Returns:
+        List of verified test cases matching the category
+    """
+    cases = load_tier_cases(tier, year, edition)
+    return [c for c in cases if c.category == category and c.is_verified]
 
 
 # =============================================================================
@@ -370,25 +393,39 @@ def assert_validations_pass(
 # =============================================================================
 
 
-@pytest.fixture(params=[2025, 2026])  # Multi-year testing
-def tax_year(request):
-    """Parameterized tax year fixture for multi-year testing."""
-    return request.param
+# Year-Edition combinations to test
+# Note: 2026-jul is excluded because fixtures are not yet created
+YEAR_EDITION_COMBINATIONS = [
+    (2025, "jan"),
+    (2025, "jul"),
+    (2026, "jan"),
+    # (2026, "jul"),  # TODO: Enable when 2026-jul fixtures are created
+]
 
 
-@pytest.fixture(params=["jan", "jul"])  # Both editions for multi-edition testing
-def edition(request):
-    """Parameterized edition fixture for multi-edition testing.
+@pytest.fixture(params=YEAR_EDITION_COMBINATIONS, ids=lambda x: f"{x[0]}-{x[1]}")
+def year_edition(request):
+    """Combined year-edition fixture to control valid combinations.
 
-    Editions for 2025:
-        jan: 120th Edition (Jan-Jun 2025, 15% federal rate)
-        jul: 121st Edition (Jul+ 2025, 14% federal rate)
-
-    Editions for 2026:
-        jan: 122nd Edition (January 2026, 14% federal rate)
-        jul: TBD (expected mid-2026)
+    Editions:
+        2025-jan: 120th Edition (Jan-Jun 2025, 15% federal rate)
+        2025-jul: 121st Edition (Jul+ 2025, 14% federal rate)
+        2026-jan: 122nd Edition (January 2026, 14% federal rate)
+        2026-jul: Not yet available (fixtures pending)
     """
     return request.param
+
+
+@pytest.fixture
+def tax_year(year_edition):
+    """Extract tax year from year_edition tuple."""
+    return year_edition[0]
+
+
+@pytest.fixture
+def edition(year_edition):
+    """Extract edition from year_edition tuple."""
+    return year_edition[1]
 
 
 @pytest.fixture
@@ -425,3 +462,59 @@ def tier4_cases(tax_year, edition):
 def tier5_cases(tax_year, edition):
     """Load Tier 5 test cases for the current tax year and edition."""
     return load_tier_cases(5, tax_year, edition)
+
+
+# =============================================================================
+# Dynamic Test Parametrization
+# =============================================================================
+
+
+def pytest_generate_tests(metafunc):
+    """Dynamically generate test parameters based on fixture data.
+
+    This hook enables dynamic test discovery by:
+    1. Looking for test classes with TIER and CATEGORY class attributes
+    2. Loading all verified test cases matching that tier and category
+    3. Parametrizing the test with (year, edition, case_id) tuples
+
+    Test classes should define:
+        TIER: int - The tier number (1-5)
+        CATEGORY: str - The category to filter by (e.g., "cpp2", "province_coverage")
+
+    And use `dynamic_case` as a fixture parameter:
+        def test_something(self, dynamic_case):
+            year, edition, case_id = dynamic_case
+            ...
+    """
+    if "dynamic_case" not in metafunc.fixturenames:
+        return
+
+    cls = metafunc.cls
+    if cls is None or not hasattr(cls, "TIER") or not hasattr(cls, "CATEGORY"):
+        return
+
+    tier = cls.TIER
+    category = cls.CATEGORY
+
+    params = []
+    ids = []
+
+    for year, edition in YEAR_EDITION_COMBINATIONS:
+        try:
+            cases = get_cases_by_category(tier, category, year, edition)
+            for case in cases:
+                params.append((year, edition, case.id))
+                ids.append(f"{year}-{edition}-{case.id}")
+        except Exception:
+            # Skip if fixture file doesn't exist for this combination
+            continue
+
+    if params:
+        metafunc.parametrize("dynamic_case", params, ids=ids)
+    else:
+        # No cases found - mark test to be skipped
+        metafunc.parametrize(
+            "dynamic_case",
+            [pytest.param(None, marks=pytest.mark.skip(reason=f"No cases for tier={tier}, category={category}"))],
+            ids=["no_cases"],
+        )

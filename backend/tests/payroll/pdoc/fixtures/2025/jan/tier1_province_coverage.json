@@ -7,14 +7,16 @@
   "pdoc_version": "T4127 - Version 2025-12-08",
   "tolerance": "0.05",
   "notes": "Jan edition: All cases use 15% federal rate (120th Edition). Federal tax verified from tier5 pre-July cases. SK and PE use pre-July BPA values.",
-
   "test_cases": [
     {
       "id": "ON_60K_BIWEEKLY",
       "tier": 1,
       "description": "Ontario standard $60k annual, bi-weekly, YTD=$0",
       "status": "VERIFIED",
-      "special_rules": ["Surtax", "Health Premium"],
+      "special_rules": [
+        "Surtax",
+        "Health Premium"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "2307.69",
@@ -42,14 +44,18 @@
         "total_deductions": "507.80",
         "net_pay": "1799.89"
       },
-      "notes": "Federal tax verified from tier5 pre-July case. Federal rate is 15% pre-July 2025."
+      "notes": "Federal tax verified from tier5 pre-July case. Federal rate is 15% pre-July 2025.",
+      "category": "province_coverage"
     },
     {
       "id": "AB_60K_BIWEEKLY",
       "tier": 1,
       "description": "Alberta $60k annual, bi-weekly - flat 10% rate, high BPA, K5P credit",
       "status": "VERIFIED",
-      "special_rules": ["Flat 10% rate", "K5P supplemental credit"],
+      "special_rules": [
+        "Flat 10% rate",
+        "K5P supplemental credit"
+      ],
       "input": {
         "province": "AB",
         "gross_pay": "2307.69",
@@ -77,14 +83,17 @@
         "total_deductions": "519.24",
         "net_pay": "1788.45"
       },
-      "notes": "Verified from PDOC 2025-12-30. Federal rate is 15% pre-July 2025."
+      "notes": "Verified from PDOC 2025-12-30. Federal rate is 15% pre-July 2025.",
+      "category": "province_coverage"
     },
     {
       "id": "BC_60K_BIWEEKLY",
       "tier": 1,
       "description": "BC $60k annual, bi-weekly - tax reduction (Factor S)",
       "status": "VERIFIED",
-      "special_rules": ["Tax reduction (Factor S)"],
+      "special_rules": [
+        "Tax reduction (Factor S)"
+      ],
       "input": {
         "province": "BC",
         "gross_pay": "2307.69",
@@ -112,14 +121,17 @@
         "total_deductions": "484.49",
         "net_pay": "1823.20"
       },
-      "notes": "Verified from PDOC 2025-12-30. Federal rate is 15% pre-July 2025."
+      "notes": "Verified from PDOC 2025-12-30. Federal rate is 15% pre-July 2025.",
+      "category": "province_coverage"
     },
     {
       "id": "MB_60K_BIWEEKLY",
       "tier": 1,
       "description": "Manitoba $60k annual, bi-weekly - dynamic BPA",
       "status": "VERIFIED",
-      "special_rules": ["Dynamic BPA"],
+      "special_rules": [
+        "Dynamic BPA"
+      ],
       "input": {
         "province": "MB",
         "gross_pay": "2307.69",
@@ -147,14 +159,17 @@
         "total_deductions": "564.81",
         "net_pay": "1742.88"
       },
-      "notes": "Verified from PDOC 2025-12-30. Federal rate is 15% pre-July 2025."
+      "notes": "Verified from PDOC 2025-12-30. Federal rate is 15% pre-July 2025.",
+      "category": "province_coverage"
     },
     {
       "id": "SK_60K_BIWEEKLY",
       "tier": 1,
       "description": "Saskatchewan $60k annual, bi-weekly - pre-July BPA ($18,991)",
       "status": "VERIFIED",
-      "special_rules": ["Pre-July BPA $18,991 (vs Jul $19,991)"],
+      "special_rules": [
+        "Pre-July BPA $18,991 (vs Jul $19,991)"
+      ],
       "input": {
         "province": "SK",
         "gross_pay": "2307.69",
@@ -182,7 +197,8 @@
         "total_deductions": "543.71",
         "net_pay": "1763.98"
       },
-      "notes": "Verified from PDOC 2025-12-30. Federal rate is 15% pre-July 2025."
+      "notes": "Verified from PDOC 2025-12-30. Federal rate is 15% pre-July 2025.",
+      "category": "province_coverage"
     },
     {
       "id": "NB_60K_BIWEEKLY",
@@ -217,7 +233,8 @@
         "total_deductions": "558.20",
         "net_pay": "1749.49"
       },
-      "notes": "Federal tax calculated based on 15% rate. NB provincial tax unchanged."
+      "notes": "Federal tax calculated based on 15% rate. NB provincial tax unchanged.",
+      "category": "province_coverage"
     },
     {
       "id": "NL_60K_BIWEEKLY",
@@ -252,14 +269,18 @@
         "total_deductions": "574.24",
         "net_pay": "1733.45"
       },
-      "notes": "Federal tax calculated based on 15% rate. NL provincial tax unchanged."
+      "notes": "Federal tax calculated based on 15% rate. NL provincial tax unchanged.",
+      "category": "province_coverage"
     },
     {
       "id": "NS_60K_BIWEEKLY",
       "tier": 1,
       "description": "Nova Scotia $60k annual, bi-weekly - two-tier BPA, surtax",
       "status": "VERIFIED",
-      "special_rules": ["Two-tier BPA", "Surtax"],
+      "special_rules": [
+        "Two-tier BPA",
+        "Surtax"
+      ],
       "input": {
         "province": "NS",
         "gross_pay": "2307.69",
@@ -287,14 +308,17 @@
         "total_deductions": "608.04",
         "net_pay": "1699.65"
       },
-      "notes": "Federal tax calculated based on 15% rate. NS provincial tax unchanged."
+      "notes": "Federal tax calculated based on 15% rate. NS provincial tax unchanged.",
+      "category": "province_coverage"
     },
     {
       "id": "PE_60K_BIWEEKLY",
       "tier": 1,
       "description": "PEI $60k annual, bi-weekly - pre-July BPA ($14,250)",
       "status": "VERIFIED",
-      "special_rules": ["Pre-July BPA $14,250 (vs Jul $15,050)"],
+      "special_rules": [
+        "Pre-July BPA $14,250 (vs Jul $15,050)"
+      ],
       "input": {
         "province": "PE",
         "gross_pay": "2307.69",
@@ -322,7 +346,8 @@
         "total_deductions": "582.19",
         "net_pay": "1725.50"
       },
-      "notes": "Verified from PDOC 2025-12-30. Federal rate is 15% pre-July 2025."
+      "notes": "Verified from PDOC 2025-12-30. Federal rate is 15% pre-July 2025.",
+      "category": "province_coverage"
     },
     {
       "id": "NT_60K_BIWEEKLY",
@@ -357,7 +382,8 @@
         "total_deductions": "484.60",
         "net_pay": "1823.09"
       },
-      "notes": "Federal tax calculated based on 15% rate. NT provincial tax unchanged."
+      "notes": "Federal tax calculated based on 15% rate. NT provincial tax unchanged.",
+      "category": "province_coverage"
     },
     {
       "id": "NU_60K_BIWEEKLY",
@@ -392,14 +418,17 @@
         "total_deductions": "452.47",
         "net_pay": "1855.22"
       },
-      "notes": "Federal tax calculated based on 15% rate. NU provincial tax unchanged."
+      "notes": "Federal tax calculated based on 15% rate. NU provincial tax unchanged.",
+      "category": "province_coverage"
     },
     {
       "id": "YT_60K_BIWEEKLY",
       "tier": 1,
       "description": "Yukon $60k annual, bi-weekly - follows federal BPA formula",
       "status": "VERIFIED",
-      "special_rules": ["Federal BPA formula"],
+      "special_rules": [
+        "Federal BPA formula"
+      ],
       "input": {
         "province": "YT",
         "gross_pay": "2307.69",
@@ -427,7 +456,8 @@
         "total_deductions": "486.76",
         "net_pay": "1820.93"
       },
-      "notes": "Verified from PDOC 2025-12-30. Federal rate is 15% pre-July 2025."
+      "notes": "Verified from PDOC 2025-12-30. Federal rate is 15% pre-July 2025.",
+      "category": "province_coverage"
     }
   ]
 }

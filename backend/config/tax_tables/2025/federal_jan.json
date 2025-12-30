@@ -39,25 +39,25 @@
     {
       "threshold": 57375,
       "rate": 0.205,
-      "constant": 3155.63,
+      "constant": 3156,
       "description": "20.5% on $57,375 to $114,750"
     },
     {
       "threshold": 114750,
       "rate": 0.26,
-      "constant": 9466.88,
+      "constant": 9467,
       "description": "26% on $114,750 to $177,882"
     },
     {
       "threshold": 177882,
       "rate": 0.29,
-      "constant": 14808.34,
+      "constant": 14803,
       "description": "29% on $177,882 to $253,414"
     },
     {
       "threshold": 253414,
       "rate": 0.33,
-      "constant": 24944.90,
+      "constant": 24940,
       "description": "33% on over $253,414"
     }
   ],

@@ -7,15 +7,16 @@
   "pdoc_version": "T4127 - Version 2025-12-08",
   "tolerance": "0.05",
   "notes": "Jan edition: All cases use 15% federal rate. CPP/EI values unchanged, federal tax needs PDOC verification.",
-
   "test_cases": [
     {
       "id": "ON_72K_BIWEEKLY",
       "tier": 3,
       "description": "Ontario $72k - just above YMPE, CPP2 starts",
       "status": "VERIFIED",
-      "category": "cpp2_start",
-      "special_rules": ["CPP2 starts above YMPE"],
+      "category": "cpp2",
+      "special_rules": [
+        "CPP2 starts above YMPE"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "2769.23",
@@ -48,8 +49,10 @@
       "tier": 3,
       "description": "Ontario $82k - above YAMPE, CPP2 at ceiling",
       "status": "VERIFIED",
-      "category": "cpp2_ceiling",
-      "special_rules": ["CPP2 at maximum"],
+      "category": "cpp2",
+      "special_rules": [
+        "CPP2 at maximum"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "3153.85",
@@ -82,8 +85,10 @@
       "tier": 3,
       "description": "Ontario $66k - at EI MIE threshold",
       "status": "VERIFIED",
-      "category": "ei_maximum",
-      "special_rules": ["EI at maximum rate"],
+      "category": "ei_boundary",
+      "special_rules": [
+        "EI at maximum rate"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "2538.46",
@@ -116,8 +121,11 @@
       "tier": 3,
       "description": "Alberta $85k - CPP2 range verification",
       "status": "VERIFIED",
-      "category": "cpp2_verification",
-      "special_rules": ["CPP2 in range", "Alberta flat rate"],
+      "category": "cpp2",
+      "special_rules": [
+        "CPP2 in range",
+        "Alberta flat rate"
+      ],
       "input": {
         "province": "AB",
         "gross_pay": "3269.23",
@@ -150,8 +158,11 @@
       "tier": 3,
       "description": "BC $90k - CPP2 + tax reduction combined rules",
       "status": "VERIFIED",
-      "category": "combined_rules",
-      "special_rules": ["CPP2", "Tax reduction interaction"],
+      "category": "cpp2",
+      "special_rules": [
+        "CPP2",
+        "Tax reduction interaction"
+      ],
       "input": {
         "province": "BC",
         "gross_pay": "3461.54",

@@ -7,15 +7,16 @@
   "pdoc_version": "T4127 - Version 2025-12-08",
   "tolerance": "0.05",
   "notes": "2025 limits: YMPE=$71,300, YAMPE=$81,200, EI MIE=$65,700",
-
   "test_cases": [
     {
       "id": "ON_72K_BIWEEKLY",
       "tier": 3,
       "description": "Ontario $72k - just above YMPE, CPP2 starts",
       "status": "VERIFIED",
-      "category": "cpp2_start",
-      "special_rules": ["CPP2 starts above YMPE"],
+      "category": "cpp2",
+      "special_rules": [
+        "CPP2 starts above YMPE"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "2769.23",
@@ -50,8 +51,10 @@
       "tier": 3,
       "description": "Ontario $82k - above YAMPE, CPP2 at ceiling",
       "status": "VERIFIED",
-      "category": "cpp2_ceiling",
-      "special_rules": ["CPP2 at maximum"],
+      "category": "cpp2",
+      "special_rules": [
+        "CPP2 at maximum"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "3153.85",
@@ -86,8 +89,10 @@
       "tier": 3,
       "description": "Ontario $66k - at EI MIE threshold",
       "status": "VERIFIED",
-      "category": "ei_maximum",
-      "special_rules": ["EI at maximum rate"],
+      "category": "ei_boundary",
+      "special_rules": [
+        "EI at maximum rate"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "2538.46",
@@ -122,8 +127,10 @@
       "tier": 3,
       "description": "Ontario $80k with YTD CPP near max - partial CPP deduction",
       "status": "VERIFIED",
-      "category": "ytd_near_max",
-      "special_rules": ["Partial CPP due to YTD"],
+      "category": "ytd_max",
+      "special_rules": [
+        "Partial CPP due to YTD"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "3076.92",
@@ -159,8 +166,10 @@
       "tier": 3,
       "description": "Ontario $70k with YTD EI near max - partial EI deduction",
       "status": "VERIFIED",
-      "category": "ytd_near_max",
-      "special_rules": ["Partial EI due to YTD"],
+      "category": "ytd_max",
+      "special_rules": [
+        "Partial EI due to YTD"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "2692.31",
@@ -196,8 +205,10 @@
       "tier": 3,
       "description": "Ontario $100k with all YTD maxed - zero CPP/EI",
       "status": "VERIFIED",
-      "category": "all_maxed",
-      "special_rules": ["Zero CPP/EI - all maxed"],
+      "category": "ytd_max",
+      "special_rules": [
+        "Zero CPP/EI - all maxed"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "3846.15",
@@ -234,8 +245,11 @@
       "tier": 3,
       "description": "Alberta $85k - CPP2 range verification",
       "status": "VERIFIED",
-      "category": "cpp2_verification",
-      "special_rules": ["CPP2 in range", "Alberta flat rate"],
+      "category": "cpp2",
+      "special_rules": [
+        "CPP2 in range",
+        "Alberta flat rate"
+      ],
       "input": {
         "province": "AB",
         "gross_pay": "3269.23",
@@ -270,8 +284,11 @@
       "tier": 3,
       "description": "BC $90k - CPP2 + tax reduction combined rules",
       "status": "VERIFIED",
-      "category": "combined_rules",
-      "special_rules": ["CPP2", "Tax reduction interaction"],
+      "category": "cpp2",
+      "special_rules": [
+        "CPP2",
+        "Tax reduction interaction"
+      ],
       "input": {
         "province": "BC",
         "gross_pay": "3461.54",
@@ -306,8 +323,11 @@
       "tier": 3,
       "description": "Ontario $80k with CPP reaching max in current period - triggers K2 P-1 logic",
       "status": "VERIFIED",
-      "category": "k2_effective_periods",
-      "special_rules": ["K2 P-1 logic", "CPP reaches max in period"],
+      "category": "k2_periods",
+      "special_rules": [
+        "K2 P-1 logic",
+        "CPP reaches max in period"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "3076.92",

@@ -7,15 +7,16 @@
   "pdoc_version": "T4127 - 122nd Edition (January 2026)",
   "tolerance": "0.05",
   "notes": "2026 Jan edition: Federal rate 14%, BPAF $16,452. Tests RRSP deductions, union dues, varied pay frequencies.",
-
   "test_cases": [
     {
       "id": "WITH_RRSP",
       "tier": 4,
       "description": "Standard income with RRSP contribution - reduced taxable income",
       "status": "VERIFIED",
-      "category": "deduction",
-      "special_rules": ["RRSP contribution"],
+      "category": "rrsp",
+      "special_rules": [
+        "RRSP contribution"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "2307.69",
@@ -50,8 +51,10 @@
       "tier": 4,
       "description": "Standard income with union dues - reduced taxable income",
       "status": "VERIFIED",
-      "category": "deduction",
-      "special_rules": ["Union dues"],
+      "category": "rrsp",
+      "special_rules": [
+        "Union dues"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "2307.69",
@@ -87,7 +90,9 @@
       "description": "Weekly pay frequency - tests P=52 calculations",
       "status": "VERIFIED",
       "category": "pay_frequency",
-      "special_rules": ["Weekly frequency"],
+      "special_rules": [
+        "Weekly frequency"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "1153.85",
@@ -123,7 +128,9 @@
       "description": "Semi-monthly pay frequency - tests P=24 calculations",
       "status": "VERIFIED",
       "category": "pay_frequency",
-      "special_rules": ["Semi-monthly frequency"],
+      "special_rules": [
+        "Semi-monthly frequency"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "2500.00",
@@ -159,7 +166,9 @@
       "description": "Monthly pay frequency - tests P=12 calculations",
       "status": "VERIFIED",
       "category": "pay_frequency",
-      "special_rules": ["Monthly frequency"],
+      "special_rules": [
+        "Monthly frequency"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "5000.00",
@@ -194,8 +203,10 @@
       "tier": 4,
       "description": "Standard income with taxable benefits - added to pensionable/insurable earnings",
       "status": "VERIFIED",
-      "category": "benefits",
-      "special_rules": ["Taxable benefits"],
+      "category": "taxable_benefits",
+      "special_rules": [
+        "Taxable benefits"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "2307.69",
@@ -231,8 +242,12 @@
       "tier": 4,
       "description": "RRSP + union dues combined - maximum tax reduction",
       "status": "VERIFIED",
-      "category": "deduction",
-      "special_rules": ["RRSP", "Union dues", "Combined"],
+      "category": "rrsp",
+      "special_rules": [
+        "RRSP",
+        "Union dues",
+        "Combined"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "2307.69",
@@ -267,8 +282,11 @@
       "tier": 4,
       "description": "Partial year employee - 6 months pensionable",
       "status": "VERIFIED",
-      "category": "special",
-      "special_rules": ["Partial year", "Prorated CPP max"],
+      "category": "combined",
+      "special_rules": [
+        "Partial year",
+        "Prorated CPP max"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "2307.69",
@@ -304,8 +322,12 @@
       "tier": 4,
       "description": "Alberta high exemption - high TD1 claims result in zero tax",
       "status": "VERIFIED",
-      "category": "k5p",
-      "special_rules": ["K5P supplemental credit", "High provincial claim", "Zero tax scenario"],
+      "category": "k5p_credit",
+      "special_rules": [
+        "K5P supplemental credit",
+        "High provincial claim",
+        "Zero tax scenario"
+      ],
       "input": {
         "province": "AB",
         "gross_pay": "2307.69",

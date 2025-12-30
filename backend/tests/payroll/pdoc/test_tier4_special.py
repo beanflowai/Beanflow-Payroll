@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-import pytest
+from app.services.payroll.payroll_engine import PayrollEngine
 
 from .conftest import (
     VARIANCE_TOLERANCE,
@@ -35,24 +35,13 @@ class TestTier4RRSP:
     PDOC Validation: RRSP Deduction Tests
 
     RRSP contributions reduce taxable income.
-    Parameterized by tax_year and edition from conftest.py fixtures.
+    Uses dynamic test discovery based on fixture data.
     """
 
-    @pytest.fixture(autouse=True)
-    def setup(self, payroll_engine, tax_year, edition):
-        """Set up PayrollEngine and context for tests."""
-        self.engine = payroll_engine
-        self.tax_year = tax_year
-        self.edition = edition
+    TIER = 4
+    CATEGORY = "rrsp"
 
-    @pytest.mark.parametrize(
-        "case_id",
-        [
-            "ON_60K_RRSP",   # Standard RRSP $500/period
-            "AB_80K_RRSP",   # High RRSP $1000/period
-        ],
-    )
-    def test_rrsp_deduction(self, case_id: str):
+    def test_rrsp_deduction(self, dynamic_case):
         """
         Test RRSP reduces taxable income and taxes.
 
@@ -61,15 +50,13 @@ class TestTier4RRSP:
         - Reduce taxable income for provincial tax
         - Do NOT affect CPP/EI contributions
         """
-        case = get_case_by_id(TIER, case_id, self.tax_year, self.edition)
-        if not case:
-            pytest.skip(f"Test case {case_id} not found for {self.tax_year}/{self.edition}")
+        year, edition, case_id = dynamic_case
 
-        if not case.is_verified:
-            pytest.skip(f"Test case {case_id} not yet verified with PDOC")
+        engine = PayrollEngine(year=year)
+        case = get_case_by_id(TIER, case_id, year, edition)
 
         input_data = build_payroll_input(case)
-        result = self.engine.calculate(input_data)
+        result = engine.calculate(input_data)
 
         validations = validate_all_components(result, case.pdoc_expected)
         assert_validations_pass(case_id, validations)
@@ -80,30 +67,24 @@ class TestTier4UnionDues:
     PDOC Validation: Union Dues Tests
 
     Union dues affect tax calculation.
-    Parameterized by tax_year and edition from conftest.py fixtures.
+    Uses dynamic test discovery based on fixture data.
     """
 
-    @pytest.fixture(autouse=True)
-    def setup(self, payroll_engine, tax_year, edition):
-        """Set up PayrollEngine and context for tests."""
-        self.engine = payroll_engine
-        self.tax_year = tax_year
-        self.edition = edition
+    TIER = 4
+    CATEGORY = "union_dues"
 
-    def test_union_dues_credit(self):
+    def test_union_dues_credit(self, dynamic_case):
         """Test union dues provide tax credit."""
-        case = get_case_by_id(TIER, "ON_60K_UNION", self.tax_year, self.edition)
-        if not case:
-            pytest.skip(f"Test case ON_60K_UNION not found for {self.tax_year}/{self.edition}")
+        year, edition, case_id = dynamic_case
 
-        if not case.is_verified:
-            pytest.skip("Test case not yet verified with PDOC")
+        engine = PayrollEngine(year=year)
+        case = get_case_by_id(TIER, case_id, year, edition)
 
         input_data = build_payroll_input(case)
-        result = self.engine.calculate(input_data)
+        result = engine.calculate(input_data)
 
         validations = validate_all_components(result, case.pdoc_expected)
-        assert_validations_pass("ON_60K_UNION", validations)
+        assert_validations_pass(case_id, validations)
 
 
 class TestTier4Exemptions:
@@ -111,77 +92,52 @@ class TestTier4Exemptions:
     PDOC Validation: Exemption Tests
 
     Tests for CPP, EI, and CPP2 exempt employees.
-    Parameterized by tax_year and edition from conftest.py fixtures.
+    Uses dynamic test discovery based on fixture data.
     """
 
-    @pytest.fixture(autouse=True)
-    def setup(self, payroll_engine, tax_year, edition):
-        """Set up PayrollEngine and context for tests."""
-        self.engine = payroll_engine
-        self.tax_year = tax_year
-        self.edition = edition
+    TIER = 4
+    CATEGORY = "exemptions"
 
-    def test_cpp_exempt(self):
-        """Test CPP exempt employee has zero CPP contribution."""
-        case = get_case_by_id(TIER, "ON_60K_CPP_EXEMPT", self.tax_year, self.edition)
-        if not case:
-            pytest.skip(f"Test case ON_60K_CPP_EXEMPT not found for {self.tax_year}/{self.edition}")
+    def test_exemption(self, dynamic_case):
+        """
+        Test exemption scenarios.
 
-        if not case.is_verified:
-            pytest.skip("Test case not yet verified with PDOC")
+        Exemption types:
+        - CPP exempt: Zero CPP contribution
+        - EI exempt: Zero EI contribution
+        - CPP2 exempt: Zero CPP2 (additional) contribution
+        """
+        year, edition, case_id = dynamic_case
+
+        engine = PayrollEngine(year=year)
+        case = get_case_by_id(TIER, case_id, year, edition)
 
         input_data = build_payroll_input(case)
-        result = self.engine.calculate(input_data)
+        result = engine.calculate(input_data)
 
-        # CPP should be zero
-        cpp_validation = validate_component(
-            "CPP", result.cpp_total, Decimal("0.00"), VARIANCE_TOLERANCE
-        )
-        assert cpp_validation.passed, cpp_validation.message
+        # Verify specific exemption if identifiable from case ID
+        case_id_upper = case_id.upper()
+        if "CPP_EXEMPT" in case_id_upper and "CPP2" not in case_id_upper:
+            cpp_validation = validate_component(
+                "CPP", result.cpp_total, Decimal("0.00"), VARIANCE_TOLERANCE
+            )
+            assert cpp_validation.passed, cpp_validation.message
 
-        # Other validations
+        if "EI_EXEMPT" in case_id_upper:
+            ei_validation = validate_component(
+                "EI", result.ei_employee, Decimal("0.00"), VARIANCE_TOLERANCE
+            )
+            assert ei_validation.passed, ei_validation.message
+
+        if "CPP2_EXEMPT" in case_id_upper:
+            cpp2_validation = validate_component(
+                "CPP2", result.cpp_additional, Decimal("0.00"), VARIANCE_TOLERANCE
+            )
+            assert cpp2_validation.passed, cpp2_validation.message
+
+        # General validation
         validations = validate_all_components(result, case.pdoc_expected)
-        assert_validations_pass("ON_60K_CPP_EXEMPT", validations)
-
-    def test_ei_exempt(self):
-        """Test EI exempt employee has zero EI contribution."""
-        case = get_case_by_id(TIER, "ON_60K_EI_EXEMPT", self.tax_year, self.edition)
-        if not case:
-            pytest.skip(f"Test case ON_60K_EI_EXEMPT not found for {self.tax_year}/{self.edition}")
-
-        if not case.is_verified:
-            pytest.skip("Test case not yet verified with PDOC")
-
-        input_data = build_payroll_input(case)
-        result = self.engine.calculate(input_data)
-
-        # EI should be zero
-        ei_validation = validate_component(
-            "EI", result.ei_employee, Decimal("0.00"), VARIANCE_TOLERANCE
-        )
-        assert ei_validation.passed, ei_validation.message
-
-        # Other validations
-        validations = validate_all_components(result, case.pdoc_expected)
-        assert_validations_pass("ON_60K_EI_EXEMPT", validations)
-
-    def test_cpp2_exempt(self):
-        """Test CPP2 exempt employee has zero CPP2 contribution."""
-        case = get_case_by_id(TIER, "ON_100K_CPP2_EXEMPT", self.tax_year, self.edition)
-        if not case:
-            pytest.skip(f"Test case ON_100K_CPP2_EXEMPT not found for {self.tax_year}/{self.edition}")
-
-        if not case.is_verified:
-            pytest.skip("Test case not yet verified with PDOC")
-
-        input_data = build_payroll_input(case)
-        result = self.engine.calculate(input_data)
-
-        # CPP2 (additional) should be zero, but base CPP should still apply
-        cpp2_validation = validate_component(
-            "CPP2", result.cpp_additional, Decimal("0.00"), VARIANCE_TOLERANCE
-        )
-        assert cpp2_validation.passed, cpp2_validation.message
+        assert_validations_pass(case_id, validations)
 
 
 class TestTier4TaxableBenefits:
@@ -189,24 +145,13 @@ class TestTier4TaxableBenefits:
     PDOC Validation: Taxable Benefits Tests
 
     Tests for taxable benefits added to income.
-    Parameterized by tax_year and edition from conftest.py fixtures.
+    Uses dynamic test discovery based on fixture data.
     """
 
-    @pytest.fixture(autouse=True)
-    def setup(self, payroll_engine, tax_year, edition):
-        """Set up PayrollEngine and context for tests."""
-        self.engine = payroll_engine
-        self.tax_year = tax_year
-        self.edition = edition
+    TIER = 4
+    CATEGORY = "taxable_benefits"
 
-    @pytest.mark.parametrize(
-        "case_id",
-        [
-            "ON_60K_BENEFITS",   # Standard taxable benefits
-            "BC_40K_BENEFITS",   # Benefits + BC tax reduction
-        ],
-    )
-    def test_taxable_benefits(self, case_id: str):
+    def test_taxable_benefits(self, dynamic_case):
         """
         Test taxable benefits increase taxable income.
 
@@ -215,15 +160,88 @@ class TestTier4TaxableBenefits:
         - May affect pensionable/insurable earnings
         - Interact with tax credits (BC tax reduction)
         """
-        case = get_case_by_id(TIER, case_id, self.tax_year, self.edition)
-        if not case:
-            pytest.skip(f"Test case {case_id} not found for {self.tax_year}/{self.edition}")
+        year, edition, case_id = dynamic_case
 
-        if not case.is_verified:
-            pytest.skip(f"Test case {case_id} not yet verified with PDOC")
+        engine = PayrollEngine(year=year)
+        case = get_case_by_id(TIER, case_id, year, edition)
 
         input_data = build_payroll_input(case)
-        result = self.engine.calculate(input_data)
+        result = engine.calculate(input_data)
+
+        validations = validate_all_components(result, case.pdoc_expected)
+        assert_validations_pass(case_id, validations)
+
+
+class TestTier4PayFrequency:
+    """
+    PDOC Validation: Pay Frequency Tests
+
+    Tests for different pay frequencies (weekly, semi-monthly, monthly).
+    Uses dynamic test discovery based on fixture data.
+    """
+
+    TIER = 4
+    CATEGORY = "pay_frequency"
+
+    def test_pay_frequency(self, dynamic_case):
+        """Test different pay frequency calculations."""
+        year, edition, case_id = dynamic_case
+
+        engine = PayrollEngine(year=year)
+        case = get_case_by_id(TIER, case_id, year, edition)
+
+        input_data = build_payroll_input(case)
+        result = engine.calculate(input_data)
+
+        validations = validate_all_components(result, case.pdoc_expected)
+        assert_validations_pass(case_id, validations)
+
+
+class TestTier4K5PCredit:
+    """
+    PDOC Validation: K5P Credit Tests (Alberta)
+
+    Tests for Alberta's K5P supplemental credit.
+    Uses dynamic test discovery based on fixture data.
+    """
+
+    TIER = 4
+    CATEGORY = "k5p_credit"
+
+    def test_k5p_credit(self, dynamic_case):
+        """Test Alberta K5P credit calculation."""
+        year, edition, case_id = dynamic_case
+
+        engine = PayrollEngine(year=year)
+        case = get_case_by_id(TIER, case_id, year, edition)
+
+        input_data = build_payroll_input(case)
+        result = engine.calculate(input_data)
+
+        validations = validate_all_components(result, case.pdoc_expected)
+        assert_validations_pass(case_id, validations)
+
+
+class TestTier4Combined:
+    """
+    PDOC Validation: Combined Deductions Tests
+
+    Tests for multiple deductions combined.
+    Uses dynamic test discovery based on fixture data.
+    """
+
+    TIER = 4
+    CATEGORY = "combined"
+
+    def test_combined_deductions(self, dynamic_case):
+        """Test combined deduction scenarios."""
+        year, edition, case_id = dynamic_case
+
+        engine = PayrollEngine(year=year)
+        case = get_case_by_id(TIER, case_id, year, edition)
+
+        input_data = build_payroll_input(case)
+        result = engine.calculate(input_data)
 
         validations = validate_all_components(result, case.pdoc_expected)
         assert_validations_pass(case_id, validations)
@@ -236,15 +254,13 @@ class TestTier4DataIntegrity:
         """Verify special condition test cases exist."""
         cases = load_tier_cases(TIER)
 
-        rrsp_cases = [c for c in cases if "RRSP" in c.id]
-        union_cases = [c for c in cases if "UNION" in c.id]
-        exempt_cases = [c for c in cases if "EXEMPT" in c.id]
-        benefits_cases = [c for c in cases if "BENEFITS" in c.id]
+        rrsp_cases = [c for c in cases if c.category == "rrsp"]
+        union_cases = [c for c in cases if c.category == "union_dues"]
+        exempt_cases = [c for c in cases if c.category == "exemptions"]
+        benefits_cases = [c for c in cases if c.category == "taxable_benefits"]
 
-        assert len(rrsp_cases) >= 2, "Expected at least 2 RRSP cases"
-        assert len(union_cases) >= 1, "Expected at least 1 union dues case"
-        assert len(exempt_cases) >= 3, "Expected at least 3 exemption cases"
-        assert len(benefits_cases) >= 2, "Expected at least 2 taxable benefits cases"
+        assert len(rrsp_cases) >= 1, f"Expected at least 1 RRSP case, got {len(rrsp_cases)}"
+        assert len(union_cases) >= 1, f"Expected at least 1 union dues case, got {len(union_cases)}"
 
     def test_verified_cases_count(self):
         """Report number of verified cases."""

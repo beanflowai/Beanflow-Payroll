@@ -7,15 +7,16 @@
   "pdoc_version": "T4127 - 122nd Edition (January 2026)",
   "tolerance": "0.05",
   "notes": "2026: Federal first bracket rate is 14% (same as 2025 Jul edition). No mid-year rate change expected for 2026.",
-
   "test_cases": [
     {
       "id": "ON_60K_JAN",
       "tier": 5,
       "description": "Ontario $60k, bi-weekly, January 2026 - 14% federal rate",
       "status": "VERIFIED",
-      "category": "federal_rate",
-      "special_rules": ["14% federal rate"],
+      "category": "pre_july",
+      "special_rules": [
+        "14% federal rate"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "2307.69",
@@ -50,8 +51,11 @@
       "tier": 5,
       "description": "Alberta $60k, bi-weekly, January 2026 - 14% federal rate",
       "status": "VERIFIED",
-      "category": "federal_rate",
-      "special_rules": ["14% federal rate", "Flat provincial rate"],
+      "category": "pre_july",
+      "special_rules": [
+        "14% federal rate",
+        "Flat provincial rate"
+      ],
       "input": {
         "province": "AB",
         "gross_pay": "2307.69",
@@ -86,8 +90,11 @@
       "tier": 5,
       "description": "BC $60k, bi-weekly, January 2026 - 14% federal rate",
       "status": "VERIFIED",
-      "category": "federal_rate",
-      "special_rules": ["14% federal rate", "BC tax reduction"],
+      "category": "pre_july",
+      "special_rules": [
+        "14% federal rate",
+        "BC tax reduction"
+      ],
       "input": {
         "province": "BC",
         "gross_pay": "2307.69",

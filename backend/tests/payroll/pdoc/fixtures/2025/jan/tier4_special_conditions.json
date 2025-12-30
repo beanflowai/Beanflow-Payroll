@@ -7,7 +7,6 @@
   "pdoc_version": "T4127 - Version 2025-12-08",
   "tolerance": "0.05",
   "notes": "Jan edition: All cases use 15% federal rate. CPP/EI unchanged, federal tax needs PDOC verification.",
-
   "test_cases": [
     {
       "id": "ON_60K_RRSP",
@@ -15,7 +14,9 @@
       "description": "Ontario $60k with RRSP $500/period - tax reduction from RRSP",
       "status": "VERIFIED",
       "category": "rrsp",
-      "special_rules": ["RRSP tax deduction"],
+      "special_rules": [
+        "RRSP tax deduction"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "2307.69",
@@ -49,7 +50,9 @@
       "description": "Ontario $60k with union dues $50/period - tax credit",
       "status": "VERIFIED",
       "category": "union_dues",
-      "special_rules": ["Union dues tax credit"],
+      "special_rules": [
+        "Union dues tax credit"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "2307.69",
@@ -83,7 +86,10 @@
       "description": "Alberta $80k with RRSP $1000/period - high RRSP deduction",
       "status": "VERIFIED",
       "category": "rrsp",
-      "special_rules": ["High RRSP", "Alberta flat rate"],
+      "special_rules": [
+        "High RRSP",
+        "Alberta flat rate"
+      ],
       "input": {
         "province": "AB",
         "gross_pay": "3076.92",
@@ -116,8 +122,10 @@
       "tier": 4,
       "description": "Ontario $60k CPP exempt - no CPP contribution",
       "status": "VERIFIED",
-      "category": "exemption",
-      "special_rules": ["CPP exempt"],
+      "category": "exemptions",
+      "special_rules": [
+        "CPP exempt"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "2307.69",
@@ -151,8 +159,10 @@
       "tier": 4,
       "description": "Ontario $60k EI exempt - no EI contribution",
       "status": "VERIFIED",
-      "category": "exemption",
-      "special_rules": ["EI exempt"],
+      "category": "exemptions",
+      "special_rules": [
+        "EI exempt"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "2307.69",
@@ -186,8 +196,10 @@
       "tier": 4,
       "description": "Ontario $100k CPP2 exempt - no additional CPP",
       "status": "VERIFIED",
-      "category": "exemption",
-      "special_rules": ["CPP2 exempt only"],
+      "category": "exemptions",
+      "special_rules": [
+        "CPP2 exempt only"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "3846.15",
@@ -221,8 +233,10 @@
       "tier": 4,
       "description": "Ontario $60k with taxable benefits $100 - benefits taxability",
       "status": "VERIFIED",
-      "category": "benefits",
-      "special_rules": ["Taxable benefits"],
+      "category": "taxable_benefits",
+      "special_rules": [
+        "Taxable benefits"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "2307.69",
@@ -256,8 +270,11 @@
       "tier": 4,
       "description": "BC $40k with taxable benefits + low income - combined with tax reduction",
       "status": "VERIFIED",
-      "category": "benefits",
-      "special_rules": ["Taxable benefits", "BC tax reduction interaction"],
+      "category": "taxable_benefits",
+      "special_rules": [
+        "Taxable benefits",
+        "BC tax reduction interaction"
+      ],
       "input": {
         "province": "BC",
         "gross_pay": "1538.46",
@@ -291,8 +308,11 @@
       "tier": 4,
       "description": "Alberta high exemption - triggers K5P supplemental credit (2025 formula)",
       "status": "VERIFIED",
-      "category": "k5p",
-      "special_rules": ["K5P supplemental credit", "High provincial claim"],
+      "category": "k5p_credit",
+      "special_rules": [
+        "K5P supplemental credit",
+        "High provincial claim"
+      ],
       "input": {
         "province": "AB",
         "gross_pay": "2307.69",

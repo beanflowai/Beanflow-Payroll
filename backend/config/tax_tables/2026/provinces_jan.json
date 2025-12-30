@@ -223,10 +223,10 @@
       },
       "brackets": [
         {"threshold": 0, "rate": 0.0505, "constant": 0},
-        {"threshold": 53891, "rate": 0.0915, "constant": 2209.53},
-        {"threshold": 107785, "rate": 0.1116, "constant": 4375.99},
-        {"threshold": 150000, "rate": 0.1216, "constant": 5875.99},
-        {"threshold": 220000, "rate": 0.1316, "constant": 8075.99}
+        {"threshold": 53891, "rate": 0.0915, "constant": 2210},
+        {"threshold": 107785, "rate": 0.1116, "constant": 4376},
+        {"threshold": 150000, "rate": 0.1216, "constant": 5876},
+        {"threshold": 220000, "rate": 0.1316, "constant": 8076}
       ]
     },
     "PE": {

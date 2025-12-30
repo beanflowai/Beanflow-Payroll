@@ -6,14 +6,16 @@
   "collected_date": "2025-12-29",
   "pdoc_version": "T4127 - Version 2025-12-08",
   "tolerance": "0.05",
-
   "test_cases": [
     {
       "id": "ON_60K_BIWEEKLY",
       "tier": 1,
       "description": "Ontario standard $60k annual, bi-weekly, YTD=$0",
       "status": "VERIFIED",
-      "special_rules": ["Surtax", "Health Premium"],
+      "special_rules": [
+        "Surtax",
+        "Health Premium"
+      ],
       "input": {
         "province": "ON",
         "gross_pay": "2307.69",
@@ -44,14 +46,18 @@
         "pensionable_earnings": "2307.69",
         "insurable_earnings": "2307.69"
       },
-      "notes": "Verified from PDOC on 2025-12-29. Federal rate is 14% post July 1, 2025."
+      "notes": "Verified from PDOC on 2025-12-29. Federal rate is 14% post July 1, 2025.",
+      "category": "province_coverage"
     },
     {
       "id": "AB_60K_BIWEEKLY",
       "tier": 1,
       "description": "Alberta $60k annual, bi-weekly - flat 10% rate, high BPA, K5P credit",
       "status": "VERIFIED",
-      "special_rules": ["Flat 10% rate", "K5P supplemental credit"],
+      "special_rules": [
+        "Flat 10% rate",
+        "K5P supplemental credit"
+      ],
       "input": {
         "province": "AB",
         "gross_pay": "2307.69",
@@ -79,14 +85,17 @@
         "total_deductions": "454.14",
         "net_pay": "1853.55"
       },
-      "notes": "Verified from PDOC on 2025-12-29. Alberta flat 10% provincial rate."
+      "notes": "Verified from PDOC on 2025-12-29. Alberta flat 10% provincial rate.",
+      "category": "province_coverage"
     },
     {
       "id": "BC_60K_BIWEEKLY",
       "tier": 1,
       "description": "BC $60k annual, bi-weekly - tax reduction (Factor S)",
       "status": "VERIFIED",
-      "special_rules": ["Tax reduction (Factor S)"],
+      "special_rules": [
+        "Tax reduction (Factor S)"
+      ],
       "input": {
         "province": "BC",
         "gross_pay": "2307.69",
@@ -114,14 +123,17 @@
         "total_deductions": "470.67",
         "net_pay": "1837.02"
       },
-      "notes": "Verified from PDOC on 2025-12-29. BC tax reduction applied."
+      "notes": "Verified from PDOC on 2025-12-29. BC tax reduction applied.",
+      "category": "province_coverage"
     },
     {
       "id": "MB_60K_BIWEEKLY",
       "tier": 1,
       "description": "Manitoba $60k annual, bi-weekly - dynamic BPA",
       "status": "VERIFIED",
-      "special_rules": ["Dynamic BPA"],
+      "special_rules": [
+        "Dynamic BPA"
+      ],
       "input": {
         "province": "MB",
         "gross_pay": "2307.69",
@@ -149,14 +161,17 @@
         "total_deductions": "553.33",
         "net_pay": "1754.36"
       },
-      "notes": "Verified from PDOC on 2025-12-29. Used PDOC default MB BPA of 15,591.00."
+      "notes": "Verified from PDOC on 2025-12-29. Used PDOC default MB BPA of 15,591.00.",
+      "category": "province_coverage"
     },
     {
       "id": "SK_60K_BIWEEKLY",
       "tier": 1,
       "description": "Saskatchewan $60k annual, bi-weekly - mid-year BPA change",
       "status": "VERIFIED",
-      "special_rules": ["Mid-year BPA change ($18,991 -> $19,991)"],
+      "special_rules": [
+        "Mid-year BPA change ($18,991 -> $19,991)"
+      ],
       "input": {
         "province": "SK",
         "gross_pay": "2307.69",
@@ -184,7 +199,8 @@
         "total_deductions": "525.85",
         "net_pay": "1781.84"
       },
-      "notes": "Verified from PDOC on 2025-12-29. SK mid-year BPA 19,991."
+      "notes": "Verified from PDOC on 2025-12-29. SK mid-year BPA 19,991.",
+      "category": "province_coverage"
     },
     {
       "id": "NB_60K_BIWEEKLY",
@@ -219,7 +235,8 @@
         "total_deductions": "544.38",
         "net_pay": "1763.31"
       },
-      "notes": "Verified from PDOC on 2025-12-29."
+      "notes": "Verified from PDOC on 2025-12-29.",
+      "category": "province_coverage"
     },
     {
       "id": "NL_60K_BIWEEKLY",
@@ -254,14 +271,18 @@
         "total_deductions": "560.42",
         "net_pay": "1747.27"
       },
-      "notes": "Verified from PDOC on 2025-12-29."
+      "notes": "Verified from PDOC on 2025-12-29.",
+      "category": "province_coverage"
     },
     {
       "id": "NS_60K_BIWEEKLY",
       "tier": 1,
       "description": "Nova Scotia $60k annual, bi-weekly - two-tier BPA, surtax",
       "status": "VERIFIED",
-      "special_rules": ["Two-tier BPA", "Surtax"],
+      "special_rules": [
+        "Two-tier BPA",
+        "Surtax"
+      ],
       "input": {
         "province": "NS",
         "gross_pay": "2307.69",
@@ -289,14 +310,17 @@
         "total_deductions": "594.22",
         "net_pay": "1713.47"
       },
-      "notes": "Verified from PDOC on 2025-12-29."
+      "notes": "Verified from PDOC on 2025-12-29.",
+      "category": "province_coverage"
     },
     {
       "id": "PE_60K_BIWEEKLY",
       "tier": 1,
       "description": "PEI $60k annual, bi-weekly - mid-year BPA change",
       "status": "VERIFIED",
-      "special_rules": ["Mid-year BPA change ($14,250 -> $15,050)"],
+      "special_rules": [
+        "Mid-year BPA change ($14,250 -> $15,050)"
+      ],
       "input": {
         "province": "PE",
         "gross_pay": "2307.69",
@@ -324,7 +348,8 @@
         "total_deductions": "565.45",
         "net_pay": "1742.24"
       },
-      "notes": "Verified from PDOC on 2025-12-29."
+      "notes": "Verified from PDOC on 2025-12-29.",
+      "category": "province_coverage"
     },
     {
       "id": "NT_60K_BIWEEKLY",
@@ -359,7 +384,8 @@
         "total_deductions": "470.78",
         "net_pay": "1836.91"
       },
-      "notes": "Verified from PDOC on 2025-12-29."
+      "notes": "Verified from PDOC on 2025-12-29.",
+      "category": "province_coverage"
     },
     {
       "id": "NU_60K_BIWEEKLY",
@@ -394,14 +420,17 @@
         "total_deductions": "438.65",
         "net_pay": "1869.04"
       },
-      "notes": "Verified from PDOC on 2025-12-29."
+      "notes": "Verified from PDOC on 2025-12-29.",
+      "category": "province_coverage"
     },
     {
       "id": "YT_60K_BIWEEKLY",
       "tier": 1,
       "description": "Yukon $60k annual, bi-weekly - follows federal BPA formula",
       "status": "VERIFIED",
-      "special_rules": ["Federal BPA formula"],
+      "special_rules": [
+        "Federal BPA formula"
+      ],
       "input": {
         "province": "YT",
         "gross_pay": "2307.69",
@@ -429,7 +458,8 @@
         "total_deductions": "472.94",
         "net_pay": "1834.75"
       },
-      "notes": "Verified from PDOC on 2025-12-29."
+      "notes": "Verified from PDOC on 2025-12-29.",
+      "category": "province_coverage"
     }
   ]
 }

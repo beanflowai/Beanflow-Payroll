@@ -21,7 +21,7 @@ Coverage:
 
 from __future__ import annotations
 
-import pytest
+from app.services.payroll.payroll_engine import PayrollEngine
 
 from .conftest import (
     assert_validations_pass,
@@ -40,34 +40,13 @@ class TestTier1ProvinceCoverage:
     PDOC Validation: Core Province Coverage
 
     Validates standard $60k annual, bi-weekly calculations for all provinces.
-    Parameterized by tax_year and edition from conftest.py fixtures.
+    Uses dynamic test discovery based on fixture data.
     """
 
-    @pytest.fixture(autouse=True)
-    def setup(self, payroll_engine, tax_year, edition):
-        """Set up PayrollEngine and context for tests."""
-        self.engine = payroll_engine
-        self.tax_year = tax_year
-        self.edition = edition
+    TIER = 1
+    CATEGORY = "province_coverage"
 
-    @pytest.mark.parametrize(
-        "case_id",
-        [
-            "ON_60K_BIWEEKLY",
-            "AB_60K_BIWEEKLY",
-            "BC_60K_BIWEEKLY",
-            "MB_60K_BIWEEKLY",
-            "SK_60K_BIWEEKLY",
-            "NB_60K_BIWEEKLY",
-            "NL_60K_BIWEEKLY",
-            "NS_60K_BIWEEKLY",
-            "PE_60K_BIWEEKLY",
-            "NT_60K_BIWEEKLY",
-            "NU_60K_BIWEEKLY",
-            "YT_60K_BIWEEKLY",
-        ],
-    )
-    def test_province(self, case_id: str):
+    def test_province(self, dynamic_case):
         """
         Test standard $60k bi-weekly calculation for each province.
 
@@ -80,16 +59,14 @@ class TestTier1ProvinceCoverage:
 
         All within $0.05 tolerance.
         """
-        case = get_case_by_id(TIER, case_id, self.tax_year, self.edition)
-        if not case:
-            pytest.skip(f"Test case {case_id} not found for {self.tax_year}/{self.edition}")
+        year, edition, case_id = dynamic_case
 
-        if not case.is_verified:
-            pytest.skip(f"Test case {case_id} not yet verified with PDOC")
+        engine = PayrollEngine(year=year)
+        case = get_case_by_id(TIER, case_id, year, edition)
 
         # Run calculation
         input_data = build_payroll_input(case)
-        result = self.engine.calculate(input_data)
+        result = engine.calculate(input_data)
 
         # Validate all components
         validations = validate_all_components(result, case.pdoc_expected)

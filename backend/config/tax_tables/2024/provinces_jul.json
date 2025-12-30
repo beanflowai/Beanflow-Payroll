@@ -1,6 +1,25 @@
 {
+  "_metadata": {
+    "version": "119th Edition",
+    "effective_date": "2024-07-01",
+    "end_date": "2024-12-31",
+    "source": {
+      "document": "CRA T4127 Payroll Deductions Formulas",
+      "edition": "119th Edition (July 2024)",
+      "table": "Table 8.1 (Provincial sections)",
+      "url": "https://www.canada.ca/en/revenue-agency/services/forms-publications/payroll/t4127-payroll-deductions-formulas.html",
+      "accessed_date": "2025-12-30"
+    },
+    "provinces_covered": ["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "SK", "YT"],
+    "changes_from_previous": [
+      "No significant rate changes from January 2024 edition"
+    ],
+    "last_updated": "2025-12-30",
+    "updated_by": "claude-code"
+  },
   "year": 2024,
   "effective_date": "2024-07-01",
+  "end_date": "2024-12-31",
   "source": "CRA T4127 (119th Edition, July 2024) - Table 8.1",
   "provinces": {
     "AB": {
@@ -12,6 +31,12 @@
       "has_surtax": false,
       "has_health_premium": false,
       "has_tax_reduction": false,
+      "k5p_config": {
+        "threshold": 3600.00,
+        "factor_numerator": 0.04,
+        "factor_denominator": 0.06,
+        "description": "K5P = ((K1P + K2P) - threshold) × (factor_numerator/factor_denominator)"
+      },
       "brackets": [
         {"threshold": 0, "rate": 0.10, "constant": 0},
         {"threshold": 148269, "rate": 0.12, "constant": 2965.38},

@@ -6,7 +6,7 @@ Canadian payroll tax configuration files for CPP, EI, federal tax, and provincia
 
 **All tax data must be sourced from the official CRA T4127 Payroll Deductions Formulas:**
 
-https://www.canada.ca/en/revenue-agency/services/forms-publications/payroll/t4127-payroll-deductions-formulas.html
+https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/payroll/t4127-payroll-deductions-formulas-computer-programs.html
 
 ### Edition Schedule
 
@@ -28,9 +28,14 @@ tax_tables/
 │   ├── cpp_ei.schema.json     # CPP/EI configuration schema
 │   ├── federal.schema.json    # Federal tax schema
 │   └── provinces.schema.json  # Provincial tax schema
+├── 2024/                       # Tax year 2024
+│   ├── cpp_ei.json            # CPP/EI (single file - rates don't change mid-year)
+│   ├── federal_jan.json       # Federal tax (January edition)
+│   ├── federal_jul.json       # Federal tax (July edition)
+│   ├── provinces_jan.json     # Provincial tax (January edition)
+│   └── provinces_jul.json     # Provincial tax (July edition)
 ├── 2025/                       # Tax year 2025
-│   ├── cpp_ei_jan.json        # CPP/EI (January edition)
-│   ├── cpp_ei_jul.json        # CPP/EI (July edition)
+│   ├── cpp_ei.json            # CPP/EI (single file - rates don't change mid-year)
 │   ├── federal_jan.json       # Federal tax (January edition)
 │   ├── federal_jul.json       # Federal tax (July edition)
 │   ├── provinces_jan.json     # Provincial tax (January edition)
