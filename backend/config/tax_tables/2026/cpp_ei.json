@@ -1,4 +1,28 @@
 {
+  "_metadata": {
+    "version": "122nd Edition",
+    "effective_date": "2026-01-01",
+    "source": {
+      "document": "CRA T4127 Payroll Deductions Formulas",
+      "edition": "122nd Edition (January 2026)",
+      "url": "https://www.canada.ca/en/revenue-agency/services/forms-publications/payroll/t4127-payroll-deductions-formulas.html",
+      "accessed_date": "2025-12-26"
+    },
+    "validation": {
+      "pdoc_validated": false,
+      "pdoc_validation_date": null,
+      "test_cases_passed": 0,
+      "notes": "Awaiting PDOC validation for 2026 data"
+    },
+    "changes_from_previous": [
+      "YMPE: $71,300 → $74,600",
+      "YAMPE: $81,200 → $85,000",
+      "EI MIE: $65,700 → $68,900",
+      "EI rate: 1.64% → 1.63%"
+    ],
+    "last_updated": "2025-12-30",
+    "updated_by": "claude-code"
+  },
   "year": 2026,
   "effective_date": "2026-01-01",
   "source": "CRA T4127 (122nd Edition, January 2026)",

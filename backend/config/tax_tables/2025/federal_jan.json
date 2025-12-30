@@ -1,4 +1,27 @@
 {
+  "_metadata": {
+    "version": "120th Edition",
+    "effective_date": "2025-01-01",
+    "end_date": "2025-06-30",
+    "source": {
+      "document": "CRA T4127 Payroll Deductions Formulas",
+      "edition": "120th Edition (January 2025)",
+      "table": "Table 8.1",
+      "url": "https://www.canada.ca/en/revenue-agency/services/forms-publications/payroll/t4127-payroll-deductions-formulas.html",
+      "accessed_date": "2025-12-29"
+    },
+    "validation": {
+      "pdoc_validated": true,
+      "pdoc_validation_date": "2025-12-29",
+      "test_cases_passed": 44
+    },
+    "changes_from_previous": [
+      "BPAF indexed from 2024",
+      "Bracket thresholds indexed 2.7%"
+    ],
+    "last_updated": "2025-12-30",
+    "updated_by": "claude-code"
+  },
   "year": 2025,
   "effective_date": "2025-01-01",
   "end_date": "2025-06-30",

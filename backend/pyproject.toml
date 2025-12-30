@@ -31,6 +31,7 @@ dependencies = [
     # S3-compatible storage (DigitalOcean Spaces)
     "boto3>=1.26.0",
     "pillow>=12.0.0",
+    "jsonschema>=4.25.1",
 ]
 
 [project.optional-dependencies]

@@ -1,32 +1,31 @@
 {
   "_metadata": {
-    "version": "122nd Edition",
-    "effective_date": "2026-01-01",
+    "version": "Placeholder - pending 123rd Edition",
+    "effective_date": "2026-07-01",
+    "placeholder": true,
     "source": {
       "document": "CRA T4127 Payroll Deductions Formulas + TaxTips.ca",
-      "edition": "122nd Edition (January 2026)",
+      "edition": "122nd Edition (January 2026) - PLACEHOLDER",
       "table": "Table 8.1 (Provincial sections)",
       "url": "https://www.canada.ca/en/revenue-agency/services/forms-publications/payroll/t4127-payroll-deductions-formulas.html",
       "secondary_source": "https://www.taxtips.ca/",
-      "accessed_date": "2025-12-26"
+      "accessed_date": "2025-12-26",
+      "notes": "This is placeholder data copied from January 2026 edition. Update when CRA releases July 2026 (123rd Edition)."
     },
     "validation": {
       "pdoc_validated": false,
       "pdoc_validation_date": null,
       "test_cases_passed": 0,
-      "notes": "Awaiting PDOC validation for 2026 data"
+      "notes": "Placeholder data - awaiting 123rd Edition release"
     },
     "provinces_covered": ["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "SK", "YT"],
-    "changes_from_previous": [
-      "All provincial BPA values indexed ~2%",
-      "Bracket thresholds indexed per province"
-    ],
+    "changes_from_previous": [],
     "last_updated": "2025-12-30",
     "updated_by": "claude-code"
   },
   "year": 2026,
-  "effective_date": "2026-01-01",
-  "source": "CRA T4127 (122nd Edition, January 2026) - Table 8.1, TaxTips.ca (December 2025)",
+  "effective_date": "2026-07-01",
+  "source": "CRA T4127 (122nd Edition, January 2026) - Table 8.1 [PLACEHOLDER - awaiting 123rd Edition]",
   "provinces": {
     "AB": {
       "name": "Alberta",

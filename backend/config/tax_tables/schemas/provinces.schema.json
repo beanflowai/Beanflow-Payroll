@@ -1,0 +1,244 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "provinces.schema.json",
+  "title": "Provincial Tax Configuration Schema",
+  "description": "Schema for validating provincial income tax configuration files",
+  "type": "object",
+  "required": ["year", "effective_date", "source", "provinces"],
+  "properties": {
+    "_metadata": {
+      "type": "object",
+      "description": "Configuration metadata for traceability"
+    },
+    "year": {
+      "type": "integer",
+      "minimum": 2024,
+      "maximum": 2100,
+      "description": "Tax year"
+    },
+    "effective_date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "description": "Effective date in YYYY-MM-DD format"
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Data source reference"
+    },
+    "provinces": {
+      "type": "object",
+      "minProperties": 12,
+      "maxProperties": 13,
+      "patternProperties": {
+        "^(AB|BC|MB|NB|NL|NS|NT|NU|ON|PE|SK|YT|QC)$": {
+          "$ref": "#/definitions/province"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Provincial tax configurations"
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "province": {
+      "type": "object",
+      "required": ["name", "code", "bpa", "bpa_is_dynamic", "brackets"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Province/territory full name"
+        },
+        "code": {
+          "type": "string",
+          "pattern": "^(AB|BC|MB|NB|NL|NS|NT|NU|ON|PE|SK|YT|QC)$",
+          "description": "Province/territory code"
+        },
+        "bpa": {
+          "type": "number",
+          "minimum": 5000,
+          "maximum": 50000,
+          "description": "Basic Personal Amount"
+        },
+        "bpa_is_dynamic": {
+          "type": "boolean",
+          "description": "Whether BPA varies by income"
+        },
+        "dynamic_bpa_type": {
+          "type": "string",
+          "enum": ["income_based_reduction", "income_based_increase", "follows_federal"],
+          "description": "Type of dynamic BPA calculation"
+        },
+        "dynamic_bpa_config": {
+          "type": "object",
+          "description": "Configuration for dynamic BPA calculation"
+        },
+        "indexing_rate": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 0.1,
+          "description": "Annual indexing rate"
+        },
+        "has_surtax": {
+          "type": "boolean",
+          "description": "Province has surtax (ON, PE)"
+        },
+        "has_health_premium": {
+          "type": "boolean",
+          "description": "Province has health premium (ON)"
+        },
+        "has_tax_reduction": {
+          "type": "boolean",
+          "description": "Province has tax reduction (BC)"
+        },
+        "has_k4p": {
+          "type": "boolean",
+          "description": "Province has K4P employment credit (QC)"
+        },
+        "cea": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Provincial employment amount (QC)"
+        },
+        "surtax_config": {
+          "$ref": "#/definitions/surtax_config"
+        },
+        "health_premium_config": {
+          "$ref": "#/definitions/health_premium_config"
+        },
+        "tax_reduction_config": {
+          "$ref": "#/definitions/tax_reduction_config"
+        },
+        "brackets": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/definitions/bracket"
+          },
+          "description": "Provincial tax brackets"
+        }
+      },
+      "additionalProperties": false
+    },
+    "bracket": {
+      "type": "object",
+      "required": ["threshold", "rate", "constant"],
+      "properties": {
+        "threshold": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Income threshold"
+        },
+        "rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.5,
+          "description": "Tax rate (e.g., 0.10 for 10%)"
+        },
+        "constant": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Tax constant KP"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "surtax_config": {
+      "type": "object",
+      "description": "Surtax configuration. Supports PEI-style (single) or ON-style (two-tier)",
+      "oneOf": [
+        {
+          "type": "object",
+          "description": "PE-style single threshold surtax",
+          "required": ["threshold", "rate"],
+          "properties": {
+            "threshold": {"type": "number", "minimum": 0},
+            "rate": {"type": "number", "minimum": 0, "maximum": 1}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "description": "ON-style two-tier surtax",
+          "required": ["first_threshold", "first_rate", "second_threshold", "second_rate"],
+          "properties": {
+            "first_threshold": {"type": "number", "minimum": 0},
+            "first_rate": {"type": "number", "minimum": 0, "maximum": 1},
+            "second_threshold": {"type": "number", "minimum": 0},
+            "second_rate": {"type": "number", "minimum": 0, "maximum": 1}
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "health_premium_config": {
+      "type": "object",
+      "description": "Ontario health premium configuration",
+      "required": ["brackets"],
+      "properties": {
+        "brackets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["threshold"],
+            "properties": {
+              "threshold": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Income threshold"
+              },
+              "premium": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Fixed premium amount"
+              },
+              "rate": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "Rate for calculating premium in phase-in range"
+              },
+              "base": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Base premium in phase-in range"
+              }
+            }
+          }
+        }
+      }
+    },
+    "tax_reduction_config": {
+      "type": "object",
+      "required": ["base_reduction", "reduction_rate", "phase_out_start", "phase_out_end"],
+      "properties": {
+        "base_reduction": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Base tax reduction amount"
+        },
+        "reduction_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Phase-out rate"
+        },
+        "phase_out_start": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Income at which phase-out begins"
+        },
+        "phase_out_end": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Income at which reduction is zero"
+        }
+      }
+    }
+  }
+}

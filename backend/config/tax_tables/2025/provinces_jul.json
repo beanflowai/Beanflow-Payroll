@@ -1,4 +1,29 @@
 {
+  "_metadata": {
+    "version": "121st Edition",
+    "effective_date": "2025-07-01",
+    "source": {
+      "document": "CRA T4127 Payroll Deductions Formulas",
+      "edition": "121st Edition (July 2025)",
+      "table": "Table 8.1 (Provincial sections)",
+      "url": "https://www.canada.ca/en/revenue-agency/services/forms-publications/payroll/t4127-payroll-deductions-formulas.html",
+      "accessed_date": "2025-12-29"
+    },
+    "validation": {
+      "pdoc_validated": true,
+      "pdoc_validation_date": "2025-12-29",
+      "test_cases_passed": 44
+    },
+    "provinces_covered": ["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "SK", "YT"],
+    "changes_from_previous": [
+      "Saskatchewan BPA: $18,991 → $19,991",
+      "PEI BPA: $14,250 → $15,050",
+      "has_k4p field added for all provinces",
+      "Quebec cea field added"
+    ],
+    "last_updated": "2025-12-30",
+    "updated_by": "claude-code"
+  },
   "year": 2025,
   "effective_date": "2025-07-01",
   "source": "CRA T4127 (121st Edition, July 2025) - Table 8.1",

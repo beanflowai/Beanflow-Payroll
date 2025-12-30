@@ -375,7 +375,120 @@ def _calculate_bpa_nova_scotia(
 
 
 # =============================================================================
-# Validation
+# JSON Schema Validation
+# =============================================================================
+
+SCHEMA_BASE_PATH = CONFIG_BASE_PATH / "schemas"
+
+
+def validate_config_schema(year: int = 2025) -> list[str]:
+    """
+    Validate tax configuration files against JSON Schemas.
+
+    Validates:
+    - cpp_ei.json against cpp_ei.schema.json
+    - federal_*.json against federal.schema.json
+    - provinces_*.json against provinces.schema.json
+
+    Args:
+        year: Tax year to validate
+
+    Returns:
+        List of validation errors (empty if valid)
+    """
+    errors: list[str] = []
+
+    try:
+        import jsonschema
+    except ImportError:
+        errors.append("jsonschema package not installed. Run: uv add jsonschema")
+        return errors
+
+    def load_schema(schema_name: str) -> dict[str, Any] | None:
+        """Load a JSON schema file."""
+        schema_path = SCHEMA_BASE_PATH / schema_name
+        if not schema_path.exists():
+            errors.append(f"Schema file not found: {schema_path}")
+            return None
+        try:
+            with open(schema_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            errors.append(f"Invalid JSON in schema {schema_name}: {e}")
+            return None
+
+    def validate_file(file_path: Path, schema: dict[str, Any], name: str) -> None:
+        """Validate a config file against a schema."""
+        if not file_path.exists():
+            errors.append(f"Config file not found: {file_path}")
+            return
+
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                config = json.load(f)
+        except json.JSONDecodeError as e:
+            errors.append(f"Invalid JSON in {name}: {e}")
+            return
+
+        try:
+            jsonschema.validate(instance=config, schema=schema)
+        except jsonschema.ValidationError as e:
+            # Get a clean error message
+            path = ".".join(str(p) for p in e.absolute_path) if e.absolute_path else "root"
+            errors.append(f"{name}: {path} - {e.message}")
+        except jsonschema.SchemaError as e:
+            errors.append(f"Schema error for {name}: {e.message}")
+
+    # Load schemas
+    cpp_ei_schema = load_schema("cpp_ei.schema.json")
+    federal_schema = load_schema("federal.schema.json")
+    provinces_schema = load_schema("provinces.schema.json")
+
+    # Validate CPP/EI
+    if cpp_ei_schema:
+        cpp_ei_path = _get_config_path(year, "cpp_ei.json")
+        validate_file(cpp_ei_path, cpp_ei_schema, f"{year}/cpp_ei.json")
+
+    # Validate Federal configs
+    if federal_schema:
+        # Check for versioned files
+        jan_path = _get_config_path(year, "federal_jan.json")
+        jul_path = _get_config_path(year, "federal_jul.json")
+        single_path = _get_config_path(year, "federal.json")
+
+        if jan_path.exists():
+            validate_file(jan_path, federal_schema, f"{year}/federal_jan.json")
+        if jul_path.exists():
+            validate_file(jul_path, federal_schema, f"{year}/federal_jul.json")
+        if single_path.exists() and not jan_path.exists():
+            validate_file(single_path, federal_schema, f"{year}/federal.json")
+
+    # Validate Province configs
+    if provinces_schema:
+        # Check for versioned files
+        jan_path = _get_config_path(year, "provinces_jan.json")
+        jul_path = _get_config_path(year, "provinces_jul.json")
+        single_path = _get_config_path(year, "provinces.json")
+
+        if jan_path.exists():
+            validate_file(jan_path, provinces_schema, f"{year}/provinces_jan.json")
+        if jul_path.exists():
+            validate_file(jul_path, provinces_schema, f"{year}/provinces_jul.json")
+        if single_path.exists() and not jan_path.exists():
+            validate_file(single_path, provinces_schema, f"{year}/provinces.json")
+
+    if errors:
+        logger.warning(f"Schema validation found {len(errors)} error(s) for year {year}")
+        for error in errors:
+            logger.warning(f"  - {error}")
+    else:
+        logger.info(f"Schema validation passed for year {year}")
+
+    return errors
+
+
+# =============================================================================
+# Structural Validation
 # =============================================================================
 
 

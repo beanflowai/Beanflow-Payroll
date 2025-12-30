@@ -1,0 +1,146 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "cpp_ei.schema.json",
+  "title": "CPP/EI Configuration Schema",
+  "description": "Schema for validating CPP and EI tax configuration files",
+  "type": "object",
+  "required": ["year", "effective_date", "source", "cpp", "ei"],
+  "properties": {
+    "_metadata": {
+      "type": "object",
+      "description": "Configuration metadata for traceability"
+    },
+    "year": {
+      "type": "integer",
+      "minimum": 2024,
+      "maximum": 2100,
+      "description": "Tax year"
+    },
+    "effective_date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "description": "Effective date in YYYY-MM-DD format"
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Data source reference (e.g., CRA T4127 edition)"
+    },
+    "cpp": {
+      "type": "object",
+      "required": [
+        "ympe",
+        "yampe",
+        "basic_exemption",
+        "base_rate",
+        "additional_rate",
+        "max_base_contribution",
+        "max_additional_contribution",
+        "max_total_contribution",
+        "employer_rate_multiplier"
+      ],
+      "properties": {
+        "ympe": {
+          "type": "number",
+          "minimum": 50000,
+          "maximum": 200000,
+          "description": "Year's Maximum Pensionable Earnings"
+        },
+        "yampe": {
+          "type": "number",
+          "minimum": 50000,
+          "maximum": 250000,
+          "description": "Year's Additional Maximum Pensionable Earnings"
+        },
+        "basic_exemption": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10000,
+          "description": "Basic exemption amount"
+        },
+        "base_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Base CPP contribution rate (e.g., 0.0595 for 5.95%)"
+        },
+        "additional_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "CPP2 additional rate (e.g., 0.04 for 4%)"
+        },
+        "max_base_contribution": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Maximum annual base CPP contribution"
+        },
+        "max_additional_contribution": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Maximum annual CPP2 contribution"
+        },
+        "max_total_contribution": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Maximum total annual CPP contribution"
+        },
+        "employer_rate_multiplier": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "description": "Employer rate multiplier (typically 1.0 for CPP)"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ei": {
+      "type": "object",
+      "required": [
+        "mie",
+        "employee_rate",
+        "employer_rate_multiplier",
+        "max_employee_premium",
+        "max_employer_premium"
+      ],
+      "properties": {
+        "mie": {
+          "type": "number",
+          "minimum": 40000,
+          "maximum": 150000,
+          "description": "Maximum Insurable Earnings"
+        },
+        "employee_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.1,
+          "description": "Employee EI premium rate (e.g., 0.0164 for 1.64%)"
+        },
+        "employer_rate_multiplier": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 2,
+          "description": "Employer rate multiplier (typically 1.4)"
+        },
+        "max_employee_premium": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Maximum annual employee EI premium"
+        },
+        "max_employer_premium": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Maximum annual employer EI premium"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
