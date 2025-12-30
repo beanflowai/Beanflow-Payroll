@@ -191,6 +191,31 @@ class TestOntarioHealthPremium:
         assert result.health_premium_v2 >= Decimal("0")
 
 
+class TestProvincialTaxK2PCPPEICredit:
+    """Test K2P (CPP and EI provincial tax credit) calculations."""
+
+    def setup_method(self):
+        """Create Ontario calculator."""
+        self.calc = ProvincialTaxCalculator(
+            province_code="ON",
+            pay_periods_per_year=26,
+            year=2025,
+        )
+
+    def test_k2p_effective_periods_when_ei_hits_max(self):
+        """Test: K2P uses effective pay periods when EI hits annual max."""
+        result = self.calc.calculate_provincial_tax(
+            annual_taxable_income=Decimal("69334.98"),
+            total_claim_amount=Decimal("12747.00"),
+            cpp_per_period=Decimal("152.18"),
+            ei_per_period=Decimal("27.48"),
+            ytd_cpp_base=Decimal("2950.00"),
+            ytd_ei=Decimal("1050.00"),
+        )
+
+        assert result.cpp_ei_credits_k2p == Decimal("194.53")
+
+
 class TestBCTaxReduction:
     """Test BC Tax Reduction (Factor S) calculations."""
 

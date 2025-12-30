@@ -182,6 +182,17 @@ class TestFederalTaxK2CPPEICredit:
         # Both should be similar due to annual caps
         assert abs(k2_normal - k2_extreme) < Decimal("100")
 
+    def test_k2_effective_periods_when_ei_hits_max(self):
+        """Test: K2 uses effective pay periods when EI hits annual max."""
+        k2 = self.calc.calculate_k2(
+            cpp_per_period=Decimal("152.18"),
+            ei_per_period=Decimal("27.48"),
+            ytd_cpp_base=Decimal("2950.00"),
+            ytd_ei=Decimal("1050.00"),
+        )
+
+        assert k2 == Decimal("539.29")
+
 
 class TestFederalTaxK4EmploymentCredit:
     """Test K4 (Canada Employment Amount credit) calculations."""

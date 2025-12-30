@@ -1,0 +1,157 @@
+{
+  "tier": 5,
+  "name": "Federal Tax Rate Change",
+  "description": "Tests for pre/post July 2025 federal tax rate change (15% -> 14%)",
+  "version": "2025-07",
+  "collected_date": "2025-12-29",
+  "pdoc_version": "T4127 - Version 2025-12-08",
+  "tolerance": "0.05",
+  "notes": "Federal lowest bracket rate changes from 15% to 14% on July 1, 2025",
+
+  "test_cases": [
+    {
+      "id": "ON_60K_JAN",
+      "tier": 5,
+      "description": "Ontario $60k - January 2025 (15% federal rate)",
+      "status": "VERIFIED",
+      "category": "pre_july",
+      "special_rules": ["Pre-July rate (15%)"],
+      "input": {
+        "province": "ON",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-01-17",
+        "federal_claim": "16129.00",
+        "provincial_claim": "12747.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
+        "cpp2": "0.00",
+        "ei": "37.85",
+        "federal_tax": "223.89",
+        "provincial_tax": "116.76",
+        "total_deductions": "507.80",
+        "net_pay": "1799.89"
+      },
+      "notes": "Collected 2025-12-29 - January 2025, federal rate is 15%"
+    },
+    {
+      "id": "ON_60K_JUN",
+      "tier": 5,
+      "description": "Ontario $60k - June 27, 2025 (last day at 15%)",
+      "status": "VERIFIED",
+      "category": "pre_july",
+      "special_rules": ["Last day at 15%"],
+      "input": {
+        "province": "ON",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-06-27",
+        "federal_claim": "16129.00",
+        "provincial_claim": "12747.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
+        "cpp2": "0.00",
+        "ei": "37.85",
+        "federal_tax": "223.89",
+        "provincial_tax": "116.76",
+        "total_deductions": "507.80",
+        "net_pay": "1799.89"
+      },
+      "notes": "Collected 2025-12-29 - June 27 is last day at 15% federal rate"
+    },
+    {
+      "id": "ON_60K_JUL",
+      "tier": 5,
+      "description": "Ontario $60k - July 11, 2025 (first pay at 14%)",
+      "status": "VERIFIED",
+      "category": "post_july",
+      "special_rules": ["First day at 14%"],
+      "input": {
+        "province": "ON",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-07-11",
+        "federal_claim": "16129.00",
+        "provincial_claim": "12747.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
+        "cpp2": "0.00",
+        "ei": "37.85",
+        "federal_tax": "210.07",
+        "provincial_tax": "116.76",
+        "total_deductions": "493.98",
+        "net_pay": "1813.71"
+      },
+      "notes": "Collected 2025-12-29 - July 11 is first bi-weekly pay at 14% federal rate. Federal tax reduced by $13.82 compared to pre-July (15% rate)"
+    },
+    {
+      "id": "AB_60K_JAN",
+      "tier": 5,
+      "description": "Alberta $60k - January 2025 (pre-July comparison)",
+      "status": "VERIFIED",
+      "category": "pre_july",
+      "special_rules": ["Pre-July comparison", "Alberta flat rate"],
+      "input": {
+        "province": "AB",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-01-17",
+        "federal_claim": "16129.00",
+        "provincial_claim": "22323.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
+        "cpp2": "0.00",
+        "ei": "37.85",
+        "federal_tax": "223.89",
+        "provincial_tax": "128.20",
+        "total_deductions": "519.24",
+        "net_pay": "1788.45"
+      },
+      "notes": "Collected 2025-12-29 - Alberta at 15% federal rate. Federal tax identical to Ontario pre-July ($223.89). Provincial tax higher ($128.20 vs ON $116.76) due to different provincial rates."
+    }
+  ]
+}
