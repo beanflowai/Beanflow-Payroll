@@ -51,7 +51,6 @@
   - Saskatchewan BPA: $18,991 → $19,991
   - PEI BPA: $14,250 → $15,050
   - `has_k4p` field added for all provinces
-  - Quebec `cea` field added
 
 ---
 
@@ -122,7 +121,7 @@ All configuration files now include `_metadata` field with:
 
 1. **Early verification**: Validate 2026 configuration against PDOC as soon as CRA releases 122nd Edition
 2. **Missing files**: Create `federal_jul.json` and `provinces_jul.json` when July 2026 edition is released
-3. **Schema validation**: Implement JSON Schema validation to catch structural errors automatically
+3. ~~**Schema validation**: Implement JSON Schema validation~~ (Done - integrated into `validate_tax_tables`)
 4. **CI integration**: Add PDOC tests to CI/CD pipeline for automated validation
 
 ---

@@ -13,11 +13,12 @@ The PDOC validation tests are organized in a modular tier-based structure:
 backend/tests/payroll/pdoc/
 ├── conftest.py                      # Shared fixtures + utilities (~320 lines)
 ├── fixtures/
-│   ├── tier1_province_coverage.json  # 12 tests (~435 lines)
-│   ├── tier2_income_levels.json      # 12 tests (~444 lines)
-│   ├── tier3_cpp_ei_boundary.json    # 8 tests (~301 lines)
-│   ├── tier4_special_conditions.json # 8 tests (~305 lines)
-│   └── tier5_federal_rate_change.json # 4 tests (~157 lines)
+│   └── 2025/                        # Year-based fixture directory
+│       ├── tier1_province_coverage.json  # 12 tests (~435 lines)
+│       ├── tier2_income_levels.json      # 12 tests (~444 lines)
+│       ├── tier3_cpp_ei_boundary.json    # 8 tests (~301 lines)
+│       ├── tier4_special_conditions.json # 8 tests (~305 lines)
+│       └── tier5_federal_rate_change.json # 4 tests (~157 lines)
 ├── test_tier1_provinces.py           # Core 12省覆盖 (~133 lines)
 ├── test_tier2_income_levels.py       # 收入级别测试 (~147 lines)
 ├── test_tier3_cpp_ei.py              # CPP/EI边界 (~199 lines)
@@ -361,12 +362,14 @@ The PDOC validation tests are implemented in a modular tier-based structure. Eac
 
 ### Test Fixtures
 
-Test data is stored in JSON fixtures under `pdoc/fixtures/`:
+Test data is stored in JSON fixtures under `pdoc/fixtures/<year>/` (e.g., `fixtures/2025/`):
 - `tier1_province_coverage.json`
 - `tier2_income_levels.json`
 - `tier3_cpp_ei_boundary.json`
 - `tier4_special_conditions.json`
 - `tier5_federal_rate_change.json`
+
+The year-based directory structure allows testing against multiple tax years (2024, 2025, 2026, etc.).
 
 ### Variance Tolerance
 

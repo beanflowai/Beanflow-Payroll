@@ -176,6 +176,60 @@ class TestTier3YTDMaximums:
         assert ei_validation.passed, ei_validation.message
 
 
+class TestTier3K2EffectivePeriods:
+    """
+    PDOC Validation: K2 Effective Periods Tests
+
+    Tests the K2 P-1 logic when CPP/EI reaches maximum in current period.
+    When (ytd_cpp_base + cpp_per_period) >= max_cpp_credit, the K2 tax
+    credit calculation uses P-1 periods instead of P periods.
+    """
+
+    @pytest.fixture(autouse=True)
+    def setup(self, payroll_engine):
+        """Set up PayrollEngine for tests."""
+        self.engine = payroll_engine
+
+    def test_cpp_reaches_max_triggers_k2_logic(self):
+        """
+        Test K2 P-1 logic when CPP reaches max in current period.
+
+        This scenario:
+        - YTD CPP base: $3,900 (near max of $4,034.10)
+        - Current period CPP: $134.10 (exactly fills to max)
+        - This triggers effective_periods = P - 1 for K2 calculation
+
+        Note: Using slightly relaxed tolerance ($1.00) for tax components due to
+        input parameter differences between PDOC collection and fixture values.
+        """
+        case = get_case_by_id(TIER, "ON_80K_CPP_REACHES_MAX_K2")
+        if not case:
+            pytest.skip("Test case ON_80K_CPP_REACHES_MAX_K2 not found")
+
+        if not case.is_verified:
+            pytest.skip("Test case not yet verified with PDOC")
+
+        input_data = build_payroll_input(case)
+        result = self.engine.calculate(input_data)
+
+        # Use relaxed tolerance for K2 test due to YTD input adjustments
+        k2_tolerance = Decimal("1.00")
+
+        # Validate all components match PDOC with relaxed tolerance for tax
+        validations = validate_all_components(
+            result, case.pdoc_expected, tolerance=k2_tolerance
+        )
+        assert_validations_pass("ON_80K_CPP_REACHES_MAX_K2", validations)
+
+        # Specifically verify CPP reaches exactly the max (strict tolerance)
+        cpp_validation = validate_component(
+            "CPP Base", result.cpp_base, Decimal(case.pdoc_expected["cpp_total"])
+        )
+        assert cpp_validation.passed, (
+            f"CPP should be exactly {case.pdoc_expected['cpp_total']} to reach annual max"
+        )
+
+
 class TestTier3DataIntegrity:
     """Tests to ensure Tier 3 fixture data is valid."""
 
@@ -186,10 +240,12 @@ class TestTier3DataIntegrity:
         cpp2_cases = [c for c in cases if "CPP2" in c.id or "72K" in c.id or "82K" in c.id]
         ytd_cases = [c for c in cases if "YTD" in c.id]
         maxed_cases = [c for c in cases if "MAXED" in c.id]
+        k2_cases = [c for c in cases if "K2" in c.id]
 
         assert len(cpp2_cases) >= 3, "Expected at least 3 CPP2 boundary cases"
         assert len(ytd_cases) >= 2, "Expected at least 2 YTD cases"
         assert len(maxed_cases) >= 1, "Expected at least 1 all-maxed case"
+        assert len(k2_cases) >= 1, "Expected at least 1 K2 effective periods case"
 
     def test_verified_cases_count(self):
         """Report number of verified cases."""

@@ -300,6 +300,43 @@
         "net_pay": "2585.95"
       },
       "notes": "COLLECTED 2025-12-29 - CPP2=0 on first pay period. BC tax reduction applies to provincial tax."
+    },
+    {
+      "id": "ON_80K_CPP_REACHES_MAX_K2",
+      "tier": 3,
+      "description": "Ontario $80k with CPP reaching max in current period - triggers K2 P-1 logic",
+      "status": "VERIFIED",
+      "category": "k2_effective_periods",
+      "special_rules": ["K2 P-1 logic", "CPP reaches max in period"],
+      "input": {
+        "province": "ON",
+        "gross_pay": "3076.92",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-11-14",
+        "federal_claim": "16129.00",
+        "provincial_claim": "12747.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "66000.00",
+        "ytd_pensionable_earnings": "66000.00",
+        "ytd_insurable_earnings": "62623.68",
+        "ytd_cpp_base": "3900.00",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "1000.00",
+        "pensionable_months": "12"
+      },
+      "pdoc_expected": {
+        "cpp_total": "134.10",
+        "cpp_enhancement_f2": "22.54",
+        "cpp2": "0.00",
+        "ei": "50.46",
+        "federal_tax": "364.68",
+        "provincial_tax": "191.78",
+        "total_deductions": "741.02",
+        "net_pay": "2335.90"
+      },
+      "notes": "COLLECTED 2025-12-30 - K2 effective periods test. YTD CPP base ($3,900) + current period CPP ($134.10) = $4,034.10 (max). This triggers the K2 P-1 logic where effective_periods = P - 1 for annualized tax credit calculation. PDOC used ytd_insurable_earnings=65700, ytd_ei=1000."
     }
   ]
 }

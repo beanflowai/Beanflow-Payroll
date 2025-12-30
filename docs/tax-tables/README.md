@@ -19,7 +19,7 @@ backend/config/tax_tables/
 │   ├── cpp_ei.json
 │   ├── federal_jan.json
 │   └── provinces_jan.json
-└── schemas/                 # JSON Schema validation (TBD)
+└── schemas/                 # JSON Schema files for validation
 ```
 
 ## Configuration Metadata

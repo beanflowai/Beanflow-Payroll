@@ -588,6 +588,10 @@ def validate_tax_tables(year: int = 2025) -> list[str]:
             except TaxConfigError as e:
                 errors.append(f"{edition_name}/{province_code}: {e}")
 
+    # Run JSON Schema validation
+    schema_errors = validate_config_schema(year)
+    errors.extend(schema_errors)
+
     if errors:
         logger.warning(f"Tax table validation found {len(errors)} error(s)")
         for error in errors:
