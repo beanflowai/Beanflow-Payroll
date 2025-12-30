@@ -402,6 +402,7 @@ class EmployeeManagement:
                 pay_date=pay_date,
                 ytd_gross=emp_prior_ytd.get("ytd_gross", Decimal("0")),
                 ytd_cpp_base=emp_prior_ytd.get("ytd_cpp", Decimal("0")),
+                ytd_cpp_additional=emp_prior_ytd.get("ytd_cpp_additional", Decimal("0")),
                 ytd_ei=emp_prior_ytd.get("ytd_ei", Decimal("0")),
                 ytd_federal_tax=emp_prior_ytd.get("ytd_federal_tax", Decimal("0")),
                 ytd_provincial_tax=emp_prior_ytd.get("ytd_provincial_tax", Decimal("0")),

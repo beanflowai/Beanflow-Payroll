@@ -14,7 +14,7 @@
 		suggestVacationRate,
 		getVacationRatePreset
 	} from '$lib/types/employee';
-	import { getBPADefaults, type BPADefaults } from '$lib/services/taxConfigService';
+	import { getBPADefaults, getContributionLimits, type BPADefaults, type ContributionLimits } from '$lib/services/taxConfigService';
 	import { createEmployee, updateEmployee, checkEmployeeHasPayrollRecords } from '$lib/services/employeeService';
 
 	interface Props {
@@ -97,6 +97,52 @@
 	let rrspPerPeriod = $state(employee?.rrspPerPeriod ?? 0);
 	let unionDuesPerPeriod = $state(employee?.unionDuesPerPeriod ?? 0);
 
+	// Prior Employment (for transferred employees - CPP/EI only)
+	// Contribution limits - fetched from API with fallback to 2025 values
+	let contributionLimits = $state<ContributionLimits | null>(null);
+	let limitsLoading = $state(false);
+
+	// Fallback values (2025) - used while loading or if API fails
+	const FALLBACK_MAX_CPP = 4034.10;
+	const FALLBACK_MAX_CPP2 = 396.00;
+	const FALLBACK_MAX_EI = 1077.48;
+	const HIGH_INCOME_THRESHOLD = 65000;
+
+	// Derived: Current max values (from API or fallback)
+	const maxCpp = $derived(contributionLimits?.cpp.maxBaseContribution ?? FALLBACK_MAX_CPP);
+	const maxCpp2 = $derived(contributionLimits?.cpp.maxAdditionalContribution ?? FALLBACK_MAX_CPP2);
+	const maxEi = $derived(contributionLimits?.ei.maxEmployeePremium ?? FALLBACK_MAX_EI);
+
+	// Fetch contribution limits on component init
+	$effect(() => {
+		limitsLoading = true;
+		getContributionLimits().then(limits => {
+			contributionLimits = limits;
+			limitsLoading = false;
+		}).catch(() => {
+			// Fallback values are already set via $derived
+			limitsLoading = false;
+		});
+	});
+
+	let hasPriorEmployment = $state(
+		(employee?.initialYtdCpp ?? 0) > 0 ||
+		(employee?.initialYtdCpp2 ?? 0) > 0 ||
+		(employee?.initialYtdEi ?? 0) > 0
+	);
+	let incomeLevel = $state<'low' | 'high'>(
+		hasPriorEmployment ? 'high' : 'low'
+	);
+	let initialYtdCpp = $state(employee?.initialYtdCpp ?? 0);
+	let initialYtdCpp2 = $state(employee?.initialYtdCpp2 ?? 0);
+	let initialYtdEi = $state(employee?.initialYtdEi ?? 0);
+	// Track which tax year the initial YTD values apply to (auto-set to current year when values entered)
+	const currentTaxYear = new Date().getFullYear();
+	let initialYtdYear = $state<number | null>(employee?.initialYtdYear ?? null);
+
+	// Derived: Can edit prior YTD (only in create mode or if no payroll records)
+	const canEditPriorYtd = $derived(mode === 'create' || !hasPayrollRecords);
+
 	// Vacation
 	let vacationPayoutMethod = $state<VacationPayoutMethod>(employee?.vacationConfig?.payoutMethod ?? 'accrual');
 	// Track both the preset selection and custom value
@@ -178,6 +224,15 @@
 				customVacationRate = Math.round(parseFloat(employee.vacationConfig?.vacationRate ?? '0') * 10000) / 100;
 			}
 			vacationBalance = employee.vacationBalance ?? 0;
+			// Prior Employment fields
+			hasPriorEmployment = (employee.initialYtdCpp ?? 0) > 0 ||
+				(employee.initialYtdCpp2 ?? 0) > 0 ||
+				(employee.initialYtdEi ?? 0) > 0;
+			incomeLevel = hasPriorEmployment ? 'high' : 'low';
+			initialYtdCpp = employee.initialYtdCpp ?? 0;
+			initialYtdCpp2 = employee.initialYtdCpp2 ?? 0;
+			initialYtdEi = employee.initialYtdEi ?? 0;
+			initialYtdYear = employee.initialYtdYear ?? null;
 			showProvinceChangeWarning = false;
 			errors = {};
 			submitError = null;
@@ -271,6 +326,19 @@
 			}
 		}
 
+		// Prior Employment - validate against annual maximums (only when fields are shown)
+		if (hasPriorEmployment && incomeLevel === 'high' && canEditPriorYtd) {
+			if (initialYtdCpp > maxCpp) {
+				newErrors.initialYtdCpp = `Cannot exceed annual max ($${maxCpp.toLocaleString()})`;
+			}
+			if (initialYtdCpp2 > maxCpp2) {
+				newErrors.initialYtdCpp2 = `Cannot exceed annual max ($${maxCpp2.toLocaleString()})`;
+			}
+			if (initialYtdEi > maxEi) {
+				newErrors.initialYtdEi = `Cannot exceed annual max ($${maxEi.toLocaleString()})`;
+			}
+		}
+
 		errors = newErrors;
 		return Object.keys(newErrors).length === 0;
 	}
@@ -316,7 +384,13 @@
 					payout_method: vacationPayoutMethod,
 					vacation_rate: vacationRate
 				},
-				vacation_balance: vacationBalance
+				vacation_balance: vacationBalance,
+				// Initial YTD for transferred employees (only include if high income)
+				// Always set year when providing YTD values
+				initial_ytd_cpp: hasPriorEmployment && incomeLevel === 'high' ? initialYtdCpp : 0,
+				initial_ytd_cpp2: hasPriorEmployment && incomeLevel === 'high' ? initialYtdCpp2 : 0,
+				initial_ytd_ei: hasPriorEmployment && incomeLevel === 'high' ? initialYtdEi : 0,
+				initial_ytd_year: hasPriorEmployment && incomeLevel === 'high' ? currentTaxYear : null
 			};
 
 			const result = await createEmployee(createInput);
@@ -368,7 +442,17 @@
 				},
 				// Only include vacation_balance if employee has no payroll records
 				// Once payroll runs exist, the balance is managed by the payroll system
-				...(vacationPayoutMethod === 'accrual' && !hasPayrollRecords ? { vacation_balance: vacationBalance } : {})
+				...(vacationPayoutMethod === 'accrual' && !hasPayrollRecords ? { vacation_balance: vacationBalance } : {}),
+				// Initial YTD for transferred employees (only editable before first payroll)
+				// IMPORTANT: Always send these fields when editable to properly clear values
+				// when user switches to "No prior employment" or "low income"
+				// Preserve existing initialYtdYear to avoid re-dating old values when editing
+				...(canEditPriorYtd ? {
+					initial_ytd_cpp: hasPriorEmployment && incomeLevel === 'high' ? initialYtdCpp : 0,
+					initial_ytd_cpp2: hasPriorEmployment && incomeLevel === 'high' ? initialYtdCpp2 : 0,
+					initial_ytd_ei: hasPriorEmployment && incomeLevel === 'high' ? initialYtdEi : 0,
+					initial_ytd_year: hasPriorEmployment && incomeLevel === 'high' ? (initialYtdYear ?? currentTaxYear) : null
+				} : {})
 			};
 
 			const result = await updateEmployee(employee.id, updateInput);
@@ -846,7 +930,188 @@
 		</div>
 	</section>
 
-	<!-- Section 5: Optional Deductions -->
+	<!-- Section 5: Prior Employment This Year -->
+	<section class="bg-white rounded-xl p-6 shadow-md3-1">
+		<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">Prior Employment This Year</h3>
+		<p class="text-body-small text-surface-500 m-0 mb-4 flex items-start gap-2">
+			<i class="fas fa-info-circle text-primary-500 mt-0.5"></i>
+			<span>If this employee worked for another employer earlier this year, enter their prior CPP/EI contributions to avoid over-deduction. Income tax is automatically adjusted through Cumulative Averaging.</span>
+		</p>
+
+		<!-- Question 1: Has prior employment? -->
+		<div class="flex flex-col gap-4">
+			<div class="flex flex-col gap-2">
+				<label class="text-body-small font-medium text-surface-700">Has this employee worked for another employer this year?</label>
+				{#if canEditPriorYtd}
+					<div class="flex gap-6 flex-wrap max-sm:flex-col max-sm:gap-3">
+						<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
+							<input
+								type="radio"
+								name="hasPriorEmployment"
+								value="no"
+								checked={!hasPriorEmployment}
+								onchange={() => { hasPriorEmployment = false; }}
+							/>
+							<span>No - Started fresh this year</span>
+						</label>
+						<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
+							<input
+								type="radio"
+								name="hasPriorEmployment"
+								value="yes"
+								checked={hasPriorEmployment}
+								onchange={() => { hasPriorEmployment = true; }}
+							/>
+							<span>Yes - Transferred from another employer</span>
+						</label>
+					</div>
+				{:else}
+					<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600">
+						{hasPriorEmployment ? 'Yes - Transferred from another employer' : 'No - Started fresh this year'}
+						<span class="text-auxiliary-text text-surface-400 ml-2">(locked after first payroll)</span>
+					</div>
+				{/if}
+			</div>
+
+			{#if hasPriorEmployment}
+				<!-- Question 2: Income level -->
+				<div class="flex flex-col gap-2">
+					<label class="text-body-small font-medium text-surface-700">Estimated annual income level?</label>
+					{#if canEditPriorYtd}
+						<div class="flex gap-6 flex-wrap max-sm:flex-col max-sm:gap-3">
+							<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
+								<input
+									type="radio"
+									name="incomeLevel"
+									value="low"
+									checked={incomeLevel === 'low'}
+									onchange={() => { incomeLevel = 'low'; }}
+								/>
+								<span>Below ${HIGH_INCOME_THRESHOLD.toLocaleString()}/year</span>
+							</label>
+							<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
+								<input
+									type="radio"
+									name="incomeLevel"
+									value="high"
+									checked={incomeLevel === 'high'}
+									onchange={() => { incomeLevel = 'high'; }}
+								/>
+								<span>${HIGH_INCOME_THRESHOLD.toLocaleString()}/year or above</span>
+							</label>
+						</div>
+					{:else}
+						<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600">
+							{incomeLevel === 'high' ? `$${HIGH_INCOME_THRESHOLD.toLocaleString()}/year or above` : `Below $${HIGH_INCOME_THRESHOLD.toLocaleString()}/year`}
+						</div>
+					{/if}
+				</div>
+
+				{#if incomeLevel === 'low'}
+					<!-- Low income notice -->
+					<div class="flex items-center gap-3 p-3 bg-success-50 border border-success-200 rounded-lg text-success-700 text-body-small">
+						<i class="fas fa-check-circle text-success-500"></i>
+						<span>No prior CPP/EI input needed - employees below ${HIGH_INCOME_THRESHOLD.toLocaleString()}/year rarely hit annual maximums.</span>
+					</div>
+				{:else}
+					<!-- High income: Show YTD input fields -->
+					<div class="grid grid-cols-3 gap-4 max-sm:grid-cols-1">
+						<div class="flex flex-col gap-2">
+							<label for="initialYtdCpp" class="text-body-small font-medium text-surface-700">Prior CPP Contributions</label>
+							{#if canEditPriorYtd}
+								<div class="flex items-center border rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10 {errors.initialYtdCpp ? 'border-error-500' : 'border-surface-300'}">
+									<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
+									<input
+										id="initialYtdCpp"
+										type="number"
+										class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
+										bind:value={initialYtdCpp}
+										min="0"
+										max={maxCpp}
+										step="0.01"
+									/>
+								</div>
+								{#if errors.initialYtdCpp}
+									<span class="text-auxiliary-text text-error-600">{errors.initialYtdCpp}</span>
+								{:else}
+									<span class="text-auxiliary-text text-surface-500">Max: ${maxCpp.toLocaleString()}</span>
+								{/if}
+							{:else}
+								<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600">
+									{formatCurrency(initialYtdCpp)}
+								</div>
+							{/if}
+						</div>
+
+						<div class="flex flex-col gap-2">
+							<label for="initialYtdEi" class="text-body-small font-medium text-surface-700">Prior EI Premiums</label>
+							{#if canEditPriorYtd}
+								<div class="flex items-center border rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10 {errors.initialYtdEi ? 'border-error-500' : 'border-surface-300'}">
+									<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
+									<input
+										id="initialYtdEi"
+										type="number"
+										class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
+										bind:value={initialYtdEi}
+										min="0"
+										max={maxEi}
+										step="0.01"
+									/>
+								</div>
+								{#if errors.initialYtdEi}
+									<span class="text-auxiliary-text text-error-600">{errors.initialYtdEi}</span>
+								{:else}
+									<span class="text-auxiliary-text text-surface-500">Max: ${maxEi.toLocaleString()}</span>
+								{/if}
+							{:else}
+								<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600">
+									{formatCurrency(initialYtdEi)}
+								</div>
+							{/if}
+						</div>
+
+						<div class="flex flex-col gap-2">
+							<label for="initialYtdCpp2" class="text-body-small font-medium text-surface-700">
+								Prior CPP2
+								<span class="text-surface-400">(optional)</span>
+							</label>
+							{#if canEditPriorYtd}
+								<div class="flex items-center border rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10 {errors.initialYtdCpp2 ? 'border-error-500' : 'border-surface-300'}">
+									<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
+									<input
+										id="initialYtdCpp2"
+										type="number"
+										class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
+										bind:value={initialYtdCpp2}
+										min="0"
+										max={maxCpp2}
+										step="0.01"
+									/>
+								</div>
+								{#if errors.initialYtdCpp2}
+									<span class="text-auxiliary-text text-error-600">{errors.initialYtdCpp2}</span>
+								{:else}
+									<span class="text-auxiliary-text text-surface-500">For income &gt;$71,300. Max: ${maxCpp2.toLocaleString()}</span>
+								{/if}
+							{:else}
+								<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600">
+									{formatCurrency(initialYtdCpp2)}
+								</div>
+							{/if}
+						</div>
+					</div>
+
+					<!-- Help text -->
+					<div class="flex items-start gap-2 p-3 bg-primary-50 border border-primary-200 rounded-lg text-primary-700 text-body-small">
+						<i class="fas fa-lightbulb text-primary-500 mt-0.5"></i>
+						<span>These values can be found on the employee's most recent pay stub from their previous employer.</span>
+					</div>
+				{/if}
+			{/if}
+		</div>
+	</section>
+
+	<!-- Section 6: Optional Deductions -->
 	<section class="bg-white rounded-xl p-6 shadow-md3-1">
 		<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">Optional Deductions</h3>
 		<div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">

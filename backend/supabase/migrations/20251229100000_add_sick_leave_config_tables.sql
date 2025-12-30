@@ -192,7 +192,7 @@ CREATE POLICY "Users can read their employees sick leave balances"
         EXISTS (
             SELECT 1 FROM employees e
             WHERE e.id = employee_sick_leave_balances.employee_id
-            AND e.user_id = auth.uid()
+            AND e.user_id = auth.uid()::text
         )
     );
 
@@ -203,7 +203,7 @@ CREATE POLICY "Users can insert their employees sick leave balances"
         EXISTS (
             SELECT 1 FROM employees e
             WHERE e.id = employee_sick_leave_balances.employee_id
-            AND e.user_id = auth.uid()
+            AND e.user_id = auth.uid()::text
         )
     );
 
@@ -214,7 +214,7 @@ CREATE POLICY "Users can update their employees sick leave balances"
         EXISTS (
             SELECT 1 FROM employees e
             WHERE e.id = employee_sick_leave_balances.employee_id
-            AND e.user_id = auth.uid()
+            AND e.user_id = auth.uid()::text
         )
     );
 
@@ -226,7 +226,7 @@ CREATE POLICY "Users can read their employees sick leave history"
         EXISTS (
             SELECT 1 FROM employees e
             WHERE e.id = sick_leave_usage_history.employee_id
-            AND e.user_id = auth.uid()
+            AND e.user_id = auth.uid()::text
         )
     );
 
@@ -237,7 +237,7 @@ CREATE POLICY "Users can insert their employees sick leave history"
         EXISTS (
             SELECT 1 FROM employees e
             WHERE e.id = sick_leave_usage_history.employee_id
-            AND e.user_id = auth.uid()
+            AND e.user_id = auth.uid()::text
         )
     );
 

@@ -188,7 +188,12 @@ export async function createEmployee(
 				payout_method: 'accrual',
 				vacation_rate: '0.04'
 			},
-			vacation_balance: input.vacation_balance ?? 0
+			vacation_balance: input.vacation_balance ?? 0,
+			// Initial YTD for transferred employees
+			initial_ytd_cpp: input.initial_ytd_cpp ?? 0,
+			initial_ytd_cpp2: input.initial_ytd_cpp2 ?? 0,
+			initial_ytd_ei: input.initial_ytd_ei ?? 0,
+			initial_ytd_year: input.initial_ytd_year ?? null
 		};
 
 		const { data, error } = await supabase.from(TABLE_NAME).insert(record).select().single();
@@ -251,6 +256,11 @@ export async function updateEmployee(
 		if (input.termination_date !== undefined) updateData.termination_date = input.termination_date;
 		if (input.vacation_config !== undefined) updateData.vacation_config = input.vacation_config;
 		if (input.vacation_balance !== undefined) updateData.vacation_balance = input.vacation_balance;
+		// Initial YTD for transferred employees
+		if (input.initial_ytd_cpp !== undefined) updateData.initial_ytd_cpp = input.initial_ytd_cpp;
+		if (input.initial_ytd_cpp2 !== undefined) updateData.initial_ytd_cpp2 = input.initial_ytd_cpp2;
+		if (input.initial_ytd_ei !== undefined) updateData.initial_ytd_ei = input.initial_ytd_ei;
+		if (input.initial_ytd_year !== undefined) updateData.initial_ytd_year = input.initial_ytd_year;
 
 		const { data, error } = await supabase
 			.from(TABLE_NAME)

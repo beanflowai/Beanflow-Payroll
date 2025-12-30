@@ -197,6 +197,15 @@ class EmployeeBase(BaseModel):
     # Vacation
     vacation_config: VacationConfig = Field(default_factory=VacationConfig)
 
+    # Initial YTD for transferred employees (CPP/EI only - tax handled by Cumulative Averaging)
+    initial_ytd_cpp: Decimal = Field(default=Decimal("0"), ge=0)
+    initial_ytd_cpp2: Decimal = Field(default=Decimal("0"), ge=0)
+    initial_ytd_ei: Decimal = Field(default=Decimal("0"), ge=0)
+    initial_ytd_year: int | None = Field(
+        default=None,
+        description="Tax year for which initial YTD values apply"
+    )
+
 
 class EmployeeCreate(EmployeeBase):
     """Employee creation request (API input)."""
@@ -233,6 +242,11 @@ class EmployeeUpdate(BaseModel):
     union_dues_per_period: Decimal | None = None
     termination_date: date | None = None
     vacation_config: VacationConfig | None = None
+    # Initial YTD for transferred employees (with non-negative constraint)
+    initial_ytd_cpp: Decimal | None = Field(default=None, ge=0)
+    initial_ytd_cpp2: Decimal | None = Field(default=None, ge=0)
+    initial_ytd_ei: Decimal | None = Field(default=None, ge=0)
+    initial_ytd_year: int | None = None
 
 
 class Employee(EmployeeBase):
@@ -292,6 +306,11 @@ class EmployeeResponse(BaseModel):
     vacation_config: VacationConfig
     vacation_balance: Decimal
     is_active: bool
+    # Initial YTD for transferred employees
+    initial_ytd_cpp: Decimal
+    initial_ytd_cpp2: Decimal
+    initial_ytd_ei: Decimal
+    initial_ytd_year: int | None
     created_at: datetime
     updated_at: datetime
 

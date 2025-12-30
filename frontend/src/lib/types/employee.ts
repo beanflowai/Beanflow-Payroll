@@ -124,6 +124,11 @@ export interface Employee {
 	sickBalance: number;  // Read-only, updated by payroll system
 	tags: string[];  // Employee categorization tags
 	payGroupId?: string | null;  // Pay group assignment
+	// Initial YTD for transferred employees (CPP/EI only - tax handled by Cumulative Averaging)
+	initialYtdCpp: number;
+	initialYtdCpp2: number;
+	initialYtdEi: number;
+	initialYtdYear: number | null;  // Tax year these values apply to
 }
 
 // Column groups for Excel-like table view
@@ -304,6 +309,11 @@ export interface DbEmployee {
 	sick_balance: number;
 	tags: string[];
 	pay_group_id: string | null;
+	// Initial YTD for transferred employees
+	initial_ytd_cpp: number;
+	initial_ytd_cpp2: number;
+	initial_ytd_ei: number;
+	initial_ytd_year: number | null;
 	created_at: string;
 	updated_at: string;
 }
@@ -341,6 +351,11 @@ export interface EmployeeCreateInput {
 		vacation_rate: string;
 	};
 	vacation_balance?: number;
+	// Initial YTD for transferred employees
+	initial_ytd_cpp?: number;
+	initial_ytd_cpp2?: number;
+	initial_ytd_ei?: number;
+	initial_ytd_year?: number | null;
 }
 
 /**
@@ -386,7 +401,12 @@ export function dbEmployeeToUi(db: DbEmployee, maskedSin: string): Employee {
 		vacationBalance: db.vacation_balance,
 		sickBalance: db.sick_balance ?? 0,
 		tags: db.tags ?? [],
-		payGroupId: db.pay_group_id
+		payGroupId: db.pay_group_id,
+		// Initial YTD for transferred employees
+		initialYtdCpp: db.initial_ytd_cpp ?? 0,
+		initialYtdCpp2: db.initial_ytd_cpp2 ?? 0,
+		initialYtdEi: db.initial_ytd_ei ?? 0,
+		initialYtdYear: db.initial_ytd_year ?? null
 	};
 }
 
@@ -424,6 +444,11 @@ export function uiEmployeeToDbCreate(
 		vacation_config: {
 			payout_method: ui.vacationConfig.payoutMethod,
 			vacation_rate: ui.vacationConfig.vacationRate
-		}
+		},
+		// Initial YTD for transferred employees
+		initial_ytd_cpp: ui.initialYtdCpp ?? 0,
+		initial_ytd_cpp2: ui.initialYtdCpp2 ?? 0,
+		initial_ytd_ei: ui.initialYtdEi ?? 0,
+		initial_ytd_year: ui.initialYtdYear ?? null
 	};
 }
