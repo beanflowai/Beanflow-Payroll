@@ -74,6 +74,12 @@ class EmployeePayrollInput:
     # Life insurance employer premium is pensionable but NOT insurable
     taxable_benefits_pensionable: Decimal = Decimal("0")
 
+    # Taxable benefits that ARE insurable (e.g., non-cash benefits for EI)
+    taxable_benefits_insurable: Decimal = Decimal("0")
+
+    # CPP proration for mid-year starts (number of pensionable months 1-12)
+    pensionable_months: int | None = None
+
     @property
     def total_gross(self) -> Decimal:
         """Total gross earnings for this period."""
@@ -93,9 +99,8 @@ class EmployeePayrollInput:
 
     @property
     def insurable_earnings(self) -> Decimal:
-        """Earnings subject to EI (excludes non-cash benefits like life insurance)."""
-        # Life insurance employer contribution is NOT insurable
-        return self.total_gross
+        """Earnings subject to EI (includes insurable taxable benefits)."""
+        return self.total_gross + self.taxable_benefits_insurable
 
     @property
     def taxable_income_per_period(self) -> Decimal:
@@ -259,7 +264,7 @@ class PayrollEngine:
             cpp_result = CppContribution(
                 base=Decimal("0"),
                 additional=Decimal("0"),
-                enhancement=Decimal("0"),
+                f5=Decimal("0"),
                 total=Decimal("0"),
                 employer=Decimal("0"),
             )
@@ -270,6 +275,7 @@ class PayrollEngine:
                 input_data.ytd_cpp_base,
                 input_data.ytd_cpp_additional,
                 input_data.cpp2_exempt,
+                input_data.pensionable_months,
             )
 
         calculation_details["cpp"] = {
@@ -278,7 +284,7 @@ class PayrollEngine:
             "ytd_cpp_additional": str(input_data.ytd_cpp_additional),
             "base": str(cpp_result.base),
             "additional": str(cpp_result.additional),
-            "enhancement": str(cpp_result.enhancement),
+            "f5": str(cpp_result.f5),
             "total": str(cpp_result.total),
             "employer": str(cpp_result.employer),
             "exempt": input_data.is_cpp_exempt,
@@ -307,8 +313,8 @@ class PayrollEngine:
 
         # =========================================================================
         # Step 3: Calculate Annual Taxable Income
-        # Note: Both F2 (CPP enhancement) and CPP2 are deducted from taxable income
-        # per CRA T4127: A = P × (I - F - F2 - U1 - CPP2)
+        # Per CRA T4127: A = P × (I - F - F5 - U1)
+        # where F5 = F2 + C2 (CPP enhancement + CPP2)
         # taxable_income_per_period includes taxable benefits (e.g., life insurance
         # employer contribution)
         # =========================================================================
@@ -316,8 +322,7 @@ class PayrollEngine:
             input_data.taxable_income_per_period,  # Includes taxable benefits
             input_data.rrsp_per_period,
             input_data.union_dues_per_period,
-            cpp_result.additional,     # CPP2 is deductible from taxable income
-            cpp_result.enhancement,    # F2: CPP enhancement (1% portion)
+            cpp_result.f5,  # F5 = F2 + C2 (already includes CPP2)
         )
 
         calculation_details["income"] = {
@@ -326,8 +331,7 @@ class PayrollEngine:
             "taxable_income_per_period": str(input_data.taxable_income_per_period),
             "rrsp_per_period": str(input_data.rrsp_per_period),
             "union_dues_per_period": str(input_data.union_dues_per_period),
-            "cpp_enhancement_per_period": str(cpp_result.enhancement),
-            "cpp2_per_period": str(cpp_result.additional),
+            "cpp_f5_per_period": str(cpp_result.f5),
             "annual_taxable_income": str(annual_taxable),
         }
 
@@ -339,6 +343,8 @@ class PayrollEngine:
             input_data.federal_claim_amount,
             cpp_result.base,  # Only base CPP for tax credit
             ei_result.employee,
+            ytd_cpp_base=input_data.ytd_cpp_base,
+            ytd_ei=input_data.ytd_ei,
         )
 
         calculation_details["federal_tax"] = {
@@ -361,6 +367,8 @@ class PayrollEngine:
             input_data.provincial_claim_amount,
             cpp_result.base,
             ei_result.employee,
+            ytd_cpp_base=input_data.ytd_cpp_base,
+            ytd_ei=input_data.ytd_ei,
         )
 
         calculation_details["provincial_tax"] = {
@@ -370,6 +378,7 @@ class PayrollEngine:
             "constant_KP": str(provincial_result.constant_kp),
             "K1P_personal_credits": str(provincial_result.personal_credits_k1p),
             "K2P_cpp_ei_credits": str(provincial_result.cpp_ei_credits_k2p),
+            "K4P_employment_credit": str(provincial_result.employment_credit_k4p),
             "K5P_supplemental": str(provincial_result.supplemental_credit_k5p),
             "T4_basic_tax": str(provincial_result.basic_provincial_tax_t4),
             "V1_surtax": str(provincial_result.surtax_v1),

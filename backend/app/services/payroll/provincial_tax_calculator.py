@@ -39,6 +39,7 @@ class ProvincialTaxResult(NamedTuple):
     constant_kp: Decimal
     personal_credits_k1p: Decimal
     cpp_ei_credits_k2p: Decimal
+    employment_credit_k4p: Decimal
     supplemental_credit_k5p: Decimal
     basic_provincial_tax_t4: Decimal
     surtax_v1: Decimal
@@ -100,6 +101,8 @@ class ProvincialTaxCalculator:
         self.has_surtax = self._config.get("has_surtax", False)
         self.has_health_premium = self._config.get("has_health_premium", False)
         self.has_tax_reduction = self._config.get("has_tax_reduction", False)
+        self.has_k4p = self._config.get("has_k4p", False)
+        self.cea = Decimal(str(self._config.get("cea", 0)))  # Canada Employment Amount
 
         # CPP/EI maximums for credit calculation
         self.max_cpp_credit = Decimal(str(self._cpp_config["max_base_contribution"]))
@@ -109,6 +112,37 @@ class ProvincialTaxCalculator:
     def _round(self, value: Decimal) -> Decimal:
         """Round to 2 decimal places using banker's rounding."""
         return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    def _get_k2p_effective_periods(
+        self,
+        cpp_per_period: Decimal,
+        ei_per_period: Decimal,
+        ytd_cpp_base: Decimal,
+        ytd_ei: Decimal,
+    ) -> int:
+        """
+        Determine effective pay periods for K2P annualization.
+
+        When CPP/EI reaches its annual maximum within the current period,
+        PDOC annualizes K2P using one fewer full period.
+        """
+        effective_periods = self.P
+
+        if (
+            ytd_cpp_base > Decimal("0")
+            and cpp_per_period > Decimal("0")
+            and (ytd_cpp_base + cpp_per_period) >= self.max_cpp_credit
+        ):
+            effective_periods = max(1, self.P - 1)
+
+        if (
+            ytd_ei > Decimal("0")
+            and ei_per_period > Decimal("0")
+            and (ytd_ei + ei_per_period) >= self.max_ei_credit
+        ):
+            effective_periods = max(1, self.P - 1)
+
+        return effective_periods
 
     def get_basic_personal_amount(
         self,
@@ -154,25 +188,50 @@ class ProvincialTaxCalculator:
         self,
         cpp_per_period: Decimal,
         ei_per_period: Decimal,
+        ytd_cpp_base: Decimal = Decimal("0"),
+        ytd_ei: Decimal = Decimal("0"),
     ) -> Decimal:
         """
         Calculate K2P (provincial CPP/EI credits).
 
-        Formula: K2P = lowest_rate × [(P × C × credit_ratio) + (P × EI)]
+        Formula: K2P = lowest_rate × [min(annual_cpp, max_cpp) × credit_ratio + min(annual_ei, max_ei)]
+
+        For CPP, when YTD values are provided, we use the maximum of
+        (actual expected annual, annualized current period) to handle proration
+        cases where current period CPP is reduced near the prorated max.
+
+        The annual amounts are capped at the annual maximums BEFORE applying
+        the credit ratio.
 
         Args:
             cpp_per_period: CPP contribution per period (base CPP only)
             ei_per_period: EI premium per period
+            ytd_cpp_base: Year-to-date base CPP contributions (before this period)
+            ytd_ei: Year-to-date EI premiums (before this period)
 
         Returns:
             K2P provincial CPP/EI tax credit
         """
-        # Annualize and apply CPP credit ratio
-        annual_cpp = self.P * cpp_per_period * self.cpp_credit_ratio
-        annual_cpp = min(annual_cpp, self.max_cpp_credit)
+        effective_periods = self._get_k2p_effective_periods(
+            cpp_per_period,
+            ei_per_period,
+            ytd_cpp_base,
+            ytd_ei,
+        )
 
-        # Annualize EI
-        annual_ei = self.P * ei_per_period
+        # For CPP: use max of (actual annual, annualized) to handle proration cases
+        # where current period CPP is reduced near the prorated max
+        actual_annual_cpp = ytd_cpp_base + cpp_per_period
+        annualized_cpp = Decimal(effective_periods) * cpp_per_period
+        annual_cpp_raw = max(actual_annual_cpp, annualized_cpp)
+        annual_cpp_capped = min(annual_cpp_raw, self.max_cpp_credit)
+        annual_cpp = annual_cpp_capped * self.cpp_credit_ratio
+
+        # For EI: use standard annualized approach
+        # Note: Unlike CPP which has proration, EI uses the actual per-period
+        # deduction annualized. When YTD is near max and current period EI is
+        # truncated, K2P is calculated based on the truncated amount.
+        annual_ei = Decimal(effective_periods) * ei_per_period
         annual_ei = min(annual_ei, self.max_ei_credit)
 
         k2p = self.lowest_rate * (annual_cpp + annual_ei)
@@ -207,6 +266,26 @@ class ProvincialTaxCalculator:
         # Alberta rate reduction factor
         k5p = (total_credits - threshold) * (Decimal("0.04") / Decimal("0.06"))
         return self._round(k5p)
+
+    def calculate_k4p(self, annual_taxable_income: Decimal) -> Decimal:
+        """
+        Calculate K4P (Provincial/Territorial Employment Credit).
+
+        Currently only applies to Yukon.
+        Formula: K4P = lowest_rate × min(A, CEA)
+
+        Args:
+            annual_taxable_income: Annual taxable income (A)
+
+        Returns:
+            K4P employment credit amount
+        """
+        if not self.has_k4p or self.cea == Decimal("0"):
+            return Decimal("0")
+
+        # K4P is the lesser of rate applied to income or CEA
+        k4p = self.lowest_rate * min(annual_taxable_income, self.cea)
+        return self._round(k4p)
 
     def _calculate_ontario_surtax(self, basic_tax_t4: Decimal) -> Decimal:
         """
@@ -351,6 +430,8 @@ class ProvincialTaxCalculator:
         cpp_per_period: Decimal,
         ei_per_period: Decimal,
         net_income: Decimal | None = None,
+        ytd_cpp_base: Decimal = Decimal("0"),
+        ytd_ei: Decimal = Decimal("0"),
     ) -> ProvincialTaxResult:
         """
         Calculate annual provincial tax (T4 and T2).
@@ -369,6 +450,8 @@ class ProvincialTaxCalculator:
             cpp_per_period: CPP contribution per period
             ei_per_period: EI premium per period
             net_income: Net income (for Manitoba BPA calculation)
+            ytd_cpp_base: Year-to-date base CPP contributions (for K2P)
+            ytd_ei: Year-to-date EI premiums (for K2P)
 
         Returns:
             ProvincialTaxResult with full calculation breakdown
@@ -383,11 +466,12 @@ class ProvincialTaxCalculator:
 
         # Calculate credits
         K1P = self.calculate_k1p(total_claim_amount)
-        K2P = self.calculate_k2p(cpp_per_period, ei_per_period)
+        K2P = self.calculate_k2p(cpp_per_period, ei_per_period, ytd_cpp_base, ytd_ei)
+        K4P = self.calculate_k4p(A)  # Employment credit (Yukon)
         K5P = self.calculate_k5p_alberta(K1P, K2P)
 
         # Calculate T4 (basic provincial tax)
-        T4 = (V * A) - KP - K1P - K2P - K5P
+        T4 = (V * A) - KP - K1P - K2P - K4P - K5P
         T4 = max(T4, Decimal("0"))
 
         # Initialize special adjustments
@@ -425,6 +509,7 @@ class ProvincialTaxCalculator:
             constant_kp=KP,
             personal_credits_k1p=K1P,
             cpp_ei_credits_k2p=K2P,
+            employment_credit_k4p=K4P,
             supplemental_credit_k5p=K5P,
             basic_provincial_tax_t4=self._round(T4),
             surtax_v1=surtax_v1,

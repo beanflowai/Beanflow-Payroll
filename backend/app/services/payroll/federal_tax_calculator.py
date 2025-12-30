@@ -95,36 +95,64 @@ class FederalTaxCalculator:
         """Round to 2 decimal places using banker's rounding."""
         return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
+    def _get_k2_effective_periods(
+        self,
+        cpp_per_period: Decimal,
+        ei_per_period: Decimal,
+        ytd_cpp_base: Decimal,
+        ytd_ei: Decimal,
+    ) -> int:
+        """
+        Determine effective pay periods for K2 annualization.
+
+        When CPP/EI reaches its annual maximum within the current period,
+        PDOC annualizes K2 using one fewer full period.
+        """
+        effective_periods = self.P
+
+        if (
+            ytd_cpp_base > Decimal("0")
+            and cpp_per_period > Decimal("0")
+            and (ytd_cpp_base + cpp_per_period) >= self.max_cpp_credit
+        ):
+            effective_periods = max(1, self.P - 1)
+
+        if (
+            ytd_ei > Decimal("0")
+            and ei_per_period > Decimal("0")
+            and (ytd_ei + ei_per_period) >= self.max_ei_credit
+        ):
+            effective_periods = max(1, self.P - 1)
+
+        return effective_periods
+
     def calculate_annual_taxable_income(
         self,
         gross_per_period: Decimal,
         rrsp_per_period: Decimal = Decimal("0"),
         union_dues_per_period: Decimal = Decimal("0"),
-        cpp2_per_period: Decimal = Decimal("0"),
-        cpp_enhancement_per_period: Decimal = Decimal("0"),
+        cpp_f5_per_period: Decimal = Decimal("0"),
     ) -> Decimal:
         """
         Calculate annual taxable income (Factor A).
 
-        Formula: A = P × (I - F - F2 - U1 - CPP2)
+        Formula: A = P × (I - F - F5 - U1)
 
         Where:
         - I = Gross income per period
         - F = RRSP deduction per period
-        - F2 = CPP enhancement portion (1% of 5.95%)
+        - F5 = CPP deduction (F2 + C2) per T4127
         - U1 = Union dues per period
-        - CPP2 = CPP additional contribution per period (deductible from taxable income)
         - P = Pay periods per year
 
-        Note: Both F2 (CPP enhancement) and CPP2 are deducted from taxable income
-        per CRA T4127 guidelines.
+        Note: F5 = F2 + C2, where F2 is the CPP enhancement portion (1% of 5.95%)
+        and C2 is the CPP2 contribution. Both are deducted from taxable income.
 
         Args:
             gross_per_period: Gross income for this pay period
             rrsp_per_period: RRSP deduction for this period
             union_dues_per_period: Union dues for this period
-            cpp2_per_period: CPP additional contribution (CPP2) for this period
-            cpp_enhancement_per_period: CPP enhancement portion (F2) for this period
+            cpp_f5_per_period: CPP F5 deduction (F2 + C2) for this period
 
         Returns:
             Annual taxable income
@@ -133,8 +161,7 @@ class FederalTaxCalculator:
             gross_per_period
             - rrsp_per_period
             - union_dues_per_period
-            - cpp_enhancement_per_period  # F2: CPP enhancement (1% portion)
-            - cpp2_per_period             # CPP2: additional contribution
+            - cpp_f5_per_period  # F5 = F2 + C2
         )
         annual_income = self.P * net_per_period
         return max(annual_income, Decimal("0"))
@@ -159,30 +186,53 @@ class FederalTaxCalculator:
         self,
         cpp_per_period: Decimal,
         ei_per_period: Decimal,
+        ytd_cpp_base: Decimal = Decimal("0"),
+        ytd_ei: Decimal = Decimal("0"),
     ) -> Decimal:
         """
         Calculate K2 (CPP and EI tax credits).
 
-        Formula: K2 = rate × [(P × C × credit_ratio) + (P × EI)]
+        Formula: K2 = rate × [min(annual_cpp, max_cpp) × credit_ratio + min(annual_ei, max_ei)]
 
         Note: CPP credit uses base rate only (4.95%), not total rate (5.95%)
         because the enhancement portion doesn't qualify for the credit.
 
-        The annual amounts are capped at the annual maximums.
+        For CPP, when YTD values are provided, we use the maximum of
+        (actual expected annual, annualized current period) to handle proration
+        cases where current period CPP is reduced near the prorated max.
+
+        The annual amounts are capped at the annual maximums BEFORE applying
+        the credit ratio.
 
         Args:
             cpp_per_period: CPP contribution for this period (base CPP only)
             ei_per_period: EI premium for this period
+            ytd_cpp_base: Year-to-date base CPP contributions (before this period)
+            ytd_ei: Year-to-date EI premiums (before this period)
 
         Returns:
             K2 CPP/EI tax credit amount
         """
-        # Annualize and apply CPP credit ratio
-        annual_cpp = self.P * cpp_per_period * self.cpp_credit_ratio
-        annual_cpp = min(annual_cpp, self.max_cpp_credit)
+        effective_periods = self._get_k2_effective_periods(
+            cpp_per_period,
+            ei_per_period,
+            ytd_cpp_base,
+            ytd_ei,
+        )
 
-        # Annualize EI
-        annual_ei = self.P * ei_per_period
+        # For CPP: use max of (actual annual, annualized) to handle proration cases
+        # where current period CPP is reduced near the prorated max
+        actual_annual_cpp = ytd_cpp_base + cpp_per_period
+        annualized_cpp = Decimal(effective_periods) * cpp_per_period
+        annual_cpp_raw = max(actual_annual_cpp, annualized_cpp)
+        annual_cpp_capped = min(annual_cpp_raw, self.max_cpp_credit)
+        annual_cpp = annual_cpp_capped * self.cpp_credit_ratio
+
+        # For EI: use standard annualized approach
+        # Note: Unlike CPP which has proration, EI uses the actual per-period
+        # deduction annualized. When YTD is near max and current period EI is
+        # truncated, K2 is calculated based on the truncated amount.
+        annual_ei = Decimal(effective_periods) * ei_per_period
         annual_ei = min(annual_ei, self.max_ei_credit)
 
         # Total K2
@@ -217,6 +267,8 @@ class FederalTaxCalculator:
         cpp_per_period: Decimal,
         ei_per_period: Decimal,
         k3: Decimal = Decimal("0"),
+        ytd_cpp_base: Decimal = Decimal("0"),
+        ytd_ei: Decimal = Decimal("0"),
     ) -> FederalTaxResult:
         """
         Calculate annual federal tax (T3 and T1).
@@ -237,6 +289,8 @@ class FederalTaxCalculator:
             cpp_per_period: CPP contribution per period (for K2)
             ei_per_period: EI premium per period (for K2)
             k3: Other tax credits (medical, tuition, etc.)
+            ytd_cpp_base: Year-to-date base CPP contributions (for K2)
+            ytd_ei: Year-to-date EI premiums (for K2)
 
         Returns:
             FederalTaxResult with full calculation breakdown
@@ -248,7 +302,7 @@ class FederalTaxCalculator:
 
         # Calculate credits
         K1 = self.calculate_k1(total_claim_amount)
-        K2 = self.calculate_k2(cpp_per_period, ei_per_period)
+        K2 = self.calculate_k2(cpp_per_period, ei_per_period, ytd_cpp_base, ytd_ei)
         K4 = self.calculate_k4(A)
 
         # Calculate T3 (basic federal tax)
@@ -282,8 +336,7 @@ class FederalTaxCalculator:
         ei_per_period: Decimal,
         rrsp_per_period: Decimal = Decimal("0"),
         union_dues_per_period: Decimal = Decimal("0"),
-        cpp2_per_period: Decimal = Decimal("0"),
-        cpp_enhancement_per_period: Decimal = Decimal("0"),
+        cpp_f5_per_period: Decimal = Decimal("0"),
         k3: Decimal = Decimal("0"),
     ) -> Decimal:
         """
@@ -296,8 +349,7 @@ class FederalTaxCalculator:
             ei_per_period: EI premium for this period
             rrsp_per_period: RRSP deduction for this period
             union_dues_per_period: Union dues for this period
-            cpp2_per_period: CPP additional contribution (CPP2) for this period
-            cpp_enhancement_per_period: CPP enhancement portion (F2) for this period
+            cpp_f5_per_period: CPP F5 deduction (F2 + C2) for this period
             k3: Other tax credits
 
         Returns:
@@ -307,8 +359,7 @@ class FederalTaxCalculator:
             gross_per_period,
             rrsp_per_period,
             union_dues_per_period,
-            cpp2_per_period,
-            cpp_enhancement_per_period,
+            cpp_f5_per_period,
         )
 
         result = self.calculate_federal_tax(
@@ -329,8 +380,7 @@ class FederalTaxCalculator:
         ei_per_period: Decimal,
         rrsp_per_period: Decimal = Decimal("0"),
         union_dues_per_period: Decimal = Decimal("0"),
-        cpp2_per_period: Decimal = Decimal("0"),
-        cpp_enhancement_per_period: Decimal = Decimal("0"),
+        cpp_f5_per_period: Decimal = Decimal("0"),
         k3: Decimal = Decimal("0"),
     ) -> dict[str, Any]:
         """
@@ -342,8 +392,7 @@ class FederalTaxCalculator:
             gross_per_period,
             rrsp_per_period,
             union_dues_per_period,
-            cpp2_per_period,
-            cpp_enhancement_per_period,
+            cpp_f5_per_period,
         )
 
         result = self.calculate_federal_tax(
@@ -362,8 +411,7 @@ class FederalTaxCalculator:
                 "ei_per_period": str(ei_per_period),
                 "rrsp_per_period": str(rrsp_per_period),
                 "union_dues_per_period": str(union_dues_per_period),
-                "cpp2_per_period": str(cpp2_per_period),
-                "cpp_enhancement_per_period": str(cpp_enhancement_per_period),
+                "cpp_f5_per_period": str(cpp_f5_per_period),
                 "pay_periods_per_year": self.P,
             },
             "calculation": {
