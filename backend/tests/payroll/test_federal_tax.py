@@ -62,15 +62,15 @@ class TestFederalTaxAnnualTaxableIncome:
     def test_annual_taxable_income_with_all_deductions(self):
         """Test: Annualization with all pre-tax deductions.
 
-        A = P × (I - F - F2 - U1 - CPP2)
-        A = 26 × (2500 - 200 - 50 - 20 - 10) = 26 × 2220 = $57,720
+        A = P × (I - F - F5 - U1)
+        Where F5 = F2 + C2 (CPP enhancement + CPP2)
+        A = 26 × (2500 - 200 - 60 - 20) = 26 × 2220 = $57,720
         """
         A = self.calc.calculate_annual_taxable_income(
             gross_per_period=Decimal("2500.00"),
             rrsp_per_period=Decimal("200.00"),
             union_dues_per_period=Decimal("20.00"),
-            cpp2_per_period=Decimal("10.00"),
-            cpp_enhancement_per_period=Decimal("50.00"),
+            cpp_f5_per_period=Decimal("60.00"),  # F5 = F2 + C2
         )
 
         assert A == Decimal("57720.00")

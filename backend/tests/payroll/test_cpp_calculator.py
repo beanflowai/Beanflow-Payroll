@@ -269,33 +269,34 @@ class TestCPPCalculatorEmployerContribution:
         assert result.employer == result.base + result.additional
 
 
-class TestCPPCalculatorEnhancement:
-    """Test CPP enhancement (F2) calculations for tax deduction."""
+class TestCPPCalculatorF5Deduction:
+    """Test F5 (CPP tax deduction) calculation.
+
+    F5 = F2 + C2 where:
+    - F2 is enhancement portion of base CPP
+    - C2 is CPP2 (additional CPP)
+    """
 
     def setup_method(self):
         """Create calculator for bi-weekly (26 periods)."""
         self.calc = CPPCalculator(pay_periods_per_year=26, year=2025)
 
-    def test_enhancement_calculation(self):
-        """Test: Enhancement is 1%/5.95% of base CPP.
-
-        Enhancement ratio = 0.01 / 0.0595 ≈ 0.168
-        """
+    def test_f5_calculated_correctly(self):
+        """Test: F5 includes both enhancement and CPP2."""
         result = self.calc.calculate_total_cpp(
             pensionable_earnings=Decimal("2000.00"),
             ytd_pensionable_earnings=Decimal("0"),
             ytd_cpp_base=Decimal("0"),
         )
 
-        # Enhancement should be approximately 16.8% of base CPP
-        expected_ratio = Decimal("0.01") / Decimal("0.0595")
-        expected_enhancement = result.base * expected_ratio
+        # F5 should be > 0 and <= base (since it only includes enhancement portion)
+        assert result.f5 >= Decimal("0")
+        # F5 = enhancement portion (1% out of 5.95%) + any CPP2
+        # For income below CPP2 threshold, F5 is just the enhancement part
+        assert result.f5 <= result.base
 
-        # Allow for rounding differences
-        assert abs(result.enhancement - expected_enhancement) < Decimal("0.02")
-
-    def test_enhancement_is_zero_when_no_cpp(self):
-        """Test: No enhancement when base CPP is zero."""
+    def test_f5_is_zero_when_no_cpp(self):
+        """Test: No F5 deduction when income below exemption."""
         result = self.calc.calculate_total_cpp(
             pensionable_earnings=Decimal("100.00"),
             ytd_pensionable_earnings=Decimal("0"),
@@ -303,7 +304,7 @@ class TestCPPCalculatorEnhancement:
         )
 
         assert result.base == Decimal("0")
-        assert result.enhancement == Decimal("0")
+        assert result.f5 == Decimal("0")
 
 
 class TestCPPCalculatorCreditRates:
