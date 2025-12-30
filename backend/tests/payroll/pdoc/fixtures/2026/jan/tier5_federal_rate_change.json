@@ -13,7 +13,7 @@
       "id": "ON_60K_JAN",
       "tier": 5,
       "description": "Ontario $60k, bi-weekly, January 2026 - 14% federal rate",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "federal_rate",
       "special_rules": ["14% federal rate"],
       "input": {
@@ -34,22 +34,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "37.62",
+        "federal_tax": "205.32",
+        "provincial_tax": "114.68",
+        "total_deductions": "486.92",
+        "net_pay": "1820.77"
       },
-      "notes": "2026: Ontario $60k January - 14% federal first bracket rate"
+      "notes": "2026: Ontario $60k January - 14% federal first bracket rate. PDOC verified 2025-12-30."
     },
     {
       "id": "AB_60K_JAN",
       "tier": 5,
       "description": "Alberta $60k, bi-weekly, January 2026 - 14% federal rate",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "federal_rate",
       "special_rules": ["14% federal rate", "Flat provincial rate"],
       "input": {
@@ -70,22 +70,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "37.62",
+        "federal_tax": "205.32",
+        "provincial_tax": "101.20",
+        "total_deductions": "473.44",
+        "net_pay": "1834.25"
       },
-      "notes": "2026: Alberta $60k January - 14% federal, 10% provincial flat rate"
+      "notes": "2026: Alberta $60k January - 14% federal, 10% provincial flat rate. PDOC verified 2025-12-30."
     },
     {
       "id": "BC_60K_JAN",
       "tier": 5,
       "description": "BC $60k, bi-weekly, January 2026 - 14% federal rate",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "federal_rate",
       "special_rules": ["14% federal rate", "BC tax reduction"],
       "input": {
@@ -106,16 +106,16 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "37.62",
+        "federal_tax": "205.32",
+        "provincial_tax": "91.80",
+        "total_deductions": "464.04",
+        "net_pay": "1843.65"
       },
-      "notes": "2026: BC $60k January - 14% federal, BC tax reduction active"
+      "notes": "2026: BC $60k January - 14% federal, BC tax reduction active. PDOC verified 2025-12-30."
     }
   ]
 }

@@ -36,6 +36,11 @@
       "has_surtax": false,
       "has_health_premium": false,
       "has_tax_reduction": false,
+      "k5p_config": {
+        "threshold": 4896.00,
+        "factor": 0.25,
+        "description": "K5P = ((K1P + K2P) - threshold) × factor (T4127 122nd Edition)"
+      },
       "brackets": [
         {"threshold": 0, "rate": 0.08, "constant": 0},
         {"threshold": 61200, "rate": 0.10, "constant": 1224.00},

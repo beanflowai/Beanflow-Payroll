@@ -13,7 +13,7 @@
       "id": "BELOW_CPP_EXEMPTION",
       "tier": 3,
       "description": "Income below CPP basic exemption - no CPP deduction",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "cpp_boundary",
       "special_rules": ["Below basic exemption"],
       "input": {
@@ -37,11 +37,11 @@
         "cpp_total": "0.00",
         "cpp_enhancement_f2": "0.00",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "1.63",
+        "federal_tax": "0.00",
+        "provincial_tax": "0.00",
+        "total_deductions": "1.63",
+        "net_pay": "98.37"
       },
       "notes": "2026: $100/biweekly = $2,600 annual < $3,500 exemption"
     },
@@ -49,7 +49,7 @@
       "id": "AT_YMPE_BOUNDARY",
       "tier": 3,
       "description": "Income at YMPE boundary - full CPP, no CPP2",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "cpp_boundary",
       "special_rules": ["At YMPE boundary"],
       "input": {
@@ -70,14 +70,14 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "162.71",
+        "cpp_enhancement_f2": "27.35",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "46.77",
+        "federal_tax": "314.61",
+        "provincial_tax": "169.63",
+        "total_deductions": "693.72",
+        "net_pay": "2175.51"
       },
       "notes": "2026: $74,600 YMPE / 26 = $2,869.23. No CPP2 expected."
     },
@@ -85,7 +85,7 @@
       "id": "ABOVE_YMPE_CPP2",
       "tier": 3,
       "description": "Income above YMPE but below YAMPE - CPP2 kicks in",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "cpp_boundary",
       "special_rules": ["CPP2 active"],
       "input": {
@@ -106,22 +106,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
-        "cpp2": "TO_BE_VERIFIED",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "cpp_total": "175.07",
+        "cpp_enhancement_f2": "29.42",
+        "cpp2": "0.00",
+        "ei": "50.15",
+        "federal_tax": "356.76",
+        "provincial_tax": "188.45",
+        "total_deductions": "770.43",
+        "net_pay": "2306.49"
       },
-      "notes": "2026: $80,000 annual > YMPE $74,600. CPP2 applies on earnings between YMPE and YAMPE."
+      "notes": "2026: $80,000 annual > YMPE $74,600. CPP2 only applies after YTD exceeds YMPE. First pay period has no CPP2."
     },
     {
       "id": "AT_YAMPE_BOUNDARY",
       "tier": 3,
       "description": "Income at YAMPE boundary - max CPP + CPP2",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "cpp_boundary",
       "special_rules": ["At YAMPE boundary"],
       "input": {
@@ -142,22 +142,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
-        "cpp2": "TO_BE_VERIFIED",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "cpp_total": "186.51",
+        "cpp_enhancement_f2": "31.35",
+        "cpp2": "0.00",
+        "ei": "53.29",
+        "federal_tax": "395.79",
+        "provincial_tax": "205.87",
+        "total_deductions": "841.46",
+        "net_pay": "2427.77"
       },
-      "notes": "2026: $85,000 YAMPE / 26 = $3,269.23. Maximum CPP + CPP2."
+      "notes": "2026: $85,000 YAMPE / 26 = $3,269.23. First pay period so no CPP2 yet (CPP2 only kicks in after YTD exceeds YMPE)."
     },
     {
       "id": "AT_EI_MIE",
       "tier": 3,
       "description": "Income at EI MIE boundary - approaching max EI",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "ei_boundary",
       "special_rules": ["At MIE boundary"],
       "input": {
@@ -178,14 +178,14 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "149.67",
+        "cpp_enhancement_f2": "25.15",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "43.20",
+        "federal_tax": "271.64",
+        "provincial_tax": "144.55",
+        "total_deductions": "609.06",
+        "net_pay": "2040.94"
       },
       "notes": "2026: $68,900 MIE / 26 = $2,650. At EI maximum boundary."
     },
@@ -193,7 +193,7 @@
       "id": "CPP_EXEMPT",
       "tier": 3,
       "description": "CPP exempt employee - no CPP deduction",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "exemption",
       "special_rules": ["CPP exempt"],
       "input": {
@@ -218,11 +218,11 @@
         "cpp_total": "0.00",
         "cpp_enhancement_f2": "0.00",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "37.62",
+        "federal_tax": "224.83",
+        "provincial_tax": "122.10",
+        "total_deductions": "384.55",
+        "net_pay": "1923.14"
       },
       "notes": "2026: CPP exempt employee - no CPP deductions"
     },
@@ -230,7 +230,7 @@
       "id": "EI_EXEMPT",
       "tier": 3,
       "description": "EI exempt employee - no EI deduction",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "exemption",
       "special_rules": ["EI exempt"],
       "input": {
@@ -252,14 +252,14 @@
         "ei_exempt": true
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
         "cpp2": "0.00",
         "ei": "0.00",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "federal_tax": "210.58",
+        "provincial_tax": "116.58",
+        "total_deductions": "456.46",
+        "net_pay": "1851.23"
       },
       "notes": "2026: EI exempt employee - no EI deductions"
     },
@@ -267,7 +267,7 @@
       "id": "CPP2_EXEMPT_HIGH_INCOME",
       "tier": 3,
       "description": "CPP2 exempt high income - CPP but no CPP2",
-      "status": "TO_BE_VERIFIED",
+      "status": "PDOC_NOT_SUPPORTED",
       "category": "exemption",
       "special_rules": ["CPP2 exempt", "High income"],
       "input": {
@@ -289,24 +289,24 @@
         "cpp2_exempt": true
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "200.24",
+        "cpp_enhancement_f2": "33.65",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "57.05",
+        "federal_tax": "442.63",
+        "provincial_tax": "226.77",
+        "total_deductions": "926.69",
+        "net_pay": "2573.31"
       },
-      "notes": "2026: CPP2 exempt employee - regular CPP but no CPP2"
+      "notes": "2026: PDOC does not support CPP2-only exemption. Values shown are from standard calculation. CPP2 is 0.00 in first pay period since YTD < YMPE. Our system should enforce cpp2_exempt flag to always produce CPP2=0."
     },
     {
       "id": "YTD_NEAR_CPP_MAX",
       "tier": 3,
       "description": "YTD near CPP max - partial CPP deduction",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "ytd_boundary",
-      "special_rules": ["YTD near max"],
+      "special_rules": ["YTD near max", "EI maxed out"],
       "input": {
         "province": "ON",
         "gross_pay": "2307.69",
@@ -317,24 +317,24 @@
         "provincial_claim": "12989.00",
         "rrsp": "0",
         "union_dues": "0",
-        "ytd_gross": "55384.56",
-        "ytd_pensionable_earnings": "55384.56",
-        "ytd_insurable_earnings": "55384.56",
+        "ytd_gross": "68907.57",
+        "ytd_pensionable_earnings": "68907.57",
+        "ytd_insurable_earnings": "68900.00",
         "ytd_cpp_base": "4100.00",
         "ytd_cpp_additional": "0",
-        "ytd_ei": "900.00"
+        "ytd_ei": "1123.07"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "0.00",
+        "federal_tax": "201.23",
+        "provincial_tax": "113.21",
+        "total_deductions": "443.74",
+        "net_pay": "1863.95"
       },
-      "notes": "2026: YTD CPP base near max $4,230.45. Partial deduction expected."
+      "notes": "2026: YTD CPP base $4,100 near max $4,230.45, EI already at max $1,123.07. EI deduction is 0 since YTD EI has reached max. Verified 2025-12-30."
     }
   ]
 }

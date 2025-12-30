@@ -13,7 +13,7 @@
       "id": "ON_30K_BIWEEKLY",
       "tier": 2,
       "description": "Ontario low income $30k - below health premium threshold",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "low_income",
       "special_rules": ["Below health premium threshold"],
       "input": {
@@ -34,14 +34,14 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "60.64",
+        "cpp_enhancement_f2": "10.19",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "18.81",
+        "federal_tax": "53.75",
+        "provincial_tax": "40.57",
+        "total_deductions": "173.77",
+        "net_pay": "980.08"
       },
       "notes": "2026: Below ON health premium threshold"
     },
@@ -49,7 +49,7 @@
       "id": "BC_30K_BIWEEKLY",
       "tier": 2,
       "description": "BC low income $30k - tax reduction (Factor S) active",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "low_income",
       "special_rules": ["Tax reduction active"],
       "input": {
@@ -70,14 +70,14 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "60.64",
+        "cpp_enhancement_f2": "10.19",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "18.81",
+        "federal_tax": "53.75",
+        "provincial_tax": "12.23",
+        "total_deductions": "145.43",
+        "net_pay": "1008.42"
       },
       "notes": "2026: BC tax reduction active at low income"
     },
@@ -85,7 +85,7 @@
       "id": "MB_30K_BIWEEKLY",
       "tier": 2,
       "description": "Manitoba low income $30k - full dynamic BPA benefit",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "low_income",
       "special_rules": ["Full dynamic BPA"],
       "input": {
@@ -106,14 +106,14 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "60.64",
+        "cpp_enhancement_f2": "10.19",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "18.81",
+        "federal_tax": "53.75",
+        "provincial_tax": "50.49",
+        "total_deductions": "183.69",
+        "net_pay": "970.16"
       },
       "notes": "2026: Full dynamic BPA for low income"
     },
@@ -121,7 +121,7 @@
       "id": "NS_30K_BIWEEKLY",
       "tier": 2,
       "description": "Nova Scotia low income $30k - higher BPA tier",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "low_income",
       "special_rules": ["Higher BPA tier"],
       "input": {
@@ -142,14 +142,14 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "60.64",
+        "cpp_enhancement_f2": "10.19",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "18.81",
+        "federal_tax": "53.75",
+        "provincial_tax": "54.10",
+        "total_deductions": "187.30",
+        "net_pay": "966.55"
       },
       "notes": "2026: NS higher BPA tier for low income"
     },
@@ -157,7 +157,7 @@
       "id": "ON_120K_MONTHLY",
       "tier": 2,
       "description": "Ontario high income $120k - full surtax, health premium",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "high_income",
       "special_rules": ["Full surtax", "Health premium"],
       "input": {
@@ -178,14 +178,14 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "577.65",
+        "cpp_enhancement_f2": "97.08",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "163.00",
+        "federal_tax": "1457.73",
+        "provincial_tax": "781.58",
+        "total_deductions": "2979.96",
+        "net_pay": "7020.04"
       },
       "notes": "2026: ON surtax and health premium at $120k"
     },
@@ -193,7 +193,7 @@
       "id": "AB_120K_MONTHLY",
       "tier": 2,
       "description": "Alberta high income $120k - flat rate, CPP2 range",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "high_income",
       "special_rules": ["Flat 10% rate", "CPP2 applicable"],
       "input": {
@@ -214,14 +214,14 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
-        "cpp2": "TO_BE_VERIFIED",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "cpp_total": "577.65",
+        "cpp_enhancement_f2": "97.08",
+        "cpp2": "0.00",
+        "ei": "163.00",
+        "federal_tax": "1457.73",
+        "provincial_tax": "705.55",
+        "total_deductions": "2903.93",
+        "net_pay": "7096.07"
       },
       "notes": "2026: AB flat rate at high income, potential CPP2"
     },
@@ -229,7 +229,7 @@
       "id": "BC_120K_MONTHLY",
       "tier": 2,
       "description": "BC high income $120k - no tax reduction",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "high_income",
       "special_rules": ["No tax reduction at this income"],
       "input": {
@@ -250,14 +250,14 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "577.65",
+        "cpp_enhancement_f2": "97.08",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "163.00",
+        "federal_tax": "1457.73",
+        "provincial_tax": "623.43",
+        "total_deductions": "2821.81",
+        "net_pay": "7178.19"
       },
       "notes": "2026: BC at high income (no tax reduction)"
     },
@@ -265,7 +265,7 @@
       "id": "MB_120K_MONTHLY",
       "tier": 2,
       "description": "Manitoba high income $120k - reduced dynamic BPA",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "high_income",
       "special_rules": ["Reduced dynamic BPA"],
       "input": {
@@ -286,14 +286,14 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "577.65",
+        "cpp_enhancement_f2": "97.08",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "163.00",
+        "federal_tax": "1457.73",
+        "provincial_tax": "1075.39",
+        "total_deductions": "3273.77",
+        "net_pay": "6726.23"
       },
       "notes": "2026: MB reduced dynamic BPA at high income"
     },
@@ -301,7 +301,7 @@
       "id": "ON_150K_MONTHLY",
       "tier": 2,
       "description": "Ontario very high income $150k - maximum surtax bracket",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "high_income",
       "special_rules": ["Maximum surtax bracket"],
       "input": {
@@ -322,14 +322,14 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "726.40",
+        "cpp_enhancement_f2": "122.08",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "203.75",
+        "federal_tax": "2101.23",
+        "provincial_tax": "1212.47",
+        "total_deductions": "4243.85",
+        "net_pay": "8256.15"
       },
       "notes": "2026: ON maximum surtax bracket"
     },
@@ -337,7 +337,7 @@
       "id": "NS_120K_MONTHLY",
       "tier": 2,
       "description": "Nova Scotia high income $120k - lower BPA tier, surtax",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "high_income",
       "special_rules": ["Lower BPA tier", "Surtax"],
       "input": {
@@ -358,14 +358,14 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "577.65",
+        "cpp_enhancement_f2": "97.08",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "163.00",
+        "federal_tax": "1457.73",
+        "provincial_tax": "1296.27",
+        "total_deductions": "3494.65",
+        "net_pay": "6505.35"
       },
       "notes": "2026: NS lower BPA tier at high income"
     },
@@ -373,7 +373,7 @@
       "id": "ON_200K_MONTHLY",
       "tier": 2,
       "description": "Ontario top bracket $200k - top tax bracket",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "high_income",
       "special_rules": ["Top tax bracket"],
       "input": {
@@ -394,14 +394,14 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
-        "cpp2": "TO_BE_VERIFIED",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "cpp_total": "974.31",
+        "cpp_enhancement_f2": "163.75",
+        "cpp2": "0.00",
+        "ei": "271.67",
+        "federal_tax": "3215.15",
+        "provincial_tax": "1993.06",
+        "total_deductions": "6454.19",
+        "net_pay": "10212.48"
       },
       "notes": "2026: Top federal and provincial tax brackets"
     },
@@ -409,7 +409,7 @@
       "id": "AB_200K_MONTHLY",
       "tier": 2,
       "description": "Alberta top bracket $200k - flat rate comparison",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "high_income",
       "special_rules": ["Flat rate at top income"],
       "input": {
@@ -430,14 +430,14 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
-        "cpp2": "TO_BE_VERIFIED",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "cpp_total": "974.31",
+        "cpp_enhancement_f2": "163.75",
+        "cpp2": "0.00",
+        "ei": "271.67",
+        "federal_tax": "3215.15",
+        "provincial_tax": "1449.30",
+        "total_deductions": "5910.43",
+        "net_pay": "10756.24"
       },
       "notes": "2026: AB flat rate at top income"
     }

@@ -38,6 +38,12 @@
       "has_health_premium": false,
       "has_tax_reduction": false,
       "has_k4p": false,
+      "k5p_config": {
+        "threshold": 3600.00,
+        "factor_numerator": 0.04,
+        "factor_denominator": 0.06,
+        "description": "K5P = ((K1P + K2P) - threshold) × (factor_numerator/factor_denominator)"
+      },
       "brackets": [
         {"threshold": 0, "rate": 0.06, "constant": 0},
         {"threshold": 60000, "rate": 0.10, "constant": 2400},

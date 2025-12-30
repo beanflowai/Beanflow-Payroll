@@ -13,7 +13,7 @@
       "id": "ON_72K_BIWEEKLY",
       "tier": 3,
       "description": "Ontario $72k - just above YMPE, CPP2 starts",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "cpp2_start",
       "special_rules": ["CPP2 starts above YMPE"],
       "input": {
@@ -37,17 +37,17 @@
         "cpp_total": "156.76",
         "cpp2": "0.00",
         "ei": "45.42",
-        "federal_tax": "TO_BE_VERIFIED",
+        "federal_tax": "313.79",
         "provincial_tax": "157.30",
-        "net_pay": "TO_BE_VERIFIED"
+        "net_pay": "2095.96"
       },
-      "notes": "CPP/EI unchanged. Federal tax needs PDOC verification for 15% rate."
+      "notes": "PDOC verified 2025-12-30. Federal tax 313.79, Net pay 2095.96."
     },
     {
       "id": "ON_82K_BIWEEKLY",
       "tier": 3,
       "description": "Ontario $82k - above YAMPE, CPP2 at ceiling",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "cpp2_ceiling",
       "special_rules": ["CPP2 at maximum"],
       "input": {
@@ -71,17 +71,17 @@
         "cpp_total": "179.64",
         "cpp2": "0.00",
         "ei": "51.72",
-        "federal_tax": "TO_BE_VERIFIED",
+        "federal_tax": "391.85",
         "provincial_tax": "197.91",
-        "net_pay": "TO_BE_VERIFIED"
+        "net_pay": "2332.73"
       },
-      "notes": "CPP/EI unchanged. Federal tax needs PDOC verification for 15% rate."
+      "notes": "PDOC verified 2025-12-30. Federal tax 391.85, Net pay 2332.73."
     },
     {
       "id": "ON_66K_BIWEEKLY",
       "tier": 3,
       "description": "Ontario $66k - at EI MIE threshold",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "ei_maximum",
       "special_rules": ["EI at maximum rate"],
       "input": {
@@ -105,17 +105,17 @@
         "cpp_total": "143.03",
         "cpp2": "0.00",
         "ei": "41.63",
-        "federal_tax": "TO_BE_VERIFIED",
+        "federal_tax": "268.47",
         "provincial_tax": "136.90",
-        "net_pay": "TO_BE_VERIFIED"
+        "net_pay": "1948.43"
       },
-      "notes": "CPP/EI unchanged. Federal tax needs PDOC verification for 15% rate."
+      "notes": "PDOC verified 2025-12-30. Federal tax 268.47, Net pay 1948.43."
     },
     {
       "id": "AB_85K_CPP2",
       "tier": 3,
       "description": "Alberta $85k - CPP2 range verification",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "cpp2_verification",
       "special_rules": ["CPP2 in range", "Alberta flat rate"],
       "input": {
@@ -139,17 +139,17 @@
         "cpp_total": "186.51",
         "cpp2": "0.00",
         "ei": "53.62",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "169.73",
-        "net_pay": "TO_BE_VERIFIED"
+        "federal_tax": "415.26",
+        "provincial_tax": "220.88",
+        "net_pay": "2392.96"
       },
-      "notes": "CPP/EI unchanged. Federal tax needs PDOC verification for 15% rate."
+      "notes": "PDOC verified 2025-12-30. Federal tax 415.26, Provincial tax 220.88, Net pay 2392.96."
     },
     {
       "id": "BC_90K_CPP2_TAX_REDUCTION",
       "tier": 3,
       "description": "BC $90k - CPP2 + tax reduction combined rules",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "combined_rules",
       "special_rules": ["CPP2", "Tax reduction interaction"],
       "input": {
@@ -173,11 +173,11 @@
         "cpp_total": "197.95",
         "cpp2": "0.00",
         "ei": "56.77",
-        "federal_tax": "TO_BE_VERIFIED",
+        "federal_tax": "454.29",
         "provincial_tax": "180.14",
-        "net_pay": "TO_BE_VERIFIED"
+        "net_pay": "2572.39"
       },
-      "notes": "CPP/EI unchanged. Federal tax needs PDOC verification for 15% rate."
+      "notes": "PDOC verified 2025-12-30. Federal tax 454.29, Net pay 2572.39."
     }
   ]
 }

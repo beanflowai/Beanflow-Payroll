@@ -110,6 +110,9 @@
         "tax_reduction_config": {
           "$ref": "#/definitions/tax_reduction_config"
         },
+        "k5p_config": {
+          "$ref": "#/definitions/k5p_config"
+        },
         "brackets": {
           "type": "array",
           "minItems": 2,
@@ -239,6 +242,62 @@
           "description": "Income at which reduction is zero"
         }
       }
+    },
+    "k5p_config": {
+      "type": "object",
+      "description": "Alberta K5P supplemental tax credit configuration (T4127). Formula: K5P = ((K1P + K2P) - threshold) × factor",
+      "oneOf": [
+        {
+          "type": "object",
+          "description": "2026+ style: simple factor",
+          "required": ["threshold", "factor"],
+          "properties": {
+            "threshold": {
+              "type": "number",
+              "minimum": 0,
+              "description": "K5P activation threshold"
+            },
+            "factor": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "K5P multiplication factor"
+            },
+            "description": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "description": "2025 style: numerator/denominator factor (factor = factor_numerator / factor_denominator)",
+          "required": ["threshold", "factor_numerator", "factor_denominator"],
+          "properties": {
+            "threshold": {
+              "type": "number",
+              "minimum": 0,
+              "description": "K5P activation threshold"
+            },
+            "factor_numerator": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Factor numerator"
+            },
+            "factor_denominator": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Factor denominator"
+            },
+            "description": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     }
   }
 }

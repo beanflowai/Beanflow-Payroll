@@ -13,7 +13,7 @@
       "id": "ON_30K_BIWEEKLY",
       "tier": 2,
       "description": "Ontario low income $30k - below health premium threshold",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "low_income",
       "special_rules": ["Below health premium threshold"],
       "input": {
@@ -37,17 +37,17 @@
         "cpp_total": "60.64",
         "cpp2": "0.00",
         "ei": "18.92",
-        "federal_tax": "TO_BE_VERIFIED",
+        "federal_tax": "59.61",
         "provincial_tax": "41.03",
-        "net_pay": "TO_BE_VERIFIED"
+        "net_pay": "973.65"
       },
-      "notes": "Federal tax needs PDOC verification for 15% rate"
+      "notes": "Verified with PDOC 2025-12-30"
     },
     {
       "id": "BC_30K_BIWEEKLY",
       "tier": 2,
       "description": "BC low income $30k - tax reduction (Factor S) active",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "low_income",
       "special_rules": ["Tax reduction active"],
       "input": {
@@ -71,17 +71,17 @@
         "cpp_total": "60.64",
         "cpp2": "0.00",
         "ei": "18.92",
-        "federal_tax": "TO_BE_VERIFIED",
+        "federal_tax": "59.61",
         "provincial_tax": "14.03",
-        "net_pay": "TO_BE_VERIFIED"
+        "net_pay": "1000.65"
       },
-      "notes": "Federal tax needs PDOC verification for 15% rate"
+      "notes": "Verified with PDOC 2025-12-30"
     },
     {
       "id": "MB_30K_BIWEEKLY",
       "tier": 2,
       "description": "Manitoba low income $30k - full dynamic BPA benefit",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "low_income",
       "special_rules": ["Full dynamic BPA"],
       "input": {
@@ -105,17 +105,17 @@
         "cpp_total": "60.64",
         "cpp2": "0.00",
         "ei": "18.92",
-        "federal_tax": "TO_BE_VERIFIED",
+        "federal_tax": "59.61",
         "provincial_tax": "51.26",
-        "net_pay": "TO_BE_VERIFIED"
+        "net_pay": "963.42"
       },
-      "notes": "Federal tax needs PDOC verification for 15% rate"
+      "notes": "Verified with PDOC 2025-12-30"
     },
     {
       "id": "NS_30K_BIWEEKLY",
       "tier": 2,
       "description": "Nova Scotia low income $30k - higher BPA tier",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "low_income",
       "special_rules": ["Higher BPA tier"],
       "input": {
@@ -139,17 +139,17 @@
         "cpp_total": "60.64",
         "cpp2": "0.00",
         "ei": "18.92",
-        "federal_tax": "TO_BE_VERIFIED",
+        "federal_tax": "59.61",
         "provincial_tax": "54.73",
-        "net_pay": "TO_BE_VERIFIED"
+        "net_pay": "959.95"
       },
-      "notes": "Federal tax needs PDOC verification for 15% rate"
+      "notes": "Verified with PDOC 2025-12-30"
     },
     {
       "id": "ON_120K_MONTHLY",
       "tier": 2,
       "description": "Ontario high income $120k - full surtax, health premium",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "high_income",
       "special_rules": ["Full surtax", "Health premium"],
       "input": {
@@ -173,17 +173,17 @@
         "cpp_total": "577.65",
         "cpp2": "0.00",
         "ei": "164.00",
-        "federal_tax": "TO_BE_VERIFIED",
+        "federal_tax": "1510.42",
         "provincial_tax": "801.17",
-        "net_pay": "TO_BE_VERIFIED"
+        "net_pay": "6946.76"
       },
-      "notes": "Federal tax needs PDOC verification for 15% rate"
+      "notes": "Verified with PDOC 2025-12-30"
     },
     {
       "id": "AB_120K_MONTHLY",
       "tier": 2,
       "description": "Alberta high income $120k - flat rate, CPP2 range",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "high_income",
       "special_rules": ["Flat 10% rate", "CPP2 applicable"],
       "input": {
@@ -207,17 +207,17 @@
         "cpp_total": "577.65",
         "cpp2": "0.00",
         "ei": "164.00",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "656.51",
-        "net_pay": "TO_BE_VERIFIED"
+        "federal_tax": "1510.42",
+        "provincial_tax": "767.32",
+        "net_pay": "6980.61"
       },
-      "notes": "Federal tax needs PDOC verification for 15% rate"
+      "notes": "Verified with PDOC 2025-12-30"
     },
     {
       "id": "BC_120K_MONTHLY",
       "tier": 2,
       "description": "BC high income $120k - no tax reduction",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "high_income",
       "special_rules": ["No tax reduction at this income"],
       "input": {
@@ -241,17 +241,17 @@
         "cpp_total": "577.65",
         "cpp2": "0.00",
         "ei": "164.00",
-        "federal_tax": "TO_BE_VERIFIED",
+        "federal_tax": "1510.42",
         "provincial_tax": "636.68",
-        "net_pay": "TO_BE_VERIFIED"
+        "net_pay": "7111.25"
       },
-      "notes": "Federal tax needs PDOC verification for 15% rate"
+      "notes": "Verified with PDOC 2025-12-30"
     },
     {
       "id": "MB_120K_MONTHLY",
       "tier": 2,
       "description": "Manitoba high income $120k - reduced dynamic BPA",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "high_income",
       "special_rules": ["Reduced dynamic BPA"],
       "input": {
@@ -275,17 +275,17 @@
         "cpp_total": "577.65",
         "cpp2": "0.00",
         "ei": "164.00",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "1084.47",
-        "net_pay": "TO_BE_VERIFIED"
+        "federal_tax": "1510.42",
+        "provincial_tax": "1073.47",
+        "net_pay": "6674.46"
       },
-      "notes": "Federal tax needs PDOC verification for 15% rate"
+      "notes": "Verified with PDOC 2025-12-30"
     },
     {
       "id": "ON_150K_MONTHLY",
       "tier": 2,
       "description": "Ontario very high income $150k - maximum surtax bracket",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "high_income",
       "special_rules": ["Maximum surtax bracket"],
       "input": {
@@ -309,17 +309,17 @@
         "cpp_total": "726.40",
         "cpp2": "0.00",
         "ei": "205.00",
-        "federal_tax": "TO_BE_VERIFIED",
+        "federal_tax": "2153.92",
         "provincial_tax": "1232.06",
-        "net_pay": "TO_BE_VERIFIED"
+        "net_pay": "8182.62"
       },
-      "notes": "Federal tax needs PDOC verification for 15% rate"
+      "notes": "Verified with PDOC 2025-12-30"
     },
     {
       "id": "NS_120K_MONTHLY",
       "tier": 2,
       "description": "Nova Scotia high income $120k - lower BPA tier, surtax",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "high_income",
       "special_rules": ["Lower BPA tier", "Surtax"],
       "input": {
@@ -343,17 +343,17 @@
         "cpp_total": "577.65",
         "cpp2": "0.00",
         "ei": "164.00",
-        "federal_tax": "TO_BE_VERIFIED",
+        "federal_tax": "1510.42",
         "provincial_tax": "1304.09",
-        "net_pay": "TO_BE_VERIFIED"
+        "net_pay": "6443.84"
       },
-      "notes": "Federal tax needs PDOC verification for 15% rate"
+      "notes": "Verified with PDOC 2025-12-30"
     },
     {
       "id": "ON_200K_MONTHLY",
       "tier": 2,
       "description": "Ontario top bracket $200k - top tax bracket",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "high_income",
       "special_rules": ["Top tax bracket"],
       "input": {
@@ -377,17 +377,17 @@
         "cpp_total": "974.31",
         "cpp2": "0.00",
         "ei": "273.33",
-        "federal_tax": "TO_BE_VERIFIED",
+        "federal_tax": "3276.84",
         "provincial_tax": "2012.65",
-        "net_pay": "TO_BE_VERIFIED"
+        "net_pay": "10129.54"
       },
-      "notes": "Federal tax needs PDOC verification for 15% rate"
+      "notes": "Verified with PDOC 2025-12-30"
     },
     {
       "id": "AB_200K_MONTHLY",
       "tier": 2,
       "description": "Alberta top bracket $200k - flat rate comparison",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "high_income",
       "special_rules": ["Flat rate at top income"],
       "input": {
@@ -411,11 +411,11 @@
         "cpp_total": "974.31",
         "cpp2": "0.00",
         "ei": "273.33",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "1408.35",
-        "net_pay": "TO_BE_VERIFIED"
+        "federal_tax": "3276.84",
+        "provincial_tax": "1519.16",
+        "net_pay": "10623.03"
       },
-      "notes": "Federal tax needs PDOC verification for 15% rate"
+      "notes": "Verified with PDOC 2025-12-30"
     }
   ]
 }

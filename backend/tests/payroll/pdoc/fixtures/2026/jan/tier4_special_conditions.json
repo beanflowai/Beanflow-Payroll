@@ -13,7 +13,7 @@
       "id": "WITH_RRSP",
       "tier": 4,
       "description": "Standard income with RRSP contribution - reduced taxable income",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "deduction",
       "special_rules": ["RRSP contribution"],
       "input": {
@@ -34,22 +34,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "37.62",
+        "federal_tax": "175.04",
+        "provincial_tax": "96.38",
+        "total_deductions": "638.34",
+        "net_pay": "1669.35"
       },
-      "notes": "2026: $200 RRSP reduces taxable income"
+      "notes": "2026: $200 RRSP reduces taxable income. PDOC verified 2025-12-30"
     },
     {
       "id": "WITH_UNION_DUES",
       "tier": 4,
       "description": "Standard income with union dues - reduced taxable income",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "deduction",
       "special_rules": ["Union dues"],
       "input": {
@@ -70,22 +70,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "37.62",
+        "federal_tax": "196.04",
+        "provincial_tax": "110.11",
+        "total_deductions": "523.07",
+        "net_pay": "1784.62"
       },
-      "notes": "2026: $50 union dues reduces taxable income"
+      "notes": "2026: $50 union dues reduces taxable income. PDOC verified 2025-12-30"
     },
     {
       "id": "WEEKLY_PAY",
       "tier": 4,
       "description": "Weekly pay frequency - tests P=52 calculations",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "pay_frequency",
       "special_rules": ["Weekly frequency"],
       "input": {
@@ -106,22 +106,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "64.65",
+        "cpp_enhancement_f2": "10.87",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "18.81",
+        "federal_tax": "102.66",
+        "provincial_tax": "57.34",
+        "total_deductions": "243.46",
+        "net_pay": "910.39"
       },
-      "notes": "2026: Weekly pay ($60k annual / 52)"
+      "notes": "2026: Weekly pay ($60k annual / 52). PDOC verified 2025-12-30"
     },
     {
       "id": "SEMI_MONTHLY_PAY",
       "tier": 4,
       "description": "Semi-monthly pay frequency - tests P=24 calculations",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "pay_frequency",
       "special_rules": ["Semi-monthly frequency"],
       "input": {
@@ -142,22 +142,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "140.07",
+        "cpp_enhancement_f2": "23.54",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "40.75",
+        "federal_tax": "222.43",
+        "provincial_tax": "124.24",
+        "total_deductions": "527.49",
+        "net_pay": "1972.51"
       },
-      "notes": "2026: Semi-monthly pay ($60k annual / 24)"
+      "notes": "2026: Semi-monthly pay ($60k annual / 24). PDOC verified 2025-12-30"
     },
     {
       "id": "MONTHLY_PAY",
       "tier": 4,
       "description": "Monthly pay frequency - tests P=12 calculations",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "pay_frequency",
       "special_rules": ["Monthly frequency"],
       "input": {
@@ -178,22 +178,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "280.15",
+        "cpp_enhancement_f2": "47.08",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "81.50",
+        "federal_tax": "444.86",
+        "provincial_tax": "248.48",
+        "total_deductions": "1054.99",
+        "net_pay": "3945.01"
       },
-      "notes": "2026: Monthly pay ($60k annual / 12)"
+      "notes": "2026: Monthly pay ($60k annual / 12). PDOC verified 2025-12-30"
     },
     {
       "id": "WITH_TAXABLE_BENEFITS",
       "tier": 4,
       "description": "Standard income with taxable benefits - added to pensionable/insurable earnings",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "benefits",
       "special_rules": ["Taxable benefits"],
       "input": {
@@ -215,22 +215,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "135.25",
+        "cpp_enhancement_f2": "22.73",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "39.25",
+        "federal_tax": "224.69",
+        "provincial_tax": "123.41",
+        "total_deductions": "522.60",
+        "net_pay": "1885.09"
       },
-      "notes": "2026: $100 taxable benefits added to pensionable/insurable earnings"
+      "notes": "2026: $100 taxable benefits added to pensionable/insurable earnings. PDOC verified 2025-12-30"
     },
     {
       "id": "COMBINED_DEDUCTIONS",
       "tier": 4,
       "description": "RRSP + union dues combined - maximum tax reduction",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "deduction",
       "special_rules": ["RRSP", "Union dues", "Combined"],
       "input": {
@@ -251,22 +251,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "37.62",
+        "federal_tax": "168.04",
+        "provincial_tax": "93.33",
+        "total_deductions": "678.29",
+        "net_pay": "1629.40"
       },
-      "notes": "2026: Combined $200 RRSP + $50 union dues"
+      "notes": "2026: Combined $200 RRSP + $50 union dues. PDOC verified 2025-12-30"
     },
     {
       "id": "PARTIAL_YEAR_EMPLOYEE",
       "tier": 4,
       "description": "Partial year employee - 6 months pensionable",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "special",
       "special_rules": ["Partial year", "Prorated CPP max"],
       "input": {
@@ -288,16 +288,52 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "37.62",
+        "federal_tax": "210.90",
+        "provincial_tax": "116.70",
+        "total_deductions": "494.52",
+        "net_pay": "1813.17"
       },
-      "notes": "2026: Partial year employee (6 months) - prorated CPP max"
+      "notes": "2026: Partial year employee (6 months) - prorated CPP max. PDOC verified 2025-12-30"
+    },
+    {
+      "id": "AB_HIGH_EXEMPTION_K5P",
+      "tier": 4,
+      "description": "Alberta high exemption - high TD1 claims result in zero tax",
+      "status": "VERIFIED",
+      "category": "k5p",
+      "special_rules": ["K5P supplemental credit", "High provincial claim", "Zero tax scenario"],
+      "input": {
+        "province": "AB",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2026-01-16",
+        "federal_claim": "65000.00",
+        "provincial_claim": "65000.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
+        "cpp2": "0.00",
+        "ei": "37.62",
+        "federal_tax": "0.00",
+        "provincial_tax": "0.00",
+        "total_deductions": "166.92",
+        "net_pay": "2140.77"
+      },
+      "notes": "2026: High TD1 claims ($65K each) result in zero federal and provincial tax. CPP/EI still deducted normally. PDOC verified 2025-12-30"
     }
   ]
 }

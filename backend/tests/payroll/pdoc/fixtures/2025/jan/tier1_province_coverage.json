@@ -48,7 +48,7 @@
       "id": "AB_60K_BIWEEKLY",
       "tier": 1,
       "description": "Alberta $60k annual, bi-weekly - flat 10% rate, high BPA, K5P credit",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "special_rules": ["Flat 10% rate", "K5P supplemental credit"],
       "input": {
         "province": "AB",
@@ -68,22 +68,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
-        "cpp2": "TO_BE_VERIFIED",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
+        "cpp2": "0.00",
+        "ei": "37.85",
+        "federal_tax": "223.89",
+        "provincial_tax": "128.20",
+        "total_deductions": "519.24",
+        "net_pay": "1788.45"
       },
-      "notes": "Jan edition: needs PDOC verification with 15% federal rate."
+      "notes": "Verified from PDOC 2025-12-30. Federal rate is 15% pre-July 2025."
     },
     {
       "id": "BC_60K_BIWEEKLY",
       "tier": 1,
       "description": "BC $60k annual, bi-weekly - tax reduction (Factor S)",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "special_rules": ["Tax reduction (Factor S)"],
       "input": {
         "province": "BC",
@@ -103,22 +103,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
-        "cpp2": "TO_BE_VERIFIED",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
+        "cpp2": "0.00",
+        "ei": "37.85",
+        "federal_tax": "223.89",
+        "provincial_tax": "93.45",
+        "total_deductions": "484.49",
+        "net_pay": "1823.20"
       },
-      "notes": "Jan edition: needs PDOC verification with 15% federal rate."
+      "notes": "Verified from PDOC 2025-12-30. Federal rate is 15% pre-July 2025."
     },
     {
       "id": "MB_60K_BIWEEKLY",
       "tier": 1,
       "description": "Manitoba $60k annual, bi-weekly - dynamic BPA",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "special_rules": ["Dynamic BPA"],
       "input": {
         "province": "MB",
@@ -127,7 +127,7 @@
         "pay_periods": 26,
         "pay_date": "2025-01-17",
         "federal_claim": "16129.00",
-        "provincial_claim": "15591.00",
+        "provincial_claim": "15969.00",
         "rrsp": "0",
         "union_dues": "0",
         "ytd_gross": "0",
@@ -138,22 +138,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
-        "cpp2": "TO_BE_VERIFIED",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
+        "cpp2": "0.00",
+        "ei": "37.85",
+        "federal_tax": "223.89",
+        "provincial_tax": "173.77",
+        "total_deductions": "564.81",
+        "net_pay": "1742.88"
       },
-      "notes": "Jan edition: needs PDOC verification with 15% federal rate."
+      "notes": "Verified from PDOC 2025-12-30. Federal rate is 15% pre-July 2025."
     },
     {
       "id": "SK_60K_BIWEEKLY",
       "tier": 1,
       "description": "Saskatchewan $60k annual, bi-weekly - pre-July BPA ($18,991)",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "special_rules": ["Pre-July BPA $18,991 (vs Jul $19,991)"],
       "input": {
         "province": "SK",
@@ -173,16 +173,16 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
-        "cpp2": "TO_BE_VERIFIED",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
+        "cpp2": "0.00",
+        "ei": "37.85",
+        "federal_tax": "223.89",
+        "provincial_tax": "152.67",
+        "total_deductions": "543.71",
+        "net_pay": "1763.98"
       },
-      "notes": "SK uses $18,991 BPA pre-July vs $19,991 post-July. Needs PDOC verification."
+      "notes": "Verified from PDOC 2025-12-30. Federal rate is 15% pre-July 2025."
     },
     {
       "id": "NB_60K_BIWEEKLY",
@@ -293,7 +293,7 @@
       "id": "PE_60K_BIWEEKLY",
       "tier": 1,
       "description": "PEI $60k annual, bi-weekly - pre-July BPA ($14,250)",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "special_rules": ["Pre-July BPA $14,250 (vs Jul $15,050)"],
       "input": {
         "province": "PE",
@@ -313,16 +313,16 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
-        "cpp2": "TO_BE_VERIFIED",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
+        "cpp2": "0.00",
+        "ei": "37.85",
+        "federal_tax": "223.89",
+        "provincial_tax": "191.15",
+        "total_deductions": "582.19",
+        "net_pay": "1725.50"
       },
-      "notes": "PE uses $14,250 BPA pre-July vs $15,050 post-July. Needs PDOC verification."
+      "notes": "Verified from PDOC 2025-12-30. Federal rate is 15% pre-July 2025."
     },
     {
       "id": "NT_60K_BIWEEKLY",
@@ -398,7 +398,7 @@
       "id": "YT_60K_BIWEEKLY",
       "tier": 1,
       "description": "Yukon $60k annual, bi-weekly - follows federal BPA formula",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "special_rules": ["Federal BPA formula"],
       "input": {
         "province": "YT",
@@ -418,16 +418,16 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
-        "cpp2": "TO_BE_VERIFIED",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
+        "cpp2": "0.00",
+        "ei": "37.85",
+        "federal_tax": "223.89",
+        "provincial_tax": "95.72",
+        "total_deductions": "486.76",
+        "net_pay": "1820.93"
       },
-      "notes": "Jan edition: needs PDOC verification with 15% federal rate."
+      "notes": "Verified from PDOC 2025-12-30. Federal rate is 15% pre-July 2025."
     }
   ]
 }

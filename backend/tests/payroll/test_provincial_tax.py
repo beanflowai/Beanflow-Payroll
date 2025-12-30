@@ -318,6 +318,114 @@ class TestAlbertaK5PCredit:
         assert result.supplemental_credit_k5p >= Decimal("0")
 
 
+class TestAlbertaK5PBoundaryConditions:
+    """Test K5P boundary conditions for both 2025 and 2026.
+
+    K5P formula varies by year:
+    - 2025: threshold=$3,600, factor=0.04/0.06 (≈0.6667)
+    - 2026: threshold=$4,896, factor=0.25
+    """
+
+    @pytest.mark.parametrize("k1p,k2p,expected_k5p,year,threshold,factor", [
+        # 2025: threshold=$3,600, factor=0.04/0.06 ≈ 0.6667
+        # Below threshold - K5P should be 0
+        (Decimal("2000.00"), Decimal("500.00"), Decimal("0"), 2025, Decimal("3600"), Decimal("0.04") / Decimal("0.06")),
+        # At threshold - K5P should be 0
+        (Decimal("3400.00"), Decimal("200.00"), Decimal("0"), 2025, Decimal("3600"), Decimal("0.04") / Decimal("0.06")),
+        # Just above threshold - K5P = (3700 - 3600) × 0.6667 = 66.67
+        (Decimal("3500.00"), Decimal("200.00"), Decimal("66.67"), 2025, Decimal("3600"), Decimal("0.04") / Decimal("0.06")),
+        # Well above threshold - K5P = (4600 - 3600) × 0.6667 = 666.67
+        (Decimal("4000.00"), Decimal("600.00"), Decimal("666.67"), 2025, Decimal("3600"), Decimal("0.04") / Decimal("0.06")),
+
+        # 2026: threshold=$4,896, factor=0.25
+        # Below threshold - K5P should be 0
+        (Decimal("4000.00"), Decimal("800.00"), Decimal("0"), 2026, Decimal("4896"), Decimal("0.25")),
+        # At threshold - K5P should be 0
+        (Decimal("4500.00"), Decimal("396.00"), Decimal("0"), 2026, Decimal("4896"), Decimal("0.25")),
+        # Just above threshold - K5P = (5000 - 4896) × 0.25 = 26.00
+        (Decimal("4500.00"), Decimal("500.00"), Decimal("26.00"), 2026, Decimal("4896"), Decimal("0.25")),
+        # Well above threshold - K5P = (6000 - 4896) × 0.25 = 276.00
+        (Decimal("5000.00"), Decimal("1000.00"), Decimal("276.00"), 2026, Decimal("4896"), Decimal("0.25")),
+    ])
+    def test_k5p_boundary_conditions(self, k1p, k2p, expected_k5p, year, threshold, factor):
+        """Test K5P calculation at various boundary conditions."""
+        calc = ProvincialTaxCalculator(
+            province_code="AB",
+            pay_periods_per_year=26,
+            year=year,
+        )
+
+        result_k5p = calc.calculate_k5p_alberta(k1p, k2p)
+
+        # Allow small rounding difference (0.01)
+        assert abs(result_k5p - expected_k5p) <= Decimal("0.01"), \
+            f"K5P mismatch for year={year}, K1P={k1p}, K2P={k2p}: " \
+            f"expected={expected_k5p}, got={result_k5p}"
+
+    def test_k5p_non_alberta_province_returns_zero(self):
+        """Test: K5P returns 0 for non-Alberta provinces."""
+        for province in ["ON", "BC", "MB", "SK", "QC"]:
+            if province == "QC":
+                continue  # Quebec not supported
+            calc = ProvincialTaxCalculator(
+                province_code=province,
+                pay_periods_per_year=26,
+                year=2025,
+            )
+            result = calc.calculate_k5p_alberta(Decimal("5000"), Decimal("1000"))
+            assert result == Decimal("0"), f"K5P should be 0 for {province}"
+
+    def test_k5p_2025_uses_correct_threshold(self):
+        """Test: 2025 K5P uses $3,600 threshold from config."""
+        calc = ProvincialTaxCalculator(
+            province_code="AB",
+            pay_periods_per_year=26,
+            year=2025,
+        )
+
+        # Just at threshold: K5P = 0
+        result_at = calc.calculate_k5p_alberta(Decimal("3000"), Decimal("600"))
+        assert result_at == Decimal("0")
+
+        # Just above threshold: K5P > 0
+        result_above = calc.calculate_k5p_alberta(Decimal("3000"), Decimal("700"))
+        assert result_above > Decimal("0")
+
+    def test_k5p_2026_uses_correct_threshold(self):
+        """Test: 2026 K5P uses $4,896 threshold from config."""
+        calc = ProvincialTaxCalculator(
+            province_code="AB",
+            pay_periods_per_year=26,
+            year=2026,
+        )
+
+        # Just at threshold: K5P = 0
+        result_at = calc.calculate_k5p_alberta(Decimal("4500"), Decimal("396"))
+        assert result_at == Decimal("0")
+
+        # Just above threshold: K5P > 0
+        result_above = calc.calculate_k5p_alberta(Decimal("4500"), Decimal("500"))
+        assert result_above > Decimal("0")
+
+    def test_k5p_2025_vs_2026_factor_difference(self):
+        """Test: 2025 and 2026 use different factors."""
+        # Use same inputs above both thresholds
+        k1p = Decimal("5000.00")
+        k2p = Decimal("1000.00")  # Total = 6000
+
+        calc_2025 = ProvincialTaxCalculator("AB", 26, 2025)
+        calc_2026 = ProvincialTaxCalculator("AB", 26, 2026)
+
+        result_2025 = calc_2025.calculate_k5p_alberta(k1p, k2p)
+        result_2026 = calc_2026.calculate_k5p_alberta(k1p, k2p)
+
+        # 2025: (6000 - 3600) × 0.6667 = 1600.08
+        # 2026: (6000 - 4896) × 0.25 = 276.00
+        assert result_2025 > result_2026, "2025 should have higher K5P due to lower threshold and higher factor"
+        assert abs(result_2025 - Decimal("1600.00")) < Decimal("1.00")
+        assert abs(result_2026 - Decimal("276.00")) < Decimal("0.01")
+
+
 class TestDynamicBPA:
     """Test dynamic BPA calculations for MB, NS, YT."""
 

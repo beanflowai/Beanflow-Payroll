@@ -241,11 +241,13 @@ class ProvincialTaxCalculator:
         """
         Calculate K5P for Alberta (supplemental tax credit).
 
-        Reference: T4127 Page 4, Alberta section
+        Reference: T4127 Alberta section
 
-        Formula: K5P = ((K1P + K2P) - $3,600) × (0.04/0.06)
+        Formula varies by year:
+        - 2025: K5P = ((K1P + K2P) - $3,600) × (0.04/0.06)
+        - 2026+: K5P = ((K1P + K2P) - $4,896) × 0.25
 
-        Only applies if (K1P + K2P) > $3,600
+        Only applies if (K1P + K2P) > threshold
 
         Args:
             k1p: Provincial personal credit (K1P)
@@ -257,14 +259,28 @@ class ProvincialTaxCalculator:
         if self.province_code != "AB":
             return Decimal("0")
 
-        threshold = Decimal("3600.00")
+        # Get K5P config from province configuration
+        k5p_config = self._config.get("k5p_config", {})
+
+        # Default to 2025 values if not configured
+        threshold = Decimal(str(k5p_config.get("threshold", "3600.00")))
+
+        # Support both factor formats:
+        # - "factor": direct multiplier (e.g., 0.25 for 2026)
+        # - "factor_numerator"/"factor_denominator": ratio (e.g., 0.04/0.06 for 2025)
+        if "factor" in k5p_config:
+            factor = Decimal(str(k5p_config["factor"]))
+        else:
+            numerator = Decimal(str(k5p_config.get("factor_numerator", "0.04")))
+            denominator = Decimal(str(k5p_config.get("factor_denominator", "0.06")))
+            factor = numerator / denominator
+
         total_credits = k1p + k2p
 
         if total_credits <= threshold:
             return Decimal("0")
 
-        # Alberta rate reduction factor
-        k5p = (total_credits - threshold) * (Decimal("0.04") / Decimal("0.06"))
+        k5p = (total_credits - threshold) * factor
         return self._round(k5p)
 
     def calculate_k4p(self, annual_taxable_income: Decimal) -> Decimal:

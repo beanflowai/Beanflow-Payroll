@@ -13,7 +13,7 @@
       "id": "ON_60K_BIWEEKLY",
       "tier": 1,
       "description": "Ontario standard $60k annual, bi-weekly, YTD=$0",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "special_rules": ["Surtax", "Health Premium"],
       "input": {
         "province": "ON",
@@ -33,22 +33,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "37.62",
+        "federal_tax": "205.32",
+        "provincial_tax": "114.68",
+        "total_deductions": "486.92",
+        "net_pay": "1820.77"
       },
-      "notes": "2026: BPAF $16,452, ON BPA $12,989. Awaiting PDOC verification."
+      "notes": "2026: BPAF $16,452, ON BPA $12,989. PDOC verified 2025-12-30."
     },
     {
       "id": "AB_60K_BIWEEKLY",
       "tier": 1,
       "description": "Alberta $60k annual, bi-weekly - flat 10% rate, high BPA, K5P credit",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "special_rules": ["Flat 10% rate", "K5P supplemental credit"],
       "input": {
         "province": "AB",
@@ -68,22 +68,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "37.62",
+        "federal_tax": "205.32",
+        "provincial_tax": "101.20",
+        "total_deductions": "473.44",
+        "net_pay": "1834.25"
       },
-      "notes": "2026: AB BPA $22,769. Alberta flat 10% provincial rate."
+      "notes": "2026: AB BPA $22,769. Alberta flat 10% provincial rate. PDOC verified 2025-12-30."
     },
     {
       "id": "BC_60K_BIWEEKLY",
       "tier": 1,
       "description": "BC $60k annual, bi-weekly - tax reduction (Factor S)",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "special_rules": ["Tax reduction (Factor S)"],
       "input": {
         "province": "BC",
@@ -103,22 +103,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "37.62",
+        "federal_tax": "205.32",
+        "provincial_tax": "91.80",
+        "total_deductions": "464.04",
+        "net_pay": "1843.65"
       },
-      "notes": "2026: BC BPA $13,216. BC tax reduction (Factor S) applicable."
+      "notes": "2026: BC BPA $13,216. BC tax reduction (Factor S) applicable. PDOC verified 2025-12-30."
     },
     {
       "id": "MB_60K_BIWEEKLY",
       "tier": 1,
       "description": "Manitoba $60k annual, bi-weekly - dynamic BPA",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "special_rules": ["Dynamic BPA"],
       "input": {
         "province": "MB",
@@ -138,22 +138,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "37.62",
+        "federal_tax": "205.32",
+        "provincial_tax": "174.96",
+        "total_deductions": "547.20",
+        "net_pay": "1760.49"
       },
-      "notes": "2026: MB BPA $15,780 (dynamic, income-based reduction)."
+      "notes": "2026: MB BPA $15,780 (dynamic, income-based reduction). PDOC verified 2025-12-30."
     },
     {
       "id": "SK_60K_BIWEEKLY",
       "tier": 1,
       "description": "Saskatchewan $60k annual, bi-weekly",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "special_rules": [],
       "input": {
         "province": "SK",
@@ -173,22 +173,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "37.62",
+        "federal_tax": "205.32",
+        "provincial_tax": "146.23",
+        "total_deductions": "518.47",
+        "net_pay": "1789.22"
       },
-      "notes": "2026: SK BPA $20,381."
+      "notes": "2026: SK BPA $20,381. PDOC verified 2025-12-30."
     },
     {
       "id": "NB_60K_BIWEEKLY",
       "tier": 1,
       "description": "New Brunswick $60k annual, bi-weekly - standard rules",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "special_rules": [],
       "input": {
         "province": "NB",
@@ -208,22 +208,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "37.62",
+        "federal_tax": "205.32",
+        "provincial_tax": "164.41",
+        "total_deductions": "536.65",
+        "net_pay": "1771.04"
       },
-      "notes": "2026: NB BPA $13,664."
+      "notes": "2026: NB BPA $13,664. PDOC verified 2025-12-30."
     },
     {
       "id": "NL_60K_BIWEEKLY",
       "tier": 1,
       "description": "Newfoundland $60k annual, bi-weekly - standard rules",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "special_rules": [],
       "input": {
         "province": "NL",
@@ -243,22 +243,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "37.62",
+        "federal_tax": "205.32",
+        "provincial_tax": "181.74",
+        "total_deductions": "553.98",
+        "net_pay": "1753.71"
       },
-      "notes": "2026: NL BPA $11,188."
+      "notes": "2026: NL BPA $11,188. PDOC verified 2025-12-30."
     },
     {
       "id": "NS_60K_BIWEEKLY",
       "tier": 1,
       "description": "Nova Scotia $60k annual, bi-weekly - two-tier BPA, surtax",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "special_rules": ["Two-tier BPA", "Surtax"],
       "input": {
         "province": "NS",
@@ -278,22 +278,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "37.62",
+        "federal_tax": "205.32",
+        "provincial_tax": "215.23",
+        "total_deductions": "587.47",
+        "net_pay": "1720.22"
       },
-      "notes": "2026: NS base BPA $11,932, max BPA $14,932 (income-based increase)."
+      "notes": "2026: NS base BPA $11,932, max BPA $14,932 (income-based increase). PDOC verified 2025-12-30."
     },
     {
       "id": "PE_60K_BIWEEKLY",
       "tier": 1,
       "description": "PEI $60k annual, bi-weekly - surtax",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "special_rules": ["Surtax"],
       "input": {
         "province": "PE",
@@ -313,22 +313,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "37.62",
+        "federal_tax": "205.32",
+        "provincial_tax": "187.51",
+        "total_deductions": "559.75",
+        "net_pay": "1747.94"
       },
-      "notes": "2026: PE BPA $15,000, surtax threshold $13,770."
+      "notes": "2026: PE BPA $15,000, surtax threshold $13,770. PDOC verified 2025-12-30."
     },
     {
       "id": "NT_60K_BIWEEKLY",
       "tier": 1,
       "description": "Northwest Territories $60k annual, bi-weekly - standard rules",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "special_rules": [],
       "input": {
         "province": "NT",
@@ -348,22 +348,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "37.62",
+        "federal_tax": "205.32",
+        "provincial_tax": "91.69",
+        "total_deductions": "463.93",
+        "net_pay": "1843.76"
       },
-      "notes": "2026: NT BPA $18,198."
+      "notes": "2026: NT BPA $18,198. PDOC verified 2025-12-30."
     },
     {
       "id": "NU_60K_BIWEEKLY",
       "tier": 1,
       "description": "Nunavut $60k annual, bi-weekly - standard rules",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "special_rules": [],
       "input": {
         "province": "NU",
@@ -383,22 +383,22 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "37.62",
+        "federal_tax": "205.32",
+        "provincial_tax": "59.58",
+        "total_deductions": "431.82",
+        "net_pay": "1875.87"
       },
-      "notes": "2026: NU BPA $19,659."
+      "notes": "2026: NU BPA $19,659. PDOC verified 2025-12-30."
     },
     {
       "id": "YT_60K_BIWEEKLY",
       "tier": 1,
       "description": "Yukon $60k annual, bi-weekly - follows federal BPA formula",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "special_rules": ["Federal BPA formula"],
       "input": {
         "province": "YT",
@@ -418,16 +418,16 @@
         "ytd_ei": "0"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "cpp_enhancement_f2": "TO_BE_VERIFIED",
+        "cpp_total": "129.30",
+        "cpp_enhancement_f2": "21.73",
         "cpp2": "0.00",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "total_deductions": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "ei": "37.62",
+        "federal_tax": "205.32",
+        "provincial_tax": "93.71",
+        "total_deductions": "465.95",
+        "net_pay": "1841.74"
       },
-      "notes": "2026: YT BPA follows federal ($16,452)."
+      "notes": "2026: YT BPA follows federal ($16,452). PDOC verified 2025-12-30."
     }
   ]
 }

@@ -13,7 +13,7 @@
       "id": "ON_60K_RRSP",
       "tier": 4,
       "description": "Ontario $60k with RRSP $500/period - tax reduction from RRSP",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "rrsp",
       "special_rules": ["RRSP tax deduction"],
       "input": {
@@ -37,17 +37,17 @@
         "cpp_total": "129.30",
         "cpp2": "0.00",
         "ei": "37.85",
-        "federal_tax": "TO_BE_VERIFIED",
+        "federal_tax": "144.54",
         "provincial_tax": "75.40",
-        "net_pay": "TO_BE_VERIFIED"
+        "net_pay": "1420.60"
       },
-      "notes": "Federal tax needs PDOC verification for 15% rate"
+      "notes": "PDOC verified 2025-12-30"
     },
     {
       "id": "ON_60K_UNION",
       "tier": 4,
       "description": "Ontario $60k with union dues $50/period - tax credit",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "union_dues",
       "special_rules": ["Union dues tax credit"],
       "input": {
@@ -71,17 +71,17 @@
         "cpp_total": "129.30",
         "cpp2": "0.00",
         "ei": "37.85",
-        "federal_tax": "TO_BE_VERIFIED",
+        "federal_tax": "213.64",
         "provincial_tax": "112.18",
-        "net_pay": "TO_BE_VERIFIED"
+        "net_pay": "1764.72"
       },
-      "notes": "Federal tax needs PDOC verification for 15% rate"
+      "notes": "PDOC verified 2025-12-30"
     },
     {
       "id": "AB_80K_RRSP",
       "tier": 4,
       "description": "Alberta $80k with RRSP $1000/period - high RRSP deduction",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "rrsp",
       "special_rules": ["High RRSP", "Alberta flat rate"],
       "input": {
@@ -105,17 +105,17 @@
         "cpp_total": "175.07",
         "cpp2": "0.00",
         "ei": "50.46",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "61.10",
-        "net_pay": "TO_BE_VERIFIED"
+        "federal_tax": "180.01",
+        "provincial_tax": "101.84",
+        "net_pay": "1569.54"
       },
-      "notes": "Federal tax needs PDOC verification for 15% rate"
+      "notes": "PDOC verified 2025-12-30"
     },
     {
       "id": "ON_60K_CPP_EXEMPT",
       "tier": 4,
       "description": "Ontario $60k CPP exempt - no CPP contribution",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "exemption",
       "special_rules": ["CPP exempt"],
       "input": {
@@ -140,17 +140,17 @@
         "cpp_total": "0.00",
         "cpp2": "0.00",
         "ei": "37.85",
-        "federal_tax": "TO_BE_VERIFIED",
+        "federal_tax": "244.48",
         "provincial_tax": "124.18",
-        "net_pay": "TO_BE_VERIFIED"
+        "net_pay": "1901.18"
       },
-      "notes": "Federal tax needs PDOC verification for 15% rate"
+      "notes": "PDOC verified 2025-12-30"
     },
     {
       "id": "ON_60K_EI_EXEMPT",
       "tier": 4,
       "description": "Ontario $60k EI exempt - no EI contribution",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "exemption",
       "special_rules": ["EI exempt"],
       "input": {
@@ -175,17 +175,17 @@
         "cpp_total": "129.30",
         "cpp2": "0.00",
         "ei": "0.00",
-        "federal_tax": "TO_BE_VERIFIED",
+        "federal_tax": "229.56",
         "provincial_tax": "118.67",
-        "net_pay": "TO_BE_VERIFIED"
+        "net_pay": "1830.16"
       },
-      "notes": "Federal tax needs PDOC verification for 15% rate"
+      "notes": "PDOC verified 2025-12-30"
     },
     {
       "id": "ON_100K_CPP2_EXEMPT",
       "tier": 4,
       "description": "Ontario $100k CPP2 exempt - no additional CPP",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "exemption",
       "special_rules": ["CPP2 exempt only"],
       "input": {
@@ -210,17 +210,17 @@
         "cpp_total": "220.84",
         "cpp2": "0.00",
         "ei": "63.08",
-        "federal_tax": "TO_BE_VERIFIED",
+        "federal_tax": "532.35",
         "provincial_tax": "263.05",
-        "net_pay": "TO_BE_VERIFIED"
+        "net_pay": "2766.83"
       },
-      "notes": "Federal tax needs PDOC verification for 15% rate"
+      "notes": "PDOC verified 2025-12-30. CPP2=0 for first pay period (YTD below YMPE)."
     },
     {
       "id": "ON_60K_BENEFITS",
       "tier": 4,
       "description": "Ontario $60k with taxable benefits $100 - benefits taxability",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "benefits",
       "special_rules": ["Taxable benefits"],
       "input": {
@@ -245,17 +245,17 @@
         "cpp_total": "135.25",
         "cpp2": "0.00",
         "ei": "39.49",
-        "federal_tax": "TO_BE_VERIFIED",
+        "federal_tax": "243.19",
         "provincial_tax": "125.48",
-        "net_pay": "TO_BE_VERIFIED"
+        "net_pay": "1764.28"
       },
-      "notes": "Federal tax needs PDOC verification for 15% rate"
+      "notes": "PDOC verified 2025-12-30"
     },
     {
       "id": "BC_40K_BENEFITS",
       "tier": 4,
       "description": "BC $40k with taxable benefits + low income - combined with tax reduction",
-      "status": "TO_BE_VERIFIED",
+      "status": "VERIFIED",
       "category": "benefits",
       "special_rules": ["Taxable benefits", "BC tax reduction interaction"],
       "input": {
@@ -280,11 +280,45 @@
         "cpp_total": "89.48",
         "cpp2": "0.00",
         "ei": "26.87",
-        "federal_tax": "TO_BE_VERIFIED",
+        "federal_tax": "126.78",
         "provincial_tax": "51.85",
-        "net_pay": "TO_BE_VERIFIED"
+        "net_pay": "1243.48"
       },
-      "notes": "Federal tax needs PDOC verification for 15% rate"
+      "notes": "PDOC verified 2025-12-30"
+    },
+    {
+      "id": "AB_HIGH_EXEMPTION_K5P",
+      "tier": 4,
+      "description": "Alberta high exemption - triggers K5P supplemental credit (2025 formula)",
+      "status": "VERIFIED",
+      "category": "k5p",
+      "special_rules": ["K5P supplemental credit", "High provincial claim"],
+      "input": {
+        "province": "AB",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_periods": 26,
+        "pay_date": "2025-01-17",
+        "federal_claim": "40000.00",
+        "provincial_claim": "40000.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "129.30",
+        "cpp2": "0.00",
+        "ei": "37.85",
+        "federal_tax": "86.17",
+        "provincial_tax": "60.21",
+        "net_pay": "1994.16"
+      },
+      "notes": "PDOC verified 2025-12-30. High provincial claim ($40K) triggers K5P supplemental credit (embedded in provincial tax calculation)."
     }
   ]
 }

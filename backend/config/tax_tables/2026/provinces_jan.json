@@ -37,6 +37,11 @@
       "has_surtax": false,
       "has_health_premium": false,
       "has_tax_reduction": false,
+      "k5p_config": {
+        "threshold": 4896.00,
+        "factor": 0.25,
+        "description": "K5P = ((K1P + K2P) - threshold) × factor (T4127 122nd Edition)"
+      },
       "brackets": [
         {"threshold": 0, "rate": 0.08, "constant": 0},
         {"threshold": 61200, "rate": 0.10, "constant": 1224.00},
@@ -56,10 +61,10 @@
       "has_health_premium": false,
       "has_tax_reduction": true,
       "tax_reduction_config": {
-        "base_reduction": 533.00,
-        "reduction_rate": 0.036,
-        "phase_out_start": 25997.00,
-        "phase_out_end": 40791.00
+        "base_reduction": 575.00,
+        "reduction_rate": 0.0356,
+        "phase_out_start": 25570.00,
+        "phase_out_end": 41722.00
       },
       "brackets": [
         {"threshold": 0, "rate": 0.0506, "constant": 0},
@@ -239,7 +244,7 @@
       },
       "brackets": [
         {"threshold": 0, "rate": 0.095, "constant": 0},
-        {"threshold": 33928, "rate": 0.1347, "constant": 1348.94},
+        {"threshold": 33928, "rate": 0.1347, "constant": 1347.00},
         {"threshold": 65820, "rate": 0.166, "constant": 3409.05},
         {"threshold": 106890, "rate": 0.1762, "constant": 4499.33},
         {"threshold": 142250, "rate": 0.19, "constant": 6466.38}
@@ -273,13 +278,14 @@
       "has_surtax": false,
       "has_health_premium": false,
       "has_tax_reduction": false,
+      "has_k4p": true,
+      "cea": 1501.00,
       "brackets": [
         {"threshold": 0, "rate": 0.064, "constant": 0},
         {"threshold": 58523, "rate": 0.09, "constant": 1521.60},
         {"threshold": 117045, "rate": 0.109, "constant": 3745.46},
-        {"threshold": 181440, "rate": 0.1293, "constant": 7428.69},
-        {"threshold": 258482, "rate": 0.128, "constant": 7092.67},
-        {"threshold": 500000, "rate": 0.15, "constant": 18092.67}
+        {"threshold": 181440, "rate": 0.128, "constant": 7192.82},
+        {"threshold": 500000, "rate": 0.15, "constant": 18192.82}
       ]
     }
   }
