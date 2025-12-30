@@ -194,8 +194,8 @@ TASK: Implement CPP (Canada Pension Plan) Calculator
 
 CONTEXT:
 CPP has two components:
-1. Base CPP: 5.95% on earnings between $3,500 and $71,200
-2. Additional CPP (CPP2): 1.00% on earnings between $71,200 and $76,000
+1. Base CPP: 5.95% on earnings between $3,500 and $71,300
+2. Additional CPP (CPP2): 4.00% on earnings between $71,300 and $81,200
 
 REFERENCE: T4127 Chapter 6
 
@@ -214,8 +214,8 @@ from ..tax_tables_2025 import CPP_CONFIG_2025
 class CppContribution(NamedTuple):
     """CPP contribution breakdown."""
     base: Decimal           # Base CPP (5.95% rate)
-    additional: Decimal     # CPP2 (1.00% rate, for income > YMPE)
-    enhancement: Decimal    # F2: 1% enhancement portion (deductible from taxable income)
+    additional: Decimal     # CPP2 (4.00% rate, for income > YMPE)
+    f5: Decimal             # F5: CPP deduction from taxable income (F2 + C2) per T4127
     total: Decimal          # base + additional
     employer: Decimal       # Employer contribution (matches employee total)
 ```
@@ -292,12 +292,15 @@ class CPPCalculator:
         """
         Calculate additional CPP (CPP2) contribution
 
-        Formula from T4127:
-        C2 = 0.0100 × max(0, PI - (YMPE / P))
+        Formula from T4127 (121st Edition, July 2025):
+        C2 = lesser of:
+        (i)  max_cpp2 × (PM/12) - D2
+        (ii) (PIYTD + PI - W) × 0.04
+        where W = max(PIYTD, YMPE × PM/12)
 
         Where:
-        - YMPE = Year's Maximum Pensionable Earnings ($71,200)
-        - YAMPE = Year's Additional Maximum ($76,000)
+        - YMPE = Year's Maximum Pensionable Earnings ($71,300)
+        - YAMPE = Year's Additional Maximum ($81,200)
         - Maximum annual CPP2: $396.00
 
         Args:

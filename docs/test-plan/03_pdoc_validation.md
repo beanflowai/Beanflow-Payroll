@@ -1,8 +1,45 @@
 # Phase 3: PDOC Validation
 
-**Duration**: 2-3 days
 **Priority**: P0 (Critical)
 **Prerequisites**: Phase 1 & 2 tests passing
+
+---
+
+## Test Structure (Modular)
+
+The PDOC validation tests are organized in a modular tier-based structure:
+
+```
+backend/tests/payroll/pdoc/
+├── conftest.py                      # Shared fixtures + utilities (~320 lines)
+├── fixtures/
+│   ├── tier1_province_coverage.json  # 12 tests (~435 lines)
+│   ├── tier2_income_levels.json      # 12 tests (~444 lines)
+│   ├── tier3_cpp_ei_boundary.json    # 8 tests (~301 lines)
+│   ├── tier4_special_conditions.json # 8 tests (~305 lines)
+│   └── tier5_federal_rate_change.json # 4 tests (~157 lines)
+├── test_tier1_provinces.py           # Core 12省覆盖 (~133 lines)
+├── test_tier2_income_levels.py       # 收入级别测试 (~147 lines)
+├── test_tier3_cpp_ei.py              # CPP/EI边界 (~199 lines)
+├── test_tier4_special.py             # 特殊条件 (~242 lines)
+└── test_tier5_rate_change.py         # 联邦税率变更 (~201 lines)
+```
+
+### Running Tests
+
+```bash
+# Run all PDOC tests
+pytest backend/tests/payroll/pdoc/
+
+# Run specific tier
+pytest backend/tests/payroll/pdoc/test_tier1_provinces.py
+
+# Run only verified cases
+pytest backend/tests/payroll/pdoc/ -k "verified"
+
+# Run with verbose output
+pytest backend/tests/payroll/pdoc/ -v
+```
 
 ---
 
@@ -310,195 +347,30 @@ Create similar scenarios for:
 
 ---
 
-## Automated PDOC Comparison Test
+## Test Implementation
 
-**File**: `backend/tests/payroll/test_pdoc_validation.py`
+The PDOC validation tests are implemented in a modular tier-based structure. Each tier focuses on specific validation scenarios:
 
-```python
-# backend/tests/payroll/test_pdoc_validation.py
+| Tier | File | Test Focus | Cases |
+|------|------|------------|-------|
+| Tier 1 | `test_tier1_provinces.py` | Core 12 province coverage | 12 |
+| Tier 2 | `test_tier2_income_levels.py` | Low/high income levels | 12 |
+| Tier 3 | `test_tier3_cpp_ei.py` | CPP2/EI boundary conditions | 8 |
+| Tier 4 | `test_tier4_special.py` | RRSP, union dues, special cases | 8 |
+| Tier 5 | `test_tier5_rate_change.py` | Federal rate change scenarios | 4 |
 
-import pytest
-import json
-from decimal import Decimal
-from pathlib import Path
-from datetime import datetime
+### Test Fixtures
 
-from app.services.payroll.payroll_engine import PayrollEngine, EmployeePayrollInput
-from app.models.payroll import Province, PayFrequency
+Test data is stored in JSON fixtures under `pdoc/fixtures/`:
+- `tier1_province_coverage.json`
+- `tier2_income_levels.json`
+- `tier3_cpp_ei_boundary.json`
+- `tier4_special_conditions.json`
+- `tier5_federal_rate_change.json`
 
+### Variance Tolerance
 
-# Load PDOC test data
-FIXTURES_DIR = Path(__file__).parent / "fixtures"
-PDOC_DATA_FILE = FIXTURES_DIR / "pdoc_test_data.json"
-
-
-def load_pdoc_test_cases():
-    """Load PDOC validation test cases from JSON"""
-    if not PDOC_DATA_FILE.exists():
-        pytest.skip("PDOC test data not yet collected")
-
-    with open(PDOC_DATA_FILE) as f:
-        data = json.load(f)
-
-    return data.get("test_cases", [])
-
-
-class TestPDOCValidation:
-    """Validate calculations against CRA PDOC"""
-
-    VARIANCE_TOLERANCE = Decimal("1.00")  # $1 max variance
-
-    def setup_method(self):
-        self.engine = PayrollEngine(year=2025)
-
-    @pytest.fixture
-    def pdoc_cases(self):
-        return load_pdoc_test_cases()
-
-    def _parse_date(self, date_str: str):
-        """Parse date string to date object"""
-        return datetime.strptime(date_str, "%Y-%m-%d").date()
-
-    def _get_pay_frequency(self, freq_str: str) -> PayFrequency:
-        """Convert string to PayFrequency enum"""
-        mapping = {
-            "weekly": PayFrequency.WEEKLY,
-            "biweekly": PayFrequency.BIWEEKLY,
-            "semimonthly": PayFrequency.SEMIMONTHLY,
-            "monthly": PayFrequency.MONTHLY,
-        }
-        return mapping.get(freq_str.lower(), PayFrequency.BIWEEKLY)
-
-    def test_pdoc_case_ontario_standard(self):
-        """
-        PDOC Validation: Ontario $60k annual, bi-weekly
-
-        Run this test AFTER collecting PDOC data
-        """
-        # Skip if no PDOC data
-        if not PDOC_DATA_FILE.exists():
-            pytest.skip("PDOC data not collected yet")
-
-        with open(PDOC_DATA_FILE) as f:
-            data = json.load(f)
-
-        case = next(
-            (c for c in data["test_cases"] if c["id"] == "ON_60K_BIWEEKLY"),
-            None
-        )
-        if not case:
-            pytest.skip("Test case ON_60K_BIWEEKLY not found")
-
-        # Build input
-        inp = case["input"]
-        input_data = EmployeePayrollInput(
-            employee_id="pdoc_test_on",
-            province=Province.ON,
-            pay_frequency=self._get_pay_frequency(inp["pay_frequency"]),
-            pay_date=self._parse_date(inp["pay_date"]),
-            regular_pay=Decimal(inp["gross_pay"]),
-            federal_claim_amount=Decimal(inp["federal_claim"]),
-            provincial_claim_amount=Decimal(inp["provincial_claim"]),
-            rrsp_deduction=Decimal(inp.get("rrsp", "0")),
-            union_dues=Decimal(inp.get("union_dues", "0")),
-            ytd_gross=Decimal(inp["ytd_gross"]),
-            ytd_cpp=Decimal(inp["ytd_cpp"]),
-            ytd_ei=Decimal(inp["ytd_ei"]),
-        )
-
-        result = self.engine.calculate_payroll(input_data)
-
-        # Compare with PDOC expected
-        expected = case["pdoc_expected"]
-
-        # CPP
-        pdoc_cpp = Decimal(expected["cpp"])
-        our_cpp = result.cpp_employee
-        cpp_variance = abs(our_cpp - pdoc_cpp)
-        assert cpp_variance <= self.VARIANCE_TOLERANCE, \
-            f"CPP variance {cpp_variance} exceeds tolerance. Our: {our_cpp}, PDOC: {pdoc_cpp}"
-
-        # EI
-        pdoc_ei = Decimal(expected["ei"])
-        our_ei = result.ei_employee
-        ei_variance = abs(our_ei - pdoc_ei)
-        assert ei_variance <= self.VARIANCE_TOLERANCE, \
-            f"EI variance {ei_variance} exceeds tolerance. Our: {our_ei}, PDOC: {pdoc_ei}"
-
-        # Federal Tax
-        pdoc_fed = Decimal(expected["federal_tax"])
-        our_fed = result.federal_tax
-        fed_variance = abs(our_fed - pdoc_fed)
-        assert fed_variance <= self.VARIANCE_TOLERANCE, \
-            f"Federal tax variance {fed_variance} exceeds tolerance. Our: {our_fed}, PDOC: {pdoc_fed}"
-
-        # Provincial Tax
-        pdoc_prov = Decimal(expected["provincial_tax"])
-        our_prov = result.provincial_tax
-        prov_variance = abs(our_prov - pdoc_prov)
-        assert prov_variance <= self.VARIANCE_TOLERANCE, \
-            f"Provincial tax variance {prov_variance} exceeds tolerance. Our: {our_prov}, PDOC: {pdoc_prov}"
-
-    @pytest.mark.parametrize("case_id", [
-        "ON_60K_BIWEEKLY",
-        "AB_120K_MONTHLY",
-        "NS_LOW_INCOME",
-        "BC_TAX_REDUCTION",
-        "MB_DYNAMIC_BPA",
-        # Add more as collected
-    ])
-    def test_pdoc_all_cases(self, case_id):
-        """Parametrized test for all PDOC validation cases"""
-        if not PDOC_DATA_FILE.exists():
-            pytest.skip("PDOC data not collected yet")
-
-        with open(PDOC_DATA_FILE) as f:
-            data = json.load(f)
-
-        case = next(
-            (c for c in data["test_cases"] if c["id"] == case_id),
-            None
-        )
-        if not case:
-            pytest.skip(f"Test case {case_id} not found")
-
-        # Run validation
-        inp = case["input"]
-        input_data = EmployeePayrollInput(
-            employee_id=f"pdoc_{case_id.lower()}",
-            province=Province[inp["province"]],
-            pay_frequency=self._get_pay_frequency(inp["pay_frequency"]),
-            pay_date=self._parse_date(inp["pay_date"]),
-            regular_pay=Decimal(inp["gross_pay"]),
-            federal_claim_amount=Decimal(inp["federal_claim"]),
-            provincial_claim_amount=Decimal(inp["provincial_claim"]),
-            rrsp_deduction=Decimal(inp.get("rrsp", "0")),
-            ytd_gross=Decimal(inp["ytd_gross"]),
-            ytd_cpp=Decimal(inp["ytd_cpp"]),
-            ytd_ei=Decimal(inp["ytd_ei"]),
-        )
-
-        result = self.engine.calculate_payroll(input_data)
-        expected = case["pdoc_expected"]
-
-        # Validate all components
-        validations = [
-            ("CPP", result.cpp_employee, Decimal(expected["cpp"])),
-            ("EI", result.ei_employee, Decimal(expected["ei"])),
-            ("Federal Tax", result.federal_tax, Decimal(expected["federal_tax"])),
-            ("Provincial Tax", result.provincial_tax, Decimal(expected["provincial_tax"])),
-        ]
-
-        failures = []
-        for name, our_value, pdoc_value in validations:
-            variance = abs(our_value - pdoc_value)
-            if variance > self.VARIANCE_TOLERANCE:
-                failures.append(
-                    f"{name}: Our={our_value}, PDOC={pdoc_value}, Variance={variance}"
-                )
-
-        assert not failures, f"PDOC validation failed for {case_id}:\n" + "\n".join(failures)
-```
+All tests use a **$1.00 maximum variance** tolerance per component (CPP, EI, Federal Tax, Provincial Tax).
 
 ---
 
@@ -614,7 +486,7 @@ backend/tests/pdoc_validation/screenshots/
 
 ### Validation Phase
 
-- [ ] Run `test_pdoc_validation.py`
+- [ ] Run `pytest backend/tests/payroll/pdoc/`
 - [ ] Verify all variances < $1
 - [ ] Document any discrepancies
 - [ ] Create `validation_results.md`

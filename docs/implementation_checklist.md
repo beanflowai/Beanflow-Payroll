@@ -302,11 +302,11 @@ This checklist has been updated to reflect standalone product architecture:
     - [x] CEA = $1,471
     - [x] 5 brackets from T4127 Table 8.1
   - [x] Create `backend/config/tax_tables/2025/cpp_ei.json`:
-    - [x] YMPE = $71,200
-    - [x] YAMPE = $76,000
+    - [x] YMPE = $71,300
+    - [x] YAMPE = $81,200
     - [x] Basic exemption = $3,500
     - [x] Rate = 5.95%
-    - [x] Additional rate = 1%
+    - [x] Additional rate = 4%
     - [x] MIE = $65,700 (2025 实际值)
     - [x] Employee rate = 1.64% (2025 实际值)
     - [x] Employer multiplier = 1.4x
@@ -376,9 +376,9 @@ This checklist has been updated to reflect standalone product architecture:
     - [x] Check annual maximum ($4,034.10)
     - [x] Handle YTD tracking
   - [x] Implement `calculate_additional_cpp()` (CPP2):
-    - [x] Only for income above YMPE ($71,200)
-    - [x] Calculate at 1% rate
-    - [x] Up to YAMPE ($76,000)
+    - [x] Only for income above YMPE ($71,300)
+    - [x] Calculate at 4% rate
+    - [x] Up to YAMPE ($81,200)
     - [x] Max CPP2: $396.00
   - [x] Implement `get_employer_contribution()` (equals employee)
   - [x] (额外) CPP Enhancement F2 calculation (1% deductible from taxable income)
