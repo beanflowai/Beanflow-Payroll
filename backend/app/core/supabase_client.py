@@ -3,9 +3,8 @@
 import logging
 from contextvars import ContextVar
 
-from supabase import Client, create_client
-
 from app.core.config import get_config
+from supabase import Client, create_client
 
 logger = logging.getLogger(__name__)
 

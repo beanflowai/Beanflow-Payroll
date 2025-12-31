@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date
-from typing import Any
+from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
@@ -150,7 +150,7 @@ async def get_employee_by_user_email(current_user: CurrentUser) -> dict[str, Any
     )
 
     if result.data:
-        return result.data[0]
+        return cast(dict[str, Any], result.data[0])
     return None
 
 
@@ -485,7 +485,6 @@ async def get_my_leave_balance(
     # Get sick leave balance and config
     sick_days_remaining = 0.0
     sick_days_allowance = 0.0
-    sick_days_used = 0.0
 
     try:
         from app.services.payroll.sick_leave_service import SickLeaveService
@@ -511,14 +510,12 @@ async def get_my_leave_balance(
             hire_date=hire_date,
         )
         sick_days_remaining = float(balance.paid_days_remaining)
-        sick_days_used = float(balance.paid_days_used)
     except Exception:
         logger.exception("Error calculating sick leave balance")
 
     # Convert sick days to hours (8 hours per day)
     sick_hours_remaining = sick_days_remaining * 8
     sick_hours_allowance = sick_days_allowance * 8
-    sick_hours_used = sick_days_used * 8
 
     # Query vacation/sick pay usage from payroll records for history
     year_start = f"{year}-01-01"

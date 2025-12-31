@@ -512,9 +512,6 @@ class ProvincialTaxCalculator:
         """
         A = annual_taxable_income
 
-        # Get dynamic BPA if applicable
-        bpa = self.get_basic_personal_amount(A, net_income)
-
         # Find applicable tax bracket
         V, KP = find_tax_bracket(A, self.brackets)
 

@@ -18,8 +18,10 @@ from typing import Any
 from app.models.payroll import PayFrequency, Province
 from app.services.payroll.cpp_calculator import CPPCalculator, CppContribution
 from app.services.payroll.ei_calculator import EICalculator, EiPremium
-from app.services.payroll.federal_tax_calculator import FederalTaxCalculator, FederalTaxResult
-from app.services.payroll.provincial_tax_calculator import ProvincialTaxCalculator, ProvincialTaxResult
+from app.services.payroll.federal_tax_calculator import FederalTaxCalculator
+from app.services.payroll.provincial_tax_calculator import (
+    ProvincialTaxCalculator,
+)
 
 logger = logging.getLogger(__name__)
 

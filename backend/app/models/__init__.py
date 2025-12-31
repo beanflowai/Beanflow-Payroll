@@ -1,39 +1,39 @@
 """Pydantic models for request/response schemas"""
 
 from app.models.auth import UserResponse
-from app.models.schemas import BaseResponse, ErrorResponse, HealthCheckResponse, SuccessResponse
 from app.models.compensation import (
     CompensationHistory,
     CompensationHistoryCreate,
     CompensationHistoryResponse,
 )
 from app.models.payroll import (
-    Province,
-    PayFrequency,
-    PayrollRunStatus,
-    EmploymentType,
-    VacationPayoutMethod,
-    TaxBracket,
-    ProvinceTaxConfig,
-    FederalTaxConfig,
     CppConfig,
     EiConfig,
-    VacationConfig,
+    Employee,
     EmployeeBase,
     EmployeeCreate,
-    EmployeeUpdate,
-    Employee,
+    EmployeeListFilters,
     EmployeeResponse,
-    PayrollRunBase,
-    PayrollRunCreate,
-    PayrollRun,
-    PayrollRecordBase,
-    PayrollRecord,
+    EmployeeUpdate,
+    EmploymentType,
+    FederalTaxConfig,
+    PayFrequency,
     PayrollCalculationRequest,
     PayrollCalculationResult,
-    EmployeeListFilters,
+    PayrollRecord,
+    PayrollRecordBase,
+    PayrollRun,
+    PayrollRunBase,
+    PayrollRunCreate,
     PayrollRunListFilters,
+    PayrollRunStatus,
+    Province,
+    ProvinceTaxConfig,
+    TaxBracket,
+    VacationConfig,
+    VacationPayoutMethod,
 )
+from app.models.schemas import BaseResponse, ErrorResponse, HealthCheckResponse, SuccessResponse
 
 __all__ = [
     # Base schemas

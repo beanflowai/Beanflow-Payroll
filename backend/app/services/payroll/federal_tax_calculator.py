@@ -14,7 +14,12 @@ from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, NamedTuple
 
-from app.services.payroll.tax_tables import find_tax_bracket, get_cpp_config, get_ei_config, get_federal_config
+from app.services.payroll.tax_tables import (
+    find_tax_bracket,
+    get_cpp_config,
+    get_ei_config,
+    get_federal_config,
+)
 
 logger = logging.getLogger(__name__)
 
