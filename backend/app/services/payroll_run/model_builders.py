@@ -96,6 +96,7 @@ class ModelBuilder:
             vacation_config=VacationConfig(
                 payout_method=VacationPayoutMethod(vacation_config_data.get("payout_method", "accrual")),
                 vacation_rate=Decimal(str(vacation_config_data.get("vacation_rate", "0.04"))),
+                lump_sum_month=vacation_config_data.get("lump_sum_month"),
             ),
             sin_encrypted=data.get("sin_encrypted", ""),
             vacation_balance=Decimal(str(data.get("vacation_balance", 0))),
