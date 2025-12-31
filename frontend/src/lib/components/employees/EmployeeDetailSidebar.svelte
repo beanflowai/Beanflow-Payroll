@@ -220,9 +220,9 @@
 				<i class="fas fa-edit"></i>
 				Edit Employee
 			</button>
-			<button class="btn-secondary full-width">
+			<button class="btn-secondary full-width" onclick={() => goto(`/employees/${employee.id}/compensation`)}>
 				<i class="fas fa-history"></i>
-				View Pay History
+				View Compensation History
 			</button>
 		</div>
 	</div>

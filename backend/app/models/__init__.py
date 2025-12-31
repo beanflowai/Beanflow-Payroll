@@ -2,6 +2,11 @@
 
 from app.models.auth import UserResponse
 from app.models.schemas import BaseResponse, ErrorResponse, HealthCheckResponse, SuccessResponse
+from app.models.compensation import (
+    CompensationHistory,
+    CompensationHistoryCreate,
+    CompensationHistoryResponse,
+)
 from app.models.payroll import (
     Province,
     PayFrequency,
@@ -37,6 +42,10 @@ __all__ = [
     "ErrorResponse",
     "HealthCheckResponse",
     "UserResponse",
+    # Compensation models
+    "CompensationHistory",
+    "CompensationHistoryCreate",
+    "CompensationHistoryResponse",
     # Payroll enums
     "Province",
     "PayFrequency",
