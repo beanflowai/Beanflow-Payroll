@@ -172,7 +172,7 @@ class TestGetEmployeeSickLeaveBalance:
         mock_supabase.table.side_effect = table_side_effect
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll.sick_leave.get_supabase_client",
             return_value=mock_supabase,
         ):
             response = client.get(
@@ -226,7 +226,7 @@ class TestGetEmployeeSickLeaveBalance:
         mock_supabase.table.side_effect = table_side_effect
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll.sick_leave.get_supabase_client",
             return_value=mock_supabase,
         ):
             response = client.get(
@@ -263,7 +263,7 @@ class TestGetEmployeeSickLeaveBalance:
         mock_supabase.table.side_effect = table_side_effect
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll.sick_leave.get_supabase_client",
             return_value=mock_supabase,
         ):
             response = client.get(
@@ -317,7 +317,7 @@ class TestGetEmployeeSickLeaveBalance:
         mock_supabase.table.side_effect = table_side_effect
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll.sick_leave.get_supabase_client",
             return_value=mock_supabase,
         ):
             for year in [2024, 2025, 2026]:

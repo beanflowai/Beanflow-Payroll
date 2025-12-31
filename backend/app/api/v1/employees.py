@@ -12,6 +12,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUser
+from app.api.v1.payroll._helpers import get_user_company_id
 from app.core.supabase_client import get_supabase_client
 from app.models.compensation import (
     CompensationHistory,
@@ -22,37 +23,6 @@ from app.services.compensation_service import CompensationService
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-async def get_user_company_id(user_id: str) -> str:
-    """Get the primary company ID for a user.
-
-    Args:
-        user_id: The user's ID
-
-    Returns:
-        The company ID string
-
-    Raises:
-        HTTPException: If no company found for user
-    """
-    supabase = get_supabase_client()
-    result = (
-        supabase.table("companies")
-        .select("id")
-        .eq("user_id", user_id)
-        .order("created_at", desc=False)
-        .limit(1)
-        .execute()
-    )
-
-    if not result.data or len(result.data) == 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No company found for user. Please create a company first.",
-        )
-
-    return str(result.data[0]["id"])
 
 
 # =============================================================================

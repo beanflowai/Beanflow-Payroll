@@ -37,10 +37,10 @@ class TestUpdatePayrollRecord:
         mock_payroll_run_service.update_record.return_value = updated_record
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ):
             response = client.patch(
@@ -69,10 +69,10 @@ class TestUpdatePayrollRecord:
         mock_payroll_run_service.update_record.return_value = updated_record
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ):
             response = client.patch(
@@ -106,10 +106,10 @@ class TestUpdatePayrollRecord:
         mock_payroll_run_service.update_record.return_value = updated_record
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ):
             response = client.patch(
@@ -140,10 +140,10 @@ class TestUpdatePayrollRecord:
         mock_payroll_run_service.update_record.return_value = updated_record
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ):
             response = client.patch(
@@ -177,10 +177,10 @@ class TestUpdatePayrollRecord:
         mock_payroll_run_service.update_record.return_value = updated_record
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ):
             response = client.patch(
@@ -221,10 +221,10 @@ class TestUpdatePayrollRecord:
         mock_payroll_run_service.update_record.return_value = updated_record
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ):
             response = client.patch(
@@ -254,10 +254,10 @@ class TestUpdatePayrollRecord:
         )
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ):
             response = client.patch(
@@ -281,10 +281,10 @@ class TestUpdatePayrollRecord:
         )
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ):
             response = client.patch(
@@ -324,10 +324,10 @@ class TestAddEmployeeToRun:
         }
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ):
             response = client.post(
@@ -354,10 +354,10 @@ class TestAddEmployeeToRun:
         )
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ):
             response = client.post(
@@ -381,10 +381,10 @@ class TestAddEmployeeToRun:
         )
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ):
             response = client.post(
@@ -423,10 +423,10 @@ class TestRemoveEmployeeFromRun:
         }
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ):
             response = client.delete(
@@ -452,10 +452,10 @@ class TestRemoveEmployeeFromRun:
         )
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ):
             response = client.delete(
@@ -478,10 +478,10 @@ class TestRemoveEmployeeFromRun:
         )
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ):
             response = client.delete(

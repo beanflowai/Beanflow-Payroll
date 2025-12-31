@@ -40,13 +40,13 @@ class TestGetPaystubDownloadUrl:
         mock_storage.generate_presigned_url_async = AsyncMock(return_value=download_url)
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.paystubs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ), patch(
-            "app.api.v1.payroll.get_paystub_storage",
+            "app.api.v1.payroll.paystubs.get_paystub_storage",
             return_value=mock_storage,
         ):
             response = client.get(f"/api/v1/payroll/records/{record_id}/paystub-url")
@@ -72,10 +72,10 @@ class TestGetPaystubDownloadUrl:
         mock_payroll_run_service.get_record.return_value = record_without_paystub
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.paystubs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ):
             response = client.get(f"/api/v1/payroll/records/{record_id}/paystub-url")
@@ -94,10 +94,10 @@ class TestGetPaystubDownloadUrl:
         mock_payroll_run_service.get_record.return_value = None
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.paystubs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ):
             response = client.get(f"/api/v1/payroll/records/{record_id}/paystub-url")
@@ -122,13 +122,13 @@ class TestGetPaystubDownloadUrl:
         mock_payroll_run_service.get_record.return_value = record_with_paystub
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.paystubs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ), patch(
-            "app.api.v1.payroll.get_paystub_storage",
+            "app.api.v1.payroll.paystubs.get_paystub_storage",
             side_effect=PaystubStorageConfigError("Storage not configured"),
         ):
             response = client.get(f"/api/v1/payroll/records/{record_id}/paystub-url")
@@ -163,10 +163,10 @@ class TestSendPaystubs:
         }
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.paystubs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ):
             response = client.post(f"/api/v1/payroll/runs/{run_id}/send-paystubs")
@@ -193,10 +193,10 @@ class TestSendPaystubs:
         }
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.paystubs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ):
             response = client.post(f"/api/v1/payroll/runs/{run_id}/send-paystubs")
@@ -219,10 +219,10 @@ class TestSendPaystubs:
         )
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.paystubs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ):
             response = client.post(f"/api/v1/payroll/runs/{run_id}/send-paystubs")
@@ -242,10 +242,10 @@ class TestSendPaystubs:
         )
 
         with patch(
-            "app.api.v1.payroll.get_supabase_client",
+            "app.api.v1.payroll._helpers.get_supabase_client",
             return_value=mock_supabase_with_company,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.paystubs.get_payroll_run_service",
             return_value=mock_payroll_run_service,
         ):
             response = client.post(f"/api/v1/payroll/runs/{run_id}/send-paystubs")

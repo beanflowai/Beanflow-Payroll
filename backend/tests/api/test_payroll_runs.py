@@ -44,11 +44,11 @@ class TestListPayrollRuns:
         }
 
         with patch(
-            "app.api.v1.payroll.get_user_company_id",
+            "app.api.v1.payroll.runs.get_user_company_id",
             new_callable=AsyncMock,
             return_value=TEST_COMPANY_ID,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             side_effect=create_mock_service(mock_payroll_run_service),
         ):
             response = client.get("/api/v1/payroll/runs")
@@ -66,11 +66,11 @@ class TestListPayrollRuns:
         mock_payroll_run_service.list_runs.return_value = {"runs": [], "total": 0}
 
         with patch(
-            "app.api.v1.payroll.get_user_company_id",
+            "app.api.v1.payroll.runs.get_user_company_id",
             new_callable=AsyncMock,
             return_value=TEST_COMPANY_ID,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             side_effect=create_mock_service(mock_payroll_run_service),
         ):
             response = client.get("/api/v1/payroll/runs?run_status=draft")
@@ -84,11 +84,11 @@ class TestListPayrollRuns:
         mock_payroll_run_service.list_runs.return_value = {"runs": [], "total": 0}
 
         with patch(
-            "app.api.v1.payroll.get_user_company_id",
+            "app.api.v1.payroll.runs.get_user_company_id",
             new_callable=AsyncMock,
             return_value=TEST_COMPANY_ID,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             side_effect=create_mock_service(mock_payroll_run_service),
         ):
             response = client.get("/api/v1/payroll/runs?excludeStatus=draft,cancelled")
@@ -102,11 +102,11 @@ class TestListPayrollRuns:
         mock_payroll_run_service.list_runs.return_value = {"runs": [], "total": 0}
 
         with patch(
-            "app.api.v1.payroll.get_user_company_id",
+            "app.api.v1.payroll.runs.get_user_company_id",
             new_callable=AsyncMock,
             return_value=TEST_COMPANY_ID,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             side_effect=create_mock_service(mock_payroll_run_service),
         ):
             response = client.get("/api/v1/payroll/runs?limit=10&offset=5")
@@ -126,7 +126,7 @@ class TestListPayrollRuns:
         )
 
         with patch(
-            "app.api.v1.payroll.get_user_company_id",
+            "app.api.v1.payroll.runs.get_user_company_id",
             mock_func,
         ):
             response = client.get("/api/v1/payroll/runs")
@@ -159,11 +159,11 @@ class TestCreateOrGetRun:
         }
 
         with patch(
-            "app.api.v1.payroll.get_user_company_id",
+            "app.api.v1.payroll.runs.get_user_company_id",
             new_callable=AsyncMock,
             return_value=TEST_COMPANY_ID,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             side_effect=create_mock_service(mock_payroll_run_service),
         ):
             response = client.post(
@@ -191,11 +191,11 @@ class TestCreateOrGetRun:
         }
 
         with patch(
-            "app.api.v1.payroll.get_user_company_id",
+            "app.api.v1.payroll.runs.get_user_company_id",
             new_callable=AsyncMock,
             return_value=TEST_COMPANY_ID,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             side_effect=create_mock_service(mock_payroll_run_service),
         ):
             response = client.post(
@@ -252,11 +252,11 @@ class TestDeletePayrollRun:
         }
 
         with patch(
-            "app.api.v1.payroll.get_user_company_id",
+            "app.api.v1.payroll.runs.get_user_company_id",
             new_callable=AsyncMock,
             return_value=TEST_COMPANY_ID,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             side_effect=create_mock_service(mock_payroll_run_service),
         ):
             response = client.delete(f"/api/v1/payroll/runs/{run_id}")
@@ -278,11 +278,11 @@ class TestDeletePayrollRun:
         )
 
         with patch(
-            "app.api.v1.payroll.get_user_company_id",
+            "app.api.v1.payroll.runs.get_user_company_id",
             new_callable=AsyncMock,
             return_value=TEST_COMPANY_ID,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             side_effect=create_mock_service(mock_payroll_run_service),
         ):
             response = client.delete(f"/api/v1/payroll/runs/{run_id}")
@@ -302,11 +302,11 @@ class TestDeletePayrollRun:
         )
 
         with patch(
-            "app.api.v1.payroll.get_user_company_id",
+            "app.api.v1.payroll.runs.get_user_company_id",
             new_callable=AsyncMock,
             return_value=TEST_COMPANY_ID,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             side_effect=create_mock_service(mock_payroll_run_service),
         ):
             response = client.delete(f"/api/v1/payroll/runs/{run_id}")
@@ -338,11 +338,11 @@ class TestFinalizePayrollRun:
         mock_payroll_run_service.finalize_run.return_value = finalized_run
 
         with patch(
-            "app.api.v1.payroll.get_user_company_id",
+            "app.api.v1.payroll.runs.get_user_company_id",
             new_callable=AsyncMock,
             return_value=TEST_COMPANY_ID,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             side_effect=create_mock_service(mock_payroll_run_service),
         ):
             response = client.post(f"/api/v1/payroll/runs/{run_id}/finalize")
@@ -363,11 +363,11 @@ class TestFinalizePayrollRun:
         )
 
         with patch(
-            "app.api.v1.payroll.get_user_company_id",
+            "app.api.v1.payroll.runs.get_user_company_id",
             new_callable=AsyncMock,
             return_value=TEST_COMPANY_ID,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             side_effect=create_mock_service(mock_payroll_run_service),
         ):
             response = client.post(f"/api/v1/payroll/runs/{run_id}/finalize")
@@ -386,11 +386,11 @@ class TestFinalizePayrollRun:
         )
 
         with patch(
-            "app.api.v1.payroll.get_user_company_id",
+            "app.api.v1.payroll.runs.get_user_company_id",
             new_callable=AsyncMock,
             return_value=TEST_COMPANY_ID,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             side_effect=create_mock_service(mock_payroll_run_service),
         ):
             response = client.post(f"/api/v1/payroll/runs/{run_id}/finalize")
@@ -426,11 +426,11 @@ class TestApprovePayrollRun:
         mock_payroll_run_service.approve_run = AsyncMock(return_value=approved_run)
 
         with patch(
-            "app.api.v1.payroll.get_user_company_id",
+            "app.api.v1.payroll.runs.get_user_company_id",
             new_callable=AsyncMock,
             return_value=TEST_COMPANY_ID,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             side_effect=create_mock_service(mock_payroll_run_service),
         ):
             response = client.post(f"/api/v1/payroll/runs/{run_id}/approve")
@@ -453,11 +453,11 @@ class TestApprovePayrollRun:
         )
 
         with patch(
-            "app.api.v1.payroll.get_user_company_id",
+            "app.api.v1.payroll.runs.get_user_company_id",
             new_callable=AsyncMock,
             return_value=TEST_COMPANY_ID,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             side_effect=create_mock_service(mock_payroll_run_service),
         ):
             response = client.post(f"/api/v1/payroll/runs/{run_id}/approve")
@@ -490,11 +490,11 @@ class TestRecalculatePayrollRun:
         mock_payroll_run_service.recalculate_run.return_value = recalculated_run
 
         with patch(
-            "app.api.v1.payroll.get_user_company_id",
+            "app.api.v1.payroll.runs.get_user_company_id",
             new_callable=AsyncMock,
             return_value=TEST_COMPANY_ID,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             side_effect=create_mock_service(mock_payroll_run_service),
         ):
             response = client.post(f"/api/v1/payroll/runs/{run_id}/recalculate")
@@ -516,11 +516,11 @@ class TestRecalculatePayrollRun:
         )
 
         with patch(
-            "app.api.v1.payroll.get_user_company_id",
+            "app.api.v1.payroll.runs.get_user_company_id",
             new_callable=AsyncMock,
             return_value=TEST_COMPANY_ID,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             side_effect=create_mock_service(mock_payroll_run_service),
         ):
             response = client.post(f"/api/v1/payroll/runs/{run_id}/recalculate")
@@ -558,11 +558,11 @@ class TestSyncEmployees:
         }
 
         with patch(
-            "app.api.v1.payroll.get_user_company_id",
+            "app.api.v1.payroll.runs.get_user_company_id",
             new_callable=AsyncMock,
             return_value=TEST_COMPANY_ID,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             side_effect=create_mock_service(mock_payroll_run_service),
         ):
             response = client.post(f"/api/v1/payroll/runs/{run_id}/sync-employees")
@@ -587,11 +587,11 @@ class TestSyncEmployees:
         }
 
         with patch(
-            "app.api.v1.payroll.get_user_company_id",
+            "app.api.v1.payroll.runs.get_user_company_id",
             new_callable=AsyncMock,
             return_value=TEST_COMPANY_ID,
         ), patch(
-            "app.api.v1.payroll.get_payroll_run_service",
+            "app.api.v1.payroll.runs.get_payroll_run_service",
             side_effect=create_mock_service(mock_payroll_run_service),
         ):
             response = client.post(f"/api/v1/payroll/runs/{run_id}/sync-employees")
