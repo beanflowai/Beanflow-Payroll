@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import type { Employee, Province, VacationPayoutMethod, VacationRate, VacationRatePreset, EmployeeCreateInput, EmployeeUpdateInput } from '$lib/types/employee';
+	import type { Employee, Province, VacationPayoutMethod, VacationRate, VacationRatePreset, EmployeeCreateInput, EmployeeUpdateInput, PayFrequency, EmploymentType } from '$lib/types/employee';
 	import type { PayGroup } from '$lib/types/pay-group';
 	import {
 		PROVINCE_LABELS,
@@ -39,6 +39,8 @@
 	let occupation = $state(employee?.occupation ?? '');
 	let payGroupId = $state(employee?.payGroupId ?? '');
 	let province = $state<Province>(employee?.provinceOfEmployment ?? 'ON');
+	let payFrequency = $state<PayFrequency>(employee?.payFrequency ?? 'bi_weekly');
+	let employmentType = $state<EmploymentType>(employee?.employmentType ?? 'full_time');
 	let hireDate = $state(employee?.hireDate ?? '');
 	let tags = $state<string[]>(employee?.tags ?? []);
 	let newTag = $state('');
@@ -203,6 +205,8 @@
 			occupation = employee.occupation ?? '';
 			payGroupId = employee.payGroupId ?? '';
 			province = employee.provinceOfEmployment;
+			payFrequency = employee.payFrequency;
+			employmentType = employee.employmentType;
 			hireDate = employee.hireDate;
 			tags = employee.tags ?? [];
 			compensationType = employee.hourlyRate ? 'hourly' : 'salaried';
@@ -349,10 +353,6 @@
 
 		isSubmitting = true;
 		submitError = null;
-
-		// Get pay frequency from selected pay group
-		const payFrequency = selectedPayGroup?.payFrequency ?? 'bi_weekly';
-		const employmentType = selectedPayGroup?.employmentType ?? 'full_time';
 
 		if (mode === 'create') {
 			// Create new employee
@@ -642,24 +642,31 @@
 				{/if}
 			</div>
 
-			<!-- Inherited from Pay Group (read-only) -->
-			{#if selectedPayGroup}
-				<div class="flex flex-col gap-2">
-					<label class="text-body-small font-medium text-surface-700">Pay Frequency</label>
-					<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600">
-						{PAY_FREQUENCY_LABELS[selectedPayGroup.payFrequency]}
-						<span class="text-auxiliary-text text-surface-400 ml-2">(from Pay Group)</span>
-					</div>
-				</div>
+			<div class="flex flex-col gap-2">
+				<label for="payFrequency" class="text-body-small font-medium text-surface-700">Pay Frequency *</label>
+				<select
+					id="payFrequency"
+					class="p-3 border border-surface-300 rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10"
+					bind:value={payFrequency}
+				>
+					{#each Object.entries(PAY_FREQUENCY_LABELS) as [code, label]}
+						<option value={code}>{label}</option>
+					{/each}
+				</select>
+			</div>
 
-				<div class="flex flex-col gap-2">
-					<label class="text-body-small font-medium text-surface-700">Employment Type</label>
-					<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600">
-						{EMPLOYMENT_TYPE_LABELS[selectedPayGroup.employmentType]}
-						<span class="text-auxiliary-text text-surface-400 ml-2">(from Pay Group)</span>
-					</div>
-				</div>
-			{/if}
+			<div class="flex flex-col gap-2">
+				<label for="employmentType" class="text-body-small font-medium text-surface-700">Employment Type *</label>
+				<select
+					id="employmentType"
+					class="p-3 border border-surface-300 rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10"
+					bind:value={employmentType}
+				>
+					{#each Object.entries(EMPLOYMENT_TYPE_LABELS) as [code, label]}
+						<option value={code}>{label}</option>
+					{/each}
+				</select>
+			</div>
 
 			<div class="flex flex-col gap-2">
 				<label for="hireDate" class="text-body-small font-medium text-surface-700">Hire Date *</label>

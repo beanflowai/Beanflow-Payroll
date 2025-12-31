@@ -39,6 +39,7 @@ from app.services.payroll_run.constants import (
     get_provincial_bpa,
 )
 from app.services.payroll_run.gross_calculator import GrossCalculator
+from app.services.payroll_run.holiday_pay_calculator import HolidayPayCalculator
 from app.services.payroll_run.model_builders import ModelBuilder
 from app.services.payroll_run.ytd_calculator import YtdCalculator
 
@@ -73,6 +74,7 @@ class PayrollRunOperations:
         self.user_id = user_id
         self.company_id = company_id
         self.ytd_calculator = ytd_calculator
+        self.holiday_calculator = HolidayPayCalculator(supabase, user_id, company_id)
         self._get_run = get_run_func
         self._get_run_records = get_run_records_func
         self._create_records_for_employees = create_records_func
@@ -114,6 +116,26 @@ class PayrollRunOperations:
 
         # Convert pay_date string to date object for tax edition selection
         pay_date_obj = datetime.strptime(pay_date_str, "%Y-%m-%d").date() if pay_date_str else None
+
+        # Parse period dates for holiday pay calculation
+        period_start_str = run.get("period_start", "")
+        period_end_str = run.get("period_end", "")
+        period_start_obj = datetime.strptime(period_start_str, "%Y-%m-%d").date() if period_start_str else None
+        period_end_obj = datetime.strptime(period_end_str, "%Y-%m-%d").date() if period_end_str else None
+
+        # Query statutory holidays in the pay period (for all provinces)
+        holidays_in_period: list[dict[str, Any]] = []
+        if period_start_obj and period_end_obj:
+            holidays_result = self.supabase.table("statutory_holidays").select(
+                "holiday_date, name, province"
+            ).gte(
+                "holiday_date", period_start_str
+            ).lte(
+                "holiday_date", period_end_str
+            ).eq(
+                "is_statutory", True
+            ).execute()
+            holidays_in_period = holidays_result.data or []
 
         # Get prior YTD data from completed payroll runs (excluding current run)
         employee_ids = [record["employee_id"] for record in records]
@@ -189,9 +211,11 @@ class PayrollRunOperations:
                     sick_hours_taken += Decimal(str(leave.get("hours", 0)))
 
             if sick_hours_taken > 0:
-                sick_balance = Decimal(str(employee.get("sick_balance", 0)))
-                paid_sick_hours = min(sick_hours_taken, sick_balance)
-                unpaid_sick_hours = max(Decimal("0"), sick_hours_taken - sick_balance)
+                # sick_balance is stored in days, convert to hours (8 hours/day)
+                sick_balance_days = Decimal(str(employee.get("sick_balance", 0)))
+                sick_balance_hours = sick_balance_days * Decimal("8")
+                paid_sick_hours = min(sick_hours_taken, sick_balance_hours)
+                unpaid_sick_hours = max(Decimal("0"), sick_hours_taken - sick_balance_hours)
 
                 hourly_rate = GrossCalculator.calculate_hourly_rate(employee)
                 sick_pay = paid_sick_hours * hourly_rate
@@ -203,10 +227,11 @@ class PayrollRunOperations:
                     gross_regular -= unpaid_sick_deduction
                     logger.info(
                         "SICK LEAVE: Employee %s %s (salaried) - "
-                        "sick_hours=%s, balance=%s, paid=%s, unpaid=%s, "
+                        "sick_hours=%s, balance_days=%s, balance_hours=%s, paid=%s, unpaid=%s, "
                         "hourly_rate=%s, deduction=%s, new_gross=%s",
                         employee.get('first_name'), employee.get('last_name'),
-                        sick_hours_taken, sick_balance, paid_sick_hours, unpaid_sick_hours,
+                        sick_hours_taken, sick_balance_days, sick_balance_hours,
+                        paid_sick_hours, unpaid_sick_hours,
                         hourly_rate, unpaid_sick_deduction, gross_regular
                     )
                 # For hourly employees: add only paid sick hours (gross_calculator
@@ -215,22 +240,39 @@ class PayrollRunOperations:
                     gross_regular += sick_pay
                     logger.info(
                         "SICK LEAVE: Employee %s %s (hourly) - "
-                        "sick_hours=%s, balance=%s, paid=%s, unpaid=%s, sick_pay=%s",
+                        "sick_hours=%s, balance_days=%s, balance_hours=%s, paid=%s, unpaid=%s, sick_pay=%s",
                         employee.get('first_name'), employee.get('last_name'),
-                        sick_hours_taken, sick_balance, paid_sick_hours, unpaid_sick_hours,
-                        sick_pay
+                        sick_hours_taken, sick_balance_days, sick_balance_hours,
+                        paid_sick_hours, unpaid_sick_hours, sick_pay
                     )
 
             # Calculate additional earnings from input_data
             holiday_pay = Decimal("0")
+            holiday_premium_pay = Decimal("0")
             other_earnings = Decimal("0")
 
-            # Holiday work entries
-            if input_data.get("holidayWorkEntries"):
-                hourly_rate = Decimal(str(employee.get("hourly_rate") or 0))
-                for hw in input_data["holidayWorkEntries"]:
-                    hours = Decimal(str(hw.get("hoursWorked", 0)))
-                    holiday_pay += hours * hourly_rate * Decimal("1.5")
+            # Holiday pay calculation (Regular + Premium) using HolidayPayCalculator
+            province_code = employee["province_of_employment"]
+            if period_start_obj and period_end_obj:
+                # Filter holidays for this employee's province
+                employee_holidays = [
+                    h for h in holidays_in_period
+                    if h.get("province") == province_code
+                ]
+
+                holiday_result = self.holiday_calculator.calculate_holiday_pay(
+                    employee=employee,
+                    province=province_code,
+                    pay_frequency=pay_frequency_str,
+                    period_start=period_start_obj,
+                    period_end=period_end_obj,
+                    holidays_in_period=employee_holidays,
+                    holiday_work_entries=input_data.get("holidayWorkEntries") or [],
+                    current_period_gross=gross_regular + gross_overtime,
+                    current_run_id=str(run_id),
+                )
+                holiday_pay = holiday_result.regular_holiday_pay
+                holiday_premium_pay = holiday_result.premium_holiday_pay
 
             # Adjustments
             if input_data.get("adjustments"):
@@ -241,9 +283,7 @@ class PayrollRunOperations:
                     else:
                         other_earnings += amount
 
-            # Calculate claim amounts
-            province_code = employee["province_of_employment"]
-
+            # Calculate claim amounts (province_code already defined in holiday section)
             federal_additional = Decimal(str(employee.get("federal_additional_claims", 0)))
             federal_bpa = get_federal_bpa(tax_year, pay_date_obj)
             federal_claim = federal_bpa + federal_additional
@@ -267,11 +307,12 @@ class PayrollRunOperations:
 
             calc_input = EmployeePayrollInput(
                 employee_id=record["employee_id"],
-                province=Province(employee["province_of_employment"]),
+                province=Province(province_code),
                 pay_frequency=pay_frequency,
                 gross_regular=gross_regular,
                 gross_overtime=gross_overtime,
                 holiday_pay=holiday_pay,
+                holiday_premium_pay=holiday_premium_pay,
                 vacation_pay=vacation_pay_for_gross,
                 other_earnings=other_earnings,
                 federal_claim_amount=federal_claim,
@@ -334,6 +375,7 @@ class PayrollRunOperations:
                 "gross_regular": float(result.gross_regular),
                 "gross_overtime": float(result.gross_overtime),
                 "holiday_pay": float(result.holiday_pay),
+                "holiday_premium_pay": float(result.holiday_premium_pay),
                 "vacation_pay_paid": float(result.vacation_pay),
                 "vacation_hours_taken": float(vacation_hours_taken),
                 "sick_hours_taken": float(sick_hours_taken),

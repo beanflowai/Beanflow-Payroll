@@ -176,11 +176,15 @@ export interface PaystubSummary {
 
 export interface PaystubDetail extends PaystubSummary {
 	companyName: string;
-	companyAddress: string;
+	companyAddress?: string;
 	employeeName: string;
 	earnings: PaystubEarning[];
 	deductions: PaystubDeduction[];
 	ytd: PaystubYTD;
+	// Sick Leave fields
+	sickHoursTaken?: number;
+	sickPayPaid?: number;
+	sickBalanceHours?: number;
 }
 
 // ============================================================================

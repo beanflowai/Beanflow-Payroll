@@ -4,57 +4,44 @@
 	 * Shows list of paystubs with year filter and YTD summary
 	 */
 	import PaystubCard from '$lib/components/employee-portal/PaystubCard.svelte';
+	import { getMyPaystubs } from '$lib/services/employeePortalService';
 	import type { PaystubSummary, PaystubYTD } from '$lib/types/employee-portal';
 
-	// Mock data for static UI
-	let selectedYear = $state(2025);
+	// State
+	let selectedYear = $state(new Date().getFullYear());
 	const availableYears = [2025, 2024, 2023];
 
-	const paystubs: PaystubSummary[] = [
-		{
-			id: 'ps-001',
-			payDate: '2025-12-20',
-			payPeriodStart: '2025-12-01',
-			payPeriodEnd: '2025-12-15',
-			grossPay: 2884.62,
-			totalDeductions: 689.17,
-			netPay: 2195.45
-		},
-		{
-			id: 'ps-002',
-			payDate: '2025-12-05',
-			payPeriodStart: '2025-11-16',
-			payPeriodEnd: '2025-11-30',
-			grossPay: 2884.62,
-			totalDeductions: 689.17,
-			netPay: 2195.45
-		},
-		{
-			id: 'ps-003',
-			payDate: '2025-11-20',
-			payPeriodStart: '2025-11-01',
-			payPeriodEnd: '2025-11-15',
-			grossPay: 2884.62,
-			totalDeductions: 689.17,
-			netPay: 2195.45
-		},
-		{
-			id: 'ps-004',
-			payDate: '2025-11-05',
-			payPeriodStart: '2025-10-16',
-			payPeriodEnd: '2025-10-31',
-			grossPay: 3134.62,
-			totalDeductions: 749.17,
-			netPay: 2385.45
-		}
-	];
+	let paystubs = $state<PaystubSummary[]>([]);
+	let ytdSummary = $state<PaystubYTD>({
+		grossEarnings: 0,
+		cppPaid: 0,
+		eiPaid: 0,
+		taxPaid: 0
+	});
+	let loading = $state(true);
+	let error = $state<string | null>(null);
 
-	const ytdSummary: PaystubYTD = {
-		grossEarnings: 69230.88,
-		cppPaid: 3356.1,
-		eiPaid: 1077.48,
-		taxPaid: 12450.0
-	};
+	// Fetch paystubs when year changes
+	$effect(() => {
+		loadPaystubs(selectedYear);
+	});
+
+	async function loadPaystubs(year: number) {
+		loading = true;
+		error = null;
+
+		try {
+			const response = await getMyPaystubs(year);
+			paystubs = response.paystubs;
+			ytdSummary = response.ytdSummary;
+		} catch (err) {
+			console.error('Failed to load paystubs:', err);
+			error = 'Unable to load paystubs. Please try again later.';
+			paystubs = [];
+		} finally {
+			loading = false;
+		}
+	}
 
 	function formatMoney(amount: number): string {
 		return new Intl.NumberFormat('en-CA', {
@@ -81,37 +68,56 @@
 		</div>
 	</header>
 
-	<!-- Paystub List -->
-	<section class="paystubs-list">
-		{#each paystubs as paystub (paystub.id)}
-			<PaystubCard {paystub} onDownload={() => handleDownload(paystub.id)} />
-		{/each}
-	</section>
+	<!-- Loading State -->
+	{#if loading}
+		<div class="loading-state">
+			<div class="spinner"></div>
+			<p>Loading paystubs...</p>
+		</div>
+	{:else if error}
+		<!-- Error State -->
+		<div class="error-state">
+			<p>{error}</p>
+			<button class="retry-btn" onclick={() => loadPaystubs(selectedYear)}>Try Again</button>
+		</div>
+	{:else if paystubs.length === 0}
+		<!-- Empty State -->
+		<div class="empty-state">
+			<p>No paystubs found for {selectedYear}.</p>
+		</div>
+	{:else}
+		<!-- Paystub List -->
+		<section class="paystubs-list">
+			{#each paystubs as paystub (paystub.id)}
+				<PaystubCard {paystub} onDownload={() => handleDownload(paystub.id)} />
+			{/each}
+		</section>
 
-	<!-- YTD Summary -->
-	<section class="ytd-section" id="ytd">
-		<h2 class="section-title">Year-to-Date Summary ({selectedYear})</h2>
-		<div class="ytd-card">
-			<div class="ytd-grid">
-				<div class="ytd-item">
-					<span class="ytd-label">Gross Earnings</span>
-					<span class="ytd-value">{formatMoney(ytdSummary.grossEarnings)}</span>
-				</div>
-				<div class="ytd-item">
-					<span class="ytd-label">CPP Paid</span>
-					<span class="ytd-value">{formatMoney(ytdSummary.cppPaid)}</span>
-				</div>
-				<div class="ytd-item">
-					<span class="ytd-label">EI Paid</span>
-					<span class="ytd-value">{formatMoney(ytdSummary.eiPaid)}</span>
-				</div>
-				<div class="ytd-item">
-					<span class="ytd-label">Tax Paid</span>
-					<span class="ytd-value">{formatMoney(ytdSummary.taxPaid)}</span>
+		<!-- YTD Summary -->
+		<section class="ytd-section" id="ytd">
+			<h2 class="section-title">Year-to-Date Summary ({selectedYear})</h2>
+			<div class="ytd-card">
+				<div class="ytd-grid">
+					<div class="ytd-item">
+						<span class="ytd-label">Gross Earnings</span>
+						<span class="ytd-value">{formatMoney(ytdSummary.grossEarnings)}</span>
+					</div>
+					<div class="ytd-item">
+						<span class="ytd-label">CPP Paid</span>
+						<span class="ytd-value">{formatMoney(ytdSummary.cppPaid)}</span>
+					</div>
+					<div class="ytd-item">
+						<span class="ytd-label">EI Paid</span>
+						<span class="ytd-value">{formatMoney(ytdSummary.eiPaid)}</span>
+					</div>
+					<div class="ytd-item">
+						<span class="ytd-label">Tax Paid</span>
+						<span class="ytd-value">{formatMoney(ytdSummary.taxPaid)}</span>
+					</div>
 				</div>
 			</div>
-		</div>
-	</section>
+		</section>
+	{/if}
 
 	<!-- Tax Documents -->
 	<section class="documents-section" id="documents">
@@ -202,6 +208,64 @@
 	.year-select:focus {
 		outline: none;
 		border-color: var(--color-primary-500);
+	}
+
+	/* Loading State */
+	.loading-state {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: var(--spacing-12);
+		color: var(--color-surface-600);
+	}
+
+	.spinner {
+		width: 32px;
+		height: 32px;
+		border: 3px solid var(--color-surface-200);
+		border-top-color: var(--color-primary-500);
+		border-radius: 50%;
+		animation: spin 1s linear infinite;
+		margin-bottom: var(--spacing-4);
+	}
+
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	/* Error State */
+	.error-state {
+		text-align: center;
+		padding: var(--spacing-8);
+		background: var(--color-error-50);
+		border-radius: var(--radius-lg);
+		color: var(--color-error-700);
+	}
+
+	.retry-btn {
+		margin-top: var(--spacing-4);
+		padding: var(--spacing-2) var(--spacing-4);
+		background: var(--color-error-500);
+		color: white;
+		border: none;
+		border-radius: var(--radius-md);
+		cursor: pointer;
+	}
+
+	.retry-btn:hover {
+		background: var(--color-error-600);
+	}
+
+	/* Empty State */
+	.empty-state {
+		text-align: center;
+		padding: var(--spacing-12);
+		color: var(--color-surface-600);
+		background: var(--color-surface-50);
+		border-radius: var(--radius-lg);
 	}
 
 	.paystubs-list {

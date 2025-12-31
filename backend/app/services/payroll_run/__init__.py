@@ -21,6 +21,7 @@ from app.services.payroll_run.constants import (
 )
 from app.services.payroll_run.employee_management import EmployeeManagement
 from app.services.payroll_run.gross_calculator import GrossCalculator
+from app.services.payroll_run.holiday_pay_calculator import HolidayPayCalculator
 from app.services.payroll_run.model_builders import ModelBuilder
 from app.services.payroll_run.run_operations import PayrollRunOperations
 from app.services.payroll_run.ytd_calculator import YtdCalculator
@@ -44,6 +45,7 @@ __all__ = [
     "ModelBuilder",
     "GrossCalculator",
     "BenefitsCalculator",
+    "HolidayPayCalculator",
     "YtdCalculator",
     "PayrollRunOperations",
     "EmployeeManagement",

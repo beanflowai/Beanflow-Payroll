@@ -28,11 +28,48 @@
 
 	// State: Map<holidayDate, HolidayWorkRow[]>
 	let holidayWorkState = $state<Map<string, HolidayWorkRow[]>>(new Map());
+	let initialized = $state(false);
 
-	// Initialize state when component mounts
+	// Initialize state when component mounts - load existing data from payrollRecords
 	$effect(() => {
-		if (holidayWorkState.size === 0 && holidays.length > 0) {
-			holidayWorkState = new Map(holidays.map((h) => [h.date, [] as HolidayWorkRow[]]));
+		if (!initialized && holidays.length > 0) {
+			const initialState = new Map<string, HolidayWorkRow[]>();
+
+			// Initialize empty arrays for each holiday
+			for (const holiday of holidays) {
+				initialState.set(holiday.date, []);
+			}
+
+			// Extract existing holidayWorkEntries from all payroll records
+			for (const record of payrollRecords) {
+				const existingEntries = record.inputData?.holidayWorkEntries ?? [];
+				for (const entry of existingEntries) {
+					const rows = initialState.get(entry.holidayDate);
+					if (rows) {
+						rows.push({
+							rowId: crypto.randomUUID(),
+							employeeId: record.employeeId,
+							employeeName: record.employeeName,
+							hoursWorked: entry.hoursWorked
+						});
+					}
+				}
+			}
+
+			holidayWorkState = initialState;
+
+			// Also initialize searchTexts for existing rows
+			const newSearchTexts = new Map<string, string>();
+			for (const [, rows] of initialState) {
+				for (const row of rows) {
+					if (row.employeeName) {
+						newSearchTexts.set(row.rowId, row.employeeName);
+					}
+				}
+			}
+			searchTexts = newSearchTexts;
+
+			initialized = true;
 		}
 	});
 

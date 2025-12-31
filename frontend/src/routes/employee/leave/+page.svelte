@@ -4,52 +4,57 @@
 	 * Shows vacation and sick leave balances with history
 	 */
 	import LeaveBalanceCard from '$lib/components/employee-portal/LeaveBalanceCard.svelte';
+	import { getMyLeaveBalance, type LeaveBalanceResponse } from '$lib/services/employeePortalService';
 	import type { EmployeeLeaveBalance, LeaveHistoryEntry } from '$lib/types/employee-portal';
 	import { formatShortDate } from '$lib/utils/dateUtils';
 
-	// Mock data for static UI
-	const leaveBalance: EmployeeLeaveBalance = {
-		vacationHours: 74,
-		vacationDollars: 1850.0,
-		vacationAccrualRate: 4,
-		vacationYtdAccrued: 92,
-		vacationYtdUsed: 18,
-		sickHoursRemaining: 36,
-		sickHoursAllowance: 40,
-		sickHoursUsedThisYear: 4
-	};
+	// State
+	let selectedYear = $state(new Date().getFullYear());
+	const availableYears = [2025, 2024, 2023];
 
-	const leaveHistory: LeaveHistoryEntry[] = [
-		{
-			date: '2025-11-25',
-			endDate: '2025-11-26',
-			type: 'vacation',
-			hours: 16,
-			balanceAfterHours: 74,
-			balanceAfterDollars: 1850
-		},
-		{
-			date: '2025-10-15',
-			type: 'sick',
-			hours: 4,
-			balanceAfterHours: 36
-		},
-		{
-			date: '2025-08-12',
-			endDate: '2025-08-16',
-			type: 'vacation',
-			hours: 40,
-			balanceAfterHours: 90,
-			balanceAfterDollars: 2250
-		},
-		{
-			date: '2025-07-01',
-			type: 'vacation',
-			hours: 8,
-			balanceAfterHours: 130,
-			balanceAfterDollars: 3250
+	let leaveBalance = $state<EmployeeLeaveBalance>({
+		vacationHours: 0,
+		vacationDollars: 0,
+		vacationAccrualRate: 4,
+		vacationYtdAccrued: 0,
+		vacationYtdUsed: 0,
+		sickHoursRemaining: 0,
+		sickHoursAllowance: 0,
+		sickHoursUsedThisYear: 0
+	});
+	let leaveHistory = $state<LeaveHistoryEntry[]>([]);
+	let loading = $state(true);
+	let error = $state<string | null>(null);
+
+	// Fetch leave balance when year changes
+	$effect(() => {
+		loadLeaveBalance(selectedYear);
+	});
+
+	async function loadLeaveBalance(year: number) {
+		loading = true;
+		error = null;
+
+		try {
+			const response = await getMyLeaveBalance(year);
+			leaveBalance = {
+				vacationHours: response.vacationHours,
+				vacationDollars: response.vacationDollars,
+				vacationAccrualRate: response.vacationAccrualRate,
+				vacationYtdAccrued: response.vacationYtdAccrued,
+				vacationYtdUsed: response.vacationYtdUsed,
+				sickHoursRemaining: response.sickHoursRemaining,
+				sickHoursAllowance: response.sickHoursAllowance,
+				sickHoursUsedThisYear: response.sickHoursUsedThisYear
+			};
+			leaveHistory = response.leaveHistory;
+		} catch (err) {
+			console.error('Failed to load leave balance:', err);
+			error = 'Unable to load leave balances. Please try again later.';
+		} finally {
+			loading = false;
 		}
-	];
+	}
 
 	function formatDate(dateStr: string): string {
 		return formatShortDate(dateStr);
@@ -73,84 +78,110 @@
 <div class="leave-page">
 	<header class="page-header">
 		<h1 class="page-title">Leave Balances</h1>
+		<div class="year-selector">
+			<select bind:value={selectedYear} class="year-select">
+				{#each availableYears as year}
+					<option value={year}>{year}</option>
+				{/each}
+			</select>
+		</div>
 	</header>
 
-	<!-- Balance Cards -->
-	<section class="balance-section">
-		<div class="balance-cards">
-			<LeaveBalanceCard
-				type="vacation"
-				hoursRemaining={leaveBalance.vacationHours}
-				dollarsValue={leaveBalance.vacationDollars}
-				accrualRate={leaveBalance.vacationAccrualRate}
-				ytdAccrued={leaveBalance.vacationYtdAccrued}
-				ytdUsed={leaveBalance.vacationYtdUsed}
-			/>
-			<LeaveBalanceCard
-				type="sick"
-				hoursRemaining={leaveBalance.sickHoursRemaining}
-				allowance={leaveBalance.sickHoursAllowance}
-				usedThisYear={leaveBalance.sickHoursUsedThisYear}
-			/>
+	<!-- Loading State -->
+	{#if loading}
+		<div class="loading-state">
+			<div class="spinner"></div>
+			<p>Loading leave balances...</p>
 		</div>
-	</section>
-
-	<!-- Leave History -->
-	<section class="history-section">
-		<h2 class="section-title">Leave History (2025)</h2>
-		<div class="history-table-container">
-			<table class="history-table">
-				<thead>
-					<tr>
-						<th>Date</th>
-						<th>Type</th>
-						<th>Hours</th>
-						<th>Balance After</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each leaveHistory as entry}
-						<tr>
-							<td class="date-cell">{formatDateRange(entry.date, entry.endDate)}</td>
-							<td>
-								<span class="type-badge" class:vacation={entry.type === 'vacation'} class:sick={entry.type === 'sick'}>
-									{entry.type === 'vacation' ? 'Vacation' : 'Sick'}
-								</span>
-							</td>
-							<td class="hours-cell">{entry.hours}h</td>
-							<td class="balance-cell">
-								{entry.balanceAfterHours}h
-								{#if entry.balanceAfterDollars}
-									<span class="balance-dollars">({formatMoney(entry.balanceAfterDollars)})</span>
-								{/if}
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
+	{:else if error}
+		<!-- Error State -->
+		<div class="error-state">
+			<p>{error}</p>
 		</div>
-	</section>
-
-	<!-- Info Note -->
-	<section class="info-section">
-		<div class="info-card">
-			<svg class="info-icon" viewBox="0 0 20 20" fill="currentColor">
-				<path
-					fill-rule="evenodd"
-					d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-					clip-rule="evenodd"
+	{:else}
+		<!-- Balance Cards -->
+		<section class="balance-section">
+			<div class="balance-cards">
+				<LeaveBalanceCard
+					type="vacation"
+					hoursRemaining={leaveBalance.vacationHours}
+					dollarsValue={leaveBalance.vacationDollars}
+					accrualRate={leaveBalance.vacationAccrualRate}
+					ytdAccrued={leaveBalance.vacationYtdAccrued}
+					ytdUsed={leaveBalance.vacationYtdUsed}
 				/>
-			</svg>
-			<div class="info-content">
-				<p class="info-title">About Your Leave</p>
-				<ul class="info-list">
-					<li>Vacation accrues at {leaveBalance.vacationAccrualRate}% of your regular earnings each pay period.</li>
-					<li>Unused sick leave does not carry over to the next year.</li>
-					<li>To request time off, please contact your manager or HR.</li>
-				</ul>
+				<LeaveBalanceCard
+					type="sick"
+					hoursRemaining={leaveBalance.sickHoursRemaining}
+					allowance={leaveBalance.sickHoursAllowance}
+					usedThisYear={leaveBalance.sickHoursUsedThisYear}
+				/>
 			</div>
-		</div>
-	</section>
+		</section>
+
+		<!-- Leave History -->
+		<section class="history-section">
+			<h2 class="section-title">Leave History ({selectedYear})</h2>
+			{#if leaveHistory.length === 0}
+				<div class="empty-state">
+					<p>No leave usage recorded for {selectedYear}.</p>
+				</div>
+			{:else}
+				<div class="history-table-container">
+					<table class="history-table">
+						<thead>
+							<tr>
+								<th>Date</th>
+								<th>Type</th>
+								<th>Hours</th>
+								<th>Balance After</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each leaveHistory as entry}
+								<tr>
+									<td class="date-cell">{formatDateRange(entry.date, entry.endDate)}</td>
+									<td>
+										<span class="type-badge" class:vacation={entry.type === 'vacation'} class:sick={entry.type === 'sick'}>
+											{entry.type === 'vacation' ? 'Vacation' : 'Sick'}
+										</span>
+									</td>
+									<td class="hours-cell">{entry.hours.toFixed(1)}h</td>
+									<td class="balance-cell">
+										{entry.balanceAfterHours.toFixed(1)}h
+										{#if entry.balanceAfterDollars}
+											<span class="balance-dollars">({formatMoney(entry.balanceAfterDollars)})</span>
+										{/if}
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{/if}
+		</section>
+
+		<!-- Info Note -->
+		<section class="info-section">
+			<div class="info-card">
+				<svg class="info-icon" viewBox="0 0 20 20" fill="currentColor">
+					<path
+						fill-rule="evenodd"
+						d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+						clip-rule="evenodd"
+					/>
+				</svg>
+				<div class="info-content">
+					<p class="info-title">About Your Leave</p>
+					<ul class="info-list">
+						<li>Vacation accrues at {leaveBalance.vacationAccrualRate}% of your regular earnings each pay period.</li>
+						<li>Unused sick leave does not carry over to the next year.</li>
+						<li>To request time off, please contact your manager or HR.</li>
+					</ul>
+				</div>
+			</div>
+		</section>
+	{/if}
 </div>
 
 <style>
@@ -160,6 +191,9 @@
 	}
 
 	.page-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
 		margin-bottom: var(--spacing-6);
 	}
 
@@ -168,6 +202,69 @@
 		font-weight: var(--font-weight-semibold);
 		color: var(--color-surface-900);
 		margin: 0;
+	}
+
+	.year-selector {
+		display: flex;
+		align-items: center;
+	}
+
+	.year-select {
+		padding: var(--spacing-2) var(--spacing-3);
+		font-size: var(--font-size-body-content);
+		border: 1px solid var(--color-surface-300);
+		border-radius: var(--radius-md);
+		background: white;
+		cursor: pointer;
+	}
+
+	.year-select:focus {
+		outline: none;
+		border-color: var(--color-primary-500);
+		box-shadow: 0 0 0 2px var(--color-primary-100);
+	}
+
+	.loading-state {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: var(--spacing-12);
+		color: var(--color-surface-600);
+	}
+
+	.spinner {
+		width: 32px;
+		height: 32px;
+		border: 3px solid var(--color-surface-200);
+		border-top-color: var(--color-primary-500);
+		border-radius: 50%;
+		animation: spin 1s linear infinite;
+		margin-bottom: var(--spacing-4);
+	}
+
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	.error-state {
+		padding: var(--spacing-8);
+		text-align: center;
+		background: var(--color-error-50);
+		border: 1px solid var(--color-error-200);
+		border-radius: var(--radius-lg);
+		color: var(--color-error-700);
+	}
+
+	.empty-state {
+		padding: var(--spacing-8);
+		text-align: center;
+		background: var(--color-surface-50);
+		border: 1px solid var(--color-surface-200);
+		border-radius: var(--radius-lg);
+		color: var(--color-surface-600);
 	}
 
 	.balance-section {

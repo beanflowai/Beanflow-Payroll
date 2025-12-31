@@ -1,0 +1,287 @@
+{
+  "version": "1.0",
+  "year": 2025,
+  "description": "Tier 2 Atlantic Provinces Holiday Pay Test Cases - NB, NS, PE, NL",
+  "test_cases": [
+    {
+      "id": "NB_30DAY_AVERAGE",
+      "tier": 2,
+      "description": "New Brunswick 30-day average calculation",
+      "status": "VERIFIED",
+      "category": "standard",
+      "input": {
+        "province": "NB",
+        "hourly_rate": "18.00",
+        "wages_past_30_days": "2880.00",
+        "days_worked_past_30_days": "20",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "144.00",
+        "formula_breakdown": "8h × $18.00 = $144.00"
+      },
+      "official_source": "New Brunswick Employment Standards Act",
+      "verification_date": "2025-12-31",
+      "notes": "NB uses 30-day average: default_daily_hours (8) × hourly_rate"
+    },
+    {
+      "id": "NB_NEW_EMPLOYEE_INELIGIBLE",
+      "tier": 2,
+      "description": "New Brunswick new employee less than 90 days - ineligible",
+      "status": "VERIFIED",
+      "category": "ineligible",
+      "input": {
+        "province": "NB",
+        "hourly_rate": "20.00",
+        "wages_past_30_days": "1600.00",
+        "days_worked_past_30_days": "10",
+        "hire_date": "2024-10-15",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "0.00",
+        "formula_breakdown": "Ineligible: < 90 days employed (78 days)",
+        "ineligibility_reason": "< 90 days employed"
+      },
+      "official_source": "New Brunswick Employment Standards Act",
+      "verification_date": "2025-12-31",
+      "notes": "NB requires 90 days of employment - strictest in Atlantic"
+    },
+    {
+      "id": "NB_JUST_ELIGIBLE",
+      "tier": 2,
+      "description": "New Brunswick employee exactly 90 days - eligible",
+      "status": "VERIFIED",
+      "category": "boundary",
+      "input": {
+        "province": "NB",
+        "hourly_rate": "22.00",
+        "wages_past_30_days": "3520.00",
+        "days_worked_past_30_days": "20",
+        "hire_date": "2024-10-03",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "176.00",
+        "formula_breakdown": "8h × $22.00 = $176.00"
+      },
+      "official_source": "New Brunswick Employment Standards Act",
+      "verification_date": "2025-12-31",
+      "notes": "Exactly 90 days employed - boundary case, just eligible"
+    },
+    {
+      "id": "NS_30DAY_AVERAGE",
+      "tier": 2,
+      "description": "Nova Scotia 30-day average calculation",
+      "status": "VERIFIED",
+      "category": "standard",
+      "input": {
+        "province": "NS",
+        "hourly_rate": "17.50",
+        "wages_past_30_days": "2800.00",
+        "days_worked_past_30_days": "20",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "140.00",
+        "formula_breakdown": "8h × $17.50 = $140.00"
+      },
+      "official_source": "Nova Scotia Labour Standards Code",
+      "verification_date": "2025-12-31",
+      "notes": "NS uses 30-day average: default_daily_hours (8) × hourly_rate"
+    },
+    {
+      "id": "NS_NEW_EMPLOYEE_INELIGIBLE",
+      "tier": 2,
+      "description": "Nova Scotia new employee less than 30 days - ineligible",
+      "status": "VERIFIED",
+      "category": "ineligible",
+      "input": {
+        "province": "NS",
+        "hourly_rate": "19.00",
+        "wages_past_30_days": "0.00",
+        "days_worked_past_30_days": "0",
+        "hire_date": "2024-12-10",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "0.00",
+        "formula_breakdown": "Ineligible: < 30 days employed (22 days)",
+        "ineligibility_reason": "< 30 days employed"
+      },
+      "official_source": "Nova Scotia Labour Standards Code",
+      "verification_date": "2025-12-31",
+      "notes": "NS requires 30 days of employment"
+    },
+    {
+      "id": "NS_PART_TIME",
+      "tier": 2,
+      "description": "Nova Scotia part-time employee",
+      "status": "VERIFIED",
+      "category": "part_time",
+      "input": {
+        "province": "NS",
+        "hourly_rate": "16.00",
+        "wages_past_30_days": "960.00",
+        "days_worked_past_30_days": "12",
+        "hire_date": "2024-06-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "128.00",
+        "formula_breakdown": "8h × $16.00 = $128.00"
+      },
+      "official_source": "Nova Scotia Labour Standards Code",
+      "verification_date": "2025-12-31",
+      "notes": "Part-time uses same formula: 8h × hourly_rate"
+    },
+    {
+      "id": "PE_30DAY_AVERAGE",
+      "tier": 2,
+      "description": "Prince Edward Island 30-day average calculation",
+      "status": "VERIFIED",
+      "category": "standard",
+      "input": {
+        "province": "PE",
+        "hourly_rate": "16.50",
+        "wages_past_30_days": "2640.00",
+        "days_worked_past_30_days": "20",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "132.00",
+        "formula_breakdown": "8h × $16.50 = $132.00"
+      },
+      "official_source": "PEI Employment Standards Act",
+      "verification_date": "2025-12-31",
+      "notes": "PEI uses 30-day average: default_daily_hours (8) × hourly_rate"
+    },
+    {
+      "id": "PE_NEW_EMPLOYEE_INELIGIBLE",
+      "tier": 2,
+      "description": "Prince Edward Island new employee less than 30 days - ineligible",
+      "status": "VERIFIED",
+      "category": "ineligible",
+      "input": {
+        "province": "PE",
+        "hourly_rate": "18.00",
+        "wages_past_30_days": "0.00",
+        "days_worked_past_30_days": "0",
+        "hire_date": "2024-12-15",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "0.00",
+        "formula_breakdown": "Ineligible: < 30 days employed (17 days)",
+        "ineligibility_reason": "< 30 days employed"
+      },
+      "official_source": "PEI Employment Standards Act",
+      "verification_date": "2025-12-31",
+      "notes": "PEI requires 30 days of employment"
+    },
+    {
+      "id": "PE_ISLANDER_DAY",
+      "tier": 2,
+      "description": "Prince Edward Island Islander Day (unique provincial holiday)",
+      "status": "VERIFIED",
+      "category": "provincial_unique",
+      "input": {
+        "province": "PE",
+        "hourly_rate": "20.00",
+        "wages_past_30_days": "3200.00",
+        "days_worked_past_30_days": "20",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-02-17",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "160.00",
+        "formula_breakdown": "8h × $20.00 = $160.00"
+      },
+      "official_source": "PEI Employment Standards Act",
+      "verification_date": "2025-12-31",
+      "notes": "Islander Day is unique to PEI (3rd Monday in February)"
+    },
+    {
+      "id": "NL_30DAY_AVERAGE",
+      "tier": 2,
+      "description": "Newfoundland and Labrador 30-day average calculation",
+      "status": "VERIFIED",
+      "category": "standard",
+      "input": {
+        "province": "NL",
+        "hourly_rate": "17.00",
+        "wages_past_30_days": "2720.00",
+        "days_worked_past_30_days": "20",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "136.00",
+        "formula_breakdown": "8h × $17.00 = $136.00"
+      },
+      "official_source": "NL Labour Standards Act",
+      "verification_date": "2025-12-31",
+      "notes": "NL uses 30-day average: default_daily_hours (8) × hourly_rate"
+    },
+    {
+      "id": "NL_NEW_EMPLOYEE_INELIGIBLE",
+      "tier": 2,
+      "description": "Newfoundland new employee less than 30 days - ineligible",
+      "status": "VERIFIED",
+      "category": "ineligible",
+      "input": {
+        "province": "NL",
+        "hourly_rate": "19.50",
+        "wages_past_30_days": "0.00",
+        "days_worked_past_30_days": "0",
+        "hire_date": "2024-12-20",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "0.00",
+        "formula_breakdown": "Ineligible: < 30 days employed (12 days)",
+        "ineligibility_reason": "< 30 days employed"
+      },
+      "official_source": "NL Labour Standards Act",
+      "verification_date": "2025-12-31",
+      "notes": "NL requires 30 days of employment"
+    },
+    {
+      "id": "NL_MEMORIAL_DAY",
+      "tier": 2,
+      "description": "Newfoundland Memorial Day (July 1, unique naming)",
+      "status": "VERIFIED",
+      "category": "provincial_unique",
+      "input": {
+        "province": "NL",
+        "hourly_rate": "21.00",
+        "wages_past_30_days": "3360.00",
+        "days_worked_past_30_days": "20",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-07-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "168.00",
+        "formula_breakdown": "8h × $21.00 = $168.00"
+      },
+      "official_source": "NL Labour Standards Act",
+      "verification_date": "2025-12-31",
+      "notes": "NL calls Canada Day 'Memorial Day' to honor WWI casualties"
+    }
+  ]
+}

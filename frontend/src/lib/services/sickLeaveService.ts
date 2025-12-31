@@ -122,6 +122,28 @@ export async function getProvincesWithPaidSickLeave(
 }
 
 /**
+ * Normalize sick leave balance response to handle both snake_case and camelCase.
+ * This handles potential API serialization differences.
+ */
+function normalizeSickLeaveBalance(data: Record<string, unknown>): SickLeaveBalance {
+	return {
+		employeeId: (data.employeeId ?? data.employee_id) as string,
+		year: (data.year) as number,
+		paidDaysEntitled: (data.paidDaysEntitled ?? data.paid_days_entitled ?? 0) as number,
+		unpaidDaysEntitled: (data.unpaidDaysEntitled ?? data.unpaid_days_entitled ?? 0) as number,
+		paidDaysUsed: (data.paidDaysUsed ?? data.paid_days_used ?? 0) as number,
+		unpaidDaysUsed: (data.unpaidDaysUsed ?? data.unpaid_days_used ?? 0) as number,
+		paidDaysRemaining: (data.paidDaysRemaining ?? data.paid_days_remaining ?? 0) as number,
+		unpaidDaysRemaining: (data.unpaidDaysRemaining ?? data.unpaid_days_remaining ?? 0) as number,
+		carriedOverDays: (data.carriedOverDays ?? data.carried_over_days ?? 0) as number,
+		isEligible: (data.isEligible ?? data.is_eligible ?? false) as boolean,
+		eligibilityDate: (data.eligibilityDate ?? data.eligibility_date) as string | undefined,
+		accruedDaysYtd: (data.accruedDaysYtd ?? data.accrued_days_ytd ?? 0) as number,
+		lastAccrualDate: (data.lastAccrualDate ?? data.last_accrual_date) as string | undefined
+	};
+}
+
+/**
  * Get employee sick leave balance.
  *
  * @param employeeId - Employee UUID
@@ -133,10 +155,10 @@ export async function getEmployeeSickLeaveBalance(
 	year: number
 ): Promise<SickLeaveBalance | undefined> {
 	try {
-		const data = await api.get<SickLeaveBalance>(
+		const data = await api.get<Record<string, unknown>>(
 			`/payroll/employees/${employeeId}/sick-leave/${year}`
 		);
-		return data;
+		return normalizeSickLeaveBalance(data);
 	} catch (error) {
 		console.warn(`Failed to fetch sick leave balance for employee ${employeeId}:`, error);
 		return undefined;

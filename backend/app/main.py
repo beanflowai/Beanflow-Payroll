@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app import __version__
-from app.api.v1 import auth, employees, health, payroll
+from app.api.v1 import auth, employee_portal, employees, health, payroll
 from app.core.config import get_config
 from app.core.exceptions import (
     AuthenticationError,
@@ -108,6 +108,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
     app.include_router(payroll.router, prefix="/api/v1/payroll", tags=["Payroll"])
     app.include_router(employees.router, prefix="/api/v1/employees", tags=["Employees"])
+    app.include_router(employee_portal.router, prefix="/api/v1", tags=["Employee Portal"])
 
     return app
 

@@ -82,11 +82,11 @@
 			validationError = 'Next period end date is required';
 			return false;
 		}
-		// Check if next period end is not in the past
-		const nextPeriodEndValue = new Date(payGroup.nextPeriodEnd);
+		// Validate that next period end is not in the past
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
-		if (nextPeriodEndValue < today) {
+		const periodEnd = new Date(payGroup.nextPeriodEnd);
+		if (periodEnd < today) {
 			validationError = 'Next period end date cannot be in the past';
 			return false;
 		}

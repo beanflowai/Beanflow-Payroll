@@ -108,10 +108,12 @@
 					{PAYROLL_STATUS_LABELS[periodData.runStatus]}
 				</span>
 			{/if}
+			{#if periodData.totalEmployees > 0}
 			<button class="run-btn" onclick={handleRunPayroll}>
 				{getButtonLabel()}
 				<i class="fas fa-arrow-right"></i>
 			</button>
+		{/if}
 		</div>
 	</div>
 

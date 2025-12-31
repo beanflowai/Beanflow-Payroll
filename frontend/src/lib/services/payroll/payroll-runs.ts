@@ -26,6 +26,52 @@ import {
 } from '$lib/types/pay-group';
 import { getCurrentUserId } from './helpers';
 import type { PayrollServiceResult, PayrollRunListOptions, PayrollRunListResult } from './types';
+import type { Holiday } from '$lib/types/payroll';
+
+// ===========================================
+// Helper: Query Holidays for Period
+// ===========================================
+
+/**
+ * Query statutory holidays for a pay period from the database
+ * @param periodStart Start date of the pay period (ISO string)
+ * @param periodEnd End date of the pay period (ISO string)
+ * @param provinces Array of province codes to filter by
+ * @returns Array of holidays in the period
+ */
+async function queryHolidaysForPeriod(
+	periodStart: string,
+	periodEnd: string,
+	provinces: string[]
+): Promise<Holiday[]> {
+	if (provinces.length === 0) {
+		return [];
+	}
+
+	try {
+		const { data: holidayData, error: holidayError } = await supabase
+			.from('statutory_holidays')
+			.select('holiday_date, name, province')
+			.gte('holiday_date', periodStart)
+			.lte('holiday_date', periodEnd)
+			.in('province', provinces)
+			.eq('is_statutory', true);
+
+		if (holidayError) {
+			console.error('Failed to query holidays:', holidayError);
+			return [];
+		}
+
+		return (holidayData ?? []).map(h => ({
+			date: h.holiday_date,
+			name: h.name,
+			province: h.province
+		}));
+	} catch (err) {
+		console.error('Error querying holidays:', err);
+		return [];
+	}
+}
 
 // ===========================================
 // Get Payroll Run
@@ -149,6 +195,22 @@ export async function getPayrollRunByPayDate(
 		const totalProvincialTax = Number(dbRun.total_provincial_tax);
 		const totalEmployerCost = Number(dbRun.total_employer_cost);
 
+		// Collect unique provinces from employee records
+		const provinces = new Set<string>();
+		for (const record of (recordsData as DbPayrollRecordWithEmployee[]) ?? []) {
+			const province = record.province_snapshot ?? record.employees.province_of_employment;
+			if (province) {
+				provinces.add(province);
+			}
+		}
+
+		// Query holidays for this pay period
+		const holidays = await queryHolidaysForPeriod(
+			dbRun.period_start,
+			dbRun.period_end,
+			Array.from(provinces)
+		);
+
 		const result: PayrollRunWithGroups = {
 			id: dbRun.id,
 			periodEnd: dbRun.period_end,
@@ -171,7 +233,7 @@ export async function getPayrollRunByPayDate(
 			totalPayrollCost: totalGross + totalEmployerCost,
 			// New: totalRemittance = all CPP/EI (employee + employer) + taxes
 			totalRemittance: totalCppEmployee + totalCppEmployer + totalEiEmployee + totalEiEmployer + totalFederalTax + totalProvincialTax,
-			holidays: [] // Would load from a holidays table
+			holidays
 		};
 
 		return { data: result, error: null };
@@ -297,6 +359,22 @@ export async function getPayrollRunByPeriodEnd(
 		const totalProvincialTax = Number(dbRun.total_provincial_tax);
 		const totalEmployerCost = Number(dbRun.total_employer_cost);
 
+		// Collect unique provinces from employee records
+		const provinces = new Set<string>();
+		for (const record of (recordsData as DbPayrollRecordWithEmployee[]) ?? []) {
+			const province = record.province_snapshot ?? record.employees.province_of_employment;
+			if (province) {
+				provinces.add(province);
+			}
+		}
+
+		// Query holidays for this pay period
+		const holidays = await queryHolidaysForPeriod(
+			dbRun.period_start,
+			dbRun.period_end,
+			Array.from(provinces)
+		);
+
 		const result: PayrollRunWithGroups = {
 			id: dbRun.id,
 			periodEnd: dbRun.period_end,
@@ -316,7 +394,7 @@ export async function getPayrollRunByPeriodEnd(
 			totalEmployerCost,
 			totalPayrollCost: totalGross + totalEmployerCost,
 			totalRemittance: totalCppEmployee + totalCppEmployer + totalEiEmployee + totalEiEmployer + totalFederalTax + totalProvincialTax,
-			holidays: []
+			holidays
 		};
 
 		return { data: result, error: null };

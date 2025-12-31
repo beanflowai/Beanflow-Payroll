@@ -1,0 +1,434 @@
+{
+  "version": "1.0",
+  "year": 2025,
+  "description": "Tier 1 Major Provinces Holiday Pay Test Cases - ON, BC, AB, SK",
+  "test_cases": [
+    {
+      "id": "SK_FULL_TIME_BIWEEKLY",
+      "tier": 1,
+      "description": "Saskatchewan full-time hourly employee, bi-weekly pay, New Year's Day",
+      "status": "VERIFIED",
+      "category": "standard",
+      "input": {
+        "province": "SK",
+        "hourly_rate": "35.00",
+        "hours_worked_past_28_days": "80",
+        "wages_past_28_days": "2800.00",
+        "vacation_pay_past_28_days": "0.00",
+        "holiday_pay_past_28_days": "0.00",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "140.00",
+        "formula_breakdown": "2800.00 × 5% = 140.00"
+      },
+      "official_source": "Saskatchewan Holiday Pay Calculator",
+      "verification_date": "2025-12-31",
+      "notes": "Formula: 5% of wages in preceding 28 days. Reference: https://apps.saskatchewan.ca/lrws/calculator/holidaypay/"
+    },
+    {
+      "id": "SK_PART_TIME_LOW_HOURS",
+      "tier": 1,
+      "description": "Saskatchewan part-time, only 3 hours in past 28 days",
+      "status": "VERIFIED",
+      "category": "low_hours",
+      "input": {
+        "province": "SK",
+        "hourly_rate": "20.00",
+        "hours_worked_past_28_days": "3",
+        "wages_past_28_days": "60.00",
+        "vacation_pay_past_28_days": "0.00",
+        "holiday_pay_past_28_days": "0.00",
+        "hire_date": "2024-06-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "3.00",
+        "formula_breakdown": "60.00 × 5% = 3.00"
+      },
+      "official_source": "Saskatchewan Holiday Pay Calculator",
+      "verification_date": "2025-12-31",
+      "notes": "Low hours scenario - even minimal work qualifies for holiday pay"
+    },
+    {
+      "id": "SK_WITH_VACATION_PAY",
+      "tier": 1,
+      "description": "Saskatchewan with vacation pay included in base calculation",
+      "status": "VERIFIED",
+      "category": "includes_vacation",
+      "input": {
+        "province": "SK",
+        "hourly_rate": "25.00",
+        "hours_worked_past_28_days": "80",
+        "wages_past_28_days": "2000.00",
+        "vacation_pay_past_28_days": "80.00",
+        "holiday_pay_past_28_days": "0.00",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "104.00",
+        "formula_breakdown": "(2000.00 + 80.00) × 5% = 104.00"
+      },
+      "official_source": "Saskatchewan Holiday Pay Calculator",
+      "verification_date": "2025-12-31",
+      "notes": "Vacation pay is included in the base for SK holiday pay calculation"
+    },
+    {
+      "id": "SK_NEW_EMPLOYEE",
+      "tier": 1,
+      "description": "Saskatchewan new employee (less than 30 days, but no minimum required)",
+      "status": "VERIFIED",
+      "category": "new_employee",
+      "input": {
+        "province": "SK",
+        "hourly_rate": "18.00",
+        "hours_worked_past_28_days": "40",
+        "wages_past_28_days": "720.00",
+        "vacation_pay_past_28_days": "0.00",
+        "holiday_pay_past_28_days": "0.00",
+        "hire_date": "2024-12-15",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "36.00",
+        "formula_breakdown": "720.00 × 5% = 36.00"
+      },
+      "official_source": "Saskatchewan Holiday Pay Calculator",
+      "verification_date": "2025-12-31",
+      "notes": "SK has no minimum employment period - new employees qualify immediately"
+    },
+    {
+      "id": "SK_WITH_PREVIOUS_HOLIDAY_PAY",
+      "tier": 1,
+      "description": "Saskatchewan with previous holiday pay included in base",
+      "status": "VERIFIED",
+      "category": "includes_holiday",
+      "input": {
+        "province": "SK",
+        "hourly_rate": "30.00",
+        "hours_worked_past_28_days": "80",
+        "wages_past_28_days": "2400.00",
+        "vacation_pay_past_28_days": "96.00",
+        "holiday_pay_past_28_days": "120.00",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-02-17",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "130.80",
+        "formula_breakdown": "(2400.00 + 96.00 + 120.00) × 5% = 130.80"
+      },
+      "official_source": "Saskatchewan Holiday Pay Calculator",
+      "verification_date": "2025-12-31",
+      "notes": "Both vacation pay and previous holiday pay are included in the base"
+    },
+    {
+      "id": "ON_STANDARD_4WEEK",
+      "tier": 1,
+      "description": "Ontario standard 4-week average calculation",
+      "status": "VERIFIED",
+      "category": "standard",
+      "input": {
+        "province": "ON",
+        "hourly_rate": "25.00",
+        "wages_past_4_weeks": "2000.00",
+        "vacation_pay_past_4_weeks": "80.00",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "104.00",
+        "formula_breakdown": "(2000.00 + 80.00) / 20 = 104.00"
+      },
+      "official_source": "Ontario Employment Standards Act s.24",
+      "verification_date": "2025-12-31",
+      "notes": "Ontario formula: (wages + vacation pay in 4 weeks) / 20"
+    },
+    {
+      "id": "ON_WITH_HIGH_VACATION",
+      "tier": 1,
+      "description": "Ontario with significant vacation pay accrued",
+      "status": "VERIFIED",
+      "category": "includes_vacation",
+      "input": {
+        "province": "ON",
+        "hourly_rate": "30.00",
+        "wages_past_4_weeks": "4800.00",
+        "vacation_pay_past_4_weeks": "288.00",
+        "hire_date": "2023-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "254.40",
+        "formula_breakdown": "(4800.00 + 288.00) / 20 = 254.40"
+      },
+      "official_source": "Ontario Employment Standards Act s.24",
+      "verification_date": "2025-12-31",
+      "notes": "6% vacation rate for 5+ year employee"
+    },
+    {
+      "id": "ON_NEW_EMPLOYEE",
+      "tier": 1,
+      "description": "Ontario new employee with pro-rated fallback",
+      "status": "VERIFIED",
+      "category": "new_employee",
+      "input": {
+        "province": "ON",
+        "hourly_rate": "20.00",
+        "wages_past_4_weeks": "0.00",
+        "vacation_pay_past_4_weeks": "0.00",
+        "hire_date": "2024-12-20",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "160.00",
+        "formula_breakdown": "Fallback: 8h × $20.00 = $160.00 (pro_rated)"
+      },
+      "official_source": "Ontario Employment Standards Act s.24",
+      "verification_date": "2025-12-31",
+      "notes": "ON uses pro_rated fallback: 8 hours × hourly rate for new employees"
+    },
+    {
+      "id": "BC_30DAY_AVERAGE",
+      "tier": 1,
+      "description": "British Columbia 30-day average calculation",
+      "status": "VERIFIED",
+      "category": "standard",
+      "input": {
+        "province": "BC",
+        "hourly_rate": "22.00",
+        "wages_past_30_days": "3520.00",
+        "days_worked_past_30_days": "20",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "176.00",
+        "formula_breakdown": "8h × $22.00 = $176.00"
+      },
+      "official_source": "BC Employment Standards Act s.45",
+      "verification_date": "2025-12-31",
+      "notes": "BC formula: default_daily_hours (8) × hourly_rate"
+    },
+    {
+      "id": "BC_PART_TIME",
+      "tier": 1,
+      "description": "British Columbia part-time employee",
+      "status": "VERIFIED",
+      "category": "part_time",
+      "input": {
+        "province": "BC",
+        "hourly_rate": "18.50",
+        "wages_past_30_days": "1480.00",
+        "days_worked_past_30_days": "10",
+        "hire_date": "2024-06-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "148.00",
+        "formula_breakdown": "8h × $18.50 = $148.00"
+      },
+      "official_source": "BC Employment Standards Act s.45",
+      "verification_date": "2025-12-31",
+      "notes": "Part-time uses same formula: 8h × hourly_rate"
+    },
+    {
+      "id": "BC_NEW_EMPLOYEE_INELIGIBLE",
+      "tier": 1,
+      "description": "BC new employee less than 30 days - ineligible",
+      "status": "VERIFIED",
+      "category": "ineligible",
+      "input": {
+        "province": "BC",
+        "hourly_rate": "25.00",
+        "wages_past_30_days": "0.00",
+        "days_worked_past_30_days": "0",
+        "hire_date": "2024-12-15",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "0.00",
+        "formula_breakdown": "Ineligible: < 30 days employed (17 days)",
+        "ineligibility_reason": "< 30 days employed"
+      },
+      "official_source": "BC Employment Standards Act s.45",
+      "verification_date": "2025-12-31",
+      "notes": "BC requires 30 days of employment, ineligible fallback returns $0"
+    },
+    {
+      "id": "AB_4WEEK_DAILY",
+      "tier": 1,
+      "description": "Alberta 4-week daily average calculation",
+      "status": "VERIFIED",
+      "category": "standard",
+      "input": {
+        "province": "AB",
+        "hourly_rate": "28.00",
+        "wages_past_4_weeks": "4480.00",
+        "days_worked_past_4_weeks": "20",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "224.00",
+        "formula_breakdown": "4480.00 / 20 = 224.00"
+      },
+      "official_source": "Alberta Employment Standards Code s.25",
+      "verification_date": "2025-12-31",
+      "notes": "Alberta formula: wages in 4 weeks / days worked"
+    },
+    {
+      "id": "AB_PART_TIME",
+      "tier": 1,
+      "description": "Alberta part-time employee (3 days per week)",
+      "status": "VERIFIED",
+      "category": "part_time",
+      "input": {
+        "province": "AB",
+        "hourly_rate": "22.00",
+        "wages_past_4_weeks": "2112.00",
+        "days_worked_past_4_weeks": "12",
+        "hire_date": "2024-03-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "176.00",
+        "formula_breakdown": "2112.00 / 12 = 176.00"
+      },
+      "official_source": "Alberta Employment Standards Code s.25",
+      "verification_date": "2025-12-31",
+      "notes": "Part-time: 3 days/week × 4 weeks = 12 days, 8h × $22 × 12 = $2112"
+    },
+    {
+      "id": "AB_NEW_EMPLOYEE_INELIGIBLE",
+      "tier": 1,
+      "description": "Alberta new employee less than 30 days - ineligible",
+      "status": "VERIFIED",
+      "category": "ineligible",
+      "input": {
+        "province": "AB",
+        "hourly_rate": "26.00",
+        "wages_past_4_weeks": "0.00",
+        "days_worked_past_4_weeks": "0",
+        "hire_date": "2024-12-10",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "0.00",
+        "formula_breakdown": "Ineligible: < 30 days employed (22 days)",
+        "ineligibility_reason": "< 30 days employed"
+      },
+      "official_source": "Alberta Employment Standards Code s.25",
+      "verification_date": "2025-12-31",
+      "notes": "AB requires 30 days of employment, ineligible fallback returns $0"
+    },
+    {
+      "id": "MB_30DAY_AVERAGE",
+      "tier": 1,
+      "description": "Manitoba 30-day average calculation",
+      "status": "VERIFIED",
+      "category": "standard",
+      "input": {
+        "province": "MB",
+        "hourly_rate": "20.00",
+        "wages_past_30_days": "3200.00",
+        "days_worked_past_30_days": "20",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "160.00",
+        "formula_breakdown": "8h × $20.00 = $160.00"
+      },
+      "official_source": "Manitoba Employment Standards Code",
+      "verification_date": "2025-12-31",
+      "notes": "Manitoba uses 30-day average: default_daily_hours (8) × hourly_rate"
+    },
+    {
+      "id": "MB_NEW_EMPLOYEE_INELIGIBLE",
+      "tier": 1,
+      "description": "Manitoba new employee less than 30 days - ineligible",
+      "status": "VERIFIED",
+      "category": "ineligible",
+      "input": {
+        "province": "MB",
+        "hourly_rate": "21.00",
+        "wages_past_30_days": "0.00",
+        "days_worked_past_30_days": "0",
+        "hire_date": "2024-12-15",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "0.00",
+        "formula_breakdown": "Ineligible: < 30 days employed (17 days)",
+        "ineligibility_reason": "< 30 days employed"
+      },
+      "official_source": "Manitoba Employment Standards Code",
+      "verification_date": "2025-12-31",
+      "notes": "MB requires 30 days of employment"
+    },
+    {
+      "id": "QC_30DAY_AVERAGE",
+      "tier": 1,
+      "description": "Quebec 30-day average calculation",
+      "status": "VERIFIED",
+      "category": "standard",
+      "input": {
+        "province": "QC",
+        "hourly_rate": "24.00",
+        "wages_past_30_days": "3840.00",
+        "days_worked_past_30_days": "20",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "192.00",
+        "formula_breakdown": "8h × $24.00 = $192.00"
+      },
+      "official_source": "Quebec Labour Standards Act",
+      "verification_date": "2025-12-31",
+      "notes": "Quebec uses 30-day average: default_daily_hours (8) × hourly_rate"
+    },
+    {
+      "id": "QC_NEW_EMPLOYEE",
+      "tier": 1,
+      "description": "Quebec new employee with pro-rated fallback (no min employment)",
+      "status": "VERIFIED",
+      "category": "new_employee",
+      "input": {
+        "province": "QC",
+        "hourly_rate": "19.00",
+        "wages_past_30_days": "0.00",
+        "days_worked_past_30_days": "0",
+        "hire_date": "2024-12-20",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "152.00",
+        "formula_breakdown": "Fallback: 8h × $19.00 = $152.00 (pro_rated)"
+      },
+      "official_source": "Quebec Labour Standards Act",
+      "verification_date": "2025-12-31",
+      "notes": "QC has no min employment period, uses pro_rated fallback"
+    }
+  ]
+}

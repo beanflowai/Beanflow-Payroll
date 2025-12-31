@@ -2,9 +2,10 @@
 	import type {
 		PayrollRunWithGroups,
 		PayrollRunPayGroup,
-		EmployeePayrollInput
+		EmployeePayrollInput,
+		HolidayWorkEntry
 	} from '$lib/types/payroll';
-	import { DraftPayGroupSection } from '$lib/components/payroll';
+	import { DraftPayGroupSection, HolidayAlert, HolidayWorkModal } from '$lib/components/payroll';
 	import Tooltip from '$lib/components/shared/Tooltip.svelte';
 	import { formatShortDate } from '$lib/utils/dateUtils';
 	import { formatCurrency } from '$lib/utils';
@@ -40,10 +41,53 @@
 	}: Props = $props();
 
 	let expandedRecordId = $state<string | null>(null);
+	let showHolidayModal = $state(false);
 
 	function handleToggleExpand(id: string) {
 		expandedRecordId = expandedRecordId === id ? null : id;
 	}
+
+	function openHolidayModal() {
+		showHolidayModal = true;
+	}
+
+	function closeHolidayModal() {
+		showHolidayModal = false;
+	}
+
+	function handleHolidayWorkSave(entries: HolidayWorkEntry[]) {
+		// Group holiday work entries by employee
+		const entriesByEmployee = new Map<string, Array<{
+			holidayDate: string;
+			holidayName: string;
+			hoursWorked: number;
+		}>>();
+
+		for (const entry of entries) {
+			const existing = entriesByEmployee.get(entry.employeeId) || [];
+			existing.push({
+				holidayDate: entry.holidayDate,
+				holidayName: entry.holidayName,
+				hoursWorked: entry.hoursWorked
+			});
+			entriesByEmployee.set(entry.employeeId, existing);
+		}
+
+		// Update each employee's record with their holiday work entries
+		for (const [employeeId, holidayWorkEntries] of entriesByEmployee) {
+			const record = allRecords.find(r => r.employeeId === employeeId);
+			if (record) {
+				onUpdateRecord(record.id, employeeId, { holidayWorkEntries });
+			}
+		}
+
+		showHolidayModal = false;
+	}
+
+	// Get all records for the holiday modal
+	const allRecords = $derived(
+		payrollRun.payGroups.flatMap((pg) => pg.records)
+	);
 
 	// Tooltip content
 	const tooltips = $derived({
@@ -129,6 +173,11 @@
 					<strong>Calculate</strong> to update CPP, EI, and tax calculations.
 				</span>
 			</div>
+		{/if}
+
+		<!-- Holiday Alert -->
+		{#if payrollRun.holidays && payrollRun.holidays.length > 0}
+			<HolidayAlert holidays={payrollRun.holidays} onManageHolidayHours={openHolidayModal} />
 		{/if}
 	</div>
 
@@ -256,3 +305,15 @@
 		{/each}
 	</div>
 </div>
+
+<!-- Holiday Work Modal -->
+{#if showHolidayModal && payrollRun.holidays && payrollRun.holidays.length > 0}
+	<HolidayWorkModal
+		holidays={payrollRun.holidays}
+		payrollRecords={allRecords}
+		periodStart={payrollRun.payGroups[0]?.periodStart || ''}
+		periodEnd={payrollRun.payGroups[0]?.periodEnd || ''}
+		onClose={closeHolidayModal}
+		onSave={handleHolidayWorkSave}
+	/>
+{/if}

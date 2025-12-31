@@ -1,0 +1,132 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "holiday_pay.schema.json",
+  "title": "Holiday Pay Configuration",
+  "description": "Schema for provincial holiday pay calculation rules",
+  "type": "object",
+  "required": ["year", "edition", "effective_date", "end_date", "provinces"],
+  "properties": {
+    "year": {
+      "type": "integer",
+      "description": "Configuration year"
+    },
+    "edition": {
+      "type": "string",
+      "description": "Edition identifier (e.g., 'jan', 'sep')"
+    },
+    "effective_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date when this configuration becomes effective"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Last date this configuration is valid"
+    },
+    "source": {
+      "type": "string",
+      "description": "Source documentation reference"
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of changes from previous edition"
+    },
+    "provinces": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/provinceConfig"
+      }
+    }
+  },
+  "definitions": {
+    "provinceConfig": {
+      "type": "object",
+      "required": ["province_code", "formula_type", "formula_params", "eligibility", "premium_rate"],
+      "properties": {
+        "province_code": {
+          "type": "string",
+          "description": "Province code (e.g., 'ON', 'BC', 'AB')"
+        },
+        "name": {
+          "type": "string",
+          "description": "Full province name"
+        },
+        "formula_type": {
+          "type": "string",
+          "enum": ["4_week_average", "30_day_average", "4_week_average_daily", "current_period_daily"],
+          "description": "Type of calculation formula"
+        },
+        "formula_params": {
+          "$ref": "#/definitions/formulaParams"
+        },
+        "eligibility": {
+          "$ref": "#/definitions/eligibilityRules"
+        },
+        "premium_rate": {
+          "type": "number",
+          "description": "Premium multiplier for working on holidays (e.g., 1.5)"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes or references"
+        }
+      }
+    },
+    "formulaParams": {
+      "type": "object",
+      "properties": {
+        "lookback_weeks": {
+          "type": "integer",
+          "description": "Number of weeks to look back for wage calculation"
+        },
+        "lookback_days": {
+          "type": "integer",
+          "description": "Number of days to look back for wage calculation"
+        },
+        "divisor": {
+          "type": "integer",
+          "description": "Divisor for average calculation (e.g., 20 for 4-week)"
+        },
+        "method": {
+          "type": "string",
+          "enum": ["total_wages_div_days", "wages_div_days_worked", "hours_times_rate"],
+          "description": "Calculation method"
+        },
+        "include_vacation_pay": {
+          "type": "boolean",
+          "description": "Whether to include vacation pay in calculation"
+        },
+        "include_overtime": {
+          "type": "boolean",
+          "description": "Whether to include overtime pay in calculation"
+        },
+        "default_daily_hours": {
+          "type": "number",
+          "description": "Default daily hours for simple formulas"
+        }
+      }
+    },
+    "eligibilityRules": {
+      "type": "object",
+      "required": ["min_employment_days", "require_last_first_rule"],
+      "properties": {
+        "min_employment_days": {
+          "type": "integer",
+          "description": "Minimum days of employment required"
+        },
+        "require_last_first_rule": {
+          "type": "boolean",
+          "description": "Whether employee must work last shift before and first shift after holiday"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional eligibility notes"
+        }
+      }
+    }
+  }
+}

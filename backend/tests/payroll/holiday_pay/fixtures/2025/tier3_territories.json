@@ -1,0 +1,333 @@
+{
+  "version": "1.0",
+  "year": 2025,
+  "description": "Tier 3 Territories and Federal Holiday Pay Test Cases - NT, NU, YT, Federal",
+  "test_cases": [
+    {
+      "id": "NT_30DAY_AVERAGE",
+      "tier": 3,
+      "description": "Northwest Territories 30-day average calculation",
+      "status": "VERIFIED",
+      "category": "standard",
+      "input": {
+        "province": "NT",
+        "hourly_rate": "22.00",
+        "wages_past_30_days": "3520.00",
+        "days_worked_past_30_days": "20",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "176.00",
+        "formula_breakdown": "8h × $22.00 = $176.00"
+      },
+      "official_source": "NWT Employment Standards Act",
+      "verification_date": "2025-12-31",
+      "notes": "NT uses 30-day average: default_daily_hours (8) × hourly_rate"
+    },
+    {
+      "id": "NT_NEW_EMPLOYEE_INELIGIBLE",
+      "tier": 3,
+      "description": "Northwest Territories new employee less than 30 days - ineligible",
+      "status": "VERIFIED",
+      "category": "ineligible",
+      "input": {
+        "province": "NT",
+        "hourly_rate": "25.00",
+        "wages_past_30_days": "0.00",
+        "days_worked_past_30_days": "0",
+        "hire_date": "2024-12-15",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "0.00",
+        "formula_breakdown": "Ineligible: < 30 days employed (17 days)",
+        "ineligibility_reason": "< 30 days employed"
+      },
+      "official_source": "NWT Employment Standards Act",
+      "verification_date": "2025-12-31",
+      "notes": "NT requires 30 days of employment"
+    },
+    {
+      "id": "NT_PART_TIME",
+      "tier": 3,
+      "description": "Northwest Territories part-time employee",
+      "status": "VERIFIED",
+      "category": "part_time",
+      "input": {
+        "province": "NT",
+        "hourly_rate": "20.00",
+        "wages_past_30_days": "1600.00",
+        "days_worked_past_30_days": "10",
+        "hire_date": "2024-06-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "160.00",
+        "formula_breakdown": "8h × $20.00 = $160.00"
+      },
+      "official_source": "NWT Employment Standards Act",
+      "verification_date": "2025-12-31",
+      "notes": "Part-time uses same formula: 8h × hourly_rate"
+    },
+    {
+      "id": "NU_30DAY_AVERAGE",
+      "tier": 3,
+      "description": "Nunavut 30-day average calculation",
+      "status": "VERIFIED",
+      "category": "standard",
+      "input": {
+        "province": "NU",
+        "hourly_rate": "24.00",
+        "wages_past_30_days": "3840.00",
+        "days_worked_past_30_days": "20",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "192.00",
+        "formula_breakdown": "8h × $24.00 = $192.00"
+      },
+      "official_source": "Nunavut Labour Standards Act",
+      "verification_date": "2025-12-31",
+      "notes": "NU uses 30-day average: default_daily_hours (8) × hourly_rate"
+    },
+    {
+      "id": "NU_NEW_EMPLOYEE_INELIGIBLE",
+      "tier": 3,
+      "description": "Nunavut new employee less than 30 days - ineligible",
+      "status": "VERIFIED",
+      "category": "ineligible",
+      "input": {
+        "province": "NU",
+        "hourly_rate": "26.00",
+        "wages_past_30_days": "0.00",
+        "days_worked_past_30_days": "0",
+        "hire_date": "2024-12-10",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "0.00",
+        "formula_breakdown": "Ineligible: < 30 days employed (22 days)",
+        "ineligibility_reason": "< 30 days employed"
+      },
+      "official_source": "Nunavut Labour Standards Act",
+      "verification_date": "2025-12-31",
+      "notes": "NU requires 30 days of employment"
+    },
+    {
+      "id": "NU_NUNAVUT_DAY",
+      "tier": 3,
+      "description": "Nunavut Day (July 9 - unique to Nunavut)",
+      "status": "VERIFIED",
+      "category": "provincial_unique",
+      "input": {
+        "province": "NU",
+        "hourly_rate": "28.00",
+        "wages_past_30_days": "4480.00",
+        "days_worked_past_30_days": "20",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-07-09",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "224.00",
+        "formula_breakdown": "8h × $28.00 = $224.00"
+      },
+      "official_source": "Nunavut Labour Standards Act",
+      "verification_date": "2025-12-31",
+      "notes": "Nunavut Day (July 9) commemorates creation of Nunavut in 1999"
+    },
+    {
+      "id": "YT_30DAY_AVERAGE",
+      "tier": 3,
+      "description": "Yukon 30-day average calculation",
+      "status": "VERIFIED",
+      "category": "standard",
+      "input": {
+        "province": "YT",
+        "hourly_rate": "19.00",
+        "wages_past_30_days": "3040.00",
+        "days_worked_past_30_days": "20",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "152.00",
+        "formula_breakdown": "8h × $19.00 = $152.00"
+      },
+      "official_source": "Yukon Employment Standards Act",
+      "verification_date": "2025-12-31",
+      "notes": "YT uses 30-day average: default_daily_hours (8) × hourly_rate"
+    },
+    {
+      "id": "YT_NEW_EMPLOYEE_INELIGIBLE",
+      "tier": 3,
+      "description": "Yukon new employee less than 30 days - ineligible",
+      "status": "VERIFIED",
+      "category": "ineligible",
+      "input": {
+        "province": "YT",
+        "hourly_rate": "21.00",
+        "wages_past_30_days": "0.00",
+        "days_worked_past_30_days": "0",
+        "hire_date": "2024-12-20",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "0.00",
+        "formula_breakdown": "Ineligible: < 30 days employed (12 days)",
+        "ineligibility_reason": "< 30 days employed"
+      },
+      "official_source": "Yukon Employment Standards Act",
+      "verification_date": "2025-12-31",
+      "notes": "YT requires 30 days of employment"
+    },
+    {
+      "id": "YT_DISCOVERY_DAY",
+      "tier": 3,
+      "description": "Yukon Discovery Day (3rd Monday in August)",
+      "status": "VERIFIED",
+      "category": "provincial_unique",
+      "input": {
+        "province": "YT",
+        "hourly_rate": "23.00",
+        "wages_past_30_days": "3680.00",
+        "days_worked_past_30_days": "20",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-08-18",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "184.00",
+        "formula_breakdown": "8h × $23.00 = $184.00"
+      },
+      "official_source": "Yukon Employment Standards Act",
+      "verification_date": "2025-12-31",
+      "notes": "Discovery Day commemorates the Klondike Gold Rush discovery"
+    },
+    {
+      "id": "FEDERAL_30DAY_AVERAGE",
+      "tier": 3,
+      "description": "Federal jurisdiction 30-day average calculation",
+      "status": "VERIFIED",
+      "category": "standard",
+      "input": {
+        "province": "Federal",
+        "hourly_rate": "25.00",
+        "wages_past_30_days": "4000.00",
+        "days_worked_past_30_days": "20",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "200.00",
+        "formula_breakdown": "8h × $25.00 = $200.00"
+      },
+      "official_source": "Canada Labour Code s.196-202",
+      "verification_date": "2025-12-31",
+      "notes": "Federal uses 30-day average: default_daily_hours (8) × hourly_rate"
+    },
+    {
+      "id": "FEDERAL_NEW_EMPLOYEE_INELIGIBLE",
+      "tier": 3,
+      "description": "Federal new employee less than 30 days - ineligible",
+      "status": "VERIFIED",
+      "category": "ineligible",
+      "input": {
+        "province": "Federal",
+        "hourly_rate": "30.00",
+        "wages_past_30_days": "0.00",
+        "days_worked_past_30_days": "0",
+        "hire_date": "2024-12-10",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "0.00",
+        "formula_breakdown": "Ineligible: < 30 days employed (22 days)",
+        "ineligibility_reason": "< 30 days employed"
+      },
+      "official_source": "Canada Labour Code s.196-202",
+      "verification_date": "2025-12-31",
+      "notes": "Federal requires 30 days of employment"
+    },
+    {
+      "id": "FEDERAL_AIRLINE_EMPLOYEE",
+      "tier": 3,
+      "description": "Federal - airline industry employee (federally regulated)",
+      "status": "VERIFIED",
+      "category": "federal_industry",
+      "input": {
+        "province": "Federal",
+        "hourly_rate": "35.00",
+        "wages_past_30_days": "5600.00",
+        "days_worked_past_30_days": "20",
+        "hire_date": "2023-06-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "280.00",
+        "formula_breakdown": "8h × $35.00 = $280.00"
+      },
+      "official_source": "Canada Labour Code s.196-202",
+      "verification_date": "2025-12-31",
+      "notes": "Airlines, banks, telecom under federal jurisdiction regardless of province"
+    },
+    {
+      "id": "FEDERAL_BANKING_EMPLOYEE",
+      "tier": 3,
+      "description": "Federal - banking industry employee",
+      "status": "VERIFIED",
+      "category": "federal_industry",
+      "input": {
+        "province": "Federal",
+        "hourly_rate": "32.00",
+        "wages_past_30_days": "5120.00",
+        "days_worked_past_30_days": "20",
+        "hire_date": "2022-01-15",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "256.00",
+        "formula_breakdown": "8h × $32.00 = $256.00"
+      },
+      "official_source": "Canada Labour Code s.196-202",
+      "verification_date": "2025-12-31",
+      "notes": "Banks under federal jurisdiction - Canada Labour Code applies"
+    },
+    {
+      "id": "FEDERAL_REMEMBRANCE_DAY",
+      "tier": 3,
+      "description": "Federal - Remembrance Day (statutory for federal employees)",
+      "status": "VERIFIED",
+      "category": "federal_holiday",
+      "input": {
+        "province": "Federal",
+        "hourly_rate": "28.00",
+        "wages_past_30_days": "4480.00",
+        "days_worked_past_30_days": "20",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-11-11",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "224.00",
+        "formula_breakdown": "8h × $28.00 = $224.00"
+      },
+      "official_source": "Canada Labour Code s.196-202",
+      "verification_date": "2025-12-31",
+      "notes": "Remembrance Day is statutory for federal employees"
+    }
+  ]
+}

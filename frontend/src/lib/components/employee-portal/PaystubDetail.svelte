@@ -26,7 +26,9 @@
 			<h2 class="document-title">PAYSTUB</h2>
 			<div class="company-info">
 				<span class="company-name">{paystub.companyName}</span>
-				<span class="company-address">{paystub.companyAddress}</span>
+				{#if paystub.companyAddress}
+					<span class="company-address">{paystub.companyAddress}</span>
+				{/if}
 			</div>
 			<div class="pay-date">Pay Date: {formatShortDate(paystub.payDate)}</div>
 		</header>
@@ -115,6 +117,25 @@
 				</div>
 			</div>
 		</div>
+
+		<!-- Sick Leave Balance (if available) -->
+		{#if paystub.sickBalanceHours !== undefined && paystub.sickBalanceHours > 0}
+			<div class="leave-balance-section">
+				<h3 class="ytd-title">LEAVE BALANCE</h3>
+				<div class="ytd-grid">
+					<div class="ytd-item">
+						<span class="ytd-label">Sick Leave:</span>
+						<span class="ytd-value highlight">{(paystub.sickBalanceHours / 8).toFixed(1)} days</span>
+					</div>
+					{#if paystub.sickHoursTaken && paystub.sickHoursTaken > 0}
+						<div class="ytd-item">
+							<span class="ytd-label">Used This Period:</span>
+							<span class="ytd-value">{paystub.sickHoursTaken}h ({formatMoney(paystub.sickPayPaid ?? 0)})</span>
+						</div>
+					{/if}
+				</div>
+			</div>
+		{/if}
 	</div>
 </div>
 
@@ -303,6 +324,18 @@
 		font-size: var(--font-size-auxiliary-text);
 		font-weight: var(--font-weight-medium);
 		color: var(--color-surface-900);
+	}
+
+	.ytd-value.highlight {
+		color: var(--color-primary-600);
+		font-weight: var(--font-weight-semibold);
+	}
+
+	.leave-balance-section {
+		background: var(--color-primary-50);
+		border-radius: var(--radius-md);
+		padding: var(--spacing-4);
+		margin-top: var(--spacing-3);
 	}
 
 	/* Mobile adjustments */

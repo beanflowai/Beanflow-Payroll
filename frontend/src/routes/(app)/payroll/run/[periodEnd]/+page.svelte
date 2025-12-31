@@ -4,7 +4,6 @@
 	import type {
 		PayrollRunWithGroups,
 		PayrollRecord,
-		HolidayWorkEntry,
 		PaystubStatus,
 		UpcomingPeriod,
 		EmployeePayrollInput
@@ -16,7 +15,6 @@
 		PayGroupSection,
 		PayrollSummaryCards,
 		HolidayAlert,
-		HolidayWorkModal,
 		AddEmployeesPanel,
 		PayrollLoadingState,
 		PayrollErrorState,
@@ -58,7 +56,6 @@
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let expandedRecordId = $state<string | null>(null);
-	let showHolidayModal = $state(false);
 
 	// Add Employees Modal State
 	let showAddEmployeesModal = $state(false);
@@ -181,19 +178,6 @@
 
 	function handleBack() {
 		goto('/payroll');
-	}
-
-	function openHolidayModal() {
-		showHolidayModal = true;
-	}
-
-	function closeHolidayModal() {
-		showHolidayModal = false;
-	}
-
-	function handleHolidayWorkSave(entries: HolidayWorkEntry[]) {
-		console.log('Holiday work entries saved:', entries);
-		showHolidayModal = false;
 	}
 
 	async function handleApprove() {
@@ -575,9 +559,9 @@
 			{/snippet}
 		</PayrollPageHeader>
 
-		<!-- Holiday Alert -->
+		<!-- Holiday Alert (info only, no manage button for non-draft) -->
 		{#if payrollRun.holidays && payrollRun.holidays.length > 0}
-			<HolidayAlert holidays={payrollRun.holidays} onManageHolidayHours={openHolidayModal} />
+			<HolidayAlert holidays={payrollRun.holidays} />
 		{/if}
 
 		<!-- Summary Cards -->
@@ -599,18 +583,6 @@
 			{/each}
 		</div>
 	</div>
-
-	<!-- Holiday Work Modal -->
-	{#if showHolidayModal && payrollRunCompat}
-		<HolidayWorkModal
-			holidays={payrollRun.holidays || []}
-			payrollRecords={allRecords}
-			periodStart={payrollRunCompat.periodStart}
-			periodEnd={payrollRunCompat.periodEnd}
-			onClose={closeHolidayModal}
-			onSave={handleHolidayWorkSave}
-		/>
-	{/if}
 {/if}
 
 <!-- Add Employees Panel -->

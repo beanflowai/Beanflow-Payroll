@@ -12,7 +12,8 @@ import type {
 	EmployeeUpdateInput,
 	Employee,
 	Province,
-	PayFrequency
+	PayFrequency,
+	EmploymentType
 } from '$lib/types/employee';
 import { dbEmployeeToUi } from '$lib/types/employee';
 import { authState } from '$lib/stores/auth.svelte';
@@ -460,22 +461,41 @@ export async function getEmployeesByPayGroup(
 }
 
 /**
- * Get employees not assigned to any pay group
+ * Filters for getting unassigned employees
  */
-export async function getUnassignedEmployees(): Promise<EmployeeListResult> {
+export interface UnassignedEmployeeFilters {
+	employmentType?: EmploymentType;
+	payFrequency?: PayFrequency;
+}
+
+/**
+ * Get employees not assigned to any pay group
+ * Optionally filter by employment type and pay frequency for pay group matching
+ */
+export async function getUnassignedEmployees(
+	filters?: UnassignedEmployeeFilters
+): Promise<EmployeeListResult> {
 	try {
 		const userId = getCurrentUserId();
 		const ledgerId = getCurrentLedgerId();
 
-		const { data, error, count } = await supabase
+		let query = supabase
 			.from(TABLE_NAME)
 			.select('*', { count: 'exact' })
 			.eq('user_id', userId)
 			.eq('ledger_id', ledgerId)
 			.is('pay_group_id', null)
-			.is('termination_date', null)
-			.order('last_name')
-			.order('first_name');
+			.is('termination_date', null);
+
+		// Apply optional filters for pay group matching
+		if (filters?.employmentType) {
+			query = query.eq('employment_type', filters.employmentType);
+		}
+		if (filters?.payFrequency) {
+			query = query.eq('pay_frequency', filters.payFrequency);
+		}
+
+		const { data, error, count } = await query.order('last_name').order('first_name');
 
 		if (error) {
 			console.error('Failed to get unassigned employees:', error);

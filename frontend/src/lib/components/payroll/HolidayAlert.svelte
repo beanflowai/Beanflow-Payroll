@@ -4,7 +4,7 @@
 
 	interface Props {
 		holidays: Holiday[];
-		onManageHolidayHours: () => void;
+		onManageHolidayHours?: () => void;
 	}
 
 	let { holidays, onManageHolidayHours }: Props = $props();
@@ -23,10 +23,12 @@
 				{holidayText}
 			</div>
 		</div>
-		<button class="alert-action" onclick={onManageHolidayHours}>
-			Manage Holiday Hours
-			<i class="fas fa-arrow-right"></i>
-		</button>
+		{#if onManageHolidayHours}
+			<button class="alert-action" onclick={onManageHolidayHours}>
+				Manage Holiday Hours
+				<i class="fas fa-arrow-right"></i>
+			</button>
+		{/if}
 	</div>
 {/if}
 

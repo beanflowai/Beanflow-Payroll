@@ -211,9 +211,37 @@ export async function getPayGroupsWithEmployeesForPeriodEnd(
 			totalEmployees += employeeList.length;
 		}
 
-		// Get holidays for the pay period
-		// For now, returning empty array - would query from holidays table
-		const holidays: { date: string; name: string; province: string }[] = [];
+		// Get unique provinces from all employees
+		const provinces = new Set<string>();
+		for (const pg of payGroupsWithEmployees) {
+			for (const emp of pg.employees) {
+				if (emp.province) {
+					provinces.add(emp.province);
+				}
+			}
+		}
+
+		// Query holidays for the pay period from Supabase
+		let holidays: { date: string; name: string; province: string }[] = [];
+		if (provinces.size > 0) {
+			const { data: holidayData, error: holidayError } = await supabase
+				.from('statutory_holidays')
+				.select('holiday_date, name, province')
+				.gte('holiday_date', periodStartStr)
+				.lte('holiday_date', periodEndStr)
+				.in('province', Array.from(provinces))
+				.eq('is_statutory', true);
+
+			if (holidayError) {
+				console.error('Failed to query holidays:', holidayError);
+			} else if (holidayData) {
+				holidays = holidayData.map(h => ({
+					date: h.holiday_date,
+					name: h.name,
+					province: h.province
+				}));
+			}
+		}
 
 		return {
 			data: {

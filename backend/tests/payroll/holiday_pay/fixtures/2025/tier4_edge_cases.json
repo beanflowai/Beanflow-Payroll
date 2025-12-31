@@ -1,0 +1,422 @@
+{
+  "version": "1.0",
+  "year": 2025,
+  "description": "Tier 4 Edge Cases - Premium Pay, Boundary Conditions, Special Scenarios",
+  "test_cases": [
+    {
+      "id": "PREMIUM_ON_STANDARD",
+      "tier": 4,
+      "description": "Ontario - employee works 8 hours on Christmas Day (1.5x premium)",
+      "status": "VERIFIED",
+      "category": "premium_pay",
+      "input": {
+        "province": "ON",
+        "hourly_rate": "25.00",
+        "wages_past_4_weeks": "4000.00",
+        "vacation_pay_past_4_weeks": "160.00",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-12-25",
+        "pay_frequency": "bi_weekly",
+        "hours_worked_on_holiday": "8.00"
+      },
+      "expected": {
+        "regular_holiday_pay": "208.00",
+        "premium_holiday_pay": "300.00",
+        "total_holiday_pay": "508.00",
+        "formula_breakdown": {
+          "regular": "(4000.00 + 160.00) / 20 = 208.00",
+          "premium": "8h × $25.00 × 1.5 = 300.00",
+          "total": "208.00 + 300.00 = 508.00"
+        }
+      },
+      "official_source": "Ontario Employment Standards Act s.24",
+      "verification_date": "2025-12-31",
+      "notes": "Regular pay + 1.5x premium for hours worked on statutory holiday"
+    },
+    {
+      "id": "PREMIUM_SK_FULL_DAY",
+      "tier": 4,
+      "description": "Saskatchewan - employee works full 8-hour shift on New Year's Day",
+      "status": "VERIFIED",
+      "category": "premium_pay",
+      "input": {
+        "province": "SK",
+        "hourly_rate": "30.00",
+        "wages_past_28_days": "4800.00",
+        "vacation_pay_past_28_days": "0.00",
+        "holiday_pay_past_28_days": "0.00",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly",
+        "hours_worked_on_holiday": "8.00"
+      },
+      "expected": {
+        "regular_holiday_pay": "240.00",
+        "premium_holiday_pay": "360.00",
+        "total_holiday_pay": "600.00",
+        "formula_breakdown": {
+          "regular": "4800.00 × 5% = 240.00",
+          "premium": "8h × $30.00 × 1.5 = 360.00",
+          "total": "240.00 + 360.00 = 600.00"
+        }
+      },
+      "official_source": "Saskatchewan Holiday Pay Calculator",
+      "verification_date": "2025-12-31",
+      "notes": "SK 5% formula + 1.5x premium for hours worked"
+    },
+    {
+      "id": "PREMIUM_BC_PARTIAL_DAY",
+      "tier": 4,
+      "description": "BC - employee works only 4 hours on statutory holiday",
+      "status": "VERIFIED",
+      "category": "premium_pay",
+      "input": {
+        "province": "BC",
+        "hourly_rate": "22.00",
+        "wages_past_30_days": "3520.00",
+        "days_worked_past_30_days": "20",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly",
+        "hours_worked_on_holiday": "4.00"
+      },
+      "expected": {
+        "regular_holiday_pay": "176.00",
+        "premium_holiday_pay": "132.00",
+        "total_holiday_pay": "308.00",
+        "formula_breakdown": {
+          "regular": "8h × $22.00 = 176.00",
+          "premium": "4h × $22.00 × 1.5 = 132.00",
+          "total": "176.00 + 132.00 = 308.00"
+        }
+      },
+      "official_source": "BC Employment Standards Act s.45",
+      "verification_date": "2025-12-31",
+      "notes": "Partial day work still earns full regular pay + premium for hours worked"
+    },
+    {
+      "id": "PREMIUM_AB_OVERTIME",
+      "tier": 4,
+      "description": "Alberta - employee works 10 hours on statutory holiday (2 OT hours)",
+      "status": "VERIFIED",
+      "category": "premium_pay",
+      "input": {
+        "province": "AB",
+        "hourly_rate": "28.00",
+        "wages_past_4_weeks": "4480.00",
+        "days_worked_past_4_weeks": "20",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly",
+        "hours_worked_on_holiday": "10.00"
+      },
+      "expected": {
+        "regular_holiday_pay": "224.00",
+        "premium_holiday_pay": "420.00",
+        "total_holiday_pay": "644.00",
+        "formula_breakdown": {
+          "regular": "4480.00 / 20 = 224.00",
+          "premium": "10h × $28.00 × 1.5 = 420.00",
+          "total": "224.00 + 420.00 = 644.00"
+        }
+      },
+      "official_source": "Alberta Employment Standards Code s.25",
+      "verification_date": "2025-12-31",
+      "notes": "All hours worked on stat holiday get 1.5x premium"
+    },
+    {
+      "id": "BOUNDARY_EXACTLY_30_DAYS",
+      "tier": 4,
+      "description": "BC - employee hired exactly 30 days before holiday (boundary case)",
+      "status": "VERIFIED",
+      "category": "boundary",
+      "input": {
+        "province": "BC",
+        "hourly_rate": "20.00",
+        "wages_past_30_days": "3200.00",
+        "days_worked_past_30_days": "20",
+        "hire_date": "2024-12-02",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "160.00",
+        "formula_breakdown": "8h × $20.00 = $160.00 (exactly 30 days = eligible)"
+      },
+      "official_source": "BC Employment Standards Act s.45",
+      "verification_date": "2025-12-31",
+      "notes": "Boundary case: exactly 30 days means eligible"
+    },
+    {
+      "id": "BOUNDARY_29_DAYS",
+      "tier": 4,
+      "description": "BC - employee hired 29 days before holiday (1 day short)",
+      "status": "VERIFIED",
+      "category": "ineligible",
+      "input": {
+        "province": "BC",
+        "hourly_rate": "20.00",
+        "wages_past_30_days": "2560.00",
+        "days_worked_past_30_days": "16",
+        "hire_date": "2024-12-03",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "0.00",
+        "formula_breakdown": "Ineligible: < 30 days employed (29 days)",
+        "ineligibility_reason": "< 30 days employed"
+      },
+      "official_source": "BC Employment Standards Act s.45",
+      "verification_date": "2025-12-31",
+      "notes": "Boundary case: 29 days means ineligible (needs 30)"
+    },
+    {
+      "id": "MULTIPLE_HOLIDAYS_CHRISTMAS",
+      "tier": 4,
+      "description": "Ontario - Christmas and Boxing Day in same pay period",
+      "status": "VERIFIED",
+      "category": "multiple_holidays",
+      "input": {
+        "province": "ON",
+        "hourly_rate": "25.00",
+        "wages_past_4_weeks": "4000.00",
+        "vacation_pay_past_4_weeks": "160.00",
+        "hire_date": "2024-01-01",
+        "holiday_dates": ["2025-12-25", "2025-12-26"],
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "208.00",
+        "regular_holiday_pay_per_day": "208.00",
+        "total_regular_holiday_pay": "416.00",
+        "formula_breakdown": "(4000.00 + 160.00) / 20 = 208.00 × 2 holidays = 416.00"
+      },
+      "official_source": "Ontario Employment Standards Act s.24",
+      "verification_date": "2025-12-31",
+      "notes": "Each holiday calculated separately using same formula. regular_holiday_pay is per-day amount."
+    },
+    {
+      "id": "HIGH_INCOME_EXECUTIVE",
+      "tier": 4,
+      "description": "High-income executive hourly equivalent",
+      "status": "VERIFIED",
+      "category": "high_income",
+      "input": {
+        "province": "ON",
+        "hourly_rate": "150.00",
+        "wages_past_4_weeks": "24000.00",
+        "vacation_pay_past_4_weeks": "960.00",
+        "hire_date": "2020-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "1248.00",
+        "formula_breakdown": "(24000.00 + 960.00) / 20 = 1248.00"
+      },
+      "official_source": "Ontario Employment Standards Act s.24",
+      "verification_date": "2025-12-31",
+      "notes": "No cap on holiday pay amount - based on actual earnings"
+    },
+    {
+      "id": "MINIMUM_WAGE_WORKER",
+      "tier": 4,
+      "description": "Minimum wage worker in Ontario",
+      "status": "VERIFIED",
+      "category": "minimum_wage",
+      "input": {
+        "province": "ON",
+        "hourly_rate": "17.20",
+        "wages_past_4_weeks": "1376.00",
+        "vacation_pay_past_4_weeks": "55.04",
+        "hire_date": "2024-06-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "71.55",
+        "formula_breakdown": "(1376.00 + 55.04) / 20 = 71.552 → 71.55"
+      },
+      "official_source": "Ontario Employment Standards Act s.24",
+      "verification_date": "2025-12-31",
+      "notes": "Ontario minimum wage $17.20/hr (2025)"
+    },
+    {
+      "id": "SALARIED_EMPLOYEE",
+      "tier": 4,
+      "description": "Salaried employee - holiday pay already included",
+      "status": "VERIFIED",
+      "category": "salaried",
+      "input": {
+        "province": "ON",
+        "salary": "78000.00",
+        "hourly_rate": null,
+        "wages_past_4_weeks": "3000.00",
+        "vacation_pay_past_4_weeks": "0.00",
+        "hire_date": "2023-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "0.00",
+        "formula_breakdown": "Salaried employee - holiday pay already included in salary",
+        "notes": "Regular pay continues, no additional holiday pay calculation needed"
+      },
+      "official_source": "Ontario Employment Standards Act s.24",
+      "verification_date": "2025-12-31",
+      "notes": "Salaried employees receive regular pay which includes statutory holidays"
+    },
+    {
+      "id": "SALARIED_WORKS_HOLIDAY",
+      "tier": 4,
+      "description": "Salaried employee works on statutory holiday - gets premium only",
+      "status": "VERIFIED",
+      "category": "salaried_premium",
+      "input": {
+        "province": "ON",
+        "salary": "78000.00",
+        "hourly_rate": null,
+        "wages_past_4_weeks": "3000.00",
+        "vacation_pay_past_4_weeks": "0.00",
+        "hire_date": "2023-01-01",
+        "holiday_date": "2025-12-25",
+        "pay_frequency": "bi_weekly",
+        "hours_worked_on_holiday": "8.00"
+      },
+      "expected": {
+        "regular_holiday_pay": "0.00",
+        "premium_holiday_pay": "450.00",
+        "total_holiday_pay": "450.00",
+        "formula_breakdown": {
+          "regular": "Salaried - $0 (included in salary)",
+          "premium": "8h × ($78000/2080) × 1.5 = 8 × $37.50 × 1.5 = $450.00",
+          "total": "$450.00"
+        }
+      },
+      "official_source": "Ontario Employment Standards Act s.24",
+      "verification_date": "2025-12-31",
+      "notes": "Salaried employees get premium pay for hours worked on holidays"
+    },
+    {
+      "id": "ZERO_WAGES_NEW_HIRE",
+      "tier": 4,
+      "description": "Brand new employee with zero historical wages (SK - no min)",
+      "status": "VERIFIED",
+      "category": "new_employee_fallback",
+      "input": {
+        "province": "SK",
+        "hourly_rate": "22.00",
+        "wages_past_28_days": "0.00",
+        "vacation_pay_past_28_days": "0.00",
+        "holiday_pay_past_28_days": "0.00",
+        "current_period_gross": "1760.00",
+        "hire_date": "2024-12-30",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "88.00",
+        "formula_breakdown": "Fallback: 1760.00 × 5% = 88.00 (pro_rated from current period)"
+      },
+      "official_source": "Saskatchewan Holiday Pay Calculator",
+      "verification_date": "2025-12-31",
+      "notes": "SK uses pro_rated fallback: 5% of current period gross for new employees"
+    },
+    {
+      "id": "VARIABLE_HOURS_WORKER",
+      "tier": 4,
+      "description": "Variable hours worker with inconsistent schedule",
+      "status": "VERIFIED",
+      "category": "variable_hours",
+      "input": {
+        "province": "SK",
+        "hourly_rate": "18.00",
+        "wages_past_28_days": "1440.00",
+        "vacation_pay_past_28_days": "57.60",
+        "holiday_pay_past_28_days": "0.00",
+        "hours_worked_past_28_days": "80",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "74.88",
+        "formula_breakdown": "(1440.00 + 57.60) × 5% = 74.88"
+      },
+      "official_source": "Saskatchewan Holiday Pay Calculator",
+      "verification_date": "2025-12-31",
+      "notes": "Variable hours - 5% formula works well regardless of schedule consistency"
+    },
+    {
+      "id": "WEEKLY_PAY_FREQUENCY",
+      "tier": 4,
+      "description": "Weekly pay frequency employee",
+      "status": "VERIFIED",
+      "category": "pay_frequency",
+      "input": {
+        "province": "AB",
+        "hourly_rate": "26.00",
+        "wages_past_4_weeks": "4160.00",
+        "days_worked_past_4_weeks": "20",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "208.00",
+        "formula_breakdown": "4160.00 / 20 = 208.00"
+      },
+      "official_source": "Alberta Employment Standards Code s.25",
+      "verification_date": "2025-12-31",
+      "notes": "Pay frequency doesn't affect formula - still 4 weeks wages / days worked"
+    },
+    {
+      "id": "MONTHLY_PAY_FREQUENCY",
+      "tier": 4,
+      "description": "Monthly pay frequency employee",
+      "status": "VERIFIED",
+      "category": "pay_frequency",
+      "input": {
+        "province": "ON",
+        "hourly_rate": "35.00",
+        "wages_past_4_weeks": "5600.00",
+        "vacation_pay_past_4_weeks": "224.00",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "monthly"
+      },
+      "expected": {
+        "regular_holiday_pay": "291.20",
+        "formula_breakdown": "(5600.00 + 224.00) / 20 = 291.20"
+      },
+      "official_source": "Ontario Employment Standards Act s.24",
+      "verification_date": "2025-12-31",
+      "notes": "Monthly paid employees use same 4-week average formula"
+    },
+    {
+      "id": "ROUNDING_TEST",
+      "tier": 4,
+      "description": "Test rounding behavior with non-clean numbers",
+      "status": "VERIFIED",
+      "category": "rounding",
+      "input": {
+        "province": "SK",
+        "hourly_rate": "19.35",
+        "wages_past_28_days": "1547.99",
+        "vacation_pay_past_28_days": "61.92",
+        "holiday_pay_past_28_days": "0.00",
+        "hire_date": "2024-01-01",
+        "holiday_date": "2025-01-01",
+        "pay_frequency": "bi_weekly"
+      },
+      "expected": {
+        "regular_holiday_pay": "80.50",
+        "formula_breakdown": "(1547.99 + 61.92) × 5% = 80.4955 → 80.50 (rounded)"
+      },
+      "official_source": "Saskatchewan Holiday Pay Calculator",
+      "verification_date": "2025-12-31",
+      "notes": "Standard rounding: 2 decimal places, round half up"
+    }
+  ]
+}

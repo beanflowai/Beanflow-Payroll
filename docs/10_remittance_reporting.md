@@ -1,5 +1,9 @@
 # Phase 7: Remittance Reporting and CRA Submission
 
+> **Last Updated**: 2025-12-31
+> **Status**: Future Implementation (Phase 7)
+> **Dependencies**: Phase 4 (API Integration) must be complete
+
 ## Overview
 
 Payroll remittance is the process of **sending deducted CPP, EI, and income tax to the Canada Revenue Agency (CRA)**. This is a **legally required compliance task** with strict deadlines and penalties for late or incorrect remittances.
@@ -26,64 +30,247 @@ Payroll remittance is the process of **sending deducted CPP, EI, and income tax 
 
 ---
 
-## 1. Remitter Type Determination
+## Current Implementation Status
 
-### 1.1 Four Remitter Types
+### Already Implemented
+
+| Component | Location | Notes |
+|-----------|----------|-------|
+| `RemitterType` enum | `backend/app/models/payroll.py` | QUARTERLY, REGULAR, THRESHOLD_1, THRESHOLD_2 |
+| Company `remitter_type` | `companies` table | Stored per company |
+| Frontend types | `frontend/src/lib/types/remittance.ts` | Complete type definitions |
+| Frontend UI | `frontend/src/routes/(app)/remittance/+page.svelte` | Mock data UI |
+| UI Design | `docs/ui/07_remittance.md` | Complete specification |
+
+### To Be Implemented (This Document)
+
+| Component | Priority | Notes |
+|-----------|----------|-------|
+| Database tables | High | `remittance_periods` table |
+| Backend models | High | Pydantic models |
+| Remittance service | High | Calculation and tracking |
+| API endpoints | High | REST API |
+| PD7A PDF generator | Medium | ReportLab-based |
+| Beancount integration | Low | Future enhancement |
+
+---
+
+## 1. Database Schema
+
+### 1.1 Migration: Create Remittance Tables
+
+**File**: `backend/supabase/migrations/YYYYMMDDHHMMSS_create_remittance_tables.sql`
+
+```sql
+-- =============================================================================
+-- REMITTANCE TABLES
+-- =============================================================================
+-- Description: Tables for CRA remittance tracking and payment recording
+-- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- Table: remittance_periods
+-- -----------------------------------------------------------------------------
+-- Tracks remittance obligations for each period (monthly, quarterly, etc.)
+
+CREATE TABLE IF NOT EXISTS remittance_periods (
+    -- Primary Key
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    -- Foreign Key to Company
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+
+    -- Multi-tenancy
+    user_id TEXT NOT NULL,
+
+    -- Remitter Configuration (snapshot at time of creation)
+    remitter_type TEXT NOT NULL CHECK (
+        remitter_type IN ('quarterly', 'regular', 'threshold_1', 'threshold_2')
+    ),
+
+    -- Period Information
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    due_date DATE NOT NULL,
+
+    -- Employee Deductions
+    cpp_employee NUMERIC(12, 2) DEFAULT 0,
+    ei_employee NUMERIC(12, 2) DEFAULT 0,
+    federal_tax NUMERIC(12, 2) DEFAULT 0,
+    provincial_tax NUMERIC(12, 2) DEFAULT 0,
+
+    -- Employer Portions
+    cpp_employer NUMERIC(12, 2) DEFAULT 0,
+    ei_employer NUMERIC(12, 2) DEFAULT 0,
+
+    -- Generated Column: Total Remittance
+    total_amount NUMERIC(14, 2) GENERATED ALWAYS AS (
+        cpp_employee + cpp_employer +
+        ei_employee + ei_employer +
+        federal_tax + provincial_tax
+    ) STORED,
+
+    -- Payment Tracking
+    status TEXT DEFAULT 'pending' CHECK (
+        status IN ('pending', 'due_soon', 'overdue', 'paid', 'paid_late')
+    ),
+    paid_date DATE,
+    payment_method TEXT CHECK (
+        payment_method IS NULL OR payment_method IN (
+            'my_payment', 'pre_authorized_debit', 'online_banking',
+            'wire_transfer', 'cheque'
+        )
+    ),
+    confirmation_number TEXT,
+    notes TEXT,
+
+    -- Penalty (calculated if overdue)
+    days_overdue INTEGER DEFAULT 0,
+    penalty_rate NUMERIC(5, 4) DEFAULT 0,
+    penalty_amount NUMERIC(10, 2) DEFAULT 0,
+
+    -- Linked Payroll Runs (for audit)
+    payroll_run_ids UUID[] DEFAULT '{}',
+
+    -- Timestamps
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+
+    -- Constraints
+    CONSTRAINT chk_period_dates CHECK (period_end >= period_start),
+    CONSTRAINT chk_due_date CHECK (due_date > period_end),
+    CONSTRAINT unique_company_period UNIQUE (company_id, period_start, period_end)
+);
+
+-- -----------------------------------------------------------------------------
+-- Indexes
+-- -----------------------------------------------------------------------------
+
+-- Primary query path
+CREATE INDEX idx_remittance_company ON remittance_periods(company_id);
+
+-- User multi-tenancy
+CREATE INDEX idx_remittance_user ON remittance_periods(user_id);
+
+-- Status queries (dashboard)
+CREATE INDEX idx_remittance_status ON remittance_periods(status);
+
+-- Due date sorting
+CREATE INDEX idx_remittance_due_date ON remittance_periods(due_date);
+
+-- Pending remittances (common filter)
+CREATE INDEX idx_remittance_pending ON remittance_periods(company_id, status)
+    WHERE status IN ('pending', 'due_soon', 'overdue');
+
+-- -----------------------------------------------------------------------------
+-- Row Level Security
+-- -----------------------------------------------------------------------------
+
+ALTER TABLE remittance_periods ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage their company remittances"
+ON remittance_periods
+FOR ALL
+USING (user_id = auth.uid()::text);
+
+-- -----------------------------------------------------------------------------
+-- Triggers
+-- -----------------------------------------------------------------------------
+
+CREATE TRIGGER update_remittance_periods_updated_at
+    BEFORE UPDATE ON remittance_periods
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+```
+
+---
+
+## 2. Remitter Type Determination
+
+### 2.1 Four Remitter Types
 
 The CRA assigns remitter types based on the **Average Monthly Withholding Amount (AMWA)** from **two calendar years ago**.
 
 | Remitter Type | AMWA Range | Remittance Frequency | Due Date |
 |---------------|------------|---------------------|----------|
-| **Regular** | < $25,000 | Monthly | 15th of following month |
 | **Quarterly** | < $3,000 | Quarterly (Jan-Mar, Apr-Jun, Jul-Sep, Oct-Dec) | 15th of month after quarter end |
+| **Regular** | $3,000 - $24,999.99 | Monthly | 15th of following month |
 | **Accelerated Threshold 1** | $25,000 - $99,999.99 | Twice monthly | 25th for 1st-15th, 10th for 16th-31st |
 | **Accelerated Threshold 2** | ≥ $100,000 | Four times monthly (with withholding timing) | Day 1, 4, 11, 20 of following month |
 
-### 1.2 Data Model for Remitter Type
+### 2.2 Data Models
+
+**File**: `backend/app/models/remittance.py`
 
 ```python
-from enum import Enum
+"""
+Remittance Pydantic Models
+
+Data models for CRA remittance tracking and reporting.
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime
 from decimal import Decimal
-from datetime import date
-from pydantic import BaseModel, Field
+from enum import Enum
+from typing import Any
+from uuid import UUID
 
-class RemitterType(str, Enum):
-    """
-    CRA Remitter Types
+from pydantic import BaseModel, Field, computed_field
 
-    Reference: CRA T4001 Chapter 8
-    """
-    QUARTERLY = "quarterly"
-    REGULAR = "regular"
-    THRESHOLD_1 = "accelerated_threshold_1"
-    THRESHOLD_2 = "accelerated_threshold_2"
+from app.models.payroll import RemitterType
 
+
+class PaymentMethod(str, Enum):
+    """CRA accepted payment methods."""
+    MY_PAYMENT = "my_payment"
+    PRE_AUTHORIZED_DEBIT = "pre_authorized_debit"
+    ONLINE_BANKING = "online_banking"
+    WIRE_TRANSFER = "wire_transfer"
+    CHEQUE = "cheque"
+
+
+class RemittanceStatus(str, Enum):
+    """Remittance period status."""
+    PENDING = "pending"
+    DUE_SOON = "due_soon"
+    OVERDUE = "overdue"
+    PAID = "paid"
+    PAID_LATE = "paid_late"
+
+
+# =============================================================================
+# Remitter Classification
+# =============================================================================
 
 class RemitterClassification(BaseModel):
     """
-    Remitter classification for a ledger
-    """
-    ledger_id: str
-    effective_year: int  # Year this classification applies to
-    classification_based_on_year: int  # AMWA calculated from this year (usually effective_year - 2)
+    Remitter classification for a company based on AMWA.
 
+    Reference: CRA T4001 Chapter 8
+    """
+    company_id: UUID
+    effective_year: int = Field(description="Year this classification applies to")
+    classification_based_on_year: int = Field(
+        description="AMWA calculated from this year (usually effective_year - 2)"
+    )
     average_monthly_withholding_amount: Decimal = Field(
         ...,
         description="AMWA calculated from two years ago"
     )
-
     remitter_type: RemitterType
 
-    @classmethod
-    def determine_remitter_type(cls, amwa: Decimal) -> RemitterType:
+    @staticmethod
+    def determine_remitter_type(amwa: Decimal) -> RemitterType:
         """
-        Determine remitter type based on AMWA
+        Determine remitter type based on AMWA.
 
         Args:
             amwa: Average Monthly Withholding Amount from two years ago
 
         Returns:
-            RemitterType
+            RemitterType enum value
         """
         if amwa < Decimal("3000"):
             return RemitterType.QUARTERLY
@@ -94,510 +281,159 @@ class RemitterClassification(BaseModel):
         else:
             return RemitterType.THRESHOLD_2
 
-    class Config:
-        json_schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
-                "ledger_id": "ledger_12345",
-                "effective_year": 2025,
-                "classification_based_on_year": 2023,
-                "average_monthly_withholding_amount": "45000.00",
-                "remitter_type": "accelerated_threshold_1"
+                "companyId": "550e8400-e29b-41d4-a716-446655440000",
+                "effectiveYear": 2025,
+                "classificationBasedOnYear": 2023,
+                "averageMonthlyWithholdingAmount": "45000.00",
+                "remitterType": "threshold_1"
             }
         }
-```
+    }
 
-### 1.3 AMWA Calculation Service
 
-```python
-from typing import List
-from decimal import Decimal
-from datetime import date
+# =============================================================================
+# Remittance Period
+# =============================================================================
 
-class AMWACalculationService:
-    """
-    Calculate Average Monthly Withholding Amount (AMWA) for remitter classification
-    """
-
-    def __init__(self, firestore_service):
-        self.firestore = firestore_service
-
-    async def calculate_amwa(
-        self,
-        ledger_id: str,
-        year: int
-    ) -> Decimal:
-        """
-        Calculate AMWA for a given year
-
-        AMWA = Total deductions for the year / 12 months
-
-        Total deductions = Employee CPP + Employer CPP + Employee EI + Employer EI + Federal Tax + Provincial Tax
-
-        Args:
-            ledger_id: Ledger identifier
-            year: Calendar year
-
-        Returns:
-            AMWA (Average Monthly Withholding Amount)
-        """
-        start_date = date(year, 1, 1)
-        end_date = date(year, 12, 31)
-
-        # Fetch all payroll records for the year
-        payroll_records = await self.firestore.get_payroll_records(
-            ledger_id=ledger_id,
-            start_date=start_date,
-            end_date=end_date
-        )
-
-        total_deductions = Decimal("0")
-
-        for record in payroll_records:
-            # Employee portions
-            employee_cpp = record.cpp_employee
-            employee_ei = record.ei_employee
-            federal_tax = record.federal_tax
-            provincial_tax = record.provincial_tax
-
-            # Employer portions
-            employer_cpp = record.cpp_employee  # Employer pays same as employee
-            employer_ei = record.ei_employee * Decimal("1.4")  # Employer pays 1.4x employee
-
-            total_deductions += (
-                employee_cpp + employer_cpp +
-                employee_ei + employer_ei +
-                federal_tax + provincial_tax
-            )
-
-        # AMWA = Total / 12 months
-        amwa = total_deductions / Decimal("12")
-
-        return amwa.quantize(Decimal("0.01"))
-
-    async def determine_remitter_classification(
-        self,
-        ledger_id: str,
-        effective_year: int
-    ) -> RemitterClassification:
-        """
-        Determine remitter classification for a given year
-
-        Uses AMWA from two calendar years ago
-
-        Args:
-            ledger_id: Ledger identifier
-            effective_year: Year the classification applies to (e.g., 2025)
-
-        Returns:
-            RemitterClassification
-        """
-        classification_year = effective_year - 2
-
-        # Calculate AMWA from two years ago
-        amwa = await self.calculate_amwa(ledger_id, classification_year)
-
-        # Determine remitter type
-        remitter_type = RemitterClassification.determine_remitter_type(amwa)
-
-        return RemitterClassification(
-            ledger_id=ledger_id,
-            effective_year=effective_year,
-            classification_based_on_year=classification_year,
-            average_monthly_withholding_amount=amwa,
-            remitter_type=remitter_type
-        )
-```
-
----
-
-## 2. Remittance Calculation
-
-### 2.1 Remittance Data Model
-
-```python
-from datetime import date, datetime
-from typing import Optional
-from decimal import Decimal
-from pydantic import BaseModel, Field
-
-class RemittancePeriod(BaseModel):
-    """
-    Represents a remittance period (monthly, quarterly, or accelerated)
-    """
-    ledger_id: str
+class RemittancePeriodBase(BaseModel):
+    """Base remittance period fields."""
     remitter_type: RemitterType
-
-    period_start_date: date
-    period_end_date: date
+    period_start: date
+    period_end: date
     due_date: date
 
     # Employee deductions
-    total_cpp_employee: Decimal = Field(default=Decimal("0"), decimal_places=2)
-    total_ei_employee: Decimal = Field(default=Decimal("0"), decimal_places=2)
-    total_federal_tax: Decimal = Field(default=Decimal("0"), decimal_places=2)
-    total_provincial_tax: Decimal = Field(default=Decimal("0"), decimal_places=2)
+    cpp_employee: Decimal = Field(default=Decimal("0"), ge=0)
+    ei_employee: Decimal = Field(default=Decimal("0"), ge=0)
+    federal_tax: Decimal = Field(default=Decimal("0"), ge=0)
+    provincial_tax: Decimal = Field(default=Decimal("0"), ge=0)
 
     # Employer portions
-    total_cpp_employer: Decimal = Field(default=Decimal("0"), decimal_places=2)
-    total_ei_employer: Decimal = Field(default=Decimal("0"), decimal_places=2)
+    cpp_employer: Decimal = Field(default=Decimal("0"), ge=0)
+    ei_employer: Decimal = Field(default=Decimal("0"), ge=0)
 
-    # Total remittance
-    total_remittance: Decimal = Field(default=Decimal("0"), decimal_places=2)
+
+class RemittancePeriodCreate(RemittancePeriodBase):
+    """Request to create a remittance period."""
+    company_id: UUID
+    payroll_run_ids: list[UUID] = Field(default_factory=list)
+
+
+class RemittancePeriod(RemittancePeriodBase):
+    """Complete remittance period model (from database)."""
+    id: UUID
+    company_id: UUID
+    user_id: str
+
+    # Computed total (from database generated column)
+    total_amount: Decimal
 
     # Payment tracking
-    paid: bool = False
-    payment_date: Optional[date] = None
-    payment_method: Optional[str] = None  # "my_payment", "pre_authorized_debit", "wire_transfer", "cheque"
-    payment_confirmation_number: Optional[str] = None
+    status: RemittanceStatus = RemittanceStatus.PENDING
+    paid_date: date | None = None
+    payment_method: PaymentMethod | None = None
+    confirmation_number: str | None = None
+    notes: str | None = None
 
+    # Penalty info
+    days_overdue: int = 0
+    penalty_rate: Decimal = Decimal("0")
+    penalty_amount: Decimal = Decimal("0")
+
+    # Linked payroll runs
+    payroll_run_ids: list[UUID] = Field(default_factory=list)
+
+    # Timestamps
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @computed_field
     @property
-    def is_overdue(self) -> bool:
-        """Check if remittance is overdue"""
-        if self.paid:
-            return False
-        return date.today() > self.due_date
+    def period_label(self) -> str:
+        """Human-readable period label."""
+        month_names = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ]
 
-    @property
-    def days_overdue(self) -> int:
-        """Calculate days overdue"""
-        if not self.is_overdue:
-            return 0
-        return (date.today() - self.due_date).days
-
-    @property
-    def late_penalty_rate(self) -> Decimal:
-        """
-        Calculate late penalty rate based on days overdue
-
-        Reference: CRA T4001 Chapter 8
-        """
-        days = self.days_overdue
-
-        if days == 0:
-            return Decimal("0")
-        elif days <= 3:
-            return Decimal("0.03")  # 3%
-        elif days <= 5:
-            return Decimal("0.05")  # 5%
-        elif days <= 7:
-            return Decimal("0.07")  # 7%
+        if self.remitter_type == RemitterType.QUARTERLY:
+            quarter = (self.period_end.month - 1) // 3 + 1
+            return f"Q{quarter} {self.period_end.year}"
+        elif self.remitter_type == RemitterType.REGULAR:
+            return f"{month_names[self.period_end.month - 1]} {self.period_end.year}"
         else:
-            return Decimal("0.10")  # 10%
+            # Threshold 1 & 2: show date range
+            month_short = month_names[self.period_end.month - 1][:3]
+            return f"{month_short} {self.period_start.day}-{self.period_end.day}"
 
-    @property
-    def late_penalty_amount(self) -> Decimal:
-        """Calculate late penalty amount"""
-        return (self.total_remittance * self.late_penalty_rate).quantize(Decimal("0.01"))
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "ledger_id": "ledger_12345",
-                "remitter_type": "regular",
-                "period_start_date": "2025-01-01",
-                "period_end_date": "2025-01-31",
-                "due_date": "2025-02-15",
-                "total_cpp_employee": "1500.00",
-                "total_ei_employee": "400.00",
-                "total_federal_tax": "3000.00",
-                "total_provincial_tax": "1200.00",
-                "total_cpp_employer": "1500.00",
-                "total_ei_employer": "560.00",
-                "total_remittance": "8160.00",
-                "paid": False
-            }
-        }
-```
+class RemittancePeriodUpdate(BaseModel):
+    """Request to update remittance period (mark as paid)."""
+    paid_date: date
+    payment_method: PaymentMethod
+    confirmation_number: str | None = None
+    notes: str | None = None
 
-### 2.2 Remittance Calculation Service
 
-```python
-from typing import List
-from datetime import date, timedelta
-from decimal import Decimal
-import calendar
+# =============================================================================
+# Remittance Summary
+# =============================================================================
 
-class RemittanceCalculationService:
-    """
-    Calculate remittance amounts for different remitter types
-    """
+class RemittanceSummary(BaseModel):
+    """YTD remittance summary for dashboard."""
+    year: int
+    ytd_remitted: Decimal = Field(description="Total amount paid this year")
+    total_remittances: int = Field(description="Total remittance periods in year")
+    completed_remittances: int = Field(description="Number of paid remittances")
+    on_time_rate: Decimal = Field(description="Percentage paid on time (0.0 to 1.0)")
+    pending_amount: Decimal = Field(description="Total amount still pending")
+    pending_count: int = Field(description="Number of pending remittances")
 
-    def __init__(self, firestore_service):
-        self.firestore = firestore_service
 
-    async def calculate_remittance_period(
-        self,
-        ledger_id: str,
-        remitter_type: RemitterType,
-        period_start_date: date,
-        period_end_date: date
-    ) -> RemittancePeriod:
-        """
-        Calculate remittance for a specific period
-
-        Args:
-            ledger_id: Ledger identifier
-            remitter_type: Remitter type
-            period_start_date: Start of remittance period
-            period_end_date: End of remittance period
-
-        Returns:
-            RemittancePeriod with calculated amounts
-        """
-        # Fetch all payroll records in the period
-        payroll_records = await self.firestore.get_payroll_records(
-            ledger_id=ledger_id,
-            start_date=period_start_date,
-            end_date=period_end_date
-        )
-
-        # Aggregate deductions
-        total_cpp_employee = Decimal("0")
-        total_ei_employee = Decimal("0")
-        total_federal_tax = Decimal("0")
-        total_provincial_tax = Decimal("0")
-
-        for record in payroll_records:
-            total_cpp_employee += record.cpp_employee
-            total_ei_employee += record.ei_employee
-            total_federal_tax += record.federal_tax
-            total_provincial_tax += record.provincial_tax
-
-        # Calculate employer portions
-        total_cpp_employer = total_cpp_employee  # Employer matches employee
-        total_ei_employer = (total_ei_employee * Decimal("1.4")).quantize(Decimal("0.01"))
-
-        # Total remittance
-        total_remittance = (
-            total_cpp_employee + total_cpp_employer +
-            total_ei_employee + total_ei_employer +
-            total_federal_tax + total_provincial_tax
-        )
-
-        # Calculate due date
-        due_date = self._calculate_due_date(remitter_type, period_end_date)
-
-        return RemittancePeriod(
-            ledger_id=ledger_id,
-            remitter_type=remitter_type,
-            period_start_date=period_start_date,
-            period_end_date=period_end_date,
-            due_date=due_date,
-            total_cpp_employee=total_cpp_employee,
-            total_ei_employee=total_ei_employee,
-            total_federal_tax=total_federal_tax,
-            total_provincial_tax=total_provincial_tax,
-            total_cpp_employer=total_cpp_employer,
-            total_ei_employer=total_ei_employer,
-            total_remittance=total_remittance
-        )
-
-    def _calculate_due_date(self, remitter_type: RemitterType, period_end_date: date) -> date:
-        """
-        Calculate remittance due date based on remitter type
-
-        Args:
-            remitter_type: Remitter type
-            period_end_date: End of remittance period
-
-        Returns:
-            Due date
-        """
-        if remitter_type == RemitterType.REGULAR:
-            # Regular: 15th of following month
-            if period_end_date.month == 12:
-                due_month = 1
-                due_year = period_end_date.year + 1
-            else:
-                due_month = period_end_date.month + 1
-                due_year = period_end_date.year
-
-            due_date = date(due_year, due_month, 15)
-
-        elif remitter_type == RemitterType.QUARTERLY:
-            # Quarterly: 15th of month after quarter end
-            quarter_end_month = period_end_date.month
-            if quarter_end_month in [3, 6, 9, 12]:
-                if quarter_end_month == 12:
-                    due_month = 1
-                    due_year = period_end_date.year + 1
-                else:
-                    due_month = quarter_end_month + 1
-                    due_year = period_end_date.year
-            else:
-                raise ValueError(f"Invalid quarter end month: {quarter_end_month}")
-
-            due_date = date(due_year, due_month, 15)
-
-        elif remitter_type == RemitterType.THRESHOLD_1:
-            # Accelerated Threshold 1
-            # For 1st-15th: due 25th of same month
-            # For 16th-last day: due 10th of following month
-            if period_end_date.day == 15:
-                due_date = date(period_end_date.year, period_end_date.month, 25)
-            else:
-                # Last day of month
-                if period_end_date.month == 12:
-                    due_month = 1
-                    due_year = period_end_date.year + 1
-                else:
-                    due_month = period_end_date.month + 1
-                    due_year = period_end_date.year
-                due_date = date(due_year, due_month, 10)
-
-        elif remitter_type == RemitterType.THRESHOLD_2:
-            # Accelerated Threshold 2 (complex - based on withholding dates)
-            # For simplicity, use next month 1st, 4th, 11th, 20th
-            # Actual implementation should track withholding dates
-            if period_end_date.month == 12:
-                due_month = 1
-                due_year = period_end_date.year + 1
-            else:
-                due_month = period_end_date.month + 1
-                due_year = period_end_date.year
-
-            # Use 1st as default (adjust based on actual withholding schedule)
-            due_date = date(due_year, due_month, 1)
-
-        else:
-            raise ValueError(f"Unknown remitter type: {remitter_type}")
-
-        # Adjust if due date falls on weekend or holiday
-        due_date = self._adjust_for_business_day(due_date)
-
-        return due_date
-
-    def _adjust_for_business_day(self, target_date: date) -> date:
-        """
-        Adjust date to next business day if it falls on weekend
-
-        Note: Does not account for statutory holidays (would require holiday calendar)
-        """
-        if target_date.weekday() == 5:  # Saturday
-            return target_date + timedelta(days=2)
-        elif target_date.weekday() == 6:  # Sunday
-            return target_date + timedelta(days=1)
-        return target_date
-
-    async def generate_remittance_schedule(
-        self,
-        ledger_id: str,
-        remitter_type: RemitterType,
-        year: int
-    ) -> List[RemittancePeriod]:
-        """
-        Generate remittance schedule for the entire year
-
-        Args:
-            ledger_id: Ledger identifier
-            remitter_type: Remitter type
-            year: Calendar year
-
-        Returns:
-            List of RemittancePeriod
-        """
-        remittances = []
-
-        if remitter_type == RemitterType.QUARTERLY:
-            # Quarterly periods
-            quarters = [
-                (date(year, 1, 1), date(year, 3, 31)),
-                (date(year, 4, 1), date(year, 6, 30)),
-                (date(year, 7, 1), date(year, 9, 30)),
-                (date(year, 10, 1), date(year, 12, 31))
-            ]
-            for start, end in quarters:
-                remittance = await self.calculate_remittance_period(
-                    ledger_id, remitter_type, start, end
-                )
-                remittances.append(remittance)
-
-        elif remitter_type == RemitterType.REGULAR:
-            # Monthly periods
-            for month in range(1, 13):
-                start = date(year, month, 1)
-                last_day = calendar.monthrange(year, month)[1]
-                end = date(year, month, last_day)
-
-                remittance = await self.calculate_remittance_period(
-                    ledger_id, remitter_type, start, end
-                )
-                remittances.append(remittance)
-
-        elif remitter_type == RemitterType.THRESHOLD_1:
-            # Twice monthly periods
-            for month in range(1, 13):
-                # First half (1st-15th)
-                start1 = date(year, month, 1)
-                end1 = date(year, month, 15)
-                remittance1 = await self.calculate_remittance_period(
-                    ledger_id, remitter_type, start1, end1
-                )
-                remittances.append(remittance1)
-
-                # Second half (16th-last day)
-                start2 = date(year, month, 16)
-                last_day = calendar.monthrange(year, month)[1]
-                end2 = date(year, month, last_day)
-                remittance2 = await self.calculate_remittance_period(
-                    ledger_id, remitter_type, start2, end2
-                )
-                remittances.append(remittance2)
-
-        elif remitter_type == RemitterType.THRESHOLD_2:
-            # Accelerated Threshold 2 (based on withholding dates)
-            # Simplified: treat as weekly periods
-            # Actual implementation should track withholding timing
-            current_date = date(year, 1, 1)
-            end_date = date(year, 12, 31)
-
-            while current_date <= end_date:
-                period_end = min(current_date + timedelta(days=6), end_date)
-                remittance = await self.calculate_remittance_period(
-                    ledger_id, remitter_type, current_date, period_end
-                )
-                remittances.append(remittance)
-                current_date = period_end + timedelta(days=1)
-
-        return remittances
-```
-
----
-
-## 3. PD7A Remittance Voucher Generation
-
-### 3.1 PD7A Data Model
-
-```python
-from pydantic import BaseModel, Field
-from datetime import date
-from decimal import Decimal
+# =============================================================================
+# PD7A Remittance Voucher
+# =============================================================================
 
 class PD7ARemittanceVoucher(BaseModel):
     """
-    PD7A Statement of Account for Current Source Deductions
+    PD7A Statement of Account for Current Source Deductions.
 
-    Used for manual remittance payments (cheque, in-person)
+    Used for manual remittance payments (cheque, in-person).
     """
     # Employer Information
     employer_name: str
-    payroll_account_number: str = Field(..., regex=r"^\d{9}RP\d{4}$")
+    payroll_account_number: str = Field(
+        ...,
+        min_length=15,
+        max_length=15,
+        pattern=r"^\d{9}RP\d{4}$",
+        description="15-character payroll account (e.g., 123456789RP0001)"
+    )
 
     # Remittance Period
-    period_start_date: date
-    period_end_date: date
+    period_start: date
+    period_end: date
     due_date: date
 
     # Line 10: Current Source Deductions
-    line_10_cpp_employee: Decimal = Field(default=Decimal("0"), decimal_places=2)
-    line_10_cpp_employer: Decimal = Field(default=Decimal("0"), decimal_places=2)
-    line_10_ei_employee: Decimal = Field(default=Decimal("0"), decimal_places=2)
-    line_10_ei_employer: Decimal = Field(default=Decimal("0"), decimal_places=2)
-    line_10_income_tax: Decimal = Field(default=Decimal("0"), decimal_places=2)
+    line_10_cpp_employee: Decimal = Field(default=Decimal("0"), ge=0)
+    line_10_cpp_employer: Decimal = Field(default=Decimal("0"), ge=0)
+    line_10_ei_employee: Decimal = Field(default=Decimal("0"), ge=0)
+    line_10_ei_employer: Decimal = Field(default=Decimal("0"), ge=0)
+    line_10_income_tax: Decimal = Field(default=Decimal("0"), ge=0)
 
-    # Line 11: Total Current Source Deductions
+    # Line 12: Previous balance owing (if any)
+    line_12_previous_balance: Decimal = Field(default=Decimal("0"), ge=0)
+
+    @computed_field
     @property
     def line_11_total_deductions(self) -> Decimal:
+        """Line 11: Total Current Source Deductions."""
         return (
             self.line_10_cpp_employee +
             self.line_10_cpp_employer +
@@ -606,52 +442,528 @@ class PD7ARemittanceVoucher(BaseModel):
             self.line_10_income_tax
         ).quantize(Decimal("0.01"))
 
-    # Line 12: Previous balance owing (if any)
-    line_12_previous_balance: Decimal = Field(default=Decimal("0"), decimal_places=2)
-
-    # Line 13: Total amount due
+    @computed_field
     @property
     def line_13_total_due(self) -> Decimal:
+        """Line 13: Total Amount Due."""
         return (self.line_11_total_deductions + self.line_12_previous_balance).quantize(Decimal("0.01"))
 
-    class Config:
-        json_schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
-                "employer_name": "Example Corp",
-                "payroll_account_number": "123456789RP0001",
-                "period_start_date": "2025-01-01",
-                "period_end_date": "2025-01-31",
-                "due_date": "2025-02-15",
-                "line_10_cpp_employee": "1500.00",
-                "line_10_cpp_employer": "1500.00",
-                "line_10_ei_employee": "400.00",
-                "line_10_ei_employer": "560.00",
-                "line_10_income_tax": "4200.00"
+                "employerName": "Example Corp",
+                "payrollAccountNumber": "123456789RP0001",
+                "periodStart": "2025-01-01",
+                "periodEnd": "2025-01-31",
+                "dueDate": "2025-02-15",
+                "line10CppEmployee": "1500.00",
+                "line10CppEmployer": "1500.00",
+                "line10EiEmployee": "400.00",
+                "line10EiEmployer": "560.00",
+                "line10IncomeTax": "4200.00"
             }
         }
+    }
 ```
 
-### 3.2 PD7A PDF Generation
+---
+
+## 3. Remittance Service
+
+### 3.1 AMWA Calculation Service
+
+**File**: `backend/app/services/remittance_service.py`
 
 ```python
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.units import inch
-from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
+"""
+Remittance Service
+
+Handles remittance calculations, period generation, and payment tracking.
+"""
+
+from __future__ import annotations
+
+import calendar
+from datetime import date, timedelta
+from decimal import Decimal
+from typing import TYPE_CHECKING
+from uuid import UUID
+
+from supabase import Client
+
+from app.models.payroll import RemitterType
+from app.models.remittance import (
+    RemitterClassification,
+    RemittancePeriod,
+    RemittancePeriodCreate,
+    RemittancePeriodUpdate,
+    RemittanceSummary,
+    RemittanceStatus,
+)
+
+if TYPE_CHECKING:
+    from app.models.remittance import PD7ARemittanceVoucher
+
+
+class RemittanceService:
+    """
+    Service for remittance calculations and tracking.
+
+    Handles:
+    - AMWA calculation for remitter classification
+    - Remittance period generation
+    - Due date calculation
+    - Payment recording
+    - Summary statistics
+    """
+
+    def __init__(self, supabase: Client, user_id: str):
+        self.supabase = supabase
+        self.user_id = user_id
+
+    # =========================================================================
+    # AMWA Calculation
+    # =========================================================================
+
+    async def calculate_amwa(self, company_id: UUID, year: int) -> Decimal:
+        """
+        Calculate Average Monthly Withholding Amount (AMWA) for a given year.
+
+        AMWA = Total deductions for the year / 12 months
+
+        Total deductions = Employee CPP + Employer CPP + Employee EI +
+                          Employer EI + Federal Tax + Provincial Tax
+
+        Args:
+            company_id: Company identifier
+            year: Calendar year
+
+        Returns:
+            AMWA (Average Monthly Withholding Amount)
+        """
+        start_date = date(year, 1, 1)
+        end_date = date(year, 12, 31)
+
+        # Query payroll_runs for the year
+        response = self.supabase.table("payroll_runs").select(
+            "total_cpp_employee, total_cpp_employer, "
+            "total_ei_employee, total_ei_employer, "
+            "total_federal_tax, total_provincial_tax"
+        ).eq(
+            "company_id", str(company_id)
+        ).eq(
+            "user_id", self.user_id
+        ).gte(
+            "pay_date", start_date.isoformat()
+        ).lte(
+            "pay_date", end_date.isoformat()
+        ).in_(
+            "status", ["approved", "paid"]
+        ).execute()
+
+        if not response.data:
+            return Decimal("0")
+
+        total_deductions = Decimal("0")
+
+        for run in response.data:
+            total_deductions += Decimal(str(run["total_cpp_employee"] or 0))
+            total_deductions += Decimal(str(run["total_cpp_employer"] or 0))
+            total_deductions += Decimal(str(run["total_ei_employee"] or 0))
+            total_deductions += Decimal(str(run["total_ei_employer"] or 0))
+            total_deductions += Decimal(str(run["total_federal_tax"] or 0))
+            total_deductions += Decimal(str(run["total_provincial_tax"] or 0))
+
+        # AMWA = Total / 12 months
+        amwa = total_deductions / Decimal("12")
+        return amwa.quantize(Decimal("0.01"))
+
+    async def determine_remitter_classification(
+        self,
+        company_id: UUID,
+        effective_year: int
+    ) -> RemitterClassification:
+        """
+        Determine remitter classification for a given year.
+
+        Uses AMWA from two calendar years ago.
+
+        Args:
+            company_id: Company identifier
+            effective_year: Year the classification applies to (e.g., 2025)
+
+        Returns:
+            RemitterClassification
+        """
+        classification_year = effective_year - 2
+
+        # Calculate AMWA from two years ago
+        amwa = await self.calculate_amwa(company_id, classification_year)
+
+        # Determine remitter type
+        remitter_type = RemitterClassification.determine_remitter_type(amwa)
+
+        return RemitterClassification(
+            company_id=company_id,
+            effective_year=effective_year,
+            classification_based_on_year=classification_year,
+            average_monthly_withholding_amount=amwa,
+            remitter_type=remitter_type
+        )
+
+    # =========================================================================
+    # Remittance Period Management
+    # =========================================================================
+
+    async def create_remittance_period(
+        self,
+        data: RemittancePeriodCreate
+    ) -> RemittancePeriod:
+        """
+        Create a new remittance period.
+
+        Args:
+            data: Remittance period creation data
+
+        Returns:
+            Created RemittancePeriod
+        """
+        insert_data = {
+            "company_id": str(data.company_id),
+            "user_id": self.user_id,
+            "remitter_type": data.remitter_type.value,
+            "period_start": data.period_start.isoformat(),
+            "period_end": data.period_end.isoformat(),
+            "due_date": data.due_date.isoformat(),
+            "cpp_employee": float(data.cpp_employee),
+            "cpp_employer": float(data.cpp_employer),
+            "ei_employee": float(data.ei_employee),
+            "ei_employer": float(data.ei_employer),
+            "federal_tax": float(data.federal_tax),
+            "provincial_tax": float(data.provincial_tax),
+            "payroll_run_ids": [str(id) for id in data.payroll_run_ids],
+        }
+
+        response = self.supabase.table("remittance_periods").insert(
+            insert_data
+        ).execute()
+
+        return RemittancePeriod.model_validate(response.data[0])
+
+    async def get_remittance_period(
+        self,
+        remittance_id: UUID
+    ) -> RemittancePeriod | None:
+        """Get a single remittance period."""
+        response = self.supabase.table("remittance_periods").select(
+            "*"
+        ).eq(
+            "id", str(remittance_id)
+        ).eq(
+            "user_id", self.user_id
+        ).single().execute()
+
+        if not response.data:
+            return None
+
+        return RemittancePeriod.model_validate(response.data)
+
+    async def list_remittance_periods(
+        self,
+        company_id: UUID,
+        year: int | None = None,
+        status: RemittanceStatus | None = None
+    ) -> list[RemittancePeriod]:
+        """
+        List remittance periods for a company.
+
+        Args:
+            company_id: Company identifier
+            year: Optional year filter
+            status: Optional status filter
+
+        Returns:
+            List of RemittancePeriod
+        """
+        query = self.supabase.table("remittance_periods").select(
+            "*"
+        ).eq(
+            "company_id", str(company_id)
+        ).eq(
+            "user_id", self.user_id
+        ).order("due_date", desc=True)
+
+        if year:
+            query = query.gte(
+                "period_start", f"{year}-01-01"
+            ).lte(
+                "period_end", f"{year}-12-31"
+            )
+
+        if status:
+            query = query.eq("status", status.value)
+
+        response = query.execute()
+
+        return [RemittancePeriod.model_validate(r) for r in response.data]
+
+    async def record_payment(
+        self,
+        remittance_id: UUID,
+        data: RemittancePeriodUpdate
+    ) -> RemittancePeriod:
+        """
+        Record payment for a remittance period.
+
+        Args:
+            remittance_id: Remittance period ID
+            data: Payment details
+
+        Returns:
+            Updated RemittancePeriod
+        """
+        # Get existing remittance to check due date
+        existing = await self.get_remittance_period(remittance_id)
+        if not existing:
+            raise ValueError(f"Remittance period not found: {remittance_id}")
+
+        # Determine if paid late
+        is_late = data.paid_date > existing.due_date
+        new_status = RemittanceStatus.PAID_LATE if is_late else RemittanceStatus.PAID
+
+        update_data = {
+            "status": new_status.value,
+            "paid_date": data.paid_date.isoformat(),
+            "payment_method": data.payment_method.value,
+            "confirmation_number": data.confirmation_number,
+            "notes": data.notes,
+        }
+
+        response = self.supabase.table("remittance_periods").update(
+            update_data
+        ).eq(
+            "id", str(remittance_id)
+        ).eq(
+            "user_id", self.user_id
+        ).execute()
+
+        return RemittancePeriod.model_validate(response.data[0])
+
+    # =========================================================================
+    # Due Date Calculation
+    # =========================================================================
+
+    def calculate_due_date(
+        self,
+        remitter_type: RemitterType,
+        period_end: date
+    ) -> date:
+        """
+        Calculate remittance due date based on remitter type.
+
+        Args:
+            remitter_type: Remitter type
+            period_end: End of remittance period
+
+        Returns:
+            Due date
+        """
+        if remitter_type == RemitterType.REGULAR:
+            # Regular: 15th of following month
+            if period_end.month == 12:
+                due_month = 1
+                due_year = period_end.year + 1
+            else:
+                due_month = period_end.month + 1
+                due_year = period_end.year
+            due_date = date(due_year, due_month, 15)
+
+        elif remitter_type == RemitterType.QUARTERLY:
+            # Quarterly: 15th of month after quarter end
+            quarter_end_month = period_end.month
+            if quarter_end_month in [3, 6, 9, 12]:
+                if quarter_end_month == 12:
+                    due_month = 1
+                    due_year = period_end.year + 1
+                else:
+                    due_month = quarter_end_month + 1
+                    due_year = period_end.year
+            else:
+                raise ValueError(f"Invalid quarter end month: {quarter_end_month}")
+            due_date = date(due_year, due_month, 15)
+
+        elif remitter_type == RemitterType.THRESHOLD_1:
+            # Accelerated Threshold 1
+            # For 1st-15th: due 25th of same month
+            # For 16th-last day: due 10th of following month
+            if period_end.day == 15:
+                due_date = date(period_end.year, period_end.month, 25)
+            else:
+                if period_end.month == 12:
+                    due_month = 1
+                    due_year = period_end.year + 1
+                else:
+                    due_month = period_end.month + 1
+                    due_year = period_end.year
+                due_date = date(due_year, due_month, 10)
+
+        elif remitter_type == RemitterType.THRESHOLD_2:
+            # Accelerated Threshold 2 (complex - based on withholding dates)
+            # Simplified: use next month 1st as default
+            if period_end.month == 12:
+                due_month = 1
+                due_year = period_end.year + 1
+            else:
+                due_month = period_end.month + 1
+                due_year = period_end.year
+            due_date = date(due_year, due_month, 1)
+
+        else:
+            raise ValueError(f"Unknown remitter type: {remitter_type}")
+
+        # Adjust if due date falls on weekend
+        return self._adjust_for_business_day(due_date)
+
+    def _adjust_for_business_day(self, target_date: date) -> date:
+        """
+        Adjust date to next business day if it falls on weekend.
+
+        Note: Does not account for statutory holidays.
+        """
+        if target_date.weekday() == 5:  # Saturday
+            return target_date + timedelta(days=2)
+        elif target_date.weekday() == 6:  # Sunday
+            return target_date + timedelta(days=1)
+        return target_date
+
+    # =========================================================================
+    # Summary Statistics
+    # =========================================================================
+
+    async def get_remittance_summary(
+        self,
+        company_id: UUID,
+        year: int
+    ) -> RemittanceSummary:
+        """
+        Get YTD remittance summary for dashboard.
+
+        Args:
+            company_id: Company identifier
+            year: Calendar year
+
+        Returns:
+            RemittanceSummary
+        """
+        remittances = await self.list_remittance_periods(company_id, year)
+
+        paid_remittances = [
+            r for r in remittances
+            if r.status in [RemittanceStatus.PAID, RemittanceStatus.PAID_LATE]
+        ]
+        pending_remittances = [
+            r for r in remittances
+            if r.status in [
+                RemittanceStatus.PENDING,
+                RemittanceStatus.DUE_SOON,
+                RemittanceStatus.OVERDUE
+            ]
+        ]
+
+        on_time_count = len([
+            r for r in paid_remittances
+            if r.status == RemittanceStatus.PAID
+        ])
+
+        on_time_rate = (
+            Decimal(on_time_count) / Decimal(len(paid_remittances))
+            if paid_remittances else Decimal("1.0")
+        )
+
+        return RemittanceSummary(
+            year=year,
+            ytd_remitted=sum(r.total_amount for r in paid_remittances),
+            total_remittances=len(remittances),
+            completed_remittances=len(paid_remittances),
+            on_time_rate=on_time_rate,
+            pending_amount=sum(r.total_amount for r in pending_remittances),
+            pending_count=len(pending_remittances)
+        )
+
+    # =========================================================================
+    # Penalty Calculation
+    # =========================================================================
+
+    @staticmethod
+    def calculate_penalty_rate(days_overdue: int) -> Decimal:
+        """
+        Calculate late penalty rate based on days overdue.
+
+        Reference: CRA T4001 Chapter 8
+
+        Args:
+            days_overdue: Number of days past due date
+
+        Returns:
+            Penalty rate as decimal (e.g., 0.03 for 3%)
+        """
+        if days_overdue <= 0:
+            return Decimal("0")
+        elif days_overdue <= 3:
+            return Decimal("0.03")  # 3%
+        elif days_overdue <= 5:
+            return Decimal("0.05")  # 5%
+        elif days_overdue <= 7:
+            return Decimal("0.07")  # 7%
+        else:
+            return Decimal("0.10")  # 10%
+
+    @staticmethod
+    def calculate_penalty_amount(amount: Decimal, days_overdue: int) -> Decimal:
+        """Calculate penalty amount."""
+        rate = RemittanceService.calculate_penalty_rate(days_overdue)
+        return (amount * rate).quantize(Decimal("0.01"))
+```
+
+---
+
+## 4. PD7A PDF Generator
+
+### 4.1 PDF Generation Service
+
+**File**: `backend/app/services/remittance/pd7a_generator.py`
+
+```python
+"""
+PD7A Remittance Voucher PDF Generator
+
+Generates PD7A Statement of Account for Current Source Deductions.
+"""
+
+from __future__ import annotations
+
 from io import BytesIO
+from typing import TYPE_CHECKING
+
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import inch
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+if TYPE_CHECKING:
+    from app.models.remittance import PD7ARemittanceVoucher
+
 
 class PD7APDFGenerator:
-    """
-    Generate PD7A Remittance Voucher PDF
-    """
+    """Generate PD7A Remittance Voucher PDF using ReportLab."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.styles = getSampleStyleSheet()
 
-    def generate_pd7a_pdf(self, voucher: PD7ARemittanceVoucher) -> bytes:
+    def generate_pdf(self, voucher: PD7ARemittanceVoucher) -> bytes:
         """
-        Generate PD7A PDF
+        Generate PD7A PDF.
 
         Args:
             voucher: PD7ARemittanceVoucher data
@@ -674,123 +986,29 @@ class PD7APDFGenerator:
         # Title
         title = Paragraph(
             "PD7A - Statement of Account for Current Source Deductions",
-            self.styles['Title']
+            self.styles["Title"]
         )
         story.append(title)
         story.append(Spacer(1, 12))
 
         # Employer Information
-        employer_data = [
-            ['Employer Name:', voucher.employer_name],
-            ['Payroll Account Number:', voucher.payroll_account_number]
-        ]
-        employer_table = Table(employer_data, colWidths=[2.5 * inch, 4 * inch])
-        employer_table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 11),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 0)
-        ]))
-        story.append(employer_table)
+        story.extend(self._build_employer_section(voucher))
         story.append(Spacer(1, 18))
 
-        # Remittance Period
-        period_data = [
-            ['Remittance Period:', f"{voucher.period_start_date.strftime('%B %d, %Y')} to {voucher.period_end_date.strftime('%B %d, %Y')}"],
-            ['Due Date:', voucher.due_date.strftime('%B %d, %Y')]
-        ]
-        period_table = Table(period_data, colWidths=[2.5 * inch, 4 * inch])
-        period_table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 11),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 0)
-        ]))
-        story.append(period_table)
+        # Period Information
+        story.extend(self._build_period_section(voucher))
         story.append(Spacer(1, 24))
 
-        # Line 10: Current Source Deductions
-        deductions_data = [
-            ['Line 10: Current Source Deductions', ''],
-            ['CPP - Employee Contributions', f"${voucher.line_10_cpp_employee:,.2f}"],
-            ['CPP - Employer Contributions', f"${voucher.line_10_cpp_employer:,.2f}"],
-            ['EI - Employee Premiums', f"${voucher.line_10_ei_employee:,.2f}"],
-            ['EI - Employer Premiums', f"${voucher.line_10_ei_employer:,.2f}"],
-            ['Income Tax (Federal + Provincial)', f"${voucher.line_10_income_tax:,.2f}"]
-        ]
-
-        deductions_table = Table(deductions_data, colWidths=[4.5 * inch, 2 * inch])
-        deductions_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#333333')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 11),
-            ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 6),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6)
-        ]))
-        story.append(deductions_table)
+        # Deductions Table
+        story.extend(self._build_deductions_table(voucher))
         story.append(Spacer(1, 12))
 
-        # Line 11: Total
-        total_data = [
-            ['Line 11: Total Current Source Deductions', f"${voucher.line_11_total_deductions:,.2f}"]
-        ]
-        total_table = Table(total_data, colWidths=[4.5 * inch, 2 * inch])
-        total_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f0f0f0')),
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 12),
-            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('LEFTPADDING', (0, 0), (-1, -1), 6),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-            ('TOPPADDING', (0, 0), (-1, -1), 8),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8)
-        ]))
-        story.append(total_table)
-        story.append(Spacer(1, 18))
-
-        # Line 12 & 13 (if previous balance exists)
-        if voucher.line_12_previous_balance > Decimal("0"):
-            balance_data = [
-                ['Line 12: Previous Balance Owing', f"${voucher.line_12_previous_balance:,.2f}"],
-                ['Line 13: Total Amount Due', f"${voucher.line_13_total_due:,.2f}"]
-            ]
-            balance_table = Table(balance_data, colWidths=[4.5 * inch, 2 * inch])
-            balance_table.setStyle(TableStyle([
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica'),
-                ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 12),
-                ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#ffcccc')),
-                ('LEFTPADDING', (0, 0), (-1, -1), 6),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-                ('TOPPADDING', (0, 0), (-1, -1), 6),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 6)
-            ]))
-            story.append(balance_table)
-
+        # Total Table
+        story.extend(self._build_total_table(voucher))
         story.append(Spacer(1, 36))
 
         # Payment Instructions
-        instructions = Paragraph(
-            "<b>Payment Instructions:</b><br/><br/>"
-            "1. Pay online through CRA My Business Account (recommended)<br/>"
-            "2. Pre-authorized debit through CRA<br/>"
-            "3. Wire transfer to CRA account<br/>"
-            "4. Mail cheque with this voucher to:<br/>"
-            "&nbsp;&nbsp;&nbsp;&nbsp;Sudbury Tax Centre<br/>"
-            "&nbsp;&nbsp;&nbsp;&nbsp;1050 Notre Dame Avenue<br/>"
-            "&nbsp;&nbsp;&nbsp;&nbsp;Sudbury ON P3A 5C1",
-            self.styles['Normal']
-        )
-        story.append(instructions)
+        story.append(self._build_payment_instructions())
 
         # Build PDF
         doc.build(story)
@@ -799,391 +1017,841 @@ class PD7APDFGenerator:
         buffer.close()
 
         return pdf_bytes
-```
 
----
-
-## 4. Beancount Integration for Remittance Tracking
-
-### 4.1 Remittance Liability Accounts
-
-```python
-class BeancountRemittanceService:
-    """
-    Track remittance liabilities and payments in Beancount
-    """
-
-    def __init__(self, beancount_service):
-        self.beancount = beancount_service
-
-    async def record_remittance_liability(
+    def _build_employer_section(
         self,
-        ledger_id: str,
-        remittance: RemittancePeriod
-    ) -> str:
-        """
-        Record remittance liability in Beancount
+        voucher: PD7ARemittanceVoucher
+    ) -> list:
+        """Build employer information section."""
+        data = [
+            ["Employer Name:", voucher.employer_name],
+            ["Payroll Account Number:", voucher.payroll_account_number]
+        ]
+        table = Table(data, colWidths=[2.5 * inch, 4 * inch])
+        table.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 11),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0)
+        ]))
+        return [table]
 
-        This entry is created at period end to track what is owed to CRA
+    def _build_period_section(
+        self,
+        voucher: PD7ARemittanceVoucher
+    ) -> list:
+        """Build period information section."""
+        period_str = (
+            f"{voucher.period_start.strftime('%B %d, %Y')} to "
+            f"{voucher.period_end.strftime('%B %d, %Y')}"
+        )
+        data = [
+            ["Remittance Period:", period_str],
+            ["Due Date:", voucher.due_date.strftime("%B %d, %Y")]
+        ]
+        table = Table(data, colWidths=[2.5 * inch, 4 * inch])
+        table.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 11),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0)
+        ]))
+        return [table]
 
-        Args:
-            ledger_id: Ledger identifier
-            remittance: RemittancePeriod data
-
-        Returns:
-            Beancount transaction ID
-        """
-        transaction_date = remittance.period_end_date
-        description = f"Remittance Liability - {remittance.period_start_date.strftime('%b %d')} to {remittance.period_end_date.strftime('%b %d, %Y')}"
-
-        # Build Beancount entry
-        entry_lines = [
-            f"{transaction_date} * \"Payroll\" \"{description}\"",
+    def _build_deductions_table(
+        self,
+        voucher: PD7ARemittanceVoucher
+    ) -> list:
+        """Build Line 10 deductions table."""
+        data = [
+            ["Line 10: Current Source Deductions", ""],
+            ["CPP - Employee Contributions", f"${voucher.line_10_cpp_employee:,.2f}"],
+            ["CPP - Employer Contributions", f"${voucher.line_10_cpp_employer:,.2f}"],
+            ["EI - Employee Premiums", f"${voucher.line_10_ei_employee:,.2f}"],
+            ["EI - Employer Premiums", f"${voucher.line_10_ei_employer:,.2f}"],
+            ["Income Tax (Federal + Provincial)", f"${voucher.line_10_income_tax:,.2f}"]
         ]
 
-        # Debit: Payroll Tax Expense (employer portions already expensed during payroll)
-        # This entry is just to consolidate liabilities
+        table = Table(data, colWidths=[4.5 * inch, 2 * inch])
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#333333")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 11),
+            ("ALIGN", (1, 1), (1, -1), "RIGHT"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6)
+        ]))
+        return [table]
 
-        # Credit: CPP Remittance Liability
-        total_cpp = remittance.total_cpp_employee + remittance.total_cpp_employer
-        if total_cpp > Decimal("0"):
-            entry_lines.append(f"  Liabilities:Payroll:CPP-Remittance  {total_cpp:.2f} CAD")
-
-        # Credit: EI Remittance Liability
-        total_ei = remittance.total_ei_employee + remittance.total_ei_employer
-        if total_ei > Decimal("0"):
-            entry_lines.append(f"  Liabilities:Payroll:EI-Remittance  {total_ei:.2f} CAD")
-
-        # Credit: Tax Remittance Liability
-        total_tax = remittance.total_federal_tax + remittance.total_provincial_tax
-        if total_tax > Decimal("0"):
-            entry_lines.append(f"  Liabilities:Payroll:Tax-Remittance  {total_tax:.2f} CAD")
-
-        # This is a liability-only entry (no asset/expense change)
-        # The actual expenses were recorded during individual payroll entries
-        # This entry just consolidates the liability for remittance tracking
-
-        entry_text = "\n".join(entry_lines)
-
-        # Append to ledger file
-        transaction_id = await self.beancount.append_transaction(ledger_id, entry_text)
-
-        return transaction_id
-
-    async def record_remittance_payment(
+    def _build_total_table(
         self,
-        ledger_id: str,
-        remittance: RemittancePeriod,
-        payment_date: date,
-        payment_method: str
-    ) -> str:
-        """
-        Record remittance payment in Beancount
+        voucher: PD7ARemittanceVoucher
+    ) -> list:
+        """Build Line 11-13 total tables."""
+        tables = []
 
-        Args:
-            ledger_id: Ledger identifier
-            remittance: RemittancePeriod data
-            payment_date: Date payment was made
-            payment_method: Payment method
+        # Line 11: Total
+        total_data = [[
+            "Line 11: Total Current Source Deductions",
+            f"${voucher.line_11_total_deductions:,.2f}"
+        ]]
+        total_table = Table(total_data, colWidths=[4.5 * inch, 2 * inch])
+        total_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f0f0f0")),
+            ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 12),
+            ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+            ("GRID", (0, 0), (-1, -1), 1, colors.black),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8)
+        ]))
+        tables.append(total_table)
 
-        Returns:
-            Beancount transaction ID
-        """
-        description = f"Remittance Payment - {remittance.period_start_date.strftime('%b %Y')} via {payment_method}"
+        # Line 12 & 13 (if previous balance exists)
+        if voucher.line_12_previous_balance > 0:
+            tables.append(Spacer(1, 12))
+            balance_data = [
+                [
+                    "Line 12: Previous Balance Owing",
+                    f"${voucher.line_12_previous_balance:,.2f}"
+                ],
+                [
+                    "Line 13: Total Amount Due",
+                    f"${voucher.line_13_total_due:,.2f}"
+                ]
+            ]
+            balance_table = Table(balance_data, colWidths=[4.5 * inch, 2 * inch])
+            balance_table.setStyle(TableStyle([
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica"),
+                ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 12),
+                ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor("#ffcccc")),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6)
+            ]))
+            tables.append(balance_table)
 
-        entry_lines = [
-            f"{payment_date} * \"CRA Remittance\" \"{description}\"",
-        ]
+        return tables
 
-        # Debit: Clear liability accounts
-        total_cpp = remittance.total_cpp_employee + remittance.total_cpp_employer
-        if total_cpp > Decimal("0"):
-            entry_lines.append(f"  Liabilities:Payroll:CPP-Remittance  -{total_cpp:.2f} CAD")
-
-        total_ei = remittance.total_ei_employee + remittance.total_ei_employer
-        if total_ei > Decimal("0"):
-            entry_lines.append(f"  Liabilities:Payroll:EI-Remittance  -{total_ei:.2f} CAD")
-
-        total_tax = remittance.total_federal_tax + remittance.total_provincial_tax
-        if total_tax > Decimal("0"):
-            entry_lines.append(f"  Liabilities:Payroll:Tax-Remittance  -{total_tax:.2f} CAD")
-
-        # Credit: Bank account
-        total_payment = remittance.total_remittance
-        entry_lines.append(f"  Assets:Bank:Chequing  -{total_payment:.2f} CAD")
-
-        entry_text = "\n".join(entry_lines)
-
-        transaction_id = await self.beancount.append_transaction(ledger_id, entry_text)
-
-        return transaction_id
+    def _build_payment_instructions(self) -> Paragraph:
+        """Build payment instructions section."""
+        return Paragraph(
+            "<b>Payment Instructions:</b><br/><br/>"
+            "1. Pay online through CRA My Business Account (recommended)<br/>"
+            "2. Pre-authorized debit through CRA<br/>"
+            "3. Wire transfer to CRA account<br/>"
+            "4. Mail cheque with this voucher to:<br/>"
+            "&nbsp;&nbsp;&nbsp;&nbsp;Sudbury Tax Centre<br/>"
+            "&nbsp;&nbsp;&nbsp;&nbsp;1050 Notre Dame Avenue<br/>"
+            "&nbsp;&nbsp;&nbsp;&nbsp;Sudbury ON P3A 5C1",
+            self.styles["Normal"]
+        )
 ```
 
 ---
 
 ## 5. API Endpoints
 
-### 5.1 FastAPI Routes
+### 5.1 FastAPI Router
+
+**File**: `backend/app/api/v1/remittance.py`
 
 ```python
-from fastapi import APIRouter, Depends, HTTPException
-from typing import List
+"""
+Remittance API Endpoints
 
-router = APIRouter(prefix="/api/v1/remittance", tags=["remittance"])
+REST API for remittance management and reporting.
+"""
 
-@router.get("/classification/{ledger_id}/{year}")
+from __future__ import annotations
+
+from datetime import date
+from decimal import Decimal
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
+from pydantic import BaseModel, Field
+
+from app.api.deps import get_current_user, get_supabase_client
+from app.models.payroll import RemitterType
+from app.models.remittance import (
+    PaymentMethod,
+    PD7ARemittanceVoucher,
+    RemittancePeriod,
+    RemittancePeriodUpdate,
+    RemittanceSummary,
+    RemitterClassification,
+)
+from app.services.remittance_service import RemittanceService
+from app.services.remittance.pd7a_generator import PD7APDFGenerator
+
+router = APIRouter(prefix="/remittance", tags=["remittance"])
+
+
+# =============================================================================
+# Request/Response Models (camelCase for frontend)
+# =============================================================================
+
+class RemitterClassificationResponse(BaseModel):
+    """Response for remitter classification."""
+    companyId: UUID
+    effectiveYear: int
+    classificationBasedOnYear: int
+    averageMonthlyWithholdingAmount: Decimal
+    remitterType: str
+
+    @classmethod
+    def from_model(cls, model: RemitterClassification) -> "RemitterClassificationResponse":
+        return cls(
+            companyId=model.company_id,
+            effectiveYear=model.effective_year,
+            classificationBasedOnYear=model.classification_based_on_year,
+            averageMonthlyWithholdingAmount=model.average_monthly_withholding_amount,
+            remitterType=model.remitter_type.value
+        )
+
+
+class RemittancePeriodResponse(BaseModel):
+    """Response for remittance period."""
+    id: UUID
+    companyId: UUID
+    remitterType: str
+    periodStart: date
+    periodEnd: date
+    periodLabel: str
+    dueDate: date
+    cppEmployee: Decimal
+    cppEmployer: Decimal
+    eiEmployee: Decimal
+    eiEmployer: Decimal
+    federalTax: Decimal
+    provincialTax: Decimal
+    totalAmount: Decimal
+    status: str
+    paidDate: date | None
+    paymentMethod: str | None
+    confirmationNumber: str | None
+    notes: str | None
+    daysOverdue: int
+    penaltyRate: Decimal
+    penaltyAmount: Decimal
+    payrollRunIds: list[UUID]
+    createdAt: str
+    updatedAt: str
+
+    @classmethod
+    def from_model(cls, model: RemittancePeriod) -> "RemittancePeriodResponse":
+        return cls(
+            id=model.id,
+            companyId=model.company_id,
+            remitterType=model.remitter_type.value,
+            periodStart=model.period_start,
+            periodEnd=model.period_end,
+            periodLabel=model.period_label,
+            dueDate=model.due_date,
+            cppEmployee=model.cpp_employee,
+            cppEmployer=model.cpp_employer,
+            eiEmployee=model.ei_employee,
+            eiEmployer=model.ei_employer,
+            federalTax=model.federal_tax,
+            provincialTax=model.provincial_tax,
+            totalAmount=model.total_amount,
+            status=model.status.value,
+            paidDate=model.paid_date,
+            paymentMethod=model.payment_method.value if model.payment_method else None,
+            confirmationNumber=model.confirmation_number,
+            notes=model.notes,
+            daysOverdue=model.days_overdue,
+            penaltyRate=model.penalty_rate,
+            penaltyAmount=model.penalty_amount,
+            payrollRunIds=model.payroll_run_ids,
+            createdAt=model.created_at.isoformat(),
+            updatedAt=model.updated_at.isoformat()
+        )
+
+
+class RemittanceSummaryResponse(BaseModel):
+    """Response for remittance summary."""
+    year: int
+    ytdRemitted: Decimal
+    totalRemittances: int
+    completedRemittances: int
+    onTimeRate: Decimal
+    pendingAmount: Decimal
+    pendingCount: int
+
+    @classmethod
+    def from_model(cls, model: RemittanceSummary) -> "RemittanceSummaryResponse":
+        return cls(
+            year=model.year,
+            ytdRemitted=model.ytd_remitted,
+            totalRemittances=model.total_remittances,
+            completedRemittances=model.completed_remittances,
+            onTimeRate=model.on_time_rate,
+            pendingAmount=model.pending_amount,
+            pendingCount=model.pending_count
+        )
+
+
+class RecordPaymentRequest(BaseModel):
+    """Request to record remittance payment."""
+    paidDate: date
+    paymentMethod: PaymentMethod
+    confirmationNumber: str | None = None
+    notes: str | None = None
+
+
+# =============================================================================
+# Endpoints
+# =============================================================================
+
+@router.get("/classification/{company_id}/{year}")
 async def get_remitter_classification(
-    ledger_id: str,
+    company_id: UUID,
     year: int,
-    current_user=Depends(get_current_user),
-    firestore_service=Depends(get_firestore_service)
-):
+    current_user: Annotated[dict, Depends(get_current_user)],
+    supabase: Annotated[any, Depends(get_supabase_client)]
+) -> RemitterClassificationResponse:
     """
-    Get remitter classification for a given year
+    Get remitter classification for a given year.
 
-    Uses AMWA from two years ago to determine remitter type
+    Uses AMWA from two years ago to determine remitter type.
     """
-    if not await check_ledger_access(current_user.uid, ledger_id):
-        raise HTTPException(status_code=403, detail="Access denied")
-
-    amwa_service = AMWACalculationService(firestore_service)
-    classification = await amwa_service.determine_remitter_classification(ledger_id, year)
-
-    return classification.dict()
+    service = RemittanceService(supabase, current_user["id"])
+    classification = await service.determine_remitter_classification(company_id, year)
+    return RemitterClassificationResponse.from_model(classification)
 
 
-@router.get("/schedule/{ledger_id}/{year}")
-async def get_remittance_schedule(
-    ledger_id: str,
+@router.get("/periods/{company_id}")
+async def list_remittance_periods(
+    company_id: UUID,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    supabase: Annotated[any, Depends(get_supabase_client)],
+    year: Annotated[int | None, Query()] = None,
+    status: Annotated[str | None, Query()] = None
+) -> list[RemittancePeriodResponse]:
+    """
+    List remittance periods for a company.
+
+    Optional filters: year, status
+    """
+    service = RemittanceService(supabase, current_user["id"])
+
+    from app.models.remittance import RemittanceStatus
+    status_enum = RemittanceStatus(status) if status else None
+
+    periods = await service.list_remittance_periods(
+        company_id=company_id,
+        year=year,
+        status=status_enum
+    )
+    return [RemittancePeriodResponse.from_model(p) for p in periods]
+
+
+@router.get("/periods/{company_id}/{remittance_id}")
+async def get_remittance_period(
+    company_id: UUID,
+    remittance_id: UUID,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    supabase: Annotated[any, Depends(get_supabase_client)]
+) -> RemittancePeriodResponse:
+    """Get a single remittance period."""
+    service = RemittanceService(supabase, current_user["id"])
+    period = await service.get_remittance_period(remittance_id)
+
+    if not period:
+        raise HTTPException(status_code=404, detail="Remittance period not found")
+
+    return RemittancePeriodResponse.from_model(period)
+
+
+@router.get("/summary/{company_id}/{year}")
+async def get_remittance_summary(
+    company_id: UUID,
     year: int,
-    current_user=Depends(get_current_user),
-    firestore_service=Depends(get_firestore_service)
-):
-    """
-    Generate remittance schedule for the entire year
-    """
-    if not await check_ledger_access(current_user.uid, ledger_id):
-        raise HTTPException(status_code=403, detail="Access denied")
+    current_user: Annotated[dict, Depends(get_current_user)],
+    supabase: Annotated[any, Depends(get_supabase_client)]
+) -> RemittanceSummaryResponse:
+    """Get YTD remittance summary for dashboard."""
+    service = RemittanceService(supabase, current_user["id"])
+    summary = await service.get_remittance_summary(company_id, year)
+    return RemittanceSummaryResponse.from_model(summary)
 
-    # Get remitter classification
-    amwa_service = AMWACalculationService(firestore_service)
-    classification = await amwa_service.determine_remitter_classification(ledger_id, year)
 
-    # Generate schedule
-    calc_service = RemittanceCalculationService(firestore_service)
-    schedule = await calc_service.generate_remittance_schedule(
-        ledger_id=ledger_id,
-        remitter_type=classification.remitter_type,
-        year=year
+@router.post("/periods/{company_id}/{remittance_id}/record-payment")
+async def record_remittance_payment(
+    company_id: UUID,
+    remittance_id: UUID,
+    request: RecordPaymentRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    supabase: Annotated[any, Depends(get_supabase_client)]
+) -> RemittancePeriodResponse:
+    """
+    Record remittance payment.
+
+    Updates remittance status to 'paid' or 'paid_late'.
+    """
+    service = RemittanceService(supabase, current_user["id"])
+
+    update_data = RemittancePeriodUpdate(
+        paid_date=request.paidDate,
+        payment_method=request.paymentMethod,
+        confirmation_number=request.confirmationNumber,
+        notes=request.notes
     )
 
-    return {
-        "year": year,
-        "remitter_type": classification.remitter_type,
-        "schedule": [r.dict() for r in schedule]
-    }
+    updated = await service.record_payment(remittance_id, update_data)
+    return RemittancePeriodResponse.from_model(updated)
 
 
-@router.post("/generate-pd7a/{ledger_id}")
+@router.get("/pd7a/{company_id}/{remittance_id}")
 async def generate_pd7a_voucher(
-    ledger_id: str,
-    period_start_date: date,
-    period_end_date: date,
-    current_user=Depends(get_current_user),
-    firestore_service=Depends(get_firestore_service)
-):
+    company_id: UUID,
+    remittance_id: UUID,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    supabase: Annotated[any, Depends(get_supabase_client)]
+) -> Response:
     """
-    Generate PD7A remittance voucher PDF
+    Generate PD7A remittance voucher PDF.
+
+    Returns PDF file for download.
     """
-    if not await check_ledger_access(current_user.uid, ledger_id):
-        raise HTTPException(status_code=403, detail="Access denied")
+    service = RemittanceService(supabase, current_user["id"])
+    period = await service.get_remittance_period(remittance_id)
 
-    # Calculate remittance
-    amwa_service = AMWACalculationService(firestore_service)
-    classification = await amwa_service.determine_remitter_classification(ledger_id, period_start_date.year)
+    if not period:
+        raise HTTPException(status_code=404, detail="Remittance period not found")
 
-    calc_service = RemittanceCalculationService(firestore_service)
-    remittance = await calc_service.calculate_remittance_period(
-        ledger_id=ledger_id,
-        remitter_type=classification.remitter_type,
-        period_start_date=period_start_date,
-        period_end_date=period_end_date
-    )
+    # Get company info for employer name
+    company_response = supabase.table("companies").select(
+        "company_name, payroll_account_number"
+    ).eq(
+        "id", str(company_id)
+    ).single().execute()
+
+    if not company_response.data:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    company = company_response.data
 
     # Build PD7A voucher
-    employer = await firestore_service.get_employer_info(ledger_id)
     voucher = PD7ARemittanceVoucher(
-        employer_name=employer.legal_name,
-        payroll_account_number=employer.cra_payroll_account,
-        period_start_date=remittance.period_start_date,
-        period_end_date=remittance.period_end_date,
-        due_date=remittance.due_date,
-        line_10_cpp_employee=remittance.total_cpp_employee,
-        line_10_cpp_employer=remittance.total_cpp_employer,
-        line_10_ei_employee=remittance.total_ei_employee,
-        line_10_ei_employer=remittance.total_ei_employer,
-        line_10_income_tax=remittance.total_federal_tax + remittance.total_provincial_tax
+        employer_name=company["company_name"],
+        payroll_account_number=company["payroll_account_number"],
+        period_start=period.period_start,
+        period_end=period.period_end,
+        due_date=period.due_date,
+        line_10_cpp_employee=period.cpp_employee,
+        line_10_cpp_employer=period.cpp_employer,
+        line_10_ei_employee=period.ei_employee,
+        line_10_ei_employer=period.ei_employer,
+        line_10_income_tax=period.federal_tax + period.provincial_tax
     )
 
     # Generate PDF
-    pdf_generator = PD7APDFGenerator()
-    pdf_bytes = pdf_generator.generate_pd7a_pdf(voucher)
+    generator = PD7APDFGenerator()
+    pdf_bytes = generator.generate_pdf(voucher)
 
-    # Return PDF as response
-    from fastapi.responses import Response
+    filename = f"PD7A_{period.period_start}_{period.period_end}.pdf"
+
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=PD7A_{period_start_date}_{period_end_date}.pdf"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+```
 
+### 5.2 Register Router
 
-@router.post("/record-payment/{ledger_id}/{remittance_id}")
-async def record_remittance_payment(
-    ledger_id: str,
-    remittance_id: str,
-    payment_date: date,
-    payment_method: str,
-    confirmation_number: Optional[str] = None,
-    current_user=Depends(get_current_user),
-    firestore_service=Depends(get_firestore_service)
-):
-    """
-    Record remittance payment
+Add to `backend/app/api/v1/__init__.py`:
 
-    Updates remittance record and creates Beancount entry
-    """
-    if not await check_ledger_access(current_user.uid, ledger_id):
-        raise HTTPException(status_code=403, detail="Access denied")
+```python
+from app.api.v1.remittance import router as remittance_router
 
-    # Fetch remittance
-    remittance = await firestore_service.get_remittance(ledger_id, remittance_id)
-    if not remittance:
-        raise HTTPException(status_code=404, detail="Remittance not found")
-
-    # Update remittance record
-    remittance.paid = True
-    remittance.payment_date = payment_date
-    remittance.payment_method = payment_method
-    remittance.payment_confirmation_number = confirmation_number
-
-    await firestore_service.update_remittance(ledger_id, remittance_id, remittance)
-
-    # Record in Beancount
-    beancount_service = BeancountRemittanceService(get_beancount_service())
-    transaction_id = await beancount_service.record_remittance_payment(
-        ledger_id=ledger_id,
-        remittance=remittance,
-        payment_date=payment_date,
-        payment_method=payment_method
-    )
-
-    return {
-        "message": "Payment recorded successfully",
-        "remittance_id": remittance_id,
-        "beancount_transaction_id": transaction_id
-    }
+# In create_app() or router setup:
+app.include_router(remittance_router, prefix="/api/v1")
 ```
 
 ---
 
-## 6. Testing
+## 6. Frontend Service
+
+### 6.1 Remittance API Service
+
+**File**: `frontend/src/lib/services/remittanceService.ts`
+
+```typescript
+/**
+ * Remittance Service
+ *
+ * API calls for remittance management.
+ */
+
+import { apiClient } from '$lib/api/client';
+import type {
+	RemittancePeriod,
+	RemittanceSummary,
+	PaymentMethod
+} from '$lib/types/remittance';
+
+export interface RemitterClassification {
+	companyId: string;
+	effectiveYear: number;
+	classificationBasedOnYear: number;
+	averageMonthlyWithholdingAmount: number;
+	remitterType: string;
+}
+
+export interface RecordPaymentRequest {
+	paidDate: string;
+	paymentMethod: PaymentMethod;
+	confirmationNumber?: string;
+	notes?: string;
+}
+
+/**
+ * Get remitter classification for a year
+ */
+export async function getRemitterClassification(
+	companyId: string,
+	year: number
+): Promise<RemitterClassification> {
+	return apiClient.get(`/remittance/classification/${companyId}/${year}`);
+}
+
+/**
+ * List remittance periods
+ */
+export async function listRemittancePeriods(
+	companyId: string,
+	year?: number,
+	status?: string
+): Promise<RemittancePeriod[]> {
+	const params = new URLSearchParams();
+	if (year) params.set('year', year.toString());
+	if (status) params.set('status', status);
+
+	const query = params.toString();
+	const url = `/remittance/periods/${companyId}${query ? `?${query}` : ''}`;
+
+	return apiClient.get(url);
+}
+
+/**
+ * Get a single remittance period
+ */
+export async function getRemittancePeriod(
+	companyId: string,
+	remittanceId: string
+): Promise<RemittancePeriod> {
+	return apiClient.get(`/remittance/periods/${companyId}/${remittanceId}`);
+}
+
+/**
+ * Get remittance summary for dashboard
+ */
+export async function getRemittanceSummary(
+	companyId: string,
+	year: number
+): Promise<RemittanceSummary> {
+	return apiClient.get(`/remittance/summary/${companyId}/${year}`);
+}
+
+/**
+ * Record remittance payment
+ */
+export async function recordPayment(
+	companyId: string,
+	remittanceId: string,
+	data: RecordPaymentRequest
+): Promise<RemittancePeriod> {
+	return apiClient.post(
+		`/remittance/periods/${companyId}/${remittanceId}/record-payment`,
+		data
+	);
+}
+
+/**
+ * Get PD7A voucher download URL
+ */
+export function getPD7ADownloadUrl(
+	companyId: string,
+	remittanceId: string
+): string {
+	return `/api/v1/remittance/pd7a/${companyId}/${remittanceId}`;
+}
+```
+
+---
+
+## 7. Testing
+
+### 7.1 Unit Tests
+
+**File**: `backend/tests/remittance/test_remittance_service.py`
 
 ```python
+"""
+Remittance Service Tests
+"""
+
 import pytest
 from decimal import Decimal
 from datetime import date
 
-def test_remitter_classification():
-    """Test remitter type determination"""
-    assert RemitterClassification.determine_remitter_type(Decimal("2000")) == RemitterType.QUARTERLY
-    assert RemitterClassification.determine_remitter_type(Decimal("10000")) == RemitterType.REGULAR
-    assert RemitterClassification.determine_remitter_type(Decimal("50000")) == RemitterType.THRESHOLD_1
-    assert RemitterClassification.determine_remitter_type(Decimal("150000")) == RemitterType.THRESHOLD_2
+from app.models.payroll import RemitterType
+from app.models.remittance import RemitterClassification
+from app.services.remittance_service import RemittanceService
 
 
-def test_late_penalty_calculation():
-    """Test late penalty rates"""
-    remittance = RemittancePeriod(
-        ledger_id="test",
-        remitter_type=RemitterType.REGULAR,
-        period_start_date=date(2025, 1, 1),
-        period_end_date=date(2025, 1, 31),
-        due_date=date(2025, 2, 1),  # Overdue
-        total_remittance=Decimal("10000.00")
-    )
+class TestRemitterClassification:
+    """Test remitter type determination."""
 
-    # Mock today's date as 5 days late
-    from unittest.mock import patch
-    with patch('datetime.date') as mock_date:
-        mock_date.today.return_value = date(2025, 2, 6)
-        mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
+    def test_quarterly_classification(self):
+        """AMWA < $3,000 should be quarterly."""
+        result = RemitterClassification.determine_remitter_type(Decimal("2000"))
+        assert result == RemitterType.QUARTERLY
 
-        assert remittance.days_overdue == 5
-        assert remittance.late_penalty_rate == Decimal("0.05")
-        assert remittance.late_penalty_amount == Decimal("500.00")
+    def test_regular_classification(self):
+        """AMWA $3,000 - $24,999 should be regular."""
+        result = RemitterClassification.determine_remitter_type(Decimal("10000"))
+        assert result == RemitterType.REGULAR
+
+    def test_threshold_1_classification(self):
+        """AMWA $25,000 - $99,999 should be threshold_1."""
+        result = RemitterClassification.determine_remitter_type(Decimal("50000"))
+        assert result == RemitterType.THRESHOLD_1
+
+    def test_threshold_2_classification(self):
+        """AMWA >= $100,000 should be threshold_2."""
+        result = RemitterClassification.determine_remitter_type(Decimal("150000"))
+        assert result == RemitterType.THRESHOLD_2
+
+    def test_boundary_values(self):
+        """Test boundary values."""
+        # Just under $3,000
+        assert RemitterClassification.determine_remitter_type(
+            Decimal("2999.99")
+        ) == RemitterType.QUARTERLY
+
+        # Exactly $3,000
+        assert RemitterClassification.determine_remitter_type(
+            Decimal("3000")
+        ) == RemitterType.REGULAR
+
+        # Exactly $25,000
+        assert RemitterClassification.determine_remitter_type(
+            Decimal("25000")
+        ) == RemitterType.THRESHOLD_1
+
+        # Exactly $100,000
+        assert RemitterClassification.determine_remitter_type(
+            Decimal("100000")
+        ) == RemitterType.THRESHOLD_2
 
 
-def test_pd7a_voucher_totals():
-    """Test PD7A total calculation"""
-    voucher = PD7ARemittanceVoucher(
-        employer_name="Test Corp",
-        payroll_account_number="123456789RP0001",
-        period_start_date=date(2025, 1, 1),
-        period_end_date=date(2025, 1, 31),
-        due_date=date(2025, 2, 15),
-        line_10_cpp_employee=Decimal("1000.00"),
-        line_10_cpp_employer=Decimal("1000.00"),
-        line_10_ei_employee=Decimal("300.00"),
-        line_10_ei_employer=Decimal("420.00"),
-        line_10_income_tax=Decimal("3000.00")
-    )
+class TestPenaltyCalculation:
+    """Test late penalty calculations."""
 
-    assert voucher.line_11_total_deductions == Decimal("5720.00")
-    assert voucher.line_13_total_due == Decimal("5720.00")
+    def test_no_penalty_on_time(self):
+        """No penalty if not overdue."""
+        rate = RemittanceService.calculate_penalty_rate(0)
+        assert rate == Decimal("0")
 
-    # With previous balance
-    voucher.line_12_previous_balance = Decimal("500.00")
-    assert voucher.line_13_total_due == Decimal("6220.00")
+    def test_penalty_1_to_3_days(self):
+        """3% penalty for 1-3 days late."""
+        for days in [1, 2, 3]:
+            rate = RemittanceService.calculate_penalty_rate(days)
+            assert rate == Decimal("0.03")
+
+    def test_penalty_4_to_5_days(self):
+        """5% penalty for 4-5 days late."""
+        for days in [4, 5]:
+            rate = RemittanceService.calculate_penalty_rate(days)
+            assert rate == Decimal("0.05")
+
+    def test_penalty_6_to_7_days(self):
+        """7% penalty for 6-7 days late."""
+        for days in [6, 7]:
+            rate = RemittanceService.calculate_penalty_rate(days)
+            assert rate == Decimal("0.07")
+
+    def test_penalty_8_plus_days(self):
+        """10% penalty for 8+ days late."""
+        for days in [8, 10, 30, 100]:
+            rate = RemittanceService.calculate_penalty_rate(days)
+            assert rate == Decimal("0.10")
+
+    def test_penalty_amount_calculation(self):
+        """Test penalty amount calculation."""
+        amount = Decimal("10000.00")
+
+        # 3 days late = 3%
+        penalty = RemittanceService.calculate_penalty_amount(amount, 3)
+        assert penalty == Decimal("300.00")
+
+        # 5 days late = 5%
+        penalty = RemittanceService.calculate_penalty_amount(amount, 5)
+        assert penalty == Decimal("500.00")
+
+
+class TestDueDateCalculation:
+    """Test due date calculation."""
+
+    def test_regular_due_date(self):
+        """Regular remitter: 15th of following month."""
+        service = RemittanceService(None, "test")
+
+        # January period -> February 15
+        due = service.calculate_due_date(
+            RemitterType.REGULAR,
+            date(2025, 1, 31)
+        )
+        assert due == date(2025, 2, 15)
+
+        # December period -> January 15 next year
+        due = service.calculate_due_date(
+            RemitterType.REGULAR,
+            date(2025, 12, 31)
+        )
+        assert due == date(2026, 1, 15)
+
+    def test_quarterly_due_date(self):
+        """Quarterly remitter: 15th of month after quarter end."""
+        service = RemittanceService(None, "test")
+
+        # Q1 (Mar 31) -> April 15
+        due = service.calculate_due_date(
+            RemitterType.QUARTERLY,
+            date(2025, 3, 31)
+        )
+        assert due == date(2025, 4, 15)
+
+        # Q4 (Dec 31) -> January 15 next year
+        due = service.calculate_due_date(
+            RemitterType.QUARTERLY,
+            date(2025, 12, 31)
+        )
+        assert due == date(2026, 1, 15)
+
+    def test_threshold_1_due_date(self):
+        """Threshold 1: 25th for 1st-15th, 10th for 16th-end."""
+        service = RemittanceService(None, "test")
+
+        # First half (1-15) -> 25th same month
+        due = service.calculate_due_date(
+            RemitterType.THRESHOLD_1,
+            date(2025, 1, 15)
+        )
+        assert due == date(2025, 1, 25)
+
+        # Second half (16-31) -> 10th next month
+        due = service.calculate_due_date(
+            RemitterType.THRESHOLD_1,
+            date(2025, 1, 31)
+        )
+        assert due == date(2025, 2, 10)
+
+    def test_weekend_adjustment(self):
+        """Due date should adjust if on weekend."""
+        service = RemittanceService(None, "test")
+
+        # February 15, 2025 is a Saturday -> Monday February 17
+        due = service.calculate_due_date(
+            RemitterType.REGULAR,
+            date(2025, 1, 31)
+        )
+        assert due == date(2025, 2, 17)  # Adjusted to Monday
 ```
 
 ---
 
-## 7. Implementation Checklist
+## 8. Implementation Checklist
 
-- [ ] **Remitter Classification**
-  - [ ] Implement `AMWACalculationService`
-  - [ ] Implement `RemitterClassification` model
-  - [ ] Test AMWA calculation with sample data
+### Phase 7.1: Database & Models
 
-- [ ] **Remittance Calculation**
-  - [ ] Implement `RemittanceCalculationService`
-  - [ ] Implement due date calculation for all remitter types
-  - [ ] Test remittance schedule generation
+- [ ] Create migration `create_remittance_tables.sql`
+- [ ] Apply migration to Supabase
+- [ ] Create `backend/app/models/remittance.py`
+- [ ] Test models with sample data
 
-- [ ] **PD7A Generation**
-  - [ ] Implement `PD7ARemittanceVoucher` model
-  - [ ] Implement `PD7APDFGenerator`
-  - [ ] Test PDF generation
+### Phase 7.2: Backend Service
 
-- [ ] **Beancount Integration**
-  - [ ] Implement liability tracking
-  - [ ] Implement payment recording
-  - [ ] Test double-entry bookkeeping
+- [ ] Create `backend/app/services/remittance_service.py`
+- [ ] Implement AMWA calculation
+- [ ] Implement due date calculation
+- [ ] Implement penalty calculation
+- [ ] Write unit tests
 
-- [ ] **API Endpoints**
-  - [ ] Implement classification endpoint
-  - [ ] Implement schedule endpoint
-  - [ ] Implement PD7A generation endpoint
-  - [ ] Implement payment recording endpoint
+### Phase 7.3: PD7A Generator
 
-- [ ] **Testing**
-  - [ ] Unit tests for all services
-  - [ ] Integration tests for workflows
-  - [ ] Manual testing with real data
+- [ ] Create `backend/app/services/remittance/pd7a_generator.py`
+- [ ] Test PDF generation
+- [ ] Verify PDF layout matches CRA format
+
+### Phase 7.4: API Endpoints
+
+- [ ] Create `backend/app/api/v1/remittance.py`
+- [ ] Register router in `__init__.py`
+- [ ] Test all endpoints with Swagger UI
+
+### Phase 7.5: Frontend Integration
+
+- [ ] Create `frontend/src/lib/services/remittanceService.ts`
+- [ ] Update `+page.svelte` to use real API
+- [ ] Remove mock data
+- [ ] Test full workflow
 
 ---
 
-**Document Version**: 1.0
+## 9. Future Enhancements
+
+### 9.1 Beancount Integration (Low Priority)
+
+Beancount integration for double-entry bookkeeping of remittance liabilities and payments. This is a future enhancement when Beancount integration is implemented for the broader payroll system.
+
+```python
+# Future: backend/app/services/remittance/beancount_integration.py
+class BeancountRemittanceService:
+    """Track remittance liabilities and payments in Beancount."""
+
+    async def record_remittance_liability(self, remittance: RemittancePeriod) -> str:
+        """Record remittance liability entry."""
+        pass
+
+    async def record_remittance_payment(
+        self,
+        remittance: RemittancePeriod,
+        payment_date: date
+    ) -> str:
+        """Record remittance payment entry."""
+        pass
+```
+
+### 9.2 Automatic Remittance Period Generation
+
+Automatically generate remittance periods when payroll runs are approved, aggregating deductions by period.
+
+### 9.3 CRA My Business Account Deep Links
+
+Add direct links to CRA My Business Account for payment submission.
+
+---
+
+**Document Version**: 2.0
 **Created**: 2025-10-09
-**For**: Beancount-LLM Canadian Payroll System - Phase 7 Implementation
+**Updated**: 2025-12-31
+**For**: Beanflow-Payroll - Phase 7 Implementation

@@ -9,6 +9,8 @@
 		formatVacationRate
 	} from '$lib/types/employee';
 	import { formatShortDate } from '$lib/utils/dateUtils';
+	import { getEmployeeSickLeaveBalance } from '$lib/services/sickLeaveService';
+	import type { SickLeaveBalance } from '$lib/types/sick-leave';
 
 	interface Props {
 		employee: Employee;
@@ -18,6 +20,24 @@
 	}
 
 	let { employee, showSIN, onToggleSIN, onClose }: Props = $props();
+
+	// Sick leave balance state
+	let sickLeaveBalance = $state<SickLeaveBalance | null>(null);
+	let sickLeaveLoading = $state(false);
+
+	// Fetch sick leave balance when employee changes
+	$effect(() => {
+		if (employee?.id) {
+			sickLeaveLoading = true;
+			getEmployeeSickLeaveBalance(employee.id, new Date().getFullYear())
+				.then((balance) => {
+					sickLeaveBalance = balance ?? null;
+				})
+				.finally(() => {
+					sickLeaveLoading = false;
+				});
+		}
+	});
 
 	function handleEdit() {
 		goto(`/employees/${employee.id}`);
@@ -214,6 +234,43 @@
 			</div>
 		</section>
 
+		<!-- Sick Leave -->
+		<section class="detail-section">
+			<h3 class="section-title">Sick Leave</h3>
+			{#if sickLeaveLoading}
+				<p class="text-muted">Loading...</p>
+			{:else if sickLeaveBalance}
+				<div class="detail-row">
+					<span class="detail-label">Paid Days Remaining</span>
+					<span class="detail-value highlight">
+						{(sickLeaveBalance.paidDaysRemaining ?? 0).toFixed(1)} days
+					</span>
+				</div>
+				{#if (sickLeaveBalance.unpaidDaysEntitled ?? 0) > 0}
+					<div class="detail-row">
+						<span class="detail-label">Unpaid Days Remaining</span>
+						<span class="detail-value">
+							{(sickLeaveBalance.unpaidDaysRemaining ?? 0).toFixed(1)} days
+						</span>
+					</div>
+				{/if}
+				<div class="detail-row">
+					<span class="detail-label">YTD Used</span>
+					<span class="detail-value">
+						{((sickLeaveBalance.paidDaysUsed ?? 0) + (sickLeaveBalance.unpaidDaysUsed ?? 0)).toFixed(1)} days
+					</span>
+				</div>
+				<div class="detail-row">
+					<span class="detail-label">Eligibility</span>
+					<span class="detail-value" class:text-success={sickLeaveBalance.isEligible}>
+						{sickLeaveBalance.isEligible ? 'Eligible' : 'Not Yet Eligible'}
+					</span>
+				</div>
+			{:else}
+				<p class="text-muted">No sick leave data</p>
+			{/if}
+		</section>
+
 		<!-- Actions -->
 		<div class="sidebar-actions">
 			<button class="btn-primary full-width" onclick={handleEdit}>
@@ -315,6 +372,16 @@
 	.detail-value.highlight {
 		color: var(--color-primary-600);
 		font-weight: var(--font-weight-semibold);
+	}
+
+	.detail-value.text-success {
+		color: var(--color-success-600);
+	}
+
+	.text-muted {
+		font-size: var(--font-size-auxiliary-text);
+		color: var(--color-surface-500);
+		margin: 0;
 	}
 
 	/* Status Badge */

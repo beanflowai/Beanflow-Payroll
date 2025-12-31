@@ -1,0 +1,275 @@
+{
+  "year": 2025,
+  "edition": "jan",
+  "effective_date": "2025-01-01",
+  "end_date": "2025-12-31",
+  "source": "Provincial Employment Standards Acts",
+  "provinces": {
+    "ON": {
+      "province_code": "ON",
+      "name": "Ontario",
+      "formula_type": "4_week_average",
+      "formula_params": {
+        "lookback_weeks": 4,
+        "divisor": 20,
+        "include_vacation_pay": true,
+        "include_overtime": false,
+        "new_employee_fallback": "pro_rated"
+      },
+      "eligibility": {
+        "min_employment_days": 0,
+        "require_last_first_rule": true,
+        "notes": "No minimum employment period, but must work last scheduled shift before and first scheduled shift after the holiday"
+      },
+      "premium_rate": 1.5,
+      "notes": "Ontario ESA s.24 - (total wages in 4 weeks + vacation pay) / 20"
+    },
+    "BC": {
+      "province_code": "BC",
+      "name": "British Columbia",
+      "formula_type": "30_day_average",
+      "formula_params": {
+        "lookback_days": 30,
+        "method": "total_wages_div_days",
+        "include_overtime": false,
+        "default_daily_hours": 8,
+        "new_employee_fallback": "ineligible"
+      },
+      "eligibility": {
+        "min_employment_days": 30,
+        "require_last_first_rule": false,
+        "notes": "30 calendar days of employment required"
+      },
+      "premium_rate": 1.5,
+      "notes": "BC ESA s.45 - Average day's pay based on 30 days preceding holiday"
+    },
+    "AB": {
+      "province_code": "AB",
+      "name": "Alberta",
+      "formula_type": "4_week_average_daily",
+      "formula_params": {
+        "lookback_weeks": 4,
+        "method": "wages_div_days_worked",
+        "include_overtime": false,
+        "new_employee_fallback": "ineligible"
+      },
+      "eligibility": {
+        "min_employment_days": 30,
+        "require_last_first_rule": true,
+        "notes": "30 days employment, must work last shift before and first shift after holiday"
+      },
+      "premium_rate": 1.5,
+      "notes": "Alberta ESC s.25 - wages in 4 weeks / days worked in 4 weeks"
+    },
+    "QC": {
+      "province_code": "QC",
+      "name": "Quebec",
+      "formula_type": "30_day_average",
+      "formula_params": {
+        "lookback_days": 30,
+        "method": "total_wages_div_days",
+        "include_overtime": false,
+        "default_daily_hours": 8,
+        "new_employee_fallback": "pro_rated"
+      },
+      "eligibility": {
+        "min_employment_days": 0,
+        "require_last_first_rule": false,
+        "notes": "No minimum employment period for most holidays"
+      },
+      "premium_rate": 1.5,
+      "notes": "Quebec Labour Standards Act - 1/20 of wages in 4 weeks before holiday week"
+    },
+    "MB": {
+      "province_code": "MB",
+      "name": "Manitoba",
+      "formula_type": "30_day_average",
+      "formula_params": {
+        "lookback_days": 30,
+        "method": "total_wages_div_days",
+        "include_overtime": false,
+        "default_daily_hours": 8,
+        "new_employee_fallback": "ineligible"
+      },
+      "eligibility": {
+        "min_employment_days": 30,
+        "require_last_first_rule": false,
+        "notes": "30 days of employment required"
+      },
+      "premium_rate": 1.5,
+      "notes": "Manitoba Employment Standards Code - Average daily earnings"
+    },
+    "SK": {
+      "province_code": "SK",
+      "name": "Saskatchewan",
+      "formula_type": "5_percent_28_days",
+      "formula_params": {
+        "lookback_days": 28,
+        "percentage": 0.05,
+        "include_overtime": false,
+        "include_vacation_pay": true,
+        "include_previous_holiday_pay": true,
+        "new_employee_fallback": "pro_rated"
+      },
+      "eligibility": {
+        "min_employment_days": 0,
+        "require_last_first_rule": false,
+        "notes": "No minimum employment period required"
+      },
+      "premium_rate": 1.5,
+      "notes": "Saskatchewan Employment Act - 5% of wages in preceding 28 days. Reference: https://apps.saskatchewan.ca/lrws/calculator/holidaypay/"
+    },
+    "NB": {
+      "province_code": "NB",
+      "name": "New Brunswick",
+      "formula_type": "30_day_average",
+      "formula_params": {
+        "lookback_days": 30,
+        "method": "total_wages_div_days",
+        "include_overtime": false,
+        "default_daily_hours": 8,
+        "new_employee_fallback": "ineligible"
+      },
+      "eligibility": {
+        "min_employment_days": 90,
+        "require_last_first_rule": false,
+        "notes": "90 days of employment required"
+      },
+      "premium_rate": 1.5,
+      "notes": "New Brunswick Employment Standards Act"
+    },
+    "NS": {
+      "province_code": "NS",
+      "name": "Nova Scotia",
+      "formula_type": "30_day_average",
+      "formula_params": {
+        "lookback_days": 30,
+        "method": "total_wages_div_days",
+        "include_overtime": false,
+        "default_daily_hours": 8,
+        "new_employee_fallback": "ineligible"
+      },
+      "eligibility": {
+        "min_employment_days": 30,
+        "require_last_first_rule": false,
+        "notes": "30 days of employment required"
+      },
+      "premium_rate": 1.5,
+      "notes": "Nova Scotia Labour Standards Code"
+    },
+    "PE": {
+      "province_code": "PE",
+      "name": "Prince Edward Island",
+      "formula_type": "30_day_average",
+      "formula_params": {
+        "lookback_days": 30,
+        "method": "total_wages_div_days",
+        "include_overtime": false,
+        "default_daily_hours": 8,
+        "new_employee_fallback": "ineligible"
+      },
+      "eligibility": {
+        "min_employment_days": 30,
+        "require_last_first_rule": false,
+        "notes": "30 days of employment required"
+      },
+      "premium_rate": 1.5,
+      "notes": "PEI Employment Standards Act"
+    },
+    "NL": {
+      "province_code": "NL",
+      "name": "Newfoundland and Labrador",
+      "formula_type": "30_day_average",
+      "formula_params": {
+        "lookback_days": 30,
+        "method": "total_wages_div_days",
+        "include_overtime": false,
+        "default_daily_hours": 8,
+        "new_employee_fallback": "ineligible"
+      },
+      "eligibility": {
+        "min_employment_days": 30,
+        "require_last_first_rule": false,
+        "notes": "30 days of employment required"
+      },
+      "premium_rate": 1.5,
+      "notes": "NL Labour Standards Act"
+    },
+    "NT": {
+      "province_code": "NT",
+      "name": "Northwest Territories",
+      "formula_type": "30_day_average",
+      "formula_params": {
+        "lookback_days": 30,
+        "method": "total_wages_div_days",
+        "include_overtime": false,
+        "default_daily_hours": 8,
+        "new_employee_fallback": "ineligible"
+      },
+      "eligibility": {
+        "min_employment_days": 30,
+        "require_last_first_rule": false,
+        "notes": "30 days of employment required"
+      },
+      "premium_rate": 1.5,
+      "notes": "NWT Employment Standards Act"
+    },
+    "NU": {
+      "province_code": "NU",
+      "name": "Nunavut",
+      "formula_type": "30_day_average",
+      "formula_params": {
+        "lookback_days": 30,
+        "method": "total_wages_div_days",
+        "include_overtime": false,
+        "default_daily_hours": 8,
+        "new_employee_fallback": "ineligible"
+      },
+      "eligibility": {
+        "min_employment_days": 30,
+        "require_last_first_rule": false,
+        "notes": "30 days of employment required"
+      },
+      "premium_rate": 1.5,
+      "notes": "Nunavut Labour Standards Act"
+    },
+    "YT": {
+      "province_code": "YT",
+      "name": "Yukon",
+      "formula_type": "30_day_average",
+      "formula_params": {
+        "lookback_days": 30,
+        "method": "total_wages_div_days",
+        "include_overtime": false,
+        "default_daily_hours": 8,
+        "new_employee_fallback": "ineligible"
+      },
+      "eligibility": {
+        "min_employment_days": 30,
+        "require_last_first_rule": false,
+        "notes": "30 days of employment required"
+      },
+      "premium_rate": 1.5,
+      "notes": "Yukon Employment Standards Act"
+    },
+    "Federal": {
+      "province_code": "Federal",
+      "name": "Federal",
+      "formula_type": "30_day_average",
+      "formula_params": {
+        "lookback_days": 30,
+        "method": "total_wages_div_days",
+        "include_overtime": false,
+        "default_daily_hours": 8,
+        "new_employee_fallback": "ineligible"
+      },
+      "eligibility": {
+        "min_employment_days": 30,
+        "require_last_first_rule": false,
+        "notes": "30 days of employment required under Canada Labour Code"
+      },
+      "premium_rate": 1.5,
+      "notes": "Canada Labour Code s.196-202 - Federally regulated employers"
+    }
+  }
+}

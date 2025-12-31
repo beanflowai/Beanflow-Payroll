@@ -2,7 +2,7 @@
 	// PayGroupEmployeesSection - Manage employees assigned to a pay group
 	import type { PayGroup } from '$lib/types/pay-group';
 	import type { Employee } from '$lib/types/employee';
-	import { PROVINCE_LABELS } from '$lib/types/employee';
+	import { PROVINCE_LABELS, PAY_FREQUENCY_LABELS, EMPLOYMENT_TYPE_LABELS } from '$lib/types/employee';
 	import SlideOverPanel from '$lib/components/ui/SlideOverPanel.svelte';
 	import {
 		getEmployeesByPayGroup,
@@ -56,7 +56,11 @@
 
 	async function loadUnassignedEmployees() {
 		try {
-			const result = await getUnassignedEmployees();
+			// Filter by matching employment type and pay frequency
+			const result = await getUnassignedEmployees({
+				employmentType: payGroup.employmentType,
+				payFrequency: payGroup.payFrequency
+			});
 			if (result.error) {
 				console.error('Failed to load unassigned employees:', result.error);
 				unassignedEmployees = [];
@@ -248,11 +252,17 @@
 <!-- Add Employees Slide-over Panel -->
 <SlideOverPanel isOpen={showModal} title="Add Employees to {payGroup.name}" width="md" onClose={closeModal}>
 	{#snippet children()}
+		<!-- Filter info banner -->
+		<div class="mb-4 p-3 bg-surface-50 rounded-md text-auxiliary-text text-surface-600">
+			<i class="fas fa-filter mr-2"></i>
+			Showing employees with <strong>{EMPLOYMENT_TYPE_LABELS[payGroup.employmentType]}</strong> / <strong>{PAY_FREQUENCY_LABELS[payGroup.payFrequency]}</strong>
+		</div>
+
 		{#if unassignedEmployees.length === 0}
 			<div class="flex flex-col items-center text-center py-8 px-4">
 				<i class="fas fa-info-circle text-[32px] text-surface-400 mb-4"></i>
-				<p class="text-surface-600 m-0">No unassigned employees available.</p>
-				<p class="text-auxiliary-text text-surface-500 mt-2">All employees are already assigned to a pay group, or you need to add employees first.</p>
+				<p class="text-surface-600 m-0">No matching unassigned employees.</p>
+				<p class="text-auxiliary-text text-surface-500 mt-2">No employees match this pay group's employment type and pay frequency, or all matching employees are already assigned.</p>
 				<a
 					href="/employees"
 					class="inline-flex items-center gap-2 mt-4 py-3 px-4 bg-primary-500 text-white rounded-md no-underline text-body-content font-medium transition-[150ms] hover:bg-primary-600"
