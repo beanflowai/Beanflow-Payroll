@@ -33,14 +33,14 @@ export function maskSin(sinEncrypted: string): string {
 }
 
 /**
- * Get current user's ledger_id
- * For now, using user's email or id as a simple ledger_id
- * In production, this would come from a separate ledgers table
+ * Get current user's company_id
+ * For now, using user's id as a simple company_id
+ * In production, this would come from the companies table
  */
-function getCurrentLedgerId(): string {
+function getCurrentCompanyId(): string {
 	const user = authState.user;
 	if (!user) throw new Error('User not authenticated');
-	return user.id; // Using user ID as ledger_id for simplicity
+	return user.id; // Using user ID as company_id for simplicity
 }
 
 /**
@@ -71,7 +71,7 @@ export interface EmployeeListResult {
 }
 
 /**
- * List employees for the current user/ledger
+ * List employees for the current user/company
  */
 export async function listEmployees(
 	options: EmployeeListOptions = {}
@@ -80,13 +80,13 @@ export async function listEmployees(
 
 	try {
 		const userId = getCurrentUserId();
-		const ledgerId = getCurrentLedgerId();
+		const companyId = getCurrentCompanyId();
 
 		let query = supabase
 			.from(TABLE_NAME)
 			.select('*', { count: 'exact' })
 			.eq('user_id', userId)
-			.eq('ledger_id', ledgerId);
+			.eq('company_id', companyId);
 
 		if (activeOnly) {
 			query = query.is('termination_date', null);
@@ -124,13 +124,13 @@ export async function listEmployees(
 export async function getEmployee(employeeId: string): Promise<EmployeeServiceResult<Employee>> {
 	try {
 		const userId = getCurrentUserId();
-		const ledgerId = getCurrentLedgerId();
+		const companyId = getCurrentCompanyId();
 
 		const { data, error } = await supabase
 			.from(TABLE_NAME)
 			.select('*')
 			.eq('user_id', userId)
-			.eq('ledger_id', ledgerId)
+			.eq('company_id', companyId)
 			.eq('id', employeeId)
 			.single();
 
@@ -161,12 +161,12 @@ export async function createEmployee(
 ): Promise<EmployeeServiceResult<Employee>> {
 	try {
 		const userId = getCurrentUserId();
-		const ledgerId = getCurrentLedgerId();
+		const companyId = getCurrentCompanyId();
 
 		// Prepare the record with user/ledger IDs
 		const record = {
 			user_id: userId,
-			ledger_id: ledgerId,
+			company_id: companyId,
 			first_name: input.first_name,
 			last_name: input.last_name,
 			sin_encrypted: input.sin, // In production, this should be encrypted by backend
@@ -224,7 +224,7 @@ export async function updateEmployee(
 ): Promise<EmployeeServiceResult<Employee>> {
 	try {
 		const userId = getCurrentUserId();
-		const ledgerId = getCurrentLedgerId();
+		const companyId = getCurrentCompanyId();
 
 		// Build update object, only including defined fields
 		const updateData: Record<string, unknown> = {};
@@ -267,7 +267,7 @@ export async function updateEmployee(
 			.from(TABLE_NAME)
 			.update(updateData)
 			.eq('user_id', userId)
-			.eq('ledger_id', ledgerId)
+			.eq('company_id', companyId)
 			.eq('id', employeeId)
 			.select()
 			.single();
@@ -304,13 +304,13 @@ export async function terminateEmployee(
 export async function deleteEmployee(employeeId: string): Promise<{ error: string | null }> {
 	try {
 		const userId = getCurrentUserId();
-		const ledgerId = getCurrentLedgerId();
+		const companyId = getCurrentCompanyId();
 
 		const { error } = await supabase
 			.from(TABLE_NAME)
 			.delete()
 			.eq('user_id', userId)
-			.eq('ledger_id', ledgerId)
+			.eq('company_id', companyId)
 			.eq('id', employeeId);
 
 		if (error) {
@@ -331,13 +331,13 @@ export async function deleteEmployee(employeeId: string): Promise<{ error: strin
 export async function getEmployeeCount(activeOnly = true): Promise<number> {
 	try {
 		const userId = getCurrentUserId();
-		const ledgerId = getCurrentLedgerId();
+		const companyId = getCurrentCompanyId();
 
 		let query = supabase
 			.from(TABLE_NAME)
 			.select('id', { count: 'exact', head: true })
 			.eq('user_id', userId)
-			.eq('ledger_id', ledgerId);
+			.eq('company_id', companyId);
 
 		if (activeOnly) {
 			query = query.is('termination_date', null);
@@ -362,13 +362,13 @@ export async function getEmployeeCount(activeOnly = true): Promise<number> {
 export async function getEmployeesByProvince(): Promise<Record<Province, number>> {
 	try {
 		const userId = getCurrentUserId();
-		const ledgerId = getCurrentLedgerId();
+		const companyId = getCurrentCompanyId();
 
 		const { data, error } = await supabase
 			.from(TABLE_NAME)
 			.select('province_of_employment')
 			.eq('user_id', userId)
-			.eq('ledger_id', ledgerId)
+			.eq('company_id', companyId)
 			.is('termination_date', null);
 
 		if (error) {
@@ -394,13 +394,13 @@ export async function getEmployeesByProvince(): Promise<Record<Province, number>
 export async function getEmployeesByPayFrequency(): Promise<Record<PayFrequency, number>> {
 	try {
 		const userId = getCurrentUserId();
-		const ledgerId = getCurrentLedgerId();
+		const companyId = getCurrentCompanyId();
 
 		const { data, error } = await supabase
 			.from(TABLE_NAME)
 			.select('pay_frequency')
 			.eq('user_id', userId)
-			.eq('ledger_id', ledgerId)
+			.eq('company_id', companyId)
 			.is('termination_date', null);
 
 		if (error) {
@@ -432,13 +432,13 @@ export async function getEmployeesByPayGroup(
 ): Promise<EmployeeListResult> {
 	try {
 		const userId = getCurrentUserId();
-		const ledgerId = getCurrentLedgerId();
+		const companyId = getCurrentCompanyId();
 
 		const { data, error, count } = await supabase
 			.from(TABLE_NAME)
 			.select('*', { count: 'exact' })
 			.eq('user_id', userId)
-			.eq('ledger_id', ledgerId)
+			.eq('company_id', companyId)
 			.eq('pay_group_id', payGroupId)
 			.is('termination_date', null)
 			.order('last_name')
@@ -477,13 +477,13 @@ export async function getUnassignedEmployees(
 ): Promise<EmployeeListResult> {
 	try {
 		const userId = getCurrentUserId();
-		const ledgerId = getCurrentLedgerId();
+		const companyId = getCurrentCompanyId();
 
 		let query = supabase
 			.from(TABLE_NAME)
 			.select('*', { count: 'exact' })
 			.eq('user_id', userId)
-			.eq('ledger_id', ledgerId)
+			.eq('company_id', companyId)
 			.is('pay_group_id', null)
 			.is('termination_date', null);
 
@@ -522,13 +522,13 @@ export async function assignEmployeesToPayGroup(
 ): Promise<{ error: string | null }> {
 	try {
 		const userId = getCurrentUserId();
-		const ledgerId = getCurrentLedgerId();
+		const companyId = getCurrentCompanyId();
 
 		const { error } = await supabase
 			.from(TABLE_NAME)
 			.update({ pay_group_id: payGroupId })
 			.eq('user_id', userId)
-			.eq('ledger_id', ledgerId)
+			.eq('company_id', companyId)
 			.in('id', employeeIds);
 
 		if (error) {
@@ -551,13 +551,13 @@ export async function removeEmployeeFromPayGroup(
 ): Promise<{ error: string | null }> {
 	try {
 		const userId = getCurrentUserId();
-		const ledgerId = getCurrentLedgerId();
+		const companyId = getCurrentCompanyId();
 
 		const { error } = await supabase
 			.from(TABLE_NAME)
 			.update({ pay_group_id: null })
 			.eq('user_id', userId)
-			.eq('ledger_id', ledgerId)
+			.eq('company_id', companyId)
 			.eq('id', employeeId);
 
 		if (error) {

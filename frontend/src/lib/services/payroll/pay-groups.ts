@@ -17,7 +17,7 @@ import {
 	DEFAULT_STATUTORY_DEFAULTS,
 	calculatePayDate
 } from '$lib/types/pay-group';
-import { getCurrentUserId, getCurrentLedgerId } from './helpers';
+import { getCurrentUserId, getCurrentCompanyId } from './helpers';
 import type {
 	PayrollServiceResult,
 	PayGroupWithEmployees,
@@ -123,7 +123,7 @@ export async function getPayGroupsWithEmployeesForPeriodEnd(
 ): Promise<PayrollServiceResult<BeforeRunData>> {
 	try {
 		const userId = getCurrentUserId();
-		const ledgerId = getCurrentLedgerId();
+		const companyId = getCurrentCompanyId();
 
 		// Query pay groups with this next_period_end
 		const { data: payGroups, error: pgError } = await supabase
@@ -161,7 +161,7 @@ export async function getPayGroupsWithEmployeesForPeriodEnd(
 				.from('employees')
 				.select('id, first_name, last_name, province_of_employment, pay_group_id, annual_salary, hourly_rate')
 				.eq('user_id', userId)
-				.eq('ledger_id', ledgerId)
+				.eq('company_id', companyId)
 				.eq('pay_group_id', pg.id)
 				.is('termination_date', null)
 				.order('last_name')

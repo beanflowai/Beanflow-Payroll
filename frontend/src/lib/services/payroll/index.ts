@@ -78,6 +78,6 @@ export {
 export {
 	getCurrentUserId,
 	ensureAuthenticated,
-	getCurrentLedgerId,
+	getCurrentCompanyId,
 	getProvincialBpa
 } from './helpers';

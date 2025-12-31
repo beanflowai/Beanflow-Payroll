@@ -32,15 +32,13 @@ export function ensureAuthenticated(): void {
 }
 
 /**
- * Get the current ledger ID (using user ID for simplicity)
+ * Get the current company ID (using user ID for simplicity)
  *
- * @deprecated The ledger_id concept has been replaced by company_id.
- * New code should use company_id from the backend API instead.
- * This function is kept for backwards compatibility with existing code.
+ * In production, this would come from the companies table.
  *
  * @throws Error if user is not authenticated
  */
-export function getCurrentLedgerId(): string {
+export function getCurrentCompanyId(): string {
 	const user = authState.user;
 	if (!user) throw new Error('User not authenticated');
 	return user.id;

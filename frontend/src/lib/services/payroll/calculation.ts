@@ -6,7 +6,7 @@
 import { supabase } from '$lib/api/supabase';
 import { api } from '$lib/api/client';
 import type { PayrollRunWithGroups } from '$lib/types/payroll';
-import { getCurrentUserId, getCurrentLedgerId, getProvincialBpa } from './helpers';
+import { getCurrentUserId, getCurrentCompanyId, getProvincialBpa } from './helpers';
 import { getPayGroupsWithEmployeesForPayDate } from './pay-groups';
 import { getPayrollRunByPayDate } from './payroll-runs';
 import type {
@@ -35,7 +35,7 @@ export async function startPayrollRun(
 ): Promise<PayrollServiceResult<PayrollRunWithGroups>> {
 	try {
 		const userId = getCurrentUserId();
-		const ledgerId = getCurrentLedgerId();
+		const companyId = getCurrentCompanyId();
 
 		// First, get pay groups with employees
 		const beforeRunResult = await getPayGroupsWithEmployeesForPayDate(payDate);
@@ -163,7 +163,7 @@ export async function startPayrollRun(
 			.from('payroll_runs')
 			.insert({
 				user_id: userId,
-				ledger_id: ledgerId,
+				company_id: companyId,
 				period_start: periodStart,
 				period_end: periodEnd,
 				pay_date: payDate,
@@ -199,7 +199,7 @@ export async function startPayrollRun(
 				payroll_run_id: runId,
 				employee_id: result.employee_id,
 				user_id: userId,
-				ledger_id: ledgerId,
+				company_id: companyId,
 				// Employee snapshots (captured at payroll creation time)
 				employee_name_snapshot: snapshotData?.name ?? null,
 				province_snapshot: snapshotData?.province ?? null,

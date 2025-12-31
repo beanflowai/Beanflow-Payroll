@@ -73,7 +73,7 @@ export const REMITTANCE_STATUS_INFO: Record<RemittanceStatus, {
 
 export interface RemittancePeriod {
 	id: string;
-	ledgerId: string;
+	companyId: string;
 	remitterType: RemitterType;
 
 	// Period Information
