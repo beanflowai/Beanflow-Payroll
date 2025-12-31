@@ -39,40 +39,6 @@
 	// Local input state for editing
 	let localInputMap = $state<Map<string, Partial<EmployeePayrollInput>>>(new Map());
 
-	// Track original sick hours input and auto-generated vacation separately
-	// This is needed because:
-	// - leaveEntries only stores the PAID portion of sick
-	// - We need to know how much vacation was auto-generated vs manually entered
-	interface SickAllocationState {
-		sickHoursInput: number;      // Original sick hours the user entered
-		vacationFromSick: number;    // Auto-generated vacation from sick overflow
-	}
-	let sickInputMap = $state<Map<string, SickAllocationState>>(new Map());
-
-	// Restore sickInputMap from saved inputData when records change
-	$effect(() => {
-		const newMap = new Map<string, SickAllocationState>();
-		for (const record of payGroup.records) {
-			// Skip if already in local state (user has modified it this session)
-			if (sickInputMap.has(record.id)) {
-				newMap.set(record.id, sickInputMap.get(record.id)!);
-				continue;
-			}
-			// Restore from saved inputData if available
-			const savedAllocation = record.inputData?.sickAllocation;
-			if (savedAllocation && savedAllocation.sickHoursInput > 0) {
-				newMap.set(record.id, {
-					sickHoursInput: savedAllocation.sickHoursInput,
-					vacationFromSick: savedAllocation.vacationFromSick
-				});
-			}
-		}
-		// Only update if there are entries to restore
-		if (newMap.size > 0) {
-			sickInputMap = newMap;
-		}
-	});
-
 	function formatCurrency(amount: number): string {
 		return new Intl.NumberFormat('en-CA', {
 			style: 'currency',
@@ -110,52 +76,15 @@
 		const current = getLocalInput(record.id);
 		const existingLeaves = current.leaveEntries ?? record.inputData?.leaveEntries ?? [];
 
-		if (type === 'sick') {
-			// For sick leave, calculate smart allocation and auto-fill vacation if needed
-			const allocation = calculateLeaveAllocation(record, hours);
-
-			// Get existing manual vacation (total vacation - previous auto vacation from sick)
-			const manualVacation = getManualVacationHours(record);
-
-			// Build new leave entries
-			let newLeaveEntries = existingLeaves.filter((l) => l.type !== 'sick' && l.type !== 'vacation');
-
-			// Store PAID portion of sick hours (for backend calculation)
-			if (allocation.paidSickHours > 0) {
-				newLeaveEntries.push({ type: 'sick', hours: allocation.paidSickHours });
-			}
-
-			// Combine manual vacation with auto vacation from sick overflow
-			const totalVacation = manualVacation + allocation.autoVacationHours;
-			if (totalVacation > 0) {
-				newLeaveEntries.push({ type: 'vacation', hours: totalVacation });
-			}
-
-			// Track original sick input and auto vacation separately for UI display
-			const sickAllocation = {
-				sickHoursInput: hours,
-				vacationFromSick: allocation.autoVacationHours
-			};
-			sickInputMap = new Map(sickInputMap).set(record.id, sickAllocation);
-
-			const updated = { ...current, leaveEntries: newLeaveEntries };
-			localInputMap = new Map(localInputMap).set(record.id, updated);
-			// Save both leaveEntries and sickAllocation to persist the allocation state
-			onUpdateRecord(record.id, record.employeeId, { leaveEntries: newLeaveEntries, sickAllocation });
-		} else {
-			// For vacation, this is manual input - combine with auto vacation from sick
-			const vacationFromSick = getVacationFromSick(record);
-			const totalVacation = hours + vacationFromSick;
-
-			let newLeaveEntries = existingLeaves.filter((l) => l.type !== 'vacation');
-			if (totalVacation > 0) {
-				newLeaveEntries.push({ type: 'vacation', hours: totalVacation });
-			}
-
-			const updated = { ...current, leaveEntries: newLeaveEntries };
-			localInputMap = new Map(localInputMap).set(record.id, updated);
-			onUpdateRecord(record.id, record.employeeId, { leaveEntries: newLeaveEntries });
+		// Simple: just update the leave entry for this type
+		let newLeaveEntries = existingLeaves.filter((l) => l.type !== type);
+		if (hours > 0) {
+			newLeaveEntries.push({ type, hours });
 		}
+
+		const updated = { ...current, leaveEntries: newLeaveEntries };
+		localInputMap = new Map(localInputMap).set(record.id, updated);
+		onUpdateRecord(record.id, record.employeeId, { leaveEntries: newLeaveEntries });
 	}
 
 	function handleAddAdjustment(record: PayrollRecord, type: AdjustmentType) {
@@ -237,37 +166,6 @@
 		return recordEntry?.hours ?? 0;
 	}
 
-	/**
-	 * Get the original sick hours input (for UI display and allocation calculation).
-	 * This returns the total hours the user entered, not just the paid portion.
-	 */
-	function getSickHoursInput(record: PayrollRecord): number {
-		// First check local sick input map
-		const localInput = sickInputMap.get(record.id);
-		if (localInput !== undefined) {
-			return localInput.sickHoursInput;
-		}
-		// Fall back to stored sick leave hours (which may be just paid portion from old data)
-		return getLeaveHours(record, 'sick');
-	}
-
-	/**
-	 * Get the vacation hours that were auto-generated from sick leave overflow.
-	 */
-	function getVacationFromSick(record: PayrollRecord): number {
-		const localInput = sickInputMap.get(record.id);
-		return localInput?.vacationFromSick ?? 0;
-	}
-
-	/**
-	 * Get the manually entered vacation hours (total vacation - auto vacation from sick).
-	 */
-	function getManualVacationHours(record: PayrollRecord): number {
-		const totalVacation = getLeaveHours(record, 'vacation');
-		const fromSick = getVacationFromSick(record);
-		return Math.max(0, totalVacation - fromSick);
-	}
-
 	function getTotalLeaveHours(record: PayrollRecord): number {
 		return getLeaveHours(record, 'vacation') + getLeaveHours(record, 'sick');
 	}
@@ -299,62 +197,6 @@
 		// Available balance = old balance + accrued this period - paid this period
 		const availableBalance = (record.vacationBalance ?? 0) + record.vacationAccrued - (record.vacationPayPaid ?? 0);
 		return vacationPay > availableBalance;
-	}
-
-	/**
-	 * Calculate smart leave allocation for sick hours input.
-	 * Priority: Paid Sick → Vacation → Unpaid Sick
-	 *
-	 * When sick hours exceed available sick balance:
-	 * 1. First use available paid sick hours
-	 * 2. Overflow automatically uses vacation balance (for accrual method)
-	 * 3. Remaining becomes unpaid sick (deducted from pay)
-	 */
-	interface LeaveAllocation {
-		paidSickHours: number;      // Paid sick leave from balance
-		autoVacationHours: number;  // Auto-allocated vacation for overflow
-		unpaidSickHours: number;    // Unpaid sick (deducted from pay)
-	}
-
-	function calculateLeaveAllocation(record: PayrollRecord, sickHoursInput: number): LeaveAllocation {
-		if (sickHoursInput <= 0) {
-			return { paidSickHours: 0, autoVacationHours: 0, unpaidSickHours: 0 };
-		}
-
-		// 1. First use available paid sick hours
-		const availableSickHours = record.sickBalanceHours ?? 0;
-		const paidSickHours = Math.min(sickHoursInput, availableSickHours);
-		let overflow = Math.max(0, sickHoursInput - paidSickHours);
-
-		// 2. Overflow automatically uses vacation balance (only for accrual method)
-		let autoVacationHours = 0;
-		if (overflow > 0 && record.vacationPayoutMethod === 'accrual') {
-			// Calculate available vacation in dollars, then convert to hours
-			// Include record.vacationPayPaid (already paid from backend) plus locally allocated manual vacation
-			const hourlyRate = record.vacationHourlyRate ?? record.hourlyRate ?? 0;
-
-			// Get manual vacation hours already allocated locally (not from sick overflow)
-			// This prevents over-allocation when user enters both manual vacation and sick leave
-			const manualVacationHours = getManualVacationHours(record);
-			const manualVacationDollars = manualVacationHours * hourlyRate;
-
-			const availableVacationDollars = (record.vacationBalance ?? 0) + record.vacationAccrued
-				- (record.vacationPayPaid ?? 0)  // Already paid (from backend)
-				- manualVacationDollars;          // Locally allocated manual vacation
-
-			if (hourlyRate > 0 && availableVacationDollars > 0) {
-				const availableVacationHours = availableVacationDollars / hourlyRate;
-				autoVacationHours = Math.min(overflow, availableVacationHours);
-				// Round to 0.5 hour increments
-				autoVacationHours = Math.floor(autoVacationHours * 2) / 2;
-				overflow -= autoVacationHours;
-			}
-		}
-
-		// 3. Remaining becomes unpaid sick
-		const unpaidSickHours = overflow;
-
-		return { paidSickHours, autoVacationHours, unpaidSickHours };
 	}
 
 	function getAdjustments(record: PayrollRecord): Adjustment[] {
@@ -945,64 +787,63 @@
 												<div class="flex flex-col gap-2">
 													<!-- Vacation Used -->
 													{#if true}
-													{@const sickHoursInput = getSickHoursInput(record)}
-													{@const sickAlloc = calculateLeaveAllocation(record, sickHoursInput)}
-													{@const vacationFromSick = sickAlloc.autoVacationHours}
-													{@const manualVacation = getManualVacationHours(record)}
-													{@const totalVacationHours = manualVacation + vacationFromSick}
-													{@const vacationPay = calculateVacationPay(record, totalVacationHours)}
+													{@const vacationHours = getLeaveHours(record, 'vacation')}
+													{@const vacationPay = calculateVacationPay(record, vacationHours)}
+													{@const availableVacationDollars = (record.vacationBalance ?? 0) + record.vacationAccrued - (record.vacationPayPaid ?? 0)}
+													{@const vacationDisabled = record.vacationPayoutMethod === 'accrual' && availableVacationDollars <= 0}
 													{@const insufficientBalance = hasInsufficientBalance(record)}
+													{@const availableSickHours = record.sickBalanceHours ?? 0}
 													<div class="flex flex-col gap-1" onclick={(e) => e.stopPropagation()}>
 														<div class="flex justify-between items-center gap-2">
 															<span class="text-body-content text-surface-600">Vacation Used</span>
 															<div class="flex items-center gap-1">
 																<input
 																	type="number"
-																	class="w-16 py-1 px-2 border rounded text-body-small text-center focus:outline-none focus:ring-2 {insufficientBalance ? 'border-error-400 focus:border-error-500 focus:ring-error-100' : 'border-surface-300 focus:border-primary-500 focus:ring-primary-100'}"
-																	value={manualVacation}
+																	class="w-16 py-1 px-2 border rounded text-body-small text-center focus:outline-none focus:ring-2 {vacationDisabled ? 'bg-surface-100 text-surface-400 cursor-not-allowed border-surface-200' : insufficientBalance ? 'border-error-400 focus:border-error-500 focus:ring-error-100' : 'border-surface-300 focus:border-primary-500 focus:ring-primary-100'}"
+																	value={vacationHours}
 																	min="0"
 																	step="0.5"
+																	disabled={vacationDisabled}
 																	onchange={(e) => handleLeaveChange(record, 'vacation', parseFloat(e.currentTarget.value) || 0)}
 																/>
 																<span class="text-caption text-surface-500">hrs</span>
 															</div>
 														</div>
 														<!-- Show calculated vacation pay when hours > 0 -->
-														{#if totalVacationHours > 0}
+														{#if vacationHours > 0}
 															<div class="flex justify-between items-center pl-4">
-																<span class="text-caption text-surface-500">= Vacation Pay ({totalVacationHours} hrs)</span>
+																<span class="text-caption text-surface-500">= Vacation Pay ({vacationHours} hrs)</span>
 																<span class="text-body-small text-surface-700 font-medium">{formatCurrency(vacationPay)}</span>
 															</div>
 														{/if}
-														<!-- Show auto-allocated from sick overflow -->
-														{#if vacationFromSick > 0}
-															<div class="flex items-center gap-1 pl-4 text-primary-600">
+														<!-- Disabled hint -->
+														{#if vacationDisabled}
+															<div class="flex items-center gap-1 pl-4 text-surface-500">
 																<i class="fas fa-info-circle text-xs"></i>
-																<span class="text-caption">+ {vacationFromSick} hrs from sick overflow</span>
+																<span class="text-caption">No vacation balance available</span>
 															</div>
 														{/if}
 														<!-- Insufficient balance warning -->
-														{#if insufficientBalance}
+														{#if insufficientBalance && !vacationDisabled}
 															<div class="flex items-center gap-1 pl-4 text-error-600">
 																<i class="fas fa-exclamation-triangle text-xs"></i>
 																<span class="text-caption">Insufficient balance</span>
 															</div>
 														{/if}
 													</div>
-													{/if}
 
 													<!-- Sick Used -->
-													{#if true}
-													{@const sickHoursInputValue = getSickHoursInput(record)}
-													{@const sickAllocation = calculateLeaveAllocation(record, sickHoursInputValue)}
+													{@const sickHours = getLeaveHours(record, 'sick')}
+													{@const paidSickHours = Math.min(sickHours, availableSickHours)}
+													{@const unpaidSickHours = Math.max(0, sickHours - availableSickHours)}
 													<div class="flex flex-col gap-1" onclick={(e) => e.stopPropagation()}>
 														<div class="flex justify-between items-center gap-2">
 															<span class="text-body-content text-surface-600">Sick Used</span>
 															<div class="flex items-center gap-1">
 																<input
 																	type="number"
-																	class="w-16 py-1 px-2 border border-surface-300 rounded text-body-small text-center focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
-																	value={sickHoursInputValue}
+																	class="w-16 py-1 px-2 border rounded text-body-small text-center focus:outline-none focus:ring-2 border-surface-300 focus:border-primary-500 focus:ring-primary-100"
+																	value={sickHours}
 																	min="0"
 																	step="0.5"
 																	onchange={(e) => handleLeaveChange(record, 'sick', parseFloat(e.currentTarget.value) || 0)}
@@ -1010,26 +851,19 @@
 																<span class="text-caption text-surface-500">hrs</span>
 															</div>
 														</div>
-
-														<!-- Allocation breakdown -->
-														{#if sickHoursInputValue > 0}
+														<!-- Sick hours breakdown when entered -->
+														{#if sickHours > 0}
 															<div class="pl-4 space-y-0.5">
-																{#if sickAllocation.paidSickHours > 0}
+																{#if paidSickHours > 0}
 																	<div class="flex justify-between text-caption text-success-600">
 																		<span>└ Paid Sick</span>
-																		<span>{sickAllocation.paidSickHours} hrs</span>
+																		<span>{paidSickHours} hrs</span>
 																	</div>
 																{/if}
-																{#if sickAllocation.autoVacationHours > 0}
-																	<div class="flex justify-between text-caption text-primary-600">
-																		<span>└ From Vacation</span>
-																		<span>{sickAllocation.autoVacationHours} hrs</span>
-																	</div>
-																{/if}
-																{#if sickAllocation.unpaidSickHours > 0}
+																{#if unpaidSickHours > 0}
 																	<div class="flex justify-between text-caption text-warning-600">
 																		<span>└ Unpaid (deducted)</span>
-																		<span>{sickAllocation.unpaidSickHours} hrs</span>
+																		<span>{unpaidSickHours} hrs</span>
 																	</div>
 																{/if}
 															</div>

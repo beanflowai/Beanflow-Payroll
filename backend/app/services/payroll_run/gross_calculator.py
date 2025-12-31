@@ -127,10 +127,13 @@ class GrossCalculator:
             else:
                 gross_overtime = overtime_hours * rate * Decimal("1.5")
 
-            # Add leave pay
+            # Add vacation leave pay only (sick leave handled separately in run_operations)
             leave_entries = input_data.get("leaveEntries") or []
             for leave in leave_entries:
-                leave_hours = Decimal(str(leave.get("hours", 0)))
-                gross_regular += leave_hours * rate
+                if leave.get("type") == "vacation":
+                    leave_hours = Decimal(str(leave.get("hours", 0)))
+                    gross_regular += leave_hours * rate
+            # Note: Sick leave is processed in run_operations.py where we have
+            # access to employee.sick_balance for paid/unpaid calculation
 
         return gross_regular, gross_overtime

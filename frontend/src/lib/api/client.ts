@@ -137,7 +137,6 @@ export const payrollApi = {
 	deleteEmployee: (id: string) => api.delete<void>(`/payroll/employees/${id}`),
 
 	// Payroll Runs
-	listPayrollRuns: () => api.get<PayrollRun[]>('/payroll/runs'),
 	getPayrollRun: (id: string) => api.get<PayrollRun>(`/payroll/runs/${id}`),
 	createPayrollRun: (data: CreatePayrollRunRequest) => api.post<PayrollRun>('/payroll/runs', data),
 	submitPayrollRun: (id: string) => api.post<PayrollRun>(`/payroll/runs/${id}/submit`),

@@ -579,88 +579,6 @@ async def get_bpa_defaults(
 
 
 # =============================================================================
-# Payroll Runs List Endpoint
-# =============================================================================
-
-
-class PayrollRunListItem(BaseModel):
-    """Payroll run item for list response."""
-
-    id: str
-    payDate: str = Field(validation_alias="pay_date")
-    periodStart: str = Field(validation_alias="period_start")
-    periodEnd: str = Field(validation_alias="period_end")
-    status: str
-    totalEmployees: int = Field(validation_alias="total_employees")
-    totalGross: float = Field(validation_alias="total_gross")
-    totalNetPay: float = Field(validation_alias="total_net_pay")
-    totalEmployerCost: float = Field(validation_alias="total_employer_cost")
-
-    model_config = {"populate_by_name": True}
-
-
-class PayrollRunListResponse(BaseModel):
-    """Response for listing payroll runs."""
-
-    runs: list[PayrollRunListItem]
-    total: int
-
-
-@router.get(
-    "/runs",
-    response_model=PayrollRunListResponse,
-    summary="List payroll runs",
-    description="List payroll runs with optional status filtering and pagination.",
-)
-async def list_payroll_runs(
-    current_user: CurrentUser,
-    run_status: str | None = None,
-    excludeStatus: str | None = None,
-    limit: int = 20,
-    offset: int = 0,
-) -> PayrollRunListResponse:
-    """
-    List payroll runs with filtering and pagination.
-
-    Query parameters:
-    - run_status: Filter by a single status (e.g., 'pending_approval')
-    - excludeStatus: Comma-separated statuses to exclude (e.g., 'draft,cancelled')
-    - limit: Maximum number of runs to return (default 20)
-    - offset: Number of runs to skip for pagination (default 0)
-
-    Returns runs sorted by pay_date descending.
-    """
-    try:
-        company_id = await get_user_company_id(current_user.id)
-        service = get_payroll_run_service(current_user.id, company_id)
-
-        # Parse excludeStatus into list
-        exclude_statuses = None
-        if excludeStatus:
-            exclude_statuses = [s.strip() for s in excludeStatus.split(",")]
-
-        result = await service.list_runs(
-            status=run_status,
-            exclude_statuses=exclude_statuses,
-            limit=limit,
-            offset=offset,
-        )
-
-        runs = [
-            PayrollRunListItem.model_validate(run) for run in result["runs"]
-        ]
-
-        return PayrollRunListResponse(runs=runs, total=result["total"])
-
-    except Exception as e:
-        logger.exception("Unexpected error listing payroll runs")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal error listing payroll runs",
-        )
-
-
-# =============================================================================
 # Payroll Run Management Endpoints (Draft State Editing)
 # =============================================================================
 
@@ -749,6 +667,72 @@ class PayrollRunResponse(BaseModel):
     totalEmployerCost: float = Field(alias="total_employer_cost")
 
     model_config = {"populate_by_name": True}
+
+
+class ListPayrollRunsResponse(BaseModel):
+    """Response for listing payroll runs."""
+
+    runs: list[PayrollRunResponse]
+    total: int
+
+
+@router.get(
+    "/runs",
+    response_model=ListPayrollRunsResponse,
+    summary="List payroll runs",
+    description="List payroll runs with optional filtering and pagination.",
+)
+async def list_payroll_runs(
+    current_user: CurrentUser,
+    run_status: str | None = Query(None, alias="run_status", description="Filter by status"),
+    exclude_status: str | None = Query(None, description="Exclude runs with this status"),
+    limit: int = Query(50, ge=1, le=100, description="Maximum runs to return"),
+    offset: int = Query(0, ge=0, description="Number of runs to skip"),
+) -> ListPayrollRunsResponse:
+    """
+    List payroll runs for the current user's company.
+
+    Supports filtering by status and pagination.
+    """
+    try:
+        company_id = await get_user_company_id(current_user.id)
+        service = get_payroll_run_service(current_user.id, company_id)
+        result = await service.list_runs(
+            run_status=run_status,
+            exclude_status=exclude_status,
+            limit=limit,
+            offset=offset,
+        )
+
+        runs = []
+        for run_data in result["runs"]:
+            runs.append(PayrollRunResponse(
+                id=run_data["id"],
+                pay_date=run_data["pay_date"],
+                status=run_data["status"],
+                total_employees=run_data.get("total_employees", 0),
+                total_gross=float(run_data.get("total_gross", 0)),
+                total_cpp_employee=float(run_data.get("total_cpp_employee", 0)),
+                total_cpp_employer=float(run_data.get("total_cpp_employer", 0)),
+                total_ei_employee=float(run_data.get("total_ei_employee", 0)),
+                total_ei_employer=float(run_data.get("total_ei_employer", 0)),
+                total_federal_tax=float(run_data.get("total_federal_tax", 0)),
+                total_provincial_tax=float(run_data.get("total_provincial_tax", 0)),
+                total_net_pay=float(run_data.get("total_net_pay", 0)),
+                total_employer_cost=float(run_data.get("total_employer_cost", 0)),
+            ))
+
+        return ListPayrollRunsResponse(runs=runs, total=result["total"])
+
+    except ValueError as e:
+        logger.error(f"List runs error: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.exception("Unexpected error listing payroll runs")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal error listing payroll runs",
+        )
 
 
 @router.patch(

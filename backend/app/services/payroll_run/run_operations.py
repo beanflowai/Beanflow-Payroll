@@ -170,6 +170,57 @@ class PayrollRunOperations:
                     hourly_rate = GrossCalculator.calculate_hourly_rate(employee)
                     vacation_pay_for_gross = vacation_hours_taken * hourly_rate
 
+            # =========================================================================
+            # Sick Leave Processing
+            # - Extract sick hours from leaveEntries
+            # - Calculate paid vs unpaid based on employee.sick_balance
+            # - Salaried: deduct unpaid hours from gross_regular
+            # - Hourly: add paid hours to gross_regular
+            # =========================================================================
+            sick_hours_taken = Decimal("0")
+            paid_sick_hours = Decimal("0")
+            unpaid_sick_hours = Decimal("0")
+            sick_pay = Decimal("0")
+            unpaid_sick_deduction = Decimal("0")
+
+            leave_entries = input_data.get("leaveEntries") or []
+            for leave in leave_entries:
+                if leave.get("type") == "sick":
+                    sick_hours_taken += Decimal(str(leave.get("hours", 0)))
+
+            if sick_hours_taken > 0:
+                sick_balance = Decimal(str(employee.get("sick_balance", 0)))
+                paid_sick_hours = min(sick_hours_taken, sick_balance)
+                unpaid_sick_hours = max(Decimal("0"), sick_hours_taken - sick_balance)
+
+                hourly_rate = GrossCalculator.calculate_hourly_rate(employee)
+                sick_pay = paid_sick_hours * hourly_rate
+
+                # For salaried employees: base salary already includes all hours,
+                # so we deduct unpaid sick hours
+                if employee.get("annual_salary") and not employee.get("hourly_rate"):
+                    unpaid_sick_deduction = unpaid_sick_hours * hourly_rate
+                    gross_regular -= unpaid_sick_deduction
+                    logger.info(
+                        "SICK LEAVE: Employee %s %s (salaried) - "
+                        "sick_hours=%s, balance=%s, paid=%s, unpaid=%s, "
+                        "hourly_rate=%s, deduction=%s, new_gross=%s",
+                        employee.get('first_name'), employee.get('last_name'),
+                        sick_hours_taken, sick_balance, paid_sick_hours, unpaid_sick_hours,
+                        hourly_rate, unpaid_sick_deduction, gross_regular
+                    )
+                # For hourly employees: add only paid sick hours (gross_calculator
+                # already excludes sick leave from automatic addition)
+                elif employee.get("hourly_rate"):
+                    gross_regular += sick_pay
+                    logger.info(
+                        "SICK LEAVE: Employee %s %s (hourly) - "
+                        "sick_hours=%s, balance=%s, paid=%s, unpaid=%s, sick_pay=%s",
+                        employee.get('first_name'), employee.get('last_name'),
+                        sick_hours_taken, sick_balance, paid_sick_hours, unpaid_sick_hours,
+                        sick_pay
+                    )
+
             # Calculate additional earnings from input_data
             holiday_pay = Decimal("0")
             other_earnings = Decimal("0")
@@ -242,6 +293,10 @@ class PayrollRunOperations:
             record_map[record["employee_id"]] = {
                 **record,
                 "_vacation_hours_taken": vacation_hours_taken,
+                "_sick_hours_taken": sick_hours_taken,
+                "_paid_sick_hours": paid_sick_hours,
+                "_unpaid_sick_hours": unpaid_sick_hours,
+                "_sick_pay": sick_pay,
             }
 
         # Calculate using PayrollEngine
@@ -271,12 +326,18 @@ class PayrollRunOperations:
             # Get vacation hours taken from record_map
             vacation_hours_taken = record.get("_vacation_hours_taken", Decimal("0"))
 
+            # Get sick leave data from record_map
+            sick_hours_taken = record.get("_sick_hours_taken", Decimal("0"))
+            sick_pay = record.get("_sick_pay", Decimal("0"))
+
             self.supabase.table("payroll_records").update({
                 "gross_regular": float(result.gross_regular),
                 "gross_overtime": float(result.gross_overtime),
                 "holiday_pay": float(result.holiday_pay),
                 "vacation_pay_paid": float(result.vacation_pay),
                 "vacation_hours_taken": float(vacation_hours_taken),
+                "sick_hours_taken": float(sick_hours_taken),
+                "sick_pay_paid": float(sick_pay),
                 "other_earnings": float(result.other_earnings),
                 "cpp_employee": float(result.cpp_base),
                 "cpp_additional": float(result.cpp_additional),

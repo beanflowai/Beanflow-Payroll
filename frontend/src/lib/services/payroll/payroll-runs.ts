@@ -485,22 +485,7 @@ export interface PayrollRunListOptionsExt extends PayrollRunListOptions {
 }
 
 /**
- * Payroll run list item from API
- */
-interface ApiPayrollRunListItem {
-	id: string;
-	payDate: string;
-	periodStart: string;
-	periodEnd: string;
-	status: string;
-	totalEmployees: number;
-	totalGross: number;
-	totalNetPay: number;
-	totalEmployerCost: number;
-}
-
-/**
- * List payroll runs with pagination via backend API
+ * List payroll runs with pagination via Supabase direct query
  */
 export async function listPayrollRuns(
 	options: PayrollRunListOptionsExt = {}
@@ -508,38 +493,41 @@ export async function listPayrollRuns(
 	const { status, excludeStatuses, limit = 20, offset = 0 } = options;
 
 	try {
-		getCurrentUserId();
+		const userId = getCurrentUserId();
 
-		// Build query params
-		const params = new URLSearchParams();
+		// Direct Supabase query
+		let query = supabase
+			.from('payroll_runs')
+			.select('*', { count: 'exact' })
+			.eq('user_id', userId);
+
 		if (status) {
-			params.append('run_status', status);
+			query = query.eq('status', status);
 		}
+
 		if (excludeStatuses && excludeStatuses.length > 0) {
-			params.append('excludeStatus', excludeStatuses.join(','));
+			query = query.not('status', 'in', `(${excludeStatuses.join(',')})`);
 		}
-		params.append('limit', String(limit));
-		params.append('offset', String(offset));
 
-		// Call backend API
-		const response = await api.get<{
-			runs: ApiPayrollRunListItem[];
-			total: number;
-		}>(`/payroll/runs?${params.toString()}`);
+		const { data, error, count } = await query
+			.order('pay_date', { ascending: false })
+			.range(offset, offset + limit - 1);
 
-		// Convert API response to PayrollRunWithGroups
-		const runs: PayrollRunWithGroups[] = response.runs.map(run => {
-			const totalGross = run.totalGross;
-			const totalNetPay = run.totalNetPay;
-			const totalEmployerCost = run.totalEmployerCost;
+		if (error) throw error;
+
+		// Convert snake_case DB fields to camelCase PayrollRunWithGroups
+		const runs: PayrollRunWithGroups[] = (data || []).map(run => {
+			const totalGross = run.total_gross ?? 0;
+			const totalNetPay = run.total_net_pay ?? 0;
+			const totalEmployerCost = run.total_employer_cost ?? 0;
 
 			return {
 				id: run.id,
-				periodEnd: run.periodEnd,
-				payDate: run.payDate,
+				periodEnd: run.period_end,
+				payDate: run.pay_date,
 				status: run.status as PayrollRunStatus,
 				payGroups: [],
-				totalEmployees: run.totalEmployees,
+				totalEmployees: run.total_employees ?? 0,
 				totalGross,
 				totalCppEmployee: 0,
 				totalCppEmployer: 0,
@@ -555,7 +543,7 @@ export async function listPayrollRuns(
 			};
 		});
 
-		return { data: runs, count: response.total, error: null };
+		return { data: runs, count: count ?? 0, error: null };
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Failed to list payroll runs';
 		return { data: [], count: 0, error: message };

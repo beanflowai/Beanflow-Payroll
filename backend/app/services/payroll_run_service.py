@@ -77,6 +77,43 @@ class PayrollRunService:
             return result.data[0]
         return None
 
+    async def list_runs(
+        self,
+        run_status: str | None = None,
+        exclude_status: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """List payroll runs with optional filtering.
+
+        Args:
+            run_status: Filter by specific status (e.g., 'draft', 'pending_approval')
+            exclude_status: Exclude runs with this status
+            limit: Maximum number of runs to return
+            offset: Number of runs to skip for pagination
+
+        Returns:
+            Dictionary with 'runs' list and 'total' count
+        """
+        query = self.supabase.table("payroll_runs").select(
+            "*", count="exact"
+        ).eq("user_id", self.user_id).eq("company_id", self.company_id)
+
+        if run_status:
+            query = query.eq("status", run_status)
+
+        if exclude_status:
+            query = query.neq("status", exclude_status)
+
+        query = query.order("pay_date", desc=True).range(offset, offset + limit - 1)
+
+        result = query.execute()
+
+        return {
+            "runs": result.data or [],
+            "total": result.count or 0,
+        }
+
     async def get_record(self, record_id: UUID | str) -> dict[str, Any] | None:
         """Get a single payroll record by ID."""
         result = self.supabase.table("payroll_records").select("*").eq(
@@ -174,33 +211,6 @@ class PayrollRunService:
         ).eq("is_modified", True).limit(1).execute()
 
         return bool(result.data and len(result.data) > 0)
-
-    async def list_runs(
-        self,
-        status: str | None = None,
-        exclude_statuses: list[str] | None = None,
-        limit: int = 20,
-        offset: int = 0,
-    ) -> dict[str, Any]:
-        """List payroll runs with filtering and pagination."""
-        query = self.supabase.table("payroll_runs").select(
-            "*", count="exact"
-        ).eq("user_id", self.user_id).eq("company_id", self.company_id)
-
-        if status:
-            query = query.eq("status", status)
-
-        if exclude_statuses:
-            for excluded in exclude_statuses:
-                query = query.neq("status", excluded)
-
-        query = query.order("pay_date", desc=True).range(offset, offset + limit - 1)
-        result = query.execute()
-
-        return {
-            "runs": result.data or [],
-            "total": result.count or 0,
-        }
 
     async def delete_run(self, run_id: UUID) -> dict[str, Any]:
         """Delete a draft payroll run.
