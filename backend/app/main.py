@@ -1,6 +1,7 @@
 """FastAPI Application Entry Point"""
 
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -8,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app import __version__
-from app.api.v1 import auth, employee_portal, employees, health, payroll
+from app.api.v1 import auth, employee_portal, employees, health, payroll, remittance
 from app.core.config import get_config
 from app.core.exceptions import (
     AuthenticationError,
@@ -28,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan events"""
     # Startup
     config = get_config()
@@ -69,35 +70,45 @@ def create_app() -> FastAPI:
 
     # Exception handlers
     @app.exception_handler(AuthenticationError)
-    async def authentication_error_handler(request: Request, exc: AuthenticationError):
+    async def authentication_error_handler(
+        request: Request, exc: AuthenticationError
+    ) -> JSONResponse:
         return JSONResponse(
             status_code=401,
             content={"success": False, "error": exc.message, "details": exc.details},
         )
 
     @app.exception_handler(AuthorizationError)
-    async def authorization_error_handler(request: Request, exc: AuthorizationError):
+    async def authorization_error_handler(
+        request: Request, exc: AuthorizationError
+    ) -> JSONResponse:
         return JSONResponse(
             status_code=403,
             content={"success": False, "error": exc.message, "details": exc.details},
         )
 
     @app.exception_handler(ValidationError)
-    async def validation_error_handler(request: Request, exc: ValidationError):
+    async def validation_error_handler(
+        request: Request, exc: ValidationError
+    ) -> JSONResponse:
         return JSONResponse(
             status_code=422,
             content={"success": False, "error": exc.message, "details": exc.details},
         )
 
     @app.exception_handler(NotFoundError)
-    async def not_found_error_handler(request: Request, exc: NotFoundError):
+    async def not_found_error_handler(
+        request: Request, exc: NotFoundError
+    ) -> JSONResponse:
         return JSONResponse(
             status_code=404,
             content={"success": False, "error": exc.message, "details": exc.details},
         )
 
     @app.exception_handler(PayrollError)
-    async def payroll_error_handler(request: Request, exc: PayrollError):
+    async def payroll_error_handler(
+        request: Request, exc: PayrollError
+    ) -> JSONResponse:
         return JSONResponse(
             status_code=400,
             content={"success": False, "error": exc.message, "details": exc.details},
@@ -109,6 +120,7 @@ def create_app() -> FastAPI:
     app.include_router(payroll.router, prefix="/api/v1/payroll", tags=["Payroll"])
     app.include_router(employees.router, prefix="/api/v1/employees", tags=["Employees"])
     app.include_router(employee_portal.router, prefix="/api/v1", tags=["Employee Portal"])
+    app.include_router(remittance.router, prefix="/api/v1/remittance", tags=["Remittance"])
 
     return app
 
