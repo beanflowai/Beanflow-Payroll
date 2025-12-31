@@ -3,6 +3,7 @@
 import logging
 
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 
 from app import __version__
 from app.core.config import get_config
@@ -16,7 +17,7 @@ router = APIRouter()
 
 
 @router.get("", response_model=None)
-async def health_check():
+async def health_check() -> JSONResponse:
     """Health check endpoint
 
     Returns:

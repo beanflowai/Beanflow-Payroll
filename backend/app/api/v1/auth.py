@@ -3,6 +3,7 @@
 import logging
 
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 
 from app.api.deps import CurrentUser
 from app.utils.response import create_success_response
@@ -13,7 +14,7 @@ router = APIRouter()
 
 
 @router.get("/me", response_model=None)
-async def get_current_user_info(current_user: CurrentUser):
+async def get_current_user_info(current_user: CurrentUser) -> JSONResponse:
     """Get current authenticated user information
 
     Args:
@@ -26,7 +27,7 @@ async def get_current_user_info(current_user: CurrentUser):
 
 
 @router.post("/logout", response_model=None)
-async def logout(current_user: CurrentUser):
+async def logout(current_user: CurrentUser) -> JSONResponse:
     """Logout endpoint
 
     Note: Since we use Supabase Auth, actual logout is handled client-side.

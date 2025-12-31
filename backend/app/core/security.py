@@ -1,7 +1,7 @@
 """Security utilities - JWT verification,  encryption"""
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from cryptography.fernet import Fernet
 from jose import JWTError, jwt
@@ -53,7 +53,7 @@ class SecurityManager:
                 algorithms=["HS256"],
                 audience="authenticated",
             )
-            return payload
+            return cast(dict[str, Any], payload)
         except JWTError as e:
             logger.warning(f"JWT verification failed: {e}")
             return None

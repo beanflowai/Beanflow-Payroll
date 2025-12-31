@@ -12,7 +12,7 @@ This is the public facade that delegates to specialized modules in payroll_run/.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from app.core.supabase_client import get_supabase_client
@@ -74,7 +74,7 @@ class PayrollRunService:
         ).eq("user_id", self.user_id).eq("company_id", self.company_id).execute()
 
         if result.data and len(result.data) > 0:
-            return result.data[0]
+            return cast(dict[str, Any], result.data[0])
         return None
 
     async def list_runs(
@@ -121,7 +121,7 @@ class PayrollRunService:
         ).eq("user_id", self.user_id).eq("company_id", self.company_id).execute()
 
         if result.data and len(result.data) > 0:
-            return result.data[0]
+            return cast(dict[str, Any], result.data[0])
         return None
 
     async def get_run_records(self, run_id: UUID) -> list[dict[str, Any]]:
@@ -202,7 +202,7 @@ class PayrollRunService:
         if not update_result.data or len(update_result.data) == 0:
             raise ValueError("Failed to update payroll record")
 
-        return update_result.data[0]
+        return cast(dict[str, Any], update_result.data[0])
 
     async def check_has_modified_records(self, run_id: UUID) -> bool:
         """Check if any records in the run have is_modified = True."""

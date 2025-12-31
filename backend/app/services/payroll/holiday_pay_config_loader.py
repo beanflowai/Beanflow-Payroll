@@ -18,7 +18,7 @@ from datetime import date
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from app.models.holiday_pay_config import (
     HolidayPayConfig,
@@ -71,7 +71,7 @@ def _load_json_file(file_path: str) -> dict[str, Any]:
         json.JSONDecodeError: If file is invalid JSON
     """
     with open(file_path, encoding="utf-8") as f:
-        return json.load(f)
+        return cast(dict[str, Any], json.load(f))
 
 
 def _get_available_editions(year: int) -> list[tuple[str, date, date]]:

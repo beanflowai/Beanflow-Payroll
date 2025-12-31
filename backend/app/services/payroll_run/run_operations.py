@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 import httpx
@@ -466,7 +466,7 @@ class PayrollRunOperations:
         if not update_result.data or len(update_result.data) == 0:
             raise ValueError("Failed to update payroll run status")
 
-        return update_result.data[0]
+        return cast(dict[str, Any], update_result.data[0])
 
     async def approve_run(
         self, run_id: UUID, approved_by: str | None = None

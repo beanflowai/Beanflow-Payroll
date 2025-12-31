@@ -75,6 +75,6 @@ def get_config() -> Config:
     """Get configuration singleton"""
     global _config
     if _config is None:
-        _config = Config()
+        _config = Config()  # type: ignore[call-arg]
         logger.info(f"Configuration loaded: {_config.app_name}")
     return _config

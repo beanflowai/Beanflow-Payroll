@@ -146,7 +146,7 @@ class VacationConfig(BaseModel):
         description="Vacation pay rate: 4% (< 5 years) or 6% (5+ years)"
     )
     lump_sum_month: int | None = Field(
-        None,
+        default=None,
         ge=1,
         le=12,
         description="Month for lump sum payout (1-12)"
@@ -195,7 +195,7 @@ class EmployeeBase(BaseModel):
     termination_date: date | None = None
 
     # Vacation
-    vacation_config: VacationConfig = Field(default_factory=VacationConfig)
+    vacation_config: VacationConfig = Field(default_factory=lambda: VacationConfig())
 
     # Initial YTD for transferred employees (CPP/EI only - tax handled by Cumulative Averaging)
     initial_ytd_cpp: Decimal = Field(default=Decimal("0"), ge=0)
@@ -260,13 +260,13 @@ class Employee(EmployeeBase):
     created_at: datetime
     updated_at: datetime
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def full_name(self) -> str:
         """Full name for display."""
         return f"{self.first_name} {self.last_name}"
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def is_active(self) -> bool:
         """Whether employee is currently active."""

@@ -15,7 +15,7 @@ from datetime import date
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ def _load_json_file(file_path: str) -> dict[str, Any]:
 
     try:
         with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
+            return cast(dict[str, Any], json.load(f))
     except json.JSONDecodeError as e:
         raise TaxConfigError(f"Invalid JSON in {path}: {e}")
 
@@ -117,7 +117,7 @@ def get_cpp_config(year: int = 2025) -> dict[str, Any]:
     Returns dict with keys: ympe, yampe, basic_exemption, base_rate, etc.
     """
     data = _load_json_file(str(_get_config_path(year, "cpp_ei.json")))
-    return data["cpp"]
+    return cast(dict[str, Any], data["cpp"])
 
 
 @lru_cache(maxsize=1)
@@ -128,7 +128,7 @@ def get_ei_config(year: int = 2025) -> dict[str, Any]:
     Returns dict with keys: mie, employee_rate, employer_rate_multiplier, etc.
     """
     data = _load_json_file(str(_get_config_path(year, "cpp_ei.json")))
-    return data["ei"]
+    return cast(dict[str, Any], data["ei"])
 
 
 @lru_cache(maxsize=8)
@@ -144,13 +144,13 @@ def _get_provinces_config_with_edition(year: int, edition: str) -> dict[str, dic
     versioned_path = _get_config_path(year, f"provinces_{edition}.json")
     if versioned_path.exists():
         data = _load_json_file(str(versioned_path))
-        return data["provinces"]
+        return cast(dict[str, dict[str, Any]], data["provinces"])
 
     # Fallback to single file
     single_path = _get_config_path(year, "provinces.json")
     if single_path.exists():
         data = _load_json_file(str(single_path))
-        return data["provinces"]
+        return cast(dict[str, dict[str, Any]], data["provinces"])
 
     raise TaxConfigError(f"No provinces config found for year {year}")
 
@@ -412,7 +412,7 @@ def validate_config_schema(year: int = 2025) -> list[str]:
             return None
         try:
             with open(schema_path, "r", encoding="utf-8") as f:
-                return json.load(f)
+                return cast(dict[str, Any], json.load(f))
         except json.JSONDecodeError as e:
             errors.append(f"Invalid JSON in schema {schema_name}: {e}")
             return None
