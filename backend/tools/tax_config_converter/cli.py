@@ -13,6 +13,36 @@ from pathlib import Path
 
 from .converter import TaxConfigConverter
 
+# Base output directory for generated files
+OUTPUT_BASE_DIR = Path(__file__).parent / "output"
+
+
+def infer_output_path(pdf_path: str) -> Path:
+    """
+    Infer output path from PDF path structure.
+
+    Example:
+        docs/tax-tables/2025/01/t4127-01-25e.pdf → output/2025/01/
+
+    Args:
+        pdf_path: Path to PDF file
+
+    Returns:
+        Path to output directory
+    """
+    pdf = Path(pdf_path).resolve()
+    parts = pdf.parts
+
+    # Look for "tax-tables" in path and extract year/month
+    for i, part in enumerate(parts):
+        if part == "tax-tables" and i + 2 < len(parts):
+            year = parts[i + 1]  # e.g., "2025"
+            month = parts[i + 2]  # e.g., "01"
+            return OUTPUT_BASE_DIR / year / month
+
+    # Fallback: use PDF stem as directory name
+    return OUTPUT_BASE_DIR / pdf.stem
+
 
 def setup_logging(verbose: bool = False) -> None:
     """Configure logging for CLI."""
@@ -26,17 +56,22 @@ def setup_logging(verbose: bool = False) -> None:
 
 def cmd_convert(args: argparse.Namespace) -> int:
     """Handle convert command."""
+    # Infer output path if not specified
+    output_dir = args.output if args.output else infer_output_path(args.pdf)
+    print(f"Output directory: {output_dir}")
+
     converter = TaxConfigConverter(
-        glm_model=args.model,
-        enable_thinking=not args.no_thinking,
+        llm_provider=args.llm,
+        llm_model=args.model if args.model else None,
         validate_output=not args.skip_validation
     )
 
     result = converter.convert(
         pdf_path=args.pdf,
-        output_dir=args.output,
+        output_dir=output_dir,
         edition=args.edition,
-        dry_run=args.dry_run
+        dry_run=args.dry_run,
+        step=args.step
     )
 
     if result.success:
@@ -108,6 +143,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
 def cmd_extract(args: argparse.Namespace) -> int:
     """Handle extract command - just extract PDF text without GLM."""
+    import json
     from .extractors.pdf_extractor import PDFExtractor
 
     extractor = PDFExtractor()
@@ -127,22 +163,57 @@ def cmd_extract(args: argparse.Namespace) -> int:
 
     if args.output:
         output_path = Path(args.output)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        if args.table:
-            # Output specific table
-            if args.table in content.tables:
-                text = content.tables[args.table].content
-            else:
-                print(f"Table {args.table} not found")
-                return 1
+        # If output is a directory, save structured JSON files
+        if output_path.is_dir() or str(output_path).endswith("/"):
+            output_path.mkdir(parents=True, exist_ok=True)
+
+            # Save metadata.json
+            metadata_file = output_path / "metadata.json"
+            metadata = {
+                "edition": content.metadata.edition,
+                "editionNumber": content.metadata.edition_number,
+                "year": content.metadata.year,
+                "effectiveDate": content.metadata.effective_date,
+                "pageCount": content.metadata.total_pages,
+                "tableCount": len(content.tables)
+            }
+            metadata_file.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
+            print(f"\nSaved: {metadata_file}")
+
+            # Save tables_extracted.json
+            tables_file = output_path / "tables_extracted.json"
+            tables_data = {
+                table_id: {
+                    "title": table.title,
+                    "startPage": table.start_page,
+                    "endPage": table.end_page,
+                    "content": table.content
+                }
+                for table_id, table in content.tables.items()
+            }
+            tables_file.write_text(json.dumps(tables_data, indent=2, ensure_ascii=False))
+            print(f"Saved: {tables_file}")
+
+            print(f"\n✓ Extracted to {output_path}")
         else:
-            # Output full text
-            text = content.full_text
+            # Output is a file - save text
+            output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(text)
-        print(f"\nText written to: {output_path}")
+            if args.table:
+                # Output specific table
+                if args.table in content.tables:
+                    text = content.tables[args.table].content
+                else:
+                    print(f"Table {args.table} not found")
+                    return 1
+            else:
+                # Output full text
+                text = content.full_text
+
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(text)
+            print(f"\nText written to: {output_path}")
 
     return 0
 
@@ -173,8 +244,9 @@ def main() -> int:
     )
     convert_parser.add_argument(
         "--output", "-o",
-        required=True,
-        help="Output directory for JSON files"
+        required=False,
+        default=None,
+        help="Output directory for JSON files (auto-inferred from PDF path if not specified)"
     )
     convert_parser.add_argument(
         "--edition", "-e",
@@ -183,14 +255,15 @@ def main() -> int:
         help="Edition type (default: auto-detect)"
     )
     convert_parser.add_argument(
-        "--model", "-m",
-        default="glm-4.7",
-        help="GLM model to use (default: glm-4.7)"
+        "--llm", "-l",
+        choices=["gemini", "glm"],
+        default="gemini",
+        help="LLM provider: gemini (fast, needs GEMINI_API_KEY) or glm (slow but free, needs GLM_API_KEY)"
     )
     convert_parser.add_argument(
-        "--no-thinking",
-        action="store_true",
-        help="Disable GLM thinking mode"
+        "--model", "-m",
+        default=None,
+        help="LLM model name (optional, uses provider default)"
     )
     convert_parser.add_argument(
         "--skip-validation",
@@ -200,7 +273,16 @@ def main() -> int:
     convert_parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Extract data but don't write files"
+        help="Extract data but don't write final config files"
+    )
+    convert_parser.add_argument(
+        "--step", "-s",
+        default="all",
+        help=(
+            "Run specific step only: extract (PDF), cpp-ei, federal, provinces, "
+            "province-XX (single province, e.g., province-ON), generate (final JSON), "
+            "deploy (copy to config/tax_tables), all (default)"
+        )
     )
     convert_parser.set_defaults(func=cmd_convert)
 

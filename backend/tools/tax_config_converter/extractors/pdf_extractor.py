@@ -54,6 +54,7 @@ class PDFExtractor:
     """
 
     # Table patterns in Chapter 8
+    # Note: 8.8 is used as a boundary marker for 8.7 (not saved to output)
     TABLE_PATTERNS = {
         "8.1": r"Table\s*8\.1[^0-9]",
         "8.2": r"Table\s*8\.2[^0-9]",
@@ -62,7 +63,11 @@ class PDFExtractor:
         "8.5": r"Table\s*8\.5[^0-9]",
         "8.6": r"Table\s*8\.6[^0-9]",
         "8.7": r"Table\s*8\.7[^0-9]",
+        "8.8": r"Table\s*8\.8[^0-9]",  # Boundary marker for 8.7 (claim codes start here)
     }
+
+    # Tables to actually save (8.8+ are boundary markers only)
+    TABLES_TO_SAVE = {"8.1", "8.2", "8.3", "8.4", "8.5", "8.6", "8.7"}
 
     def __init__(self) -> None:
         self._fitz = None
@@ -163,7 +168,11 @@ class PDFExtractor:
     def _extract_tables(
         self, pages: list[str], full_text: str
     ) -> dict[str, TableSection]:
-        """Extract table sections from Chapter 8."""
+        """Extract table sections from Chapter 8.
+
+        Only saves tables in TABLES_TO_SAVE. Other tables (8.8+) are used as
+        boundary markers but not included in output.
+        """
         tables: dict[str, TableSection] = {}
 
         # Find all table positions in full text
@@ -181,6 +190,10 @@ class PDFExtractor:
 
         # Extract content between tables
         for i, (table_id, start_pos, start_page) in enumerate(table_positions):
+            # Skip tables not in TABLES_TO_SAVE (boundary markers only)
+            if table_id not in self.TABLES_TO_SAVE:
+                continue
+
             # End position is start of next table or end of document
             if i + 1 < len(table_positions):
                 end_pos = table_positions[i + 1][1]

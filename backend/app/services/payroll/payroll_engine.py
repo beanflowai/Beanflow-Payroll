@@ -402,7 +402,10 @@ class PayrollEngine:
             + input_data.other_deductions
         )
 
-        net_pay = input_data.total_gross - total_employee_deductions
+        # PDOC includes taxable benefits in "Total cash income" for net pay calculation
+        # Net amount = Total cash income - Total deductions
+        # where Total cash income = Salary + Taxable benefits (verified with PDOC 2025 & 2026)
+        net_pay = input_data.taxable_income_per_period - total_employee_deductions
 
         total_employer_costs = cpp_result.employer + ei_result.employer
 

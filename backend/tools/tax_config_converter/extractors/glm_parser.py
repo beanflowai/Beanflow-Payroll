@@ -6,11 +6,10 @@ Based on BeanFlow-CRA implementation pattern.
 """
 
 import os
-import json
 import logging
-import re
 from pathlib import Path
-from typing import Any
+
+from .base_parser import BaseLLMParser
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +50,7 @@ def _load_env_manual(env_file: Path) -> None:
         logger.warning(f"Failed to load .env: {e}")
 
 
-class GLMParser:
+class GLMParser(BaseLLMParser):
     """
     GLM API client for parsing tax tables from PDF text.
 
@@ -60,7 +59,7 @@ class GLMParser:
 
     Usage:
         parser = GLMParser()
-        result = parser.parse(prompt)
+        result = parser.parse_json(prompt)
     """
 
     def __init__(
@@ -191,60 +190,3 @@ class GLMParser:
         except Exception as e:
             logger.error(f"GLM API call failed: {e}")
             raise ValueError(f"GLM API call failed: {e}")
-
-    def parse_json(self, prompt: str) -> dict[str, Any]:
-        """
-        Parse prompt and extract JSON from response.
-
-        Args:
-            prompt: The extraction prompt
-
-        Returns:
-            Parsed JSON as dictionary
-
-        Raises:
-            ValueError: If response doesn't contain valid JSON
-        """
-        response = self.parse(prompt)
-
-        # Try to extract JSON from response
-        json_str = self._extract_json(response)
-
-        try:
-            return json.loads(json_str)
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON: {e}")
-            logger.debug(f"Raw response: {response[:500]}...")
-            raise ValueError(f"Invalid JSON in response: {e}")
-
-    def _extract_json(self, text: str) -> str:
-        """
-        Extract JSON from response text.
-
-        Handles various formats:
-        - Pure JSON
-        - JSON in markdown code blocks
-        - JSON with surrounding text
-        """
-        # Try markdown code block first
-        json_block = re.search(r"```(?:json)?\s*\n?([\s\S]*?)\n?```", text)
-        if json_block:
-            return json_block.group(1).strip()
-
-        # Try to find JSON object directly
-        # Find the first { and last } to extract the JSON
-        first_brace = text.find("{")
-        last_brace = text.rfind("}")
-
-        if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
-            return text[first_brace:last_brace + 1]
-
-        # Maybe it's a JSON array
-        first_bracket = text.find("[")
-        last_bracket = text.rfind("]")
-
-        if first_bracket != -1 and last_bracket != -1 and last_bracket > first_bracket:
-            return text[first_bracket:last_bracket + 1]
-
-        # Return as-is and let JSON parser handle it
-        return text.strip()
