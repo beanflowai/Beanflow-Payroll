@@ -48,11 +48,11 @@
 			let iconLoader: (() => Promise<IconComponentType>) | undefined;
 
 			if (variant === 'line' && name in lineIcons) {
-				iconLoader = lineIcons[name as string];
+				iconLoader = lineIcons[name as keyof typeof lineIcons];
 			} else if (variant === 'filled' && name in filledIcons) {
-				iconLoader = filledIcons[name as string];
+				iconLoader = filledIcons[name as keyof typeof filledIcons];
 			} else if (variant === 'brand' && name in brandIcons) {
-				iconLoader = brandIcons[name as string];
+				iconLoader = brandIcons[name as keyof typeof brandIcons];
 			}
 
 			if (iconLoader) {

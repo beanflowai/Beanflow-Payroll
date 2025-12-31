@@ -38,7 +38,13 @@
 	}
 
 	// Derived values for user display
-	const userName = $derived(authState.user?.name || authState.user?.email?.split('@')[0] || 'User');
+	// Supabase User stores name in user_metadata.name or user_metadata.full_name
+	const userName = $derived(
+		authState.user?.user_metadata?.name ||
+			authState.user?.user_metadata?.full_name ||
+			authState.user?.email?.split('@')[0] ||
+			'User'
+	);
 	const companyName = $derived('My Company'); // TODO: Get from company store
 </script>
 

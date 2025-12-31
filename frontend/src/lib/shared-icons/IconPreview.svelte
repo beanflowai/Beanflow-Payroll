@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { setContext } from 'svelte';
 	import { AVAILABLE_ICONS, ICON_SIZES, ICON_COLORS } from './index';
-	import type { IconVariant, IconSize } from './types';
+	import type { IconVariant, IconSize, IconName } from './types';
 	import Icon from './Icon.svelte';
 
 	// 预览配置
@@ -92,7 +92,7 @@
 			<div class="icon-item">
 				<div class="icon-display">
 					<Icon
-						name={iconName}
+						name={iconName as IconName}
 						variant={selectedVariant}
 						size={selectedSize}
 						color={selectedColor}

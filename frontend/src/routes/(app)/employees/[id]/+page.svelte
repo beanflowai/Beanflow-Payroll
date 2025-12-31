@@ -30,6 +30,13 @@
 		error = null;
 
 		try {
+			// Validate employeeId
+			if (!employeeId) {
+				error = 'Employee ID is required';
+				isLoading = false;
+				return;
+			}
+
 			// Load employee and pay groups in parallel
 			const [employeeResult, payGroupsResult] = await Promise.all([
 				getEmployee(employeeId),

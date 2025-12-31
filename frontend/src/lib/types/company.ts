@@ -262,7 +262,7 @@ export const PROVINCES: Array<{ code: Province; name: string }> = [
 	{ code: 'NU', name: 'Nunavut' },
 	{ code: 'ON', name: 'Ontario' },
 	{ code: 'PE', name: 'Prince Edward Island' },
-	{ code: 'QC', name: 'Quebec' },
+	// Note: Quebec (QC) is excluded - requires separate payroll system
 	{ code: 'SK', name: 'Saskatchewan' },
 	{ code: 'YT', name: 'Yukon' }
 ];

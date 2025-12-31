@@ -142,6 +142,10 @@
 	const currentTaxYear = new Date().getFullYear();
 	let initialYtdYear = $state<number | null>(employee?.initialYtdYear ?? null);
 
+	// Track if employee has payroll records (determines if vacation balance is editable)
+	// Must be defined before canEditPriorYtd which depends on it
+	let hasPayrollRecords = $state(false);
+
 	// Derived: Can edit prior YTD (only in create mode or if no payroll records)
 	const canEditPriorYtd = $derived(mode === 'create' || !hasPayrollRecords);
 
@@ -170,9 +174,6 @@
 	let isSubmitting = $state(false);
 	let errors = $state<Record<string, string>>({});
 	let submitError = $state<string | null>(null);
-
-	// Track if employee has payroll records (determines if vacation balance is editable)
-	let hasPayrollRecords = $state(false);
 
 	// Derived: Selected pay group details
 	const selectedPayGroup = $derived(payGroups.find(pg => pg.id === payGroupId) ?? null);

@@ -317,8 +317,8 @@ export const ICON_COLORS = {
 	current: 'currentColor'
 } as const;
 
-// 图标组件类型
-export type IconComponentType = import('svelte').SvelteComponent<BaseIconProps>;
+// 图标组件类型 (Svelte 5 uses Component instead of SvelteComponent)
+export type IconComponentType = import('svelte').Component<BaseIconProps>;
 
 // 图标映射表类型
 export interface IconMap {

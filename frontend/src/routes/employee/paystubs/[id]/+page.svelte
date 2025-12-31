@@ -8,7 +8,7 @@
 	import { getPaystubDetail } from '$lib/services/employeePortalService';
 	import type { PaystubDetail as PaystubDetailType } from '$lib/types/employee-portal';
 
-	const paystubId = $page.params.id;
+	const paystubId = $page.params.id ?? '';
 
 	// State
 	let paystub = $state<PaystubDetailType | null>(null);
@@ -23,6 +23,12 @@
 	async function loadPaystub() {
 		loading = true;
 		error = null;
+
+		if (!paystubId) {
+			error = 'Paystub ID is required';
+			loading = false;
+			return;
+		}
 
 		try {
 			paystub = await getPaystubDetail(paystubId);

@@ -500,12 +500,13 @@
 			onBack={handleBack}
 		>
 			{#snippet actions()}
-				<StatusBadge status={PAYROLL_STATUS_LABELS[payrollRun.status]} variant="pill" />
+				{@const run = payrollRun!}
+				<StatusBadge status={PAYROLL_STATUS_LABELS[run.status]} variant="pill" />
 				<button class="flex items-center gap-2 py-3 px-5 bg-white text-surface-700 border border-surface-200 rounded-lg text-body-content font-medium cursor-pointer transition-all duration-150 hover:bg-surface-50 hover:border-surface-300">
 					<i class="fas fa-file-csv"></i>
 					<span>Export CSV</span>
 				</button>
-				{#if payrollRun.status === 'approved'}
+				{#if run.status === 'approved'}
 					<!-- Approved state: Download Paystubs + Send Paystubs -->
 					<button
 						class="flex items-center gap-2 py-3 px-5 bg-white text-surface-700 border border-surface-200 rounded-lg text-body-content font-medium cursor-pointer transition-all duration-150 hover:bg-surface-50 hover:border-surface-300"
@@ -522,7 +523,7 @@
 						<i class="fas fa-paper-plane"></i>
 						<span>{isSendingPaystubs ? 'Sending...' : 'Send Paystubs'}</span>
 					</button>
-				{:else if payrollRun.status === 'paid'}
+				{:else if run.status === 'paid'}
 					<!-- Paid state: Download + Resend -->
 					<button
 						class="flex items-center gap-2 py-3 px-5 bg-white text-surface-700 border border-surface-200 rounded-lg text-body-content font-medium cursor-pointer transition-all duration-150 hover:bg-surface-50 hover:border-surface-300"
