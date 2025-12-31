@@ -4,8 +4,8 @@
 **Scope**: All provinces/territories except Quebec
 **Timeline**: 8-10 weeks
 
-> **Last Updated**: 2025-12-29
-> **Architecture Version**: v3.2 (Standalone Product)
+> **Last Updated**: 2025-12-31
+> **Architecture Version**: v3.3 (Standalone Product + Government Submission)
 
 ---
 
@@ -51,8 +51,9 @@ This checklist has been updated to reflect standalone product architecture:
 | Phase 3: Paystub | ✅ Completed | 2025-12-28 | 2025-12-29 | PDF Generator + Data Builder + DO Spaces Storage |
 | Phase 4: API & Integration | ✅ ~95% Done | 2025-12-16 | 2025-12-27 | API + Service + Frontend UI 基本完成 |
 | Phase 5: Testing | ⬜ Not Started | | | Unit + Integration + PDOC |
-| Phase 6: Year-End (Future) | ⬜ Not Started | | | T4 generation |
-| Phase 7: Compliance (Future) | ⬜ Not Started | | | ROE, Remittance |
+| Phase 6: Year-End (Future) | ⬜ Not Started | | | T4 generation + CRA submission |
+| Phase 7: Compliance (Future) | ⬜ Not Started | | | ROE + Service Canada, Remittance |
+| Phase 8: Gov Submission (Future) | ⬜ Not Started | | | Enterprise auto-submission (WAC/ROE Web) |
 
 **Status Legend**: ⬜ Not Started | 🔄 In Progress | ✅ Completed | ⚠️ Blocked
 
@@ -662,24 +663,146 @@ This checklist has been updated to reflect standalone product architecture:
 
 ## Phase 6: Year-End Processing (Future - 2 weeks)
 
+> **Reference**: See [09_year_end_processing.md](./09_year_end_processing.md) and [16_government_electronic_submission.md](./16_government_electronic_submission.md)
+
 ### T4 Generation
 
-- [ ] Create T4 data models
-- [ ] Create T4 aggregation service
-- [ ] Create T4 PDF generator
-- [ ] Create T4 XML generator (CRA format)
-- [ ] Add T4 API endpoints
+- [ ] **Task 6.1**: Create T4 Data Models
+  - [ ] Implement `T4SlipData` model (all T4 boxes)
+  - [ ] Implement `T4Summary` model
+  - [ ] Add SIN Luhn algorithm validation
+  - [ ] Test data model validation
+
+- [ ] **Task 6.2**: Create T4 Aggregation Service
+  - [ ] Implement `T4AggregationService.aggregate_employee_year()`
+  - [ ] Implement `T4AggregationService.generate_all_t4_slips()`
+  - [ ] Implement `T4AggregationService.generate_t4_summary()`
+  - [ ] Test aggregation with sample payroll data
+
+- [ ] **Task 6.3**: Create T4 Output Generators
+  - [ ] Implement T4 PDF generator (ReportLab)
+  - [ ] Implement T4 Summary PDF generator
+  - [ ] Implement T4 XML generator (T619 schema)
+  - [ ] Validate XML against CRA schema (xmlschm1-25-4)
+  - [ ] Test XML with CRA validator
+
+- [ ] **Task 6.4**: Create T4 API Endpoints
+  - [ ] POST `/year-end/generate-t4-slips/{ledger_id}/{tax_year}`
+  - [ ] POST `/year-end/generate-t4-summary/{ledger_id}/{tax_year}`
+  - [ ] GET `/year-end/t4-slips/{ledger_id}/{tax_year}`
+  - [ ] GET `/year-end/t4/{employee_id}/download-pdf`
+  - [ ] GET `/year-end/t4/{employee_id}/download-xml`
+
+### T4 CRA Submission (Phase 6.5 - Enterprise)
+
+> **Note**: CRA does not provide public API. "Automatic" submission requires WAC integration.
+
+- [ ] **Task 6.5**: CRA Submission Support
+  - [ ] Pre-submission XML validation against T619 schema
+  - [ ] Deep link to CRA Internet File Transfer portal
+  - [ ] Submission status tracking (draft, submitted, accepted)
+  - [ ] Store confirmation numbers
+  - [ ] (Phase 3 - Enterprise) WAC credential storage and auto-submission
 
 ---
 
 ## Phase 7: Compliance Features (Future - 2 weeks)
 
-### Remittance & ROE
+> **Reference**: See [10_remittance_reporting.md](./10_remittance_reporting.md), [11_roe_generation.md](./11_roe_generation.md), and [16_government_electronic_submission.md](./16_government_electronic_submission.md)
 
-- [ ] Create remittance reporting service
-- [ ] Create ROE generation service
-- [ ] Create garnishment handling
-- [ ] Add compliance API endpoints
+### Remittance Reporting
+
+- [ ] **Task 7.1**: Create Remittance Models
+  - [ ] Implement `RemitterType` enum (Quarterly, Regular, Threshold 1, Threshold 2)
+  - [ ] Implement `RemitterClassification` model
+  - [ ] Implement `RemittancePeriod` model
+  - [ ] Implement `PD7ARemittanceVoucher` model
+
+- [ ] **Task 7.2**: Create Remittance Services
+  - [ ] Implement `AMWACalculationService` (Average Monthly Withholding Amount)
+  - [ ] Implement `RemittanceCalculationService`
+  - [ ] Implement due date calculation for all remitter types
+  - [ ] Implement late penalty calculation
+
+- [ ] **Task 7.3**: Create PD7A PDF Generator
+  - [ ] Generate PD7A remittance voucher PDF
+  - [ ] Include all line items (CPP, EI, Tax)
+  - [ ] Test PDF layout
+
+### ROE Generation
+
+- [ ] **Task 7.4**: Create ROE Data Models
+  - [ ] Implement `ROEReasonCode` enum (A-Z codes)
+  - [ ] Implement `ROEPayPeriod` model
+  - [ ] Implement `RecordOfEmployment` model with validation
+  - [ ] Test validation logic (comments required for E, K, M, Z)
+
+- [ ] **Task 7.5**: Create ROE Generation Service
+  - [ ] Implement insurable earnings calculation (53 weeks lookback)
+  - [ ] Implement `generate_roe()` method
+  - [ ] Handle vacation pay and other monies
+  - [ ] Test with sample payroll data
+
+- [ ] **Task 7.6**: Create ROE Output Generators
+  - [ ] Implement ROE XML generator (ROE Web Payroll Extract format)
+  - [ ] Generate `.BLK` file extension
+  - [ ] Implement ROE PDF generator (employee copy)
+  - [ ] Validate against ROE Web schema (XSD)
+  - [ ] Test with ROE Web demo site
+
+- [ ] **Task 7.7**: Create ROE API Endpoints
+  - [ ] POST `/roe/generate/{ledger_id}/{employee_id}`
+  - [ ] GET `/roe/list/{ledger_id}`
+  - [ ] GET `/roe/{roe_id}/download-pdf`
+  - [ ] GET `/roe/{roe_id}/download-xml`
+
+### ROE Service Canada Submission (Phase 7.5 - Enterprise)
+
+> **Note**: Service Canada provides Payroll Extract batch upload. More integration-friendly than CRA.
+
+- [ ] **Task 7.8**: ROE Web Submission Support
+  - [ ] Pre-submission XML validation against ROE Web schema
+  - [ ] Deep link to ROE Web Payroll Extract portal
+  - [ ] Submission status tracking (draft, submitted, passed, failed)
+  - [ ] Serial number import from ROE Web
+  - [ ] Amended ROE support
+  - [ ] (Phase 3 - Enterprise) ROE Web credential storage and auto-submission
+
+### Garnishment Handling (Future)
+
+- [ ] **Task 7.9**: Create Garnishment Service
+  - [ ] Implement garnishment types (federal, provincial, child support)
+  - [ ] Implement garnishment calculation
+  - [ ] Implement garnishment deduction priority
+  - [ ] Add garnishment API endpoints
+
+---
+
+## Phase 8: Government Electronic Submission Summary
+
+> **Reference**: See [16_government_electronic_submission.md](./16_government_electronic_submission.md) for comprehensive documentation.
+
+### Implementation Phases for Government Submissions
+
+| Phase | T4 (CRA) | ROE (Service Canada) | Remittance (CRA) |
+|-------|----------|----------------------|------------------|
+| **Phase 1 (MVP)** | Generate XML + PDF, manual upload | Generate .BLK + PDF, manual upload | Generate PD7A PDF |
+| **Phase 2** | Validate + deep links | Validate + status tracking | Deep links to My Business Account |
+| **Phase 3 (Enterprise)** | WAC auto-submission | ROE Web auto-submission | Pre-authorized debit setup |
+
+### Key Technical Requirements
+
+| System | Format | Schema | Deadline |
+|--------|--------|--------|----------|
+| **CRA T4** | XML (T619) | xmlschm1-25-4 | Feb 28 |
+| **ROE Web** | XML (.BLK) | ROE Web v2.0 | 5 days after interruption |
+| **PD7A** | PDF | N/A | 15th of following month |
+
+### 2025 Compliance Changes
+
+1. **Electronic Filing Threshold**: > 5 slips must file electronically (as of Jan 2024)
+2. **T619 Schema Update**: New format required starting Jan 2025
+3. **Single Return Type**: Each CRA submission can only contain one type (e.g., only T4)
 
 ---
 

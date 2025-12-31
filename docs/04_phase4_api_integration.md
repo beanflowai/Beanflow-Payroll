@@ -791,6 +791,141 @@ async def terminate_employee(
 
 
 # =============================================================================
+# COMPENSATION ENDPOINTS (Added 2025-12-31)
+# =============================================================================
+
+class CompensationType(str, Enum):
+    """Compensation type"""
+    SALARY = "salary"
+    HOURLY = "hourly"
+
+
+class CompensationHistoryCreate(BaseModel):
+    """Request model for updating compensation"""
+    compensationType: CompensationType
+    annualSalary: Decimal | None = None  # Required if type is salary
+    hourlyRate: Decimal | None = None    # Required if type is hourly
+    effectiveDate: date                   # When the new compensation takes effect
+    changeReason: str | None = None       # Optional: "Annual review", "Promotion", etc.
+
+
+class CompensationHistory(BaseModel):
+    """Compensation history record"""
+    id: UUID
+    employeeId: UUID
+    compensationType: CompensationType
+    annualSalary: Decimal | None
+    hourlyRate: Decimal | None
+    effectiveDate: date
+    endDate: date | None  # NULL = currently active
+    changeReason: str | None
+    createdAt: datetime
+
+
+@router.post(
+    "/employees/{employee_id}/compensation",
+    response_model=CompensationHistory,
+    summary="Update employee compensation"
+)
+async def update_compensation(
+    employee_id: UUID,
+    request: CompensationHistoryCreate,
+    current_user: CurrentUser,
+):
+    """
+    Update employee compensation with history tracking.
+
+    This endpoint:
+    1. Validates the new effective date is after current record's effective date
+    2. Closes the current compensation record (sets end_date)
+    3. Creates a new compensation record with the new values
+    4. Syncs the current values to the employees table
+
+    **Note**: Uses atomic RPC function for transactional consistency.
+
+    **Request Example**:
+    ```json
+    {
+        "compensationType": "salary",
+        "annualSalary": 75000.00,
+        "effectiveDate": "2025-02-01",
+        "changeReason": "Annual performance review - 10% raise"
+    }
+    ```
+
+    **Validation Rules**:
+    - `effectiveDate` must be after the current compensation's effective date
+    - `annualSalary` is required when `compensationType` is "salary"
+    - `hourlyRate` is required when `compensationType` is "hourly"
+    - Positive amounts only
+
+    **Returns**: The newly created compensation history record.
+
+    **Errors**:
+    - 400: Invalid effective date (must be after current)
+    - 400: Missing required field (salary or hourly rate)
+    - 404: Employee not found
+    """
+    company_id = await get_user_company_id(current_user.id)
+    service = CompensationService(current_user.id, company_id)
+
+    # Verify employee belongs to user
+    # ...
+
+    result = await service.update_compensation(employee_id, request)
+    return result
+
+
+@router.get(
+    "/employees/{employee_id}/compensation",
+    response_model=list[CompensationHistory],
+    summary="Get compensation history"
+)
+async def get_compensation_history(
+    employee_id: UUID,
+    current_user: CurrentUser,
+):
+    """
+    Get full compensation history for an employee.
+
+    Returns all compensation records ordered by effective date (descending).
+    The record with `endDate = null` is the current active compensation.
+
+    **Response Example**:
+    ```json
+    [
+        {
+            "id": "...",
+            "employeeId": "...",
+            "compensationType": "salary",
+            "annualSalary": 75000.00,
+            "hourlyRate": null,
+            "effectiveDate": "2025-02-01",
+            "endDate": null,
+            "changeReason": "Annual review - 10% raise",
+            "createdAt": "2025-01-15T10:30:00Z"
+        },
+        {
+            "id": "...",
+            "employeeId": "...",
+            "compensationType": "salary",
+            "annualSalary": 68000.00,
+            "hourlyRate": null,
+            "effectiveDate": "2024-01-15",
+            "endDate": "2025-01-31",
+            "changeReason": "Initial hire",
+            "createdAt": "2024-01-10T09:00:00Z"
+        }
+    ]
+    ```
+    """
+    company_id = await get_user_company_id(current_user.id)
+    service = CompensationService(current_user.id, company_id)
+
+    return await service.get_compensation_history(employee_id)
+
+
+# =============================================================================
 # PAYROLL CALCULATION ENDPOINTS
 # =============================================================================
 

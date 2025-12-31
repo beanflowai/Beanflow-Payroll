@@ -76,7 +76,9 @@ CREATE TABLE IF NOT EXISTS employees (
         employment_type IN ('full_time', 'part_time', 'contract', 'casual')
     ),
 
-    -- Compensation
+    -- Compensation (current values, synced from employee_compensation_history)
+    -- Note: Historical compensation changes are tracked in employee_compensation_history table
+    -- See docs/13_database_schema.md for compensation history schema and RPC function
     annual_salary NUMERIC(12, 2),
     hourly_rate NUMERIC(10, 2),
 
@@ -1010,6 +1012,9 @@ class EmployeeBase(BaseModel):
     employment_type: EmploymentType = EmploymentType.FULL_TIME
 
     # Compensation (one required)
+    # Note: These are current values. To update compensation with history tracking,
+    # use the POST /employees/{id}/compensation API endpoint.
+    # See docs/13_database_schema.md for employee_compensation_history table.
     annual_salary: Optional[Decimal] = None
     hourly_rate: Optional[Decimal] = None
 

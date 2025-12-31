@@ -1,19 +1,22 @@
 # Database Schema - Payroll Module
 
-**Last Updated**: 2025-12-29
+**Last Updated**: 2025-12-31
 **Database**: Supabase (PostgreSQL)
 
 ---
 
 ## Overview
 
-The payroll module uses three main tables stored in Supabase PostgreSQL:
+The payroll module uses multiple tables stored in Supabase PostgreSQL:
 
 | Table | Description | Row Count Estimate |
 |-------|-------------|-------------------|
 | `employees` | Employee master data | 10-500 per ledger |
+| `employee_compensation_history` | Salary/rate change history | 1-10 per employee |
 | `payroll_runs` | Payroll run headers | 12-52 per year |
 | `payroll_records` | Individual pay records | employees × runs |
+| `companies` | Company configuration | 1-5 per user |
+| `pay_groups` | Pay group policies | 1-10 per company |
 
 All tables follow the project's multi-tenancy pattern with `user_id` and `ledger_id` columns, and Row Level Security (RLS) policies.
 
@@ -31,23 +34,42 @@ All tables follow the project's multi-tenancy pattern with `user_id` and `ledger
 │ sin_encrypted   │
 │ province        │
 │ pay_frequency   │
+│ annual_salary   │◄─── synced from current compensation
+│ hourly_rate     │◄─── synced from current compensation
 │ ...             │
 └────────┬────────┘
          │
-         │ 1:N
-         │
-┌────────┴────────┐         ┌─────────────────┐
-│ payroll_records │         │  payroll_runs   │
-├─────────────────┤         ├─────────────────┤
-│ id (PK)         │         │ id (PK)         │
-│ employee_id (FK)├────────►│ user_id         │
-│ payroll_run_id (FK)◄──────┤ ledger_id       │
-│ user_id         │   N:1   │ period_start    │
-│ ledger_id       │         │ period_end      │
-│ earnings...     │         │ pay_date        │
-│ deductions...   │         │ status          │
-│ net_pay         │         │ totals...       │
-└─────────────────┘         └─────────────────┘
+         ├───────────────────────────────────────┐
+         │ 1:N                                   │ 1:N
+         │                                       │
+         ▼                                       ▼
+┌────────────────────────────┐     ┌─────────────────────────────────┐
+│ employee_compensation_     │     │         payroll_records         │
+│ history                    │     ├─────────────────────────────────┤
+├────────────────────────────┤     │ id (PK)                         │
+│ id (PK)                    │     │ employee_id (FK)────────────────┘
+│ employee_id (FK)───────────┘     │ payroll_run_id (FK)◄──────┐
+│ compensation_type          │     │ user_id         │   N:1   │
+│ annual_salary              │     │ ledger_id       │         │
+│ hourly_rate                │     │ earnings...     │         │
+│ effective_date             │     │ deductions...   │         │
+│ end_date (NULL=current)    │     │ net_pay         │         │
+│ change_reason              │     └─────────────────┘         │
+└────────────────────────────┘                                 │
+                                            ┌──────────────────┘
+                                            │
+                                   ┌────────┴────────┐
+                                   │  payroll_runs   │
+                                   ├─────────────────┤
+                                   │ id (PK)         │
+                                   │ user_id         │
+                                   │ ledger_id       │
+                                   │ period_start    │
+                                   │ period_end      │
+                                   │ pay_date        │
+                                   │ status          │
+                                   │ totals...       │
+                                   └─────────────────┘
 ```
 
 ---
@@ -160,6 +182,162 @@ CREATE POLICY "Users can access own employees"
   "vacation_rate": "0.04",        // 4% (< 5 years) or 6% (5+ years)
   "lump_sum_month": null          // 1-12 if lump_sum method
 }
+```
+
+---
+
+## Table: employee_compensation_history (Added 2025-12-31)
+
+Tracks employee salary/hourly rate changes over time. Instead of overwriting compensation values, each change creates a new history record with an effective date.
+
+### Design Philosophy
+
+- **History Tracking**: Every compensation change is preserved with effective dates
+- **Atomic Updates**: RPC function ensures transactional consistency
+- **Sync to Employees**: Current compensation is always synced to `employees` table for quick access
+- **Audit Trail**: `change_reason` field documents why each change was made
+
+### Schema
+
+```sql
+CREATE TABLE employee_compensation_history (
+    -- Primary Key
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    -- Foreign Key
+    employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+
+    -- Compensation Details
+    compensation_type TEXT NOT NULL CHECK (compensation_type IN ('salary', 'hourly')),
+    annual_salary NUMERIC(12, 2),
+    hourly_rate NUMERIC(10, 2),
+
+    -- Effective Period
+    effective_date DATE NOT NULL,
+    end_date DATE,  -- NULL = currently active
+
+    -- Audit
+    change_reason TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+
+    -- Constraints
+    CONSTRAINT valid_compensation CHECK (
+        (compensation_type = 'salary' AND annual_salary IS NOT NULL) OR
+        (compensation_type = 'hourly' AND hourly_rate IS NOT NULL)
+    ),
+    CONSTRAINT valid_date_range CHECK (end_date IS NULL OR end_date >= effective_date)
+);
+```
+
+### Indexes
+
+```sql
+-- Primary query path: get employee's compensation history
+CREATE INDEX idx_comp_history_employee
+    ON employee_compensation_history(employee_id);
+
+-- Effective date lookup (descending for "current" queries)
+CREATE INDEX idx_comp_history_effective
+    ON employee_compensation_history(employee_id, effective_date DESC);
+```
+
+### RLS Policy
+
+```sql
+ALTER TABLE employee_compensation_history ENABLE ROW LEVEL SECURITY;
+
+-- Users can only access their own employees' compensation history
+CREATE POLICY "Users can manage their employees compensation history"
+ON employee_compensation_history
+FOR ALL
+USING (
+    employee_id IN (SELECT id FROM employees WHERE user_id = auth.uid()::text)
+);
+```
+
+### RPC Function: update_employee_compensation
+
+Atomic function that ensures transactional consistency when updating employee compensation.
+
+```sql
+CREATE OR REPLACE FUNCTION update_employee_compensation(
+    p_employee_id UUID,
+    p_compensation_type TEXT,
+    p_annual_salary NUMERIC,
+    p_hourly_rate NUMERIC,
+    p_effective_date DATE,
+    p_change_reason TEXT DEFAULT NULL
+)
+RETURNS SETOF employee_compensation_history
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    -- Security: Validate employee ownership via auth.uid()
+
+    -- Validation: compensation type and amount
+
+    -- Validation: new effective date must be after current effective date
+
+    -- Step 1: Close current active record (set end_date)
+    UPDATE employee_compensation_history
+    SET end_date = p_effective_date - INTERVAL '1 day'
+    WHERE employee_id = p_employee_id AND end_date IS NULL;
+
+    -- Step 2: Insert new compensation record
+    INSERT INTO employee_compensation_history (...) VALUES (...);
+
+    -- Step 3: Sync current compensation to employees table
+    UPDATE employees
+    SET annual_salary = ..., hourly_rate = ...
+    WHERE id = p_employee_id;
+END;
+$$;
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION update_employee_compensation TO authenticated;
+```
+
+**Function Behavior**:
+
+| Step | Description |
+|------|-------------|
+| 1. Validate ownership | Ensures caller owns the employee via `auth.uid()` |
+| 2. Validate effective date | New date must be after current record's effective date |
+| 3. Close current record | Sets `end_date` to day before new effective date |
+| 4. Insert new record | Creates new compensation record with `end_date = NULL` |
+| 5. Sync to employees | Updates `annual_salary`/`hourly_rate` in employees table |
+
+### Usage Example
+
+```sql
+-- Update employee to new salary effective 2025-02-01
+SELECT * FROM update_employee_compensation(
+    p_employee_id := '550e8400-e29b-41d4-a716-446655440000',
+    p_compensation_type := 'salary',
+    p_annual_salary := 75000.00,
+    p_hourly_rate := NULL,
+    p_effective_date := '2025-02-01',
+    p_change_reason := 'Annual performance review - 10% raise'
+);
+```
+
+### Data Migration
+
+Existing compensation data was migrated from `employees` table:
+
+```sql
+INSERT INTO employee_compensation_history (...)
+SELECT
+    id,
+    CASE WHEN annual_salary IS NOT NULL THEN 'salary' ELSE 'hourly' END,
+    annual_salary,
+    hourly_rate,
+    COALESCE(hire_date, created_at::date),
+    'Initial migration from employees table',
+    created_at
+FROM employees
+WHERE annual_salary IS NOT NULL OR hourly_rate IS NOT NULL;
 ```
 
 ---

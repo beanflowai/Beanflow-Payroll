@@ -1086,7 +1086,135 @@ def test_roe_insurable_earnings_total():
 
 ---
 
-## 7. Implementation Checklist
+## 7. ROE Web Electronic Submission Details
+
+> **Note**: For comprehensive submission documentation, see [16_government_electronic_submission.md](./16_government_electronic_submission.md)
+
+### 7.1 ROE Web System Overview
+
+**Official Portal**: https://www.canada.ca/en/employment-social-development/programs/ei/ei-list/ei-roe/access-roe.html
+
+ROE Web is a secure Service Canada portal that allows employers to:
+- Create and submit ROEs online
+- Upload batch ROEs via Payroll Extract (XML)
+- Track submission status
+- Import serial numbers back to payroll software
+
+### 7.2 Submission Methods
+
+| Method | Description | Capacity | Best For |
+|--------|-------------|----------|----------|
+| **Online Form** | Manual entry via portal | 1 ROE at a time | Occasional use |
+| **ROE Web Assistant** | Guided completion | 1 ROE at a time | New users |
+| **Payroll Extract** | XML batch upload | 1,200 ROEs/file, 10 files/upload | Bulk submissions |
+
+### 7.3 Payroll Extract (XML Batch Upload)
+
+**Documentation**: https://www.canada.ca/en/employment-social-development/programs/ei/ei-list/reports/payroll-extract.html
+
+**Process Flow**:
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│ Beanflow        │     │ Generate XML    │     │ ROE Web         │
+│ ROE Data        │ ──► │ (.BLK file)     │ ──► │ Payroll Extract │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+                                                         │
+                                              ┌──────────┴──────────┐
+                                              ▼                     ▼
+                                    ┌─────────────────┐   ┌─────────────────┐
+                                    │ Passed ROEs     │   │ Failed ROEs     │
+                                    │ (Submitted)     │   │ (Fix & Resubmit)│
+                                    └─────────────────┘   └─────────────────┘
+```
+
+**XML File Requirements**:
+- File extension: `.BLK`
+- Encoding: UTF-8
+- Schema: ROE Web Payroll Extract Schema v2.0
+
+**XML Header Structure**:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ROEHEADER version="2.0"
+           transmitterNumber="123456789RP0001"
+           transmitterName="Company Name"
+           contactName="Contact Person"
+           contactPhone="4165551234">
+  <ROE>
+    <!-- Individual ROE data -->
+  </ROE>
+  <!-- More ROEs... -->
+</ROEHEADER>
+```
+
+### 7.4 Status Tracking
+
+After uploading to ROE Web:
+
+| Status | Description | Action |
+|--------|-------------|--------|
+| **Received** | File waiting for processing | Wait |
+| **Processing** | Being validated | Wait |
+| **Process Completed** | Available under View | Retrieve serial numbers |
+| **Invalid File** | Format error | Fix and re-upload |
+
+**For individual ROEs within a file**:
+
+| Status | Description | Action |
+|--------|-------------|--------|
+| **Passed** | ROE accepted | Submit or review |
+| **Failed** | Validation error | Fix via Online Form or re-upload corrected XML |
+
+### 7.5 Import Feature (Serial Number Retrieval)
+
+**Purpose**: Extract ROE Serial Numbers from ROE Web back into Beanflow
+
+**Use Cases**:
+1. Record keeping
+2. Required for issuing amended ROEs
+3. Audit trail
+
+**Import Process**:
+1. Login to ROE Web
+2. Use Import feature with search criteria
+3. Export XML with serial numbers
+4. Import into Beanflow database
+
+### 7.6 Testing Environment
+
+**ROE Web Demo Site**: Available for testing payroll extract files before production submission
+
+**Validation Steps**:
+1. Generate XML using ROE Web schema (XSD)
+2. Validate locally using XSD validator tool
+3. Upload to demo site
+4. Review validation results
+5. Submit to production when validated
+
+### 7.7 Registration Requirements
+
+**Primary Officer Validation** (Required for ROE Web access):
+
+| Method | Description |
+|--------|-------------|
+| **Online** | Validate via CRA My Business Account |
+| **In Person** | Visit Service Canada Centre with photo ID |
+
+**Required Credentials**:
+- GCKey, OR
+- Sign-In Partner (bank credentials)
+
+### 7.8 Beanflow Implementation Phases
+
+| Phase | Features | User Action |
+|-------|----------|-------------|
+| **Phase 1 (MVP)** | Generate XML + PDF | Download .BLK, upload to ROE Web manually |
+| **Phase 2** | Validation + status tracking | Same, with pre-submission checks |
+| **Phase 3 (Enterprise)** | Store ROE Web credentials | Automated submission |
+
+---
+
+## 8. Implementation Checklist
 
 - [ ] **Data Models**
   - [ ] Implement `ROEReasonCode` enum
@@ -1102,7 +1230,9 @@ def test_roe_insurable_earnings_total():
 
 - [ ] **XML Generation**
   - [ ] Implement ROE XML generator for Service Canada
-  - [ ] Validate against ROE Web schema
+  - [ ] Generate `.BLK` file format
+  - [ ] Validate against ROE Web schema (XSD)
+  - [ ] Test with ROE Web demo site
   - [ ] Test XML output
 
 - [ ] **PDF Generation**
@@ -1111,22 +1241,29 @@ def test_roe_insurable_earnings_total():
 
 - [ ] **API Endpoints**
   - [ ] Implement ROE generation endpoint
-  - [ ] Implement ROE submission endpoint
+  - [ ] Implement ROE XML download endpoint
   - [ ] Implement ROE PDF download endpoint
   - [ ] Implement ROE listing endpoint
 
-- [ ] **Integration**
-  - [ ] Integrate with existing payroll system
-  - [ ] Store ROEs in Firestore
-  - [ ] Store ROE PDFs/XML in Google Drive
+- [ ] **Submission Integration (Phase 2+)**
+  - [ ] Pre-submission validation against schema
+  - [ ] Status tracking (draft, submitted, accepted)
+  - [ ] Serial number import from ROE Web
+  - [ ] Amended ROE support
+
+- [ ] **Storage**
+  - [ ] Store ROEs in Supabase
+  - [ ] Store ROE PDFs/XML in storage
 
 - [ ] **Testing**
   - [ ] Unit tests for all services
   - [ ] Integration tests
+  - [ ] Test XML with ROE Web demo site
   - [ ] Manual testing with real employee data
 
 ---
 
-**Document Version**: 1.0
+**Document Version**: 1.1
 **Created**: 2025-10-09
-**For**: Beancount-LLM Canadian Payroll System - Phase 7 Implementation (ROE)
+**Updated**: 2025-12-31
+**For**: Beanflow-Payroll System - Phase 7 Implementation (ROE)

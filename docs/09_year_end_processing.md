@@ -1399,6 +1399,77 @@ def test_sin_validation():
 
 ---
 
-**Document Version**: 1.0
+## 10. CRA Electronic Submission Details
+
+> **Note**: For comprehensive submission documentation, see [16_government_electronic_submission.md](./16_government_electronic_submission.md)
+
+### 10.1 Electronic Filing Methods
+
+CRA provides three methods for T4 electronic submission:
+
+| Method | Description | Best For |
+|--------|-------------|----------|
+| **Internet File Transfer** | Upload XML file via web portal | > 5 slips (required) |
+| **Web Forms** | Manual entry via CRA portal | ≤ 5 slips |
+| **My Business Account** | Upload XML via business account | All employers |
+
+### 10.2 T619 XML Schema (2025 Updates)
+
+**Schema Version**: xmlschm1-25-4 (December 2024)
+
+**Key 2025 Changes**:
+1. **Single return type per submission**: Each submission can only contain one type (e.g., only T4)
+2. **Updated T619 Electronic Transmittal record**: New format required starting January 2025
+3. **File structure changes**: `layout-topologies.xsd` replaced by `T619_<FormType>.xsd` files
+
+**Download**: https://www.canada.ca/en/revenue-agency/services/e-services/filing-information-returns-electronically-t4-t5-other-types-returns-overview/filing-information-returns-electronically-t4-t5-other-types-returns-file/filing-internet-file-transfer/download-xml-schema.html
+
+### 10.3 Electronic Filing Threshold (2024+)
+
+| Slips Filed | Requirement |
+|-------------|-------------|
+| **> 5 slips** | **Must** file electronically |
+| **≤ 5 slips** | Paper or electronic (optional) |
+
+### 10.4 Submission Process Flow
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│ Generate T4     │     │ Validate XML    │     │ CRA Internet    │
+│ Data + XML      │ ──► │ against T619    │ ──► │ File Transfer   │
+│ (Beanflow)      │     │ Schema          │     │                 │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+                                                         │
+                                                         ▼
+                                                ┌─────────────────┐
+                                                │ Confirmation    │
+                                                │ Number          │
+                                                └─────────────────┘
+```
+
+### 10.5 Web Access Code (WAC)
+
+**Purpose**: Required for automated submission by payroll software
+
+**How commercial software achieves "automatic" T4 submission**:
+1. User provides CRA credentials/WAC during setup
+2. Software generates T619-compliant XML
+3. Software submits on behalf of user
+4. Returns confirmation to user
+
+**Beanflow Implementation Phases**:
+- **Phase 1 (MVP)**: Generate XML, user manually uploads
+- **Phase 2**: Validate + deep links to CRA portal
+- **Phase 3 (Enterprise)**: Store WAC, automatic submission
+
+### 10.6 System Maintenance Windows
+
+- **December 22, 2025**: Electronic filing unavailable
+- **January 12, 2026**: System reopens with 2026 schema
+
+---
+
+**Document Version**: 1.1
 **Created**: 2025-10-09
-**For**: Beancount-LLM Canadian Payroll System - Phase 6 Implementation
+**Updated**: 2025-12-31
+**For**: Beanflow-Payroll System - Phase 6 Implementation
