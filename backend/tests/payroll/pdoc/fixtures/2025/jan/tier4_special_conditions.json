@@ -261,9 +261,9 @@
         "ei": "39.49",
         "federal_tax": "243.19",
         "provincial_tax": "125.48",
-        "net_pay": "1764.28"
+        "net_pay": "1864.28"
       },
-      "notes": "PDOC verified 2025-12-30"
+      "notes": "PDOC verified 2025-12-30. Net = Total cash income (2407.69) - Deductions (543.41)"
     },
     {
       "id": "BC_40K_BENEFITS",
@@ -299,9 +299,9 @@
         "ei": "26.87",
         "federal_tax": "126.78",
         "provincial_tax": "51.85",
-        "net_pay": "1243.48"
+        "net_pay": "1343.48"
       },
-      "notes": "PDOC verified 2025-12-30"
+      "notes": "PDOC verified 2025-12-30. Cash taxable benefit ($100) included in Total cash income → Net amount."
     },
     {
       "id": "AB_HIGH_EXEMPTION_K5P",

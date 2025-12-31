@@ -190,6 +190,7 @@ class ProvincialTaxCalculator:
         ei_per_period: Decimal,
         ytd_cpp_base: Decimal = Decimal("0"),
         ytd_ei: Decimal = Decimal("0"),
+        pensionable_months: int | None = None,
     ) -> Decimal:
         """
         Calculate K2P (provincial CPP/EI credits).
@@ -203,11 +204,16 @@ class ProvincialTaxCalculator:
         The annual amounts are capped at the annual maximums BEFORE applying
         the credit ratio.
 
+        Special handling:
+        - When YTD has already reached the annual max, use the max for credit
+        - For partial-year employees, prorate the CPP max by pensionable_months/12
+
         Args:
             cpp_per_period: CPP contribution per period (base CPP only)
             ei_per_period: EI premium per period
             ytd_cpp_base: Year-to-date base CPP contributions (before this period)
             ytd_ei: Year-to-date EI premiums (before this period)
+            pensionable_months: Number of CPP pensionable months (1-12), None = 12
 
         Returns:
             K2P provincial CPP/EI tax credit
@@ -219,20 +225,40 @@ class ProvincialTaxCalculator:
             ytd_ei,
         )
 
-        # For CPP: use max of (actual annual, annualized) to handle proration cases
-        # where current period CPP is reduced near the prorated max
-        actual_annual_cpp = ytd_cpp_base + cpp_per_period
-        annualized_cpp = Decimal(effective_periods) * cpp_per_period
-        annual_cpp_raw = max(actual_annual_cpp, annualized_cpp)
-        annual_cpp_capped = min(annual_cpp_raw, self.max_cpp_credit)
+        # Prorate CPP max for partial-year employees (T4127 rule)
+        pm = Decimal(pensionable_months) if pensionable_months else Decimal("12")
+        prorated_max_cpp = self.max_cpp_credit * pm / Decimal("12")
+
+        # For CPP: handle case where YTD has already reached prorated max
+        # or will reach max in this period
+        if ytd_cpp_base >= prorated_max_cpp:
+            # Already at max - use the prorated max for credit
+            annual_cpp_capped = prorated_max_cpp
+        elif ytd_cpp_base > Decimal("0") and (ytd_cpp_base + cpp_per_period) >= prorated_max_cpp:
+            # Reaches max in this period - use the prorated max for credit
+            annual_cpp_capped = prorated_max_cpp
+        else:
+            # Use max of (actual annual, annualized) to handle proration cases
+            # where current period CPP is reduced near the prorated max
+            actual_annual_cpp = ytd_cpp_base + cpp_per_period
+            annualized_cpp = Decimal(effective_periods) * cpp_per_period
+            annual_cpp_raw = max(actual_annual_cpp, annualized_cpp)
+            annual_cpp_capped = min(annual_cpp_raw, prorated_max_cpp)
+
         annual_cpp = annual_cpp_capped * self.cpp_credit_ratio
 
-        # For EI: use standard annualized approach
-        # Note: Unlike CPP which has proration, EI uses the actual per-period
-        # deduction annualized. When YTD is near max and current period EI is
-        # truncated, K2P is calculated based on the truncated amount.
-        annual_ei = Decimal(effective_periods) * ei_per_period
-        annual_ei = min(annual_ei, self.max_ei_credit)
+        # For EI: handle case where YTD has already reached max
+        # or will reach max in this period
+        if ytd_ei >= self.max_ei_credit:
+            # Already at max - use the max for credit
+            annual_ei = self.max_ei_credit
+        elif ytd_ei > Decimal("0") and (ytd_ei + ei_per_period) >= self.max_ei_credit:
+            # Reaches max in this period - use the max for credit
+            annual_ei = self.max_ei_credit
+        else:
+            # Standard annualized approach
+            annual_ei = Decimal(effective_periods) * ei_per_period
+            annual_ei = min(annual_ei, self.max_ei_credit)
 
         k2p = self.lowest_rate * (annual_cpp + annual_ei)
         return self._round(k2p)
@@ -241,10 +267,13 @@ class ProvincialTaxCalculator:
         """
         Calculate K5P for Alberta (supplemental tax credit).
 
-        Reference: T4127 Alberta section
+        Reference: T4127 Alberta section (121st Edition - July 2025)
+
+        IMPORTANT: K5P was introduced in July 2025 (121st Edition).
+        For pay dates BEFORE July 1, 2025, K5P = $0.
 
         Formula varies by year:
-        - 2025: K5P = ((K1P + K2P) - $3,600) × (0.04/0.06)
+        - 2025 (Jul-Dec only): K5P = ((K1P + K2P) - $3,600) × (0.04/0.06)
         - 2026+: K5P = ((K1P + K2P) - $4,896) × 0.25
 
         Only applies if (K1P + K2P) > threshold
@@ -258,6 +287,13 @@ class ProvincialTaxCalculator:
         """
         if self.province_code != "AB":
             return Decimal("0")
+
+        # K5P was introduced in July 2025 (T4127 121st Edition)
+        # For pay dates before July 1, 2025, K5P does not apply
+        if self.year == 2025 and self.pay_date:
+            k5p_effective_date = date(2025, 7, 1)
+            if self.pay_date < k5p_effective_date:
+                return Decimal("0")
 
         # Get K5P config from province configuration
         k5p_config = self._config.get("k5p_config", {})
@@ -448,6 +484,7 @@ class ProvincialTaxCalculator:
         net_income: Decimal | None = None,
         ytd_cpp_base: Decimal = Decimal("0"),
         ytd_ei: Decimal = Decimal("0"),
+        pensionable_months: int | None = None,
     ) -> ProvincialTaxResult:
         """
         Calculate annual provincial tax (T4 and T2).
@@ -468,6 +505,7 @@ class ProvincialTaxCalculator:
             net_income: Net income (for Manitoba BPA calculation)
             ytd_cpp_base: Year-to-date base CPP contributions (for K2P)
             ytd_ei: Year-to-date EI premiums (for K2P)
+            pensionable_months: Number of CPP pensionable months (1-12), None = 12
 
         Returns:
             ProvincialTaxResult with full calculation breakdown
@@ -482,7 +520,7 @@ class ProvincialTaxCalculator:
 
         # Calculate credits
         K1P = self.calculate_k1p(total_claim_amount)
-        K2P = self.calculate_k2p(cpp_per_period, ei_per_period, ytd_cpp_base, ytd_ei)
+        K2P = self.calculate_k2p(cpp_per_period, ei_per_period, ytd_cpp_base, ytd_ei, pensionable_months)
         K4P = self.calculate_k4p(A)  # Employment credit (Yukon)
         K5P = self.calculate_k5p_alberta(K1P, K2P)
 

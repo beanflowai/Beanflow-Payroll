@@ -203,17 +203,22 @@ class TestProvincialTaxK2PCPPEICredit:
         )
 
     def test_k2p_effective_periods_when_ei_hits_max(self):
-        """Test: K2P uses effective pay periods when EI hits annual max."""
+        """Test: K2P uses max EI credit when YTD EI reaches annual max.
+
+        When ytd_ei + ei_per_period >= max_ei_credit, the calculation
+        uses max_ei_credit for the EI portion of K2P, ensuring full
+        credit for employees who have maxed out their EI contributions.
+        """
         result = self.calc.calculate_provincial_tax(
             annual_taxable_income=Decimal("69334.98"),
             total_claim_amount=Decimal("12747.00"),
             cpp_per_period=Decimal("152.18"),
             ei_per_period=Decimal("27.48"),
             ytd_cpp_base=Decimal("2950.00"),
-            ytd_ei=Decimal("1050.00"),
+            ytd_ei=Decimal("1050.00"),  # 1050 + 27.48 >= 1077.48 max
         )
 
-        assert result.cpp_ei_credits_k2p == Decimal("194.53")
+        assert result.cpp_ei_credits_k2p == Decimal("214.25")
 
 
 class TestBCTaxReduction:

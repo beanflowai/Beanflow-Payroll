@@ -274,9 +274,9 @@
         "federal_tax": "229.44",
         "provincial_tax": "125.48",
         "total_deductions": "529.66",
-        "net_pay": "1778.03"
+        "net_pay": "1878.03"
       },
-      "notes": "Collected 2025-12-29 - Taxable benefit ($100 non-cash, insurable for EI) increases pensionable/insurable earnings and taxes"
+      "notes": "Updated 2025-12-30 - Cash taxable benefit ($100) included in Total cash income → Net amount."
     },
     {
       "id": "BC_40K_BENEFITS",
@@ -314,9 +314,9 @@
         "federal_tax": "118.33",
         "provincial_tax": "51.85",
         "total_deductions": "286.53",
-        "net_pay": "1251.93"
+        "net_pay": "1351.93"
       },
-      "notes": "Collected 2025-12-29 - BC $40k with taxable benefit ($100 non-cash, insurable for EI). Lower income = lower deductions."
+      "notes": "Updated 2025-12-30 - Cash taxable benefit ($100) included in Total cash income → Net amount."
     }
   ]
 }

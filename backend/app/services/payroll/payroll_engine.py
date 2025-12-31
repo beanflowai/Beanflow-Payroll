@@ -345,6 +345,7 @@ class PayrollEngine:
             ei_result.employee,
             ytd_cpp_base=input_data.ytd_cpp_base,
             ytd_ei=input_data.ytd_ei,
+            pensionable_months=input_data.pensionable_months,
         )
 
         calculation_details["federal_tax"] = {
@@ -369,6 +370,7 @@ class PayrollEngine:
             ei_result.employee,
             ytd_cpp_base=input_data.ytd_cpp_base,
             ytd_ei=input_data.ytd_ei,
+            pensionable_months=input_data.pensionable_months,
         )
 
         calculation_details["provincial_tax"] = {

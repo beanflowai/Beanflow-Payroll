@@ -188,6 +188,7 @@ class FederalTaxCalculator:
         ei_per_period: Decimal,
         ytd_cpp_base: Decimal = Decimal("0"),
         ytd_ei: Decimal = Decimal("0"),
+        pensionable_months: int | None = None,
     ) -> Decimal:
         """
         Calculate K2 (CPP and EI tax credits).
@@ -204,11 +205,16 @@ class FederalTaxCalculator:
         The annual amounts are capped at the annual maximums BEFORE applying
         the credit ratio.
 
+        Special handling:
+        - When YTD has already reached the annual max, use the max for credit
+        - For partial-year employees, prorate the CPP max by pensionable_months/12
+
         Args:
             cpp_per_period: CPP contribution for this period (base CPP only)
             ei_per_period: EI premium for this period
             ytd_cpp_base: Year-to-date base CPP contributions (before this period)
             ytd_ei: Year-to-date EI premiums (before this period)
+            pensionable_months: Number of CPP pensionable months (1-12), None = 12
 
         Returns:
             K2 CPP/EI tax credit amount
@@ -220,20 +226,40 @@ class FederalTaxCalculator:
             ytd_ei,
         )
 
-        # For CPP: use max of (actual annual, annualized) to handle proration cases
-        # where current period CPP is reduced near the prorated max
-        actual_annual_cpp = ytd_cpp_base + cpp_per_period
-        annualized_cpp = Decimal(effective_periods) * cpp_per_period
-        annual_cpp_raw = max(actual_annual_cpp, annualized_cpp)
-        annual_cpp_capped = min(annual_cpp_raw, self.max_cpp_credit)
+        # Prorate CPP max for partial-year employees (T4127 rule)
+        pm = Decimal(pensionable_months) if pensionable_months else Decimal("12")
+        prorated_max_cpp = self.max_cpp_credit * pm / Decimal("12")
+
+        # For CPP: handle case where YTD has already reached prorated max
+        # or will reach max in this period
+        if ytd_cpp_base >= prorated_max_cpp:
+            # Already at max - use the prorated max for credit
+            annual_cpp_capped = prorated_max_cpp
+        elif ytd_cpp_base > Decimal("0") and (ytd_cpp_base + cpp_per_period) >= prorated_max_cpp:
+            # Reaches max in this period - use the prorated max for credit
+            annual_cpp_capped = prorated_max_cpp
+        else:
+            # Use max of (actual annual, annualized) to handle proration cases
+            # where current period CPP is reduced near the prorated max
+            actual_annual_cpp = ytd_cpp_base + cpp_per_period
+            annualized_cpp = Decimal(effective_periods) * cpp_per_period
+            annual_cpp_raw = max(actual_annual_cpp, annualized_cpp)
+            annual_cpp_capped = min(annual_cpp_raw, prorated_max_cpp)
+
         annual_cpp = annual_cpp_capped * self.cpp_credit_ratio
 
-        # For EI: use standard annualized approach
-        # Note: Unlike CPP which has proration, EI uses the actual per-period
-        # deduction annualized. When YTD is near max and current period EI is
-        # truncated, K2 is calculated based on the truncated amount.
-        annual_ei = Decimal(effective_periods) * ei_per_period
-        annual_ei = min(annual_ei, self.max_ei_credit)
+        # For EI: handle case where YTD has already reached max
+        # or will reach max in this period
+        if ytd_ei >= self.max_ei_credit:
+            # Already at max - use the max for credit
+            annual_ei = self.max_ei_credit
+        elif ytd_ei > Decimal("0") and (ytd_ei + ei_per_period) >= self.max_ei_credit:
+            # Reaches max in this period - use the max for credit
+            annual_ei = self.max_ei_credit
+        else:
+            # Standard annualized approach
+            annual_ei = Decimal(effective_periods) * ei_per_period
+            annual_ei = min(annual_ei, self.max_ei_credit)
 
         # Total K2
         k2 = self.k2_rate * (annual_cpp + annual_ei)
@@ -269,6 +295,7 @@ class FederalTaxCalculator:
         k3: Decimal = Decimal("0"),
         ytd_cpp_base: Decimal = Decimal("0"),
         ytd_ei: Decimal = Decimal("0"),
+        pensionable_months: int | None = None,
     ) -> FederalTaxResult:
         """
         Calculate annual federal tax (T3 and T1).
@@ -291,6 +318,7 @@ class FederalTaxCalculator:
             k3: Other tax credits (medical, tuition, etc.)
             ytd_cpp_base: Year-to-date base CPP contributions (for K2)
             ytd_ei: Year-to-date EI premiums (for K2)
+            pensionable_months: Number of CPP pensionable months (1-12), None = 12
 
         Returns:
             FederalTaxResult with full calculation breakdown
@@ -302,7 +330,7 @@ class FederalTaxCalculator:
 
         # Calculate credits
         K1 = self.calculate_k1(total_claim_amount)
-        K2 = self.calculate_k2(cpp_per_period, ei_per_period, ytd_cpp_base, ytd_ei)
+        K2 = self.calculate_k2(cpp_per_period, ei_per_period, ytd_cpp_base, ytd_ei, pensionable_months)
         K4 = self.calculate_k4(A)
 
         # Calculate T3 (basic federal tax)
