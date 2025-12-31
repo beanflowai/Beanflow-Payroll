@@ -6,3 +6,12 @@ beancount-LLM
 
 # IDE
 .idea/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Tools output (keep .gitkeep)
+backend/tools/tax_config_converter/output/*
+!backend/tools/tax_config_converter/output/.gitkeep

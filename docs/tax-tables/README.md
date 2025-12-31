@@ -65,6 +65,21 @@ Each configuration file includes a `_metadata` field for traceability:
 
 ## Annual Update Process
 
+### Automated Conversion (Recommended)
+
+Use the **Tax Config Converter** tool to automate PDF to JSON conversion:
+
+```bash
+cd backend
+uv run python -m tools.tax_config_converter convert \
+  --pdf ../docs/tax-tables/2025/01/t4127-01-25e.pdf \
+  --output config/tax_tables/2025/
+```
+
+See [tax-config-converter.md](./tax-config-converter.md) for full documentation.
+
+### Manual Update Steps
+
 1. **Obtain source documents** - Download T4127 PDF when released
 2. **Follow checklist** - Use [annual-update-checklist.md](./annual-update-checklist.md)
 3. **Add metadata** - Include source URLs and access dates
@@ -104,6 +119,7 @@ uv run pytest tests/payroll/pdoc/ -v
 
 ## Related Documentation
 
+- [Tax Config Converter](./tax-config-converter.md) - Automated PDF to JSON conversion tool
+- [Annual Update Checklist](./annual-update-checklist.md) - Manual update procedure
 - [Phase 2 Calculations](../02_phase2_calculations.md) - Calculation formulas
 - [PDOC Validation Test Plan](../test-plan/03_pdoc_validation.md) - Test methodology
-- [Annual Update Checklist](./annual-update-checklist.md) - Update procedure
