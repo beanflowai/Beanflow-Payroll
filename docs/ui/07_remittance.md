@@ -417,7 +417,7 @@ export type PaymentMethod =
 
 export interface RemittancePeriod {
   id: string;
-  ledgerId: string;
+  companyId: string;
   remitterType: RemitterType;
 
   // Period Information
