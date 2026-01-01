@@ -11,8 +11,9 @@ Tests EI premium calculations following CRA T4127 Chapter 7.
 - Max Employer Premium: $1,508.47
 """
 
-import pytest
 from decimal import Decimal
+
+import pytest
 
 from app.services.payroll.ei_calculator import EICalculator
 

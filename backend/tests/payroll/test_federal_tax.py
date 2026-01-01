@@ -18,9 +18,10 @@ Tax Brackets (2025 with Jul rate change):
 - Over $253,414: 33%
 """
 
-import pytest
 from datetime import date
 from decimal import Decimal
+
+import pytest
 
 from app.services.payroll.federal_tax_calculator import FederalTaxCalculator
 

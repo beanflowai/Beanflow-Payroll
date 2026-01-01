@@ -14,14 +14,14 @@ as defined in docs/test-plan/04_test_matrix.md
 Phase 4 - Test Matrix Implementation
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date
+from decimal import Decimal
 from typing import NamedTuple
 
-from app.services.payroll.payroll_engine import PayrollEngine, EmployeePayrollInput
-from app.models.payroll import Province, PayFrequency
+import pytest
 
+from app.models.payroll import PayFrequency, Province
+from app.services.payroll.payroll_engine import EmployeePayrollInput, PayrollEngine
 
 # =============================================================================
 # Constants and Reference Data

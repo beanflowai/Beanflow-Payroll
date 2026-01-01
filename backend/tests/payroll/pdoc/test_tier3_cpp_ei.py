@@ -26,7 +26,6 @@ from decimal import Decimal
 from app.services.payroll.payroll_engine import PayrollEngine
 
 from .conftest import (
-    VARIANCE_TOLERANCE,
     assert_validations_pass,
     build_payroll_input,
     get_case_by_id,

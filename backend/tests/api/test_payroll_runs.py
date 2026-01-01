@@ -13,14 +13,12 @@ Tests:
 
 from __future__ import annotations
 
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
-import pytest
 from fastapi.testclient import TestClient
 
-from tests.api.conftest import TEST_COMPANY_ID, TEST_USER_ID
+from tests.api.conftest import TEST_COMPANY_ID
 
 
 def create_mock_service(mock_payroll_run_service):

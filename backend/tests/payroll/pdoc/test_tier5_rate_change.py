@@ -23,6 +23,7 @@ from __future__ import annotations
 from app.services.payroll.payroll_engine import PayrollEngine
 
 from .conftest import (
+    YEAR_EDITION_COMBINATIONS,
     assert_validations_pass,
     build_payroll_input,
     get_case_by_id,
@@ -30,7 +31,6 @@ from .conftest import (
     get_verified_case_ids,
     load_tier_cases,
     validate_all_components,
-    YEAR_EDITION_COMBINATIONS,
 )
 
 TIER = 5

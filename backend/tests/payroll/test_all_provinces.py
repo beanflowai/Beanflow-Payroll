@@ -7,13 +7,13 @@ calculate correctly with their specific tax rules.
 Phase 2 - Integration Testing
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date
+from decimal import Decimal
 
-from app.services.payroll.payroll_engine import PayrollEngine, EmployeePayrollInput
-from app.models.payroll import Province, PayFrequency
+import pytest
 
+from app.models.payroll import PayFrequency, Province
+from app.services.payroll.payroll_engine import EmployeePayrollInput, PayrollEngine
 
 # Provincial BPA data for 2025
 PROVINCIAL_BPA = {

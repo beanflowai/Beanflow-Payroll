@@ -5,15 +5,15 @@ Provides common test data and calculator instances for CPP, EI,
 Federal Tax, and Provincial Tax calculations.
 """
 
-import pytest
 from datetime import date
 from decimal import Decimal
+
+import pytest
 
 from app.services.payroll.cpp_calculator import CPPCalculator
 from app.services.payroll.ei_calculator import EICalculator
 from app.services.payroll.federal_tax_calculator import FederalTaxCalculator
 from app.services.payroll.provincial_tax_calculator import ProvincialTaxCalculator
-
 
 # =============================================================================
 # CPP Calculator Fixtures

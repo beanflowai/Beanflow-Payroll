@@ -11,12 +11,11 @@ Special features tested:
 - Manitoba/Nova Scotia/Yukon: Dynamic BPA
 """
 
-import pytest
-from datetime import date
 from decimal import Decimal
 
-from app.services.payroll.provincial_tax_calculator import ProvincialTaxCalculator
+import pytest
 
+from app.services.payroll.provincial_tax_calculator import ProvincialTaxCalculator
 
 # All province codes for parametrized tests
 ALL_PROVINCE_CODES = ["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "SK", "YT"]

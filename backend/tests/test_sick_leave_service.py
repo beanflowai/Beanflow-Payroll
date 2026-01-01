@@ -7,17 +7,14 @@ including part-time employee calculations and year-end carryover.
 Reference: docs/08_holidays_vacation.md Task 8.7
 """
 
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 
 import pytest
 
 from app.services.payroll.sick_leave_service import (
-    AverageDayPayResult,
     SickLeaveBalance,
-    SickLeaveConfig,
     SickLeaveService,
-    SickPayResult,
 )
 
 
@@ -63,12 +60,13 @@ class TestSickLeaveConfig:
         assert config.paid_days_per_year == 0
         assert config.unpaid_days_per_year == 3
 
-    def test_alberta_no_sick_leave(self, sick_leave_service: SickLeaveService):
-        """Alberta has no statutory sick leave."""
+    def test_alberta_unpaid_leave_only(self, sick_leave_service: SickLeaveService):
+        """Alberta has Personal and Family Responsibility Leave - 5 unpaid days after 90 days."""
         config = sick_leave_service.get_config("AB")
         assert config is not None
         assert config.paid_days_per_year == 0
-        assert config.unpaid_days_per_year == 0
+        assert config.unpaid_days_per_year == 5
+        assert config.waiting_period_days == 90
 
     def test_quebec_config_exists(self, sick_leave_service: SickLeaveService):
         """Quebec should have 2 paid days with 90-day waiting period."""

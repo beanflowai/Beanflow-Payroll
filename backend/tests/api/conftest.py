@@ -11,7 +11,7 @@ Provides:
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -20,7 +20,6 @@ from fastapi.testclient import TestClient
 from app.api.deps import get_current_user
 from app.main import app
 from app.models.auth import UserResponse
-
 
 # =============================================================================
 # Test Data Constants

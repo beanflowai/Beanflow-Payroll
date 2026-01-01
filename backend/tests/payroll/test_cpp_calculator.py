@@ -14,8 +14,9 @@ Includes both base CPP and additional CPP2 (above YMPE).
 - Max CPP2: $396.00
 """
 
-import pytest
 from decimal import Decimal
+
+import pytest
 
 from app.services.payroll.cpp_calculator import CPPCalculator
 

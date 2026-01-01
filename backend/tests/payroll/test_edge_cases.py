@@ -11,13 +11,11 @@ Tests boundary conditions including:
 Phase 2 - Integration Testing
 """
 
-import pytest
-from decimal import Decimal
 from datetime import date
+from decimal import Decimal
 
-from app.services.payroll.payroll_engine import PayrollEngine, EmployeePayrollInput
-from app.models.payroll import Province, PayFrequency
-
+from app.models.payroll import PayFrequency, Province
+from app.services.payroll.payroll_engine import EmployeePayrollInput, PayrollEngine
 
 # 2025 Constants
 CPP_YMPE = Decimal("71300.00")  # Year's Maximum Pensionable Earnings

@@ -12,10 +12,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
-import pytest
 from fastapi.testclient import TestClient
-
-from tests.api.conftest import TEST_USER_ID
 
 
 class TestGetAllSickLeaveConfigs:
