@@ -244,6 +244,10 @@ class UpdatePayrollRecordRequest(BaseModel):
     overrides: PayrollOverrides | None = Field(
         default=None, description="Manual override values"
     )
+    holidayPayExempt: bool | None = Field(
+        default=None,
+        description="If true, employee is exempt from regular holiday pay (HR manual override)",
+    )
 
 
 class PayrollRecordResponse(BaseModel):

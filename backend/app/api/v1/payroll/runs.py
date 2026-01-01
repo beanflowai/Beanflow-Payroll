@@ -159,6 +159,8 @@ async def update_payroll_record(
                 "overtimePay": request.overrides.overtimePay,
                 "holidayPay": request.overrides.holidayPay,
             }
+        if request.holidayPayExempt is not None:
+            input_data["holidayPayExempt"] = request.holidayPayExempt
 
         result = await service.update_record(run_id, record_id, input_data)
 

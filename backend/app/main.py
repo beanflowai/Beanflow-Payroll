@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 
 from app import __version__
 from app.api.v1 import auth, employee_portal, employees, health, payroll, remittance
+from app.api.v1 import config as config_api
 from app.core.config import get_config
 from app.core.exceptions import (
     AuthenticationError,
@@ -117,6 +118,7 @@ def create_app() -> FastAPI:
     # Register routers
     app.include_router(health.router, prefix="/health", tags=["Health"])
     app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+    app.include_router(config_api.router, prefix="/api/v1/config", tags=["Configuration"])
     app.include_router(payroll.router, prefix="/api/v1/payroll", tags=["Payroll"])
     app.include_router(employees.router, prefix="/api/v1/employees", tags=["Employees"])
     app.include_router(employee_portal.router, prefix="/api/v1", tags=["Employee Portal"])
