@@ -75,13 +75,13 @@ def cmd_convert(args: argparse.Namespace) -> int:
     )
 
     if result.success:
-        print(f"\n✓ Conversion successful!")
-        print(f"\nGenerated files:")
+        print("\n✓ Conversion successful!")
+        print("\nGenerated files:")
         for f in result.files_generated:
             print(f"  - {f}")
 
         if result.validation_results:
-            print(f"\nValidation results:")
+            print("\nValidation results:")
             all_valid = True
             for filename, validation in result.validation_results.items():
                 status = "✓" if validation.valid else "✗"
@@ -97,13 +97,13 @@ def cmd_convert(args: argparse.Namespace) -> int:
                 print("\n⚠ Some validations failed. Please review and fix.")
 
         if result.warnings:
-            print(f"\nWarnings:")
+            print("\nWarnings:")
             for w in result.warnings:
                 print(f"  ⚠ {w}")
 
         return 0
     else:
-        print(f"\n✗ Conversion failed!")
+        print("\n✗ Conversion failed!")
         for error in result.errors:
             print(f"  - {error}")
         return 1
@@ -137,26 +137,27 @@ def cmd_validate(args: argparse.Namespace) -> int:
         print(f"\n✓ All {len(results)} files passed validation!")
         return 0
     else:
-        print(f"\n✗ Some files failed validation")
+        print("\n✗ Some files failed validation")
         return 1
 
 
 def cmd_extract(args: argparse.Namespace) -> int:
     """Handle extract command - just extract PDF text without GLM."""
     import json
+
     from .extractors.pdf_extractor import PDFExtractor
 
     extractor = PDFExtractor()
     content = extractor.extract(args.pdf)
 
-    print(f"\n=== PDF Metadata ===")
+    print("\n=== PDF Metadata ===")
     print(f"Edition: {content.metadata.edition}")
     print(f"Edition Number: {content.metadata.edition_number}")
     print(f"Effective Date: {content.metadata.effective_date}")
     print(f"Year: {content.metadata.year}")
     print(f"Total Pages: {content.metadata.total_pages}")
 
-    print(f"\n=== Tables Found ===")
+    print("\n=== Tables Found ===")
     for table_id, table in content.tables.items():
         print(f"Table {table_id}: {table.title[:60]}...")
         print(f"  Pages {table.start_page}-{table.end_page}, {len(table.content)} chars")

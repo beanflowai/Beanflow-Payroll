@@ -6,7 +6,6 @@ Extracts all 12 provincial/territorial tax configurations from Table 8.1.
 
 import json
 
-
 PROVINCE_EXAMPLE = {
     "AB": {
         "name": "Alberta",

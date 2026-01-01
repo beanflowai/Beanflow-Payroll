@@ -5,10 +5,10 @@ Extracts text from T4127 PDF with page boundaries and table section chunking.
 Uses PyMuPDF (fitz) for efficient text extraction.
 """
 
-import re
 import logging
-from pathlib import Path
+import re
 from dataclasses import dataclass, field
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 

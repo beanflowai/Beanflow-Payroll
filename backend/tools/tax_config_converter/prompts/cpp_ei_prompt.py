@@ -6,7 +6,6 @@ Extracts CPP, CPP2, and EI data from Tables 8.3-8.7.
 
 import json
 
-
 CPP_EI_EXAMPLE = {
     "cpp": {
         "ympe": 71300.00,

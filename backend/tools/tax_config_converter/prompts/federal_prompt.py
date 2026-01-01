@@ -6,7 +6,6 @@ Extracts federal tax brackets and credits from Table 8.1.
 
 import json
 
-
 FEDERAL_EXAMPLE = {
     "bpaf": 16129.00,
     "cea": 1471.00,

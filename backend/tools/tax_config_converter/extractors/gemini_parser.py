@@ -5,8 +5,8 @@ Uses Google Generative AI API (Gemini) for fast tax table parsing.
 Much faster than GLM (~10-20s per province vs ~100s).
 """
 
-import os
 import logging
+import os
 from pathlib import Path
 
 from .base_parser import BaseLLMParser

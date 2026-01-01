@@ -7,7 +7,6 @@ Used for sequential processing to avoid timeout issues.
 
 import json
 
-
 # Province-specific information for targeted extraction
 PROVINCE_INFO = {
     "AB": {

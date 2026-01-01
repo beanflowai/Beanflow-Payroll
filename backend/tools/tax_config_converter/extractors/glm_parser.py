@@ -5,8 +5,8 @@ Uses ZhipuAI GLM API to parse tax tables from PDF text.
 Based on BeanFlow-CRA implementation pattern.
 """
 
-import os
 import logging
+import os
 from pathlib import Path
 
 from .base_parser import BaseLLMParser

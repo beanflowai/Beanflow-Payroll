@@ -6,8 +6,8 @@ Validates generated JSON files against JSON Schema definitions.
 
 import json
 import logging
-from pathlib import Path
 from dataclasses import dataclass, field
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class ValidationResult:
         if self.valid:
             return "Validation passed"
         error_msgs = [f"  - {e.path}: {e.message}" for e in self.errors]
-        return f"Validation failed:\n" + "\n".join(error_msgs)
+        return "Validation failed:\n" + "\n".join(error_msgs)
 
 
 class SchemaValidator:

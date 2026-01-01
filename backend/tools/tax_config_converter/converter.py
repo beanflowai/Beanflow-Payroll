@@ -5,8 +5,8 @@ Orchestrates the conversion of T4127 PDF to JSON tax configuration files.
 """
 
 import logging
-from pathlib import Path
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 # Text truncation limits for GLM API prompts
@@ -14,15 +14,15 @@ CPP_EI_TEXT_LIMIT = 20000
 FEDERAL_TEXT_LIMIT = 30000
 PROVINCES_TEXT_LIMIT = 50000
 
-from .extractors.pdf_extractor import PDFExtractor, PDFContent
 from .extractors.base_parser import BaseLLMParser
-from .extractors.glm_parser import GLMParser
 from .extractors.gemini_parser import GeminiParser
+from .extractors.glm_parser import GLMParser
+from .extractors.pdf_extractor import PDFContent, PDFExtractor
+from .generators.json_generator import JSONGenerator
 from .prompts.cpp_ei_prompt import create_cpp_ei_prompt
 from .prompts.federal_prompt import create_federal_prompt
-from .prompts.provinces_prompt import create_provinces_prompt
 from .prompts.province_single_prompt import create_single_province_prompt
-from .generators.json_generator import JSONGenerator
+from .prompts.provinces_prompt import create_provinces_prompt
 from .validators.schema_validator import SchemaValidator, ValidationResult
 
 # Supported LLM providers
@@ -157,7 +157,7 @@ class TaxConfigConverter:
                         edition = self._detect_edition(pdf_content)
 
                     self._save_pdf_extraction(output_dir, pdf_content)
-                    logger.info(f"✓ PDF extraction complete")
+                    logger.info("✓ PDF extraction complete")
 
                     if step == "extract":
                         result.files_generated = [
@@ -361,6 +361,7 @@ class TaxConfigConverter:
     ) -> tuple[PDFContent | None, int | None, str | None, str | None, str]:
         """Load PDF data from cache or extract from PDF."""
         import json
+
         from .extractors.pdf_extractor import PDFContent, PDFMetadata, TableSection
 
         metadata_file = output_dir / "metadata.json"
