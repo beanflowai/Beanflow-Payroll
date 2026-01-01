@@ -83,21 +83,23 @@
     "MB": {
       "province_code": "MB",
       "name": "Manitoba",
-      "formula_type": "30_day_average",
+      "formula_type": "5_percent_28_days",
       "formula_params": {
-        "lookback_days": 30,
-        "method": "total_wages_div_days",
+        "lookback_days": 28,
+        "percentage": 0.05,
         "include_overtime": false,
-        "default_daily_hours": 8,
-        "new_employee_fallback": "ineligible"
+        "include_vacation_pay": true,
+        "include_previous_holiday_pay": true,
+        "new_employee_fallback": "pro_rated",
+        "construction_percentage": 0.04
       },
       "eligibility": {
-        "min_employment_days": 30,
-        "require_last_first_rule": false,
-        "notes": "30 days of employment required"
+        "min_employment_days": 0,
+        "require_last_first_rule": true,
+        "notes": "No minimum employment period. Must not be absent without permission on last scheduled day before or first scheduled day after holiday."
       },
       "premium_rate": 1.5,
-      "notes": "Manitoba Employment Standards Code - Average daily earnings"
+      "notes": "Manitoba Employment Standards Code - 5% of gross wages in 4-week period. Construction industry: 4%. Reference: https://www.gov.mb.ca/labour/standards/doc,gen-holidays-after-april-30-07,factsheet.html"
     },
     "SK": {
       "province_code": "SK",
@@ -208,11 +210,11 @@
       },
       "eligibility": {
         "min_employment_days": 30,
-        "require_last_first_rule": false,
-        "notes": "30 days of employment required"
+        "require_last_first_rule": true,
+        "notes": "30 days employment within 12 months prior. Must work last scheduled shift before AND first shift after holiday."
       },
       "premium_rate": 1.5,
-      "notes": "NWT Employment Standards Act"
+      "notes": "NWT Employment Standards Act. Reference: https://www.ece.gov.nt.ca/en/services/employment-standards/frequently-asked-questions"
     },
     "NU": {
       "province_code": "NU",
@@ -227,11 +229,11 @@
       },
       "eligibility": {
         "min_employment_days": 30,
-        "require_last_first_rule": false,
-        "notes": "30 days of employment required"
+        "require_last_first_rule": true,
+        "notes": "30 days employment within 12 months prior. Must work last scheduled shift before AND first shift after holiday."
       },
       "premium_rate": 1.5,
-      "notes": "Nunavut Labour Standards Act"
+      "notes": "Nunavut Labour Standards Act. Reference: https://nu-lsco.ca/faq-s?tmpl=component&faqid=11"
     },
     "YT": {
       "province_code": "YT",
@@ -246,30 +248,30 @@
       },
       "eligibility": {
         "min_employment_days": 30,
-        "require_last_first_rule": false,
-        "notes": "30 days of employment required"
+        "require_last_first_rule": true,
+        "notes": "30 calendar days employment required. Must work last scheduled shift before AND first scheduled shift after holiday (unless permitted absence)."
       },
       "premium_rate": 1.5,
-      "notes": "Yukon Employment Standards Act"
+      "notes": "Yukon Employment Standards Act. Reference: https://yukon.ca/en/employment/employment-standards/find-employee-information-statutory-holidays"
     },
     "Federal": {
       "province_code": "Federal",
       "name": "Federal",
-      "formula_type": "30_day_average",
+      "formula_type": "4_week_average",
       "formula_params": {
-        "lookback_days": 30,
-        "method": "total_wages_div_days",
+        "lookback_weeks": 4,
+        "divisor": 20,
         "include_overtime": false,
-        "default_daily_hours": 8,
-        "new_employee_fallback": "ineligible"
+        "include_vacation_pay": false,
+        "new_employee_fallback": "pro_rated"
       },
       "eligibility": {
-        "min_employment_days": 30,
+        "min_employment_days": 0,
         "require_last_first_rule": false,
-        "notes": "30 days of employment required under Canada Labour Code"
+        "notes": "No minimum employment period. All federally regulated employees qualify for general holidays."
       },
       "premium_rate": 1.5,
-      "notes": "Canada Labour Code s.196-202 - Federally regulated employers"
+      "notes": "Canada Labour Code Part III s.196-202 - 1/20th of wages in 4 weeks before holiday week. Commission employees use 1/60th for 12 weeks."
     }
   }
 }

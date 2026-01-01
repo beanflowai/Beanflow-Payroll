@@ -35,40 +35,40 @@
       "province_code": "AB",
       "name": "Alberta",
       "paid_days_per_year": 0,
-      "unpaid_days_per_year": 0,
-      "waiting_period_days": 0,
+      "unpaid_days_per_year": 5,
+      "waiting_period_days": 90,
       "allows_carryover": false,
       "max_carryover_days": 0,
       "accrual_method": "immediate",
       "initial_days_after_qualifying": 0,
       "days_per_month_after_initial": 0,
-      "notes": "No statutory sick leave in Alberta"
+      "notes": "Personal and Family Responsibility Leave - 5 unpaid days after 90 days employment. Can be used for personal illness/injury or family care."
     },
     "MB": {
       "province_code": "MB",
       "name": "Manitoba",
       "paid_days_per_year": 0,
-      "unpaid_days_per_year": 0,
+      "unpaid_days_per_year": 3,
       "waiting_period_days": 0,
       "allows_carryover": false,
       "max_carryover_days": 0,
       "accrual_method": "immediate",
       "initial_days_after_qualifying": 0,
       "days_per_month_after_initial": 0,
-      "notes": "No statutory paid sick leave in Manitoba"
+      "notes": "Family Leave - 3 unpaid days can be used for personal illness. Long-term: 27 weeks unpaid (90 days employment required)."
     },
     "SK": {
       "province_code": "SK",
       "name": "Saskatchewan",
       "paid_days_per_year": 0,
-      "unpaid_days_per_year": 0,
-      "waiting_period_days": 0,
+      "unpaid_days_per_year": 12,
+      "waiting_period_days": 91,
       "allows_carryover": false,
       "max_carryover_days": 0,
       "accrual_method": "immediate",
       "initial_days_after_qualifying": 0,
       "days_per_month_after_initial": 0,
-      "notes": "No statutory sick leave in Saskatchewan"
+      "notes": "Job protection for illness absence - 12 days/year (non-serious), 12 weeks (serious). 13+ weeks employment required. Unpaid but job-protected."
     },
     "QC": {
       "province_code": "QC",
@@ -100,27 +100,32 @@
       "province_code": "NS",
       "name": "Nova Scotia",
       "paid_days_per_year": 0,
-      "unpaid_days_per_year": 3,
+      "unpaid_days_per_year": 5,
       "waiting_period_days": 0,
       "allows_carryover": false,
       "max_carryover_days": 0,
       "accrual_method": "immediate",
       "initial_days_after_qualifying": 0,
       "days_per_month_after_initial": 0,
-      "notes": "Nova Scotia Labour Standards Code - 3 unpaid days"
+      "notes": "Nova Scotia Labour Standards Code - 5 unpaid sick days + 3 unpaid days for medical appointments/family illness (8 total). Effective Jan 1, 2025."
     },
     "PE": {
       "province_code": "PE",
       "name": "Prince Edward Island",
-      "paid_days_per_year": 0,
+      "paid_days_per_year": 1,
       "unpaid_days_per_year": 3,
-      "waiting_period_days": 0,
+      "waiting_period_days": 365,
       "allows_carryover": false,
       "max_carryover_days": 0,
-      "accrual_method": "immediate",
-      "initial_days_after_qualifying": 0,
+      "accrual_method": "tenure_based",
+      "initial_days_after_qualifying": 1,
       "days_per_month_after_initial": 0,
-      "notes": "PEI Employment Standards Act - 3 unpaid days"
+      "paid_days_tiers": [
+        {"after_months": 12, "days": 1},
+        {"after_months": 24, "days": 2},
+        {"after_months": 36, "days": 3}
+      ],
+      "notes": "PEI Employment Standards Act - Paid sick leave: 1 day after 12mo, 2 days after 24mo, 3 days after 36mo (since Oct 2024). Plus 3 unpaid days after 3 months."
     },
     "NL": {
       "province_code": "NL",
@@ -152,14 +157,14 @@
       "province_code": "NU",
       "name": "Nunavut",
       "paid_days_per_year": 0,
-      "unpaid_days_per_year": 5,
-      "waiting_period_days": 0,
+      "unpaid_days_per_year": 3,
+      "waiting_period_days": 90,
       "allows_carryover": false,
       "max_carryover_days": 0,
       "accrual_method": "immediate",
       "initial_days_after_qualifying": 0,
       "days_per_month_after_initial": 0,
-      "notes": "Nunavut Labour Standards Act - 5 unpaid days"
+      "notes": "Nunavut Labour Standards Act - 3 unpaid days after 3 months employment. Can be used for own or family illness."
     },
     "YT": {
       "province_code": "YT",
