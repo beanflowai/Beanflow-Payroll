@@ -60,6 +60,10 @@ export const VACATION_RATE_LABELS: Record<VacationRatePreset, string> = {
 	'custom': 'Custom Rate'
 };
 
+// Note: Provincial minimum vacation rates are managed in backend config files
+// See backend/config/vacation_pay/{year}/provinces_{edition}.json
+// SK is unique: 5.77% (3 weeks) from day one, most others: 4% (2 weeks)
+
 /**
  * Check if a vacation rate is a preset or custom
  */
@@ -88,6 +92,7 @@ export function formatVacationRate(rate: string): string {
 
 export interface VacationConfig {
 	payoutMethod: VacationPayoutMethod;
+	/** Vacation rate as decimal (e.g., '0.04' = 4%, '0' = none for Owner/Contractor). */
 	vacationRate: VacationRate;
 }
 
@@ -276,7 +281,6 @@ export function canEditVacationBalance(employee: Employee): boolean {
 export interface DbEmployee {
 	id: string;
 	user_id: string;
-	ledger_id: string;
 	first_name: string;
 	last_name: string;
 	sin_encrypted: string;
@@ -303,7 +307,7 @@ export interface DbEmployee {
 	termination_date: string | null;
 	vacation_config: {
 		payout_method: VacationPayoutMethod;
-		vacation_rate: string;
+		vacation_rate: string | null;  // null handled as '0.04' default; "0" = none
 	};
 	vacation_balance: number;
 	sick_balance: number;
@@ -348,7 +352,7 @@ export interface EmployeeCreateInput {
 	termination_date?: string | null;
 	vacation_config?: {
 		payout_method: VacationPayoutMethod;
-		vacation_rate: string;
+		vacation_rate: string | null;  // null = use default; "0" = none
 	};
 	vacation_balance?: number;
 	// Initial YTD for transferred employees
@@ -396,7 +400,7 @@ export function dbEmployeeToUi(db: DbEmployee, maskedSin: string): Employee {
 		unionDuesPerPeriod: db.union_dues_per_period,
 		vacationConfig: {
 			payoutMethod: db.vacation_config.payout_method,
-			vacationRate: db.vacation_config.vacation_rate as VacationRate
+			vacationRate: (db.vacation_config.vacation_rate ?? '0.04') as VacationRate
 		},
 		vacationBalance: db.vacation_balance,
 		sickBalance: db.sick_balance ?? 0,

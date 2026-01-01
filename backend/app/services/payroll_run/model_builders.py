@@ -95,7 +95,8 @@ class ModelBuilder:
             termination_date=date.fromisoformat(data["termination_date"]) if data.get("termination_date") else None,
             vacation_config=VacationConfig(
                 payout_method=VacationPayoutMethod(vacation_config_data.get("payout_method", "accrual")),
-                vacation_rate=Decimal(str(vacation_config_data.get("vacation_rate", "0.04"))),
+                # Use vacation_rate from DB; default 0.04 only if missing (not if "0")
+                vacation_rate=Decimal(str(vacation_config_data["vacation_rate"])) if vacation_config_data.get("vacation_rate") is not None else Decimal("0.04"),
                 lump_sum_month=vacation_config_data.get("lump_sum_month"),
             ),
             sin_encrypted=data.get("sin_encrypted", ""),

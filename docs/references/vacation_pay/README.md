@@ -33,11 +33,11 @@ Most other provinces start at 4% (2 weeks).
 
 **Employers can offer more vacation than the minimum, but never less.**
 
-If an employee's `vacation_rate_override` is set to `null`, the system automatically uses the provincial minimum based on:
-1. Province of employment
-2. Years of service (calculated from hire date)
+If an employee's `vacation_rate` is set to `null`, the system defaults to 4% (standard minimum). For province-specific rates:
+1. Frontend loads province config and shows appropriate rate options
+2. User selects the correct rate based on province and years of service
 
-If an employer wants to offer a higher rate, they set `vacation_rate_override` to that value. The system will validate that the override is >= the provincial minimum.
+Use `vacation_rate: "0"` for Owner/Contractor with no vacation pay.
 
 ## Calculation Method
 

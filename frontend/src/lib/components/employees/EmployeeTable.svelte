@@ -255,7 +255,7 @@
 					{:else if activeColumnGroup === 'compensation'}
 						<td class="col-salary money">{formatCompensation(emp)}</td>
 						<td class="col-period money">{getPerPeriodAmount(emp)}</td>
-						<td class="col-vacation">{formatVacationRate(emp.vacationConfig?.vacationRate ?? '0.04')}</td>
+						<td class="col-vacation">{emp.vacationConfig?.vacationRate ? formatVacationRate(emp.vacationConfig.vacationRate) : 'Min.'}</td>
 						<td class="col-balance money">{formatCurrency(emp.vacationBalance)}</td>
 					{:else if activeColumnGroup === 'tax'}
 						<td class="col-claim money">{formatCurrency(emp.federalAdditionalClaims)}</td>

@@ -42,6 +42,7 @@ from app.services.payroll_run.gross_calculator import GrossCalculator
 from app.services.payroll_run.holiday_pay_calculator import HolidayPayCalculator
 from app.services.payroll_run.model_builders import ModelBuilder
 from app.services.payroll_run.ytd_calculator import YtdCalculator
+from app.services.remittance import RemittancePeriodService
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +178,9 @@ class PayrollRunOperations:
             vacation_hours_taken = Decimal("0")
 
             if payout_method == "pay_as_you_go":
-                vacation_rate = Decimal(str(vacation_config.get("vacation_rate", "0.04")))
+                # Use vacation_rate from DB; default 0.04 only if missing (not if "0")
+                rate_val = vacation_config.get("vacation_rate")
+                vacation_rate = Decimal(str(rate_val)) if rate_val is not None else Decimal("0.04")
                 base_earnings = gross_regular + gross_overtime
                 vacation_pay_for_gross = base_earnings * vacation_rate
             elif payout_method == "accrual":
@@ -270,6 +273,7 @@ class PayrollRunOperations:
                     holiday_work_entries=input_data.get("holidayWorkEntries") or [],
                     current_period_gross=gross_regular + gross_overtime,
                     current_run_id=str(run_id),
+                    holiday_pay_exempt=input_data.get("holidayPayExempt", False),
                 )
                 holiday_pay = holiday_result.regular_holiday_pay
                 holiday_premium_pay = holiday_result.premium_holiday_pay
@@ -355,7 +359,9 @@ class PayrollRunOperations:
             vacation_config = employee.get("vacation_config") or {}
             payout_method = vacation_config.get("payout_method", "accrual")
             if payout_method == "accrual":
-                vacation_rate = Decimal(str(vacation_config.get("vacation_rate", "0.04")))
+                # Use vacation_rate from DB; default 0.04 only if missing (not if "0")
+                rate_val = vacation_config.get("vacation_rate")
+                vacation_rate = Decimal(str(rate_val)) if rate_val is not None else Decimal("0.04")
                 base_earnings = (
                     result.gross_regular + result.gross_overtime +
                     result.holiday_pay + result.other_earnings
@@ -672,10 +678,52 @@ class PayrollRunOperations:
             }).eq("id", pg_id).execute()
             logger.info("Updated pay_group %s next_period_end to %s", pg_id, next_period_end)
 
+        # Auto-generate/aggregate remittance period
+        try:
+            self._update_remittance_period(update_result.data[0])
+        except Exception as e:
+            # Log but don't fail the approval - remittance can be created manually
+            logger.error("Failed to update remittance period: %s", e)
+
         return {
             **update_result.data[0],
             "paystubs_generated": paystubs_generated,
         }
+
+    def _update_remittance_period(self, run: dict[str, Any]) -> None:
+        """Auto-generate or aggregate remittance period for approved run.
+
+        Args:
+            run: The approved payroll run data with totals
+        """
+        # Get company remitter_type
+        company_result = (
+            self.supabase.table("companies")
+            .select("remitter_type")
+            .eq("id", self.company_id)
+            .single()
+            .execute()
+        )
+
+        if not company_result.data:
+            logger.warning(
+                "Company %s not found for remittance period generation",
+                self.company_id,
+            )
+            return
+
+        remitter_type = company_result.data.get("remitter_type", "regular")
+
+        # Create service and process
+        service = RemittancePeriodService(
+            self.supabase, self.user_id, self.company_id
+        )
+        result = service.find_or_create_remittance_period(run, remitter_type)
+        logger.info(
+            "Remittance period %s updated for run %s",
+            result.get("id"),
+            run.get("id"),
+        )
 
     async def send_paystubs(self, run_id: UUID) -> dict[str, Any]:
         """Send paystub emails to all employees.

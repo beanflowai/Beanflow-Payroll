@@ -368,7 +368,9 @@ class EmployeeManagement:
             vacation_pay_for_gross = Decimal("0")
 
             if payout_method == "pay_as_you_go":
-                vacation_rate = Decimal(str(vacation_config.get("vacation_rate", "0.04")))
+                # Use vacation_rate from DB; default 0.04 only if missing (not if "0")
+                rate_val = vacation_config.get("vacation_rate")
+                vacation_rate = Decimal(str(rate_val)) if rate_val is not None else Decimal("0.04")
                 base_earnings = gross_regular + gross_overtime
                 vacation_pay_for_gross = base_earnings * vacation_rate
 
@@ -428,7 +430,9 @@ class EmployeeManagement:
             vacation_config = emp.get("vacation_config") or {}
             payout_method = vacation_config.get("payout_method", "accrual")
             if payout_method == "accrual":
-                vacation_rate = Decimal(str(vacation_config.get("vacation_rate", "0.04")))
+                # Use vacation_rate from DB; default 0.04 only if missing (not if "0")
+                rate_val = vacation_config.get("vacation_rate")
+                vacation_rate = Decimal(str(rate_val)) if rate_val is not None else Decimal("0.04")
                 base_earnings = (
                     result.gross_regular + result.gross_overtime +
                     result.holiday_pay + result.other_earnings

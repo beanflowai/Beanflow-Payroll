@@ -15,6 +15,7 @@
 		getVacationRatePreset
 	} from '$lib/types/employee';
 	import { getBPADefaults, getContributionLimits, type BPADefaults, type ContributionLimits } from '$lib/services/taxConfigService';
+	import { getVacationRates, type VacationRatesConfig } from '$lib/services/configService';
 	import { createEmployee, updateEmployee, checkEmployeeHasPayrollRecords } from '$lib/services/employeeService';
 
 	interface Props {
@@ -152,6 +153,7 @@
 	// Vacation
 	let vacationPayoutMethod = $state<VacationPayoutMethod>(employee?.vacationConfig?.payoutMethod ?? 'accrual');
 	// Track both the preset selection and custom value
+	// null override means use provincial minimum, treat as '0.04' for backward compatibility in UI
 	const initialPreset = getVacationRatePreset(employee?.vacationConfig?.vacationRate ?? '0.04');
 	let vacationRatePreset = $state<string>(initialPreset);
 	// Custom rate as percentage (e.g., 5.77 for 5.77%)
@@ -181,6 +183,47 @@
 	// Derived: Years of service for vacation rate suggestion
 	const yearsOfService = $derived(calculateYearsOfService(hireDate));
 	const suggestedRate = $derived(suggestVacationRate(yearsOfService));
+
+	// Province-specific vacation rates from API
+	let vacationRatesConfig = $state<VacationRatesConfig | null>(null);
+
+	// Dynamic vacation rate options based on province
+	const vacationRateOptions = $derived(() => {
+		// Base options: None and Custom
+		const options: { value: string; label: string }[] = [
+			{ value: '0', label: 'None (Owner/Contractor)' }
+		];
+
+		// Add tiers from province config
+		if (vacationRatesConfig) {
+			for (const tier of vacationRatesConfig.tiers) {
+				const pct = (parseFloat(tier.vacationRate) * 100).toFixed(2).replace(/\.?0+$/, '');
+				const label = `${pct}% (${tier.vacationWeeks} weeks${tier.minYearsOfService > 0 ? `, ${tier.minYearsOfService}+ years` : ''})`;
+				options.push({ value: tier.vacationRate, label });
+			}
+		} else {
+			// Fallback to standard options if config not loaded
+			options.push(
+				{ value: '0.04', label: '4% (2 weeks)' },
+				{ value: '0.06', label: '6% (3 weeks, 5+ years)' },
+				{ value: '0.08', label: '8% (4 weeks, Federal 10+)' }
+			);
+		}
+
+		options.push({ value: 'custom', label: 'Custom Rate' });
+		return options;
+	});
+
+	// Load vacation rates when province changes
+	$effect(() => {
+		const currentProvince = province;
+		getVacationRates(currentProvince).then(config => {
+			vacationRatesConfig = config;
+		}).catch(err => {
+			console.warn('Failed to load vacation rates config:', err);
+			vacationRatesConfig = null;
+		});
+	});
 
 	// Check if employee has payroll records (for edit mode)
 	$effect(() => {
@@ -1166,15 +1209,18 @@
 					class="p-3 border border-surface-300 rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10"
 					bind:value={vacationRatePreset}
 				>
-					{#each Object.entries(VACATION_RATE_LABELS) as [rate, label]}
-						<option value={rate}>{label}</option>
+					{#each vacationRateOptions() as { value, label }}
+						<option value={value}>{label}</option>
 					{/each}
 				</select>
-				{#if vacationRatePreset !== '0' && vacationRatePreset !== 'custom' && vacationRatePreset !== suggestedRate && hireDate}
-					<span class="text-auxiliary-text text-primary-600 flex items-center gap-1">
-						<i class="fas fa-lightbulb"></i>
-						Suggested: {VACATION_RATE_LABELS[suggestedRate]} based on {yearsOfService.toFixed(1)} years of service
-					</span>
+				{#if vacationRatesConfig && vacationRatePreset !== '0' && vacationRatePreset !== 'custom'}
+					{@const minimumRate = vacationRatesConfig.tiers[0]?.vacationRate ?? '0.04'}
+					{#if parseFloat(vacationRatePreset) < parseFloat(minimumRate)}
+						<span class="text-auxiliary-text text-warning-600 flex items-center gap-1">
+							<i class="fas fa-exclamation-triangle"></i>
+							Provincial minimum for {vacationRatesConfig.name} is {(parseFloat(minimumRate) * 100).toFixed(2).replace(/\.?0+$/, '')}%
+						</span>
+					{/if}
 				{/if}
 			</div>
 

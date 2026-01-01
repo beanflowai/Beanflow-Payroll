@@ -225,7 +225,9 @@
 			<div class="detail-row">
 				<span class="detail-label">Vacation Rate</span>
 				<span class="detail-value">
-					{formatVacationRate(employee.vacationConfig.vacationRate)}
+					{employee.vacationConfig.vacationRate
+						? formatVacationRate(employee.vacationConfig.vacationRate)
+						: 'Provincial Minimum'}
 				</span>
 			</div>
 			<div class="detail-row">

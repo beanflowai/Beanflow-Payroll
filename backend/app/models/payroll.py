@@ -139,12 +139,27 @@ class EiConfig(BaseModel):
 # =============================================================================
 
 class VacationConfig(BaseModel):
-    """Employee vacation pay configuration."""
+    """
+    Employee vacation pay configuration.
+
+    The vacation rate follows provincial minimums based on years of service.
+    - Most provinces: 4% (2 weeks) initially, 6% (3 weeks) after 5 years
+    - Saskatchewan: 5.77% (3 weeks) initially, 7.69% (4 weeks) after 10 years
+    - Quebec: 4% initially, 6% after only 3 years
+
+    The frontend is responsible for showing the correct minimum options based on
+    the employee's province, so vacation_rate always has a concrete value.
+    Use "0" for Owner/Contractor with no vacation pay.
+    """
+
     payout_method: VacationPayoutMethod = VacationPayoutMethod.ACCRUAL
+
+    # Frontend sets this based on province; "0" for Owner/Contractor
     vacation_rate: Decimal = Field(
         default=Decimal("0.04"),
-        description="Vacation pay rate: 4% (< 5 years) or 6% (5+ years)"
+        description="Vacation rate as decimal (e.g., 0.04 = 4%, 0 = none)."
     )
+
     lump_sum_month: int | None = Field(
         default=None,
         ge=1,

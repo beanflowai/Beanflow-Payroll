@@ -187,7 +187,7 @@ export async function createEmployee(
 			termination_date: input.termination_date ?? null,
 			vacation_config: input.vacation_config ?? {
 				payout_method: 'accrual',
-				vacation_rate: '0.04'
+				vacation_rate: '0.04'  // Default to 4% (standard minimum)
 			},
 			vacation_balance: input.vacation_balance ?? 0,
 			// Initial YTD for transferred employees
