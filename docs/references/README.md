@@ -21,6 +21,8 @@ docs/references/
 │   └── ...
 ├── vacation_pay/             # Vacation Pay policies
 ├── sick_leave/               # Sick Leave policies
+├── wcb/                      # Workers' Compensation Board reference
+│   └── README.md             # WCB policy overview & provincial links
 └── tax_tables/               # Tax table sources
 ```
 
@@ -44,6 +46,12 @@ docs/references/
 | Federal | ✅ | ✅ | ✅ | 2025-12-31 |
 
 **Legend**: ⬜ Not Verified | ✅ Verified | ⚠️ Needs Update
+
+### Other References (Not Config-Driven)
+
+| Topic | Status | Notes |
+|-------|--------|-------|
+| WCB | 📚 Reference | Employer-only cost, rates vary by company. See `wcb/README.md` |
 
 ## How to Verify a Province
 
@@ -72,3 +80,15 @@ docs/references/
 | SK | https://www.saskatchewan.ca/business/employment-standards |
 | YT | https://yukon.ca/en/employment-standards |
 | Federal | https://www.canada.ca/en/employment-social-development/services/labour-standards.html |
+
+## Workers' Compensation Board URLs
+
+See `wcb/README.md` for complete list. Key links:
+
+| Province | WCB Organization | URL |
+|----------|-----------------|-----|
+| AB | WCB Alberta | https://www.wcb.ab.ca |
+| BC | WorkSafeBC | https://www.worksafebc.com |
+| ON | WSIB | https://www.wsib.on.ca |
+| QC | CNESST | https://www.cnesst.gouv.qc.ca |
+| National | AWCBC | https://awcbc.org |
