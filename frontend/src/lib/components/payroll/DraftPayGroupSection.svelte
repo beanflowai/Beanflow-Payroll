@@ -5,7 +5,8 @@
 		EmployeePayrollInput,
 		EarningsBreakdown,
 		Adjustment,
-		AdjustmentType
+		AdjustmentType,
+		Holiday
 	} from '$lib/types/payroll';
 	import {
 		PAY_FREQUENCY_LABELS,
@@ -21,6 +22,7 @@
 
 	interface Props {
 		payGroup: PayrollRunPayGroup;
+		holidays?: Holiday[];
 		expandedRecordId: string | null;
 		onToggleExpand: (id: string) => void;
 		onUpdateRecord: (recordId: string, employeeId: string, updates: Partial<EmployeePayrollInput>) => void;
@@ -28,7 +30,7 @@
 		onRemoveEmployee?: (employeeId: string) => void;
 	}
 
-	let { payGroup, expandedRecordId, onToggleExpand, onUpdateRecord, onAddEmployee, onRemoveEmployee }: Props = $props();
+	let { payGroup, holidays = [], expandedRecordId, onToggleExpand, onUpdateRecord, onAddEmployee, onRemoveEmployee }: Props = $props();
 
 	let isCollapsed = $state(false);
 
@@ -278,6 +280,21 @@
 			onAddEmployee(payGroup.payGroupId);
 		}
 	}
+
+	/**
+	 * Check if there's a holiday for this employee's province in the current pay period
+	 */
+	function hasHolidayForEmployee(record: PayrollRecord): boolean {
+		return holidays.some(h => h.province === record.employeeProvince);
+	}
+
+	/**
+	 * Handle Holiday Pay Exempt checkbox change
+	 * Updates input_data with holidayPayExempt flag
+	 */
+	function handleHolidayPayExemptChange(record: PayrollRecord, exempt: boolean) {
+		onUpdateRecord(record.id, record.employeeId, { holidayPayExempt: exempt });
+	}
 </script>
 
 <div class="bg-white rounded-xl shadow-md3-1 overflow-hidden mb-4 border-2 border-neutral-200">
@@ -495,10 +512,21 @@
 														</div>
 													</div>
 
-													<!-- Holiday Pay (if any) -->
-													{#if record.holidayPay > 0}
-														<div class="flex justify-between items-center">
-															<span class="text-body-content text-surface-600">Holiday Pay</span>
+													<!-- Holiday Pay with Exempt toggle (only shown when pay period has holidays for this province) -->
+													{#if hasHolidayForEmployee(record)}
+														<div class="flex justify-between items-center" onclick={(e) => e.stopPropagation()}>
+															<div class="flex items-center gap-2">
+																<span class="text-body-content text-surface-600">Holiday Pay</span>
+																<label class="flex items-center gap-1 text-body-small text-surface-500 cursor-pointer">
+																	<input
+																		type="checkbox"
+																		class="w-3.5 h-3.5 rounded border-surface-300 accent-primary-600"
+																		checked={record.inputData?.holidayPayExempt ?? false}
+																		onchange={(e) => handleHolidayPayExemptChange(record, e.currentTarget.checked)}
+																	/>
+																	<span>Exempt</span>
+																</label>
+															</div>
 															<span class="text-body-content text-surface-800">{formatCurrency(record.holidayPay)}</span>
 														</div>
 													{/if}

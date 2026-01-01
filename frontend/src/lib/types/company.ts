@@ -53,7 +53,6 @@ export const REMITTER_TYPE_INFO: Record<RemitterType, {
 export interface CompanySettings {
 	id: string;
 	userId: string;
-	ledgerId: string;
 
 	// Company Information
 	companyName: string;

@@ -396,7 +396,6 @@ export type PayrollPageStatus =
 export interface DbPayrollRun {
 	id: string;
 	user_id: string;
-	ledger_id: string;
 	period_start: string;
 	period_end: string;
 	pay_date: string;
@@ -427,7 +426,6 @@ export interface DbPayrollRecord {
 	payroll_run_id: string;
 	employee_id: string;
 	user_id: string;
-	ledger_id: string;
 	// Employee snapshots (captured at payroll creation time)
 	employee_name_snapshot: string | null;
 	province_snapshot: string | null;
@@ -769,6 +767,11 @@ export interface EmployeePayrollInput {
 		sickHoursInput: number;      // Original sick hours the user entered
 		vacationFromSick: number;    // Auto-generated vacation from sick overflow
 	};
+
+	// Holiday Pay Exempt (HR manual override)
+	// If true, employee is exempt from Regular Holiday Pay
+	// Note: Premium Pay (1.5x for working on holiday) is NOT affected
+	holidayPayExempt?: boolean;
 }
 
 /**

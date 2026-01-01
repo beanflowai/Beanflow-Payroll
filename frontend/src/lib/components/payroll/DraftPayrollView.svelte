@@ -296,6 +296,7 @@
 		{#each payrollRun.payGroups as payGroup (payGroup.payGroupId)}
 			<DraftPayGroupSection
 				{payGroup}
+				holidays={payrollRun.holidays ?? []}
 				{expandedRecordId}
 				onToggleExpand={handleToggleExpand}
 				{onUpdateRecord}
