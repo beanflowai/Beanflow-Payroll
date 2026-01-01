@@ -1,0 +1,264 @@
+{
+  "year": 2026,
+  "edition": "jan",
+  "effective_date": "2026-01-01",
+  "end_date": "2026-12-31",
+  "source": "Provincial Employment Standards Acts",
+  "notes": "Vacation pay minimum rates by province. Employers may offer higher rates but never lower.",
+  "provinces": {
+    "Federal": {
+      "province_code": "Federal",
+      "name": "Federal (Canada Labour Code)",
+      "tiers": [
+        {
+          "min_years_of_service": 0,
+          "vacation_weeks": 2,
+          "vacation_rate": 0.04,
+          "notes": "2 weeks / 50 weeks = 4%"
+        },
+        {
+          "min_years_of_service": 5,
+          "vacation_weeks": 3,
+          "vacation_rate": 0.06,
+          "notes": "3 weeks / 50 weeks = 6%"
+        },
+        {
+          "min_years_of_service": 10,
+          "vacation_weeks": 4,
+          "vacation_rate": 0.08,
+          "notes": "4 weeks / 50 weeks = 8%"
+        }
+      ],
+      "notes": "Canada Labour Code Part III, Division IV - Vacation with Pay"
+    },
+    "AB": {
+      "province_code": "AB",
+      "name": "Alberta",
+      "tiers": [
+        {
+          "min_years_of_service": 0,
+          "vacation_weeks": 2,
+          "vacation_rate": 0.04,
+          "notes": "2 weeks minimum"
+        },
+        {
+          "min_years_of_service": 5,
+          "vacation_weeks": 3,
+          "vacation_rate": 0.06,
+          "notes": "3 weeks after 5 years"
+        }
+      ],
+      "notes": "Alberta Employment Standards Code"
+    },
+    "BC": {
+      "province_code": "BC",
+      "name": "British Columbia",
+      "tiers": [
+        {
+          "min_years_of_service": 0,
+          "vacation_weeks": 2,
+          "vacation_rate": 0.04,
+          "notes": "2 weeks minimum"
+        },
+        {
+          "min_years_of_service": 5,
+          "vacation_weeks": 3,
+          "vacation_rate": 0.06,
+          "notes": "3 weeks after 5 years"
+        }
+      ],
+      "notes": "BC Employment Standards Act"
+    },
+    "MB": {
+      "province_code": "MB",
+      "name": "Manitoba",
+      "tiers": [
+        {
+          "min_years_of_service": 0,
+          "vacation_weeks": 2,
+          "vacation_rate": 0.04,
+          "notes": "2 weeks minimum"
+        },
+        {
+          "min_years_of_service": 5,
+          "vacation_weeks": 3,
+          "vacation_rate": 0.06,
+          "notes": "3 weeks after 5 years"
+        }
+      ],
+      "notes": "Manitoba Employment Standards Code"
+    },
+    "NB": {
+      "province_code": "NB",
+      "name": "New Brunswick",
+      "tiers": [
+        {
+          "min_years_of_service": 0,
+          "vacation_weeks": 2,
+          "vacation_rate": 0.04,
+          "notes": "2 weeks minimum"
+        },
+        {
+          "min_years_of_service": 8,
+          "vacation_weeks": 3,
+          "vacation_rate": 0.06,
+          "notes": "3 weeks after 8 years"
+        }
+      ],
+      "notes": "New Brunswick Employment Standards Act"
+    },
+    "NL": {
+      "province_code": "NL",
+      "name": "Newfoundland and Labrador",
+      "tiers": [
+        {
+          "min_years_of_service": 0,
+          "vacation_weeks": 2,
+          "vacation_rate": 0.04,
+          "notes": "2 weeks minimum"
+        },
+        {
+          "min_years_of_service": 15,
+          "vacation_weeks": 3,
+          "vacation_rate": 0.06,
+          "notes": "3 weeks after 15 years"
+        }
+      ],
+      "notes": "Newfoundland and Labrador Labour Standards Act"
+    },
+    "NS": {
+      "province_code": "NS",
+      "name": "Nova Scotia",
+      "tiers": [
+        {
+          "min_years_of_service": 0,
+          "vacation_weeks": 2,
+          "vacation_rate": 0.04,
+          "notes": "2 weeks minimum"
+        },
+        {
+          "min_years_of_service": 7,
+          "vacation_weeks": 3,
+          "vacation_rate": 0.06,
+          "notes": "3 weeks after 7 years"
+        }
+      ],
+      "notes": "Nova Scotia Labour Standards Code"
+    },
+    "NT": {
+      "province_code": "NT",
+      "name": "Northwest Territories",
+      "tiers": [
+        {
+          "min_years_of_service": 0,
+          "vacation_weeks": 2,
+          "vacation_rate": 0.04,
+          "notes": "2 weeks minimum (no upgrade tier)"
+        }
+      ],
+      "notes": "NWT Employment Standards Act - Fixed at 2 weeks"
+    },
+    "NU": {
+      "province_code": "NU",
+      "name": "Nunavut",
+      "tiers": [
+        {
+          "min_years_of_service": 0,
+          "vacation_weeks": 2,
+          "vacation_rate": 0.04,
+          "notes": "2 weeks minimum (no upgrade tier)"
+        }
+      ],
+      "notes": "Nunavut Labour Standards Act - Fixed at 2 weeks"
+    },
+    "ON": {
+      "province_code": "ON",
+      "name": "Ontario",
+      "tiers": [
+        {
+          "min_years_of_service": 0,
+          "vacation_weeks": 2,
+          "vacation_rate": 0.04,
+          "notes": "2 weeks minimum"
+        },
+        {
+          "min_years_of_service": 5,
+          "vacation_weeks": 3,
+          "vacation_rate": 0.06,
+          "notes": "3 weeks after 5 years"
+        }
+      ],
+      "notes": "Ontario Employment Standards Act, 2000"
+    },
+    "PE": {
+      "province_code": "PE",
+      "name": "Prince Edward Island",
+      "tiers": [
+        {
+          "min_years_of_service": 0,
+          "vacation_weeks": 2,
+          "vacation_rate": 0.04,
+          "notes": "2 weeks minimum"
+        },
+        {
+          "min_years_of_service": 8,
+          "vacation_weeks": 3,
+          "vacation_rate": 0.06,
+          "notes": "3 weeks after 8 years"
+        }
+      ],
+      "notes": "PEI Employment Standards Act"
+    },
+    "QC": {
+      "province_code": "QC",
+      "name": "Quebec",
+      "tiers": [
+        {
+          "min_years_of_service": 0,
+          "vacation_weeks": 2,
+          "vacation_rate": 0.04,
+          "notes": "2 weeks minimum"
+        },
+        {
+          "min_years_of_service": 3,
+          "vacation_weeks": 3,
+          "vacation_rate": 0.06,
+          "notes": "3 weeks after 3 years (shortest threshold in Canada)"
+        }
+      ],
+      "notes": "Quebec Act Respecting Labour Standards - 3 year threshold"
+    },
+    "SK": {
+      "province_code": "SK",
+      "name": "Saskatchewan",
+      "tiers": [
+        {
+          "min_years_of_service": 0,
+          "vacation_weeks": 3,
+          "vacation_rate": 0.0577,
+          "notes": "3 weeks / 52 weeks = 5.77% (unique in Canada)"
+        },
+        {
+          "min_years_of_service": 10,
+          "vacation_weeks": 4,
+          "vacation_rate": 0.0769,
+          "notes": "4 weeks / 52 weeks = 7.69%"
+        }
+      ],
+      "notes": "Saskatchewan Employment Act - Highest minimum in Canada at 3 weeks from day one"
+    },
+    "YT": {
+      "province_code": "YT",
+      "name": "Yukon",
+      "tiers": [
+        {
+          "min_years_of_service": 0,
+          "vacation_weeks": 2,
+          "vacation_rate": 0.04,
+          "notes": "2 weeks minimum (no upgrade tier)"
+        }
+      ],
+      "notes": "Yukon Employment Standards Act - Fixed at 2 weeks"
+    }
+  }
+}

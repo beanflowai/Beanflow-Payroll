@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Vacation Pay Configuration Schema",
+  "description": "Schema for Canadian provincial vacation pay minimum standards configuration",
+  "type": "object",
+  "required": ["year", "edition", "effective_date", "end_date", "source", "provinces"],
+  "properties": {
+    "year": {
+      "type": "integer",
+      "description": "Configuration year",
+      "minimum": 2024,
+      "maximum": 2100
+    },
+    "edition": {
+      "type": "string",
+      "description": "Edition identifier (e.g., 'jan', 'jul')",
+      "pattern": "^[a-z]{3}$"
+    },
+    "effective_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date when this configuration becomes effective (ISO 8601)"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date when this configuration expires (ISO 8601)"
+    },
+    "source": {
+      "type": "string",
+      "description": "Source of the configuration data"
+    },
+    "notes": {
+      "type": "string",
+      "description": "General notes about the configuration"
+    },
+    "provinces": {
+      "type": "object",
+      "description": "Province-specific vacation pay configurations",
+      "additionalProperties": {
+        "$ref": "#/definitions/ProvinceConfig"
+      }
+    }
+  },
+  "definitions": {
+    "ProvinceConfig": {
+      "type": "object",
+      "required": ["province_code", "name", "tiers"],
+      "properties": {
+        "province_code": {
+          "type": "string",
+          "description": "Province/territory code (e.g., 'BC', 'ON', 'Federal')",
+          "enum": ["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT", "Federal"]
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the province/territory"
+        },
+        "tiers": {
+          "type": "array",
+          "description": "Vacation pay tiers based on years of service",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/VacationTier"
+          }
+        },
+        "notes": {
+          "type": "string",
+          "description": "Province-specific notes and references"
+        }
+      }
+    },
+    "VacationTier": {
+      "type": "object",
+      "required": ["min_years_of_service", "vacation_weeks", "vacation_rate"],
+      "properties": {
+        "min_years_of_service": {
+          "type": "integer",
+          "description": "Minimum years of service required for this tier",
+          "minimum": 0
+        },
+        "vacation_weeks": {
+          "type": "integer",
+          "description": "Number of vacation weeks entitled",
+          "minimum": 2,
+          "maximum": 6
+        },
+        "vacation_rate": {
+          "type": "number",
+          "description": "Vacation pay rate as decimal (e.g., 0.04 for 4%)",
+          "minimum": 0.04,
+          "maximum": 0.12
+        },
+        "notes": {
+          "type": "string",
+          "description": "Notes explaining the calculation"
+        }
+      }
+    }
+  }
+}
