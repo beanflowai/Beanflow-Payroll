@@ -24,15 +24,12 @@ from app.models.holiday_pay_config import (
     HolidayPayFormulaParams,
 )
 from app.services.payroll.holiday_pay_config_loader import (
-    HolidayPayConfigLoader,
     get_config,
 )
 from app.services.payroll_run.holiday_pay_calculator import (
     WORK_DAYS_PER_PERIOD,
     HolidayPayCalculator,
-    HolidayPayResult,
 )
-
 
 # =============================================================================
 # TEST CONFIGS
@@ -1072,8 +1069,8 @@ class TestAllProvincesConfigLoading:
         assert config.eligibility.min_employment_days == 90
 
     def test_pro_rated_provinces(self):
-        """Provinces with pro_rated fallback: SK, ON, QC."""
-        pro_rated_provinces = ["SK", "ON", "QC"]
+        """Provinces with pro_rated fallback: SK, ON, QC, MB, Federal."""
+        pro_rated_provinces = ["SK", "ON", "QC", "MB", "Federal"]
         for province in pro_rated_provinces:
             config = get_config(province)
             assert config.formula_params.new_employee_fallback == "pro_rated", (
@@ -1082,7 +1079,7 @@ class TestAllProvincesConfigLoading:
 
     def test_ineligible_provinces(self):
         """Provinces with ineligible fallback: BC, AB, and others."""
-        ineligible_provinces = ["BC", "AB", "MB", "NB", "NS", "PE", "NL", "NT", "NU", "YT", "Federal"]
+        ineligible_provinces = ["BC", "AB", "NB", "NS", "PE", "NL", "NT", "NU", "YT"]
         for province in ineligible_provinces:
             config = get_config(province)
             assert config.formula_params.new_employee_fallback == "ineligible", (

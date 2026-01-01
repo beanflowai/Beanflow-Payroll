@@ -102,6 +102,7 @@ class HolidayPayCalculator:
         holiday_work_entries: list[dict[str, Any]],
         current_period_gross: Decimal,
         current_run_id: str,
+        holiday_pay_exempt: bool = False,
     ) -> HolidayPayResult:
         """Calculate total holiday pay for an employee.
 
@@ -119,6 +120,7 @@ class HolidayPayCalculator:
             holiday_work_entries: List of holiday work entries from input_data
             current_period_gross: Current period gross pay (regular + overtime)
             current_run_id: Current payroll run ID (to exclude from historical queries)
+            holiday_pay_exempt: If True, skip Regular Holiday Pay (HR manual override)
 
         Returns:
             HolidayPayResult with regular, premium, and total holiday pay
@@ -135,6 +137,7 @@ class HolidayPayCalculator:
             "work_entries": [],
             "is_hourly": bool(employee.get("hourly_rate")),
             "province": province,
+            "holiday_pay_exempt": holiday_pay_exempt,
             "config": {
                 "formula_type": config.formula_type,
                 "premium_rate": str(config.premium_rate),
@@ -183,10 +186,22 @@ class HolidayPayCalculator:
             }
 
             # Check eligibility using config-driven rules
-            is_eligible = self._is_eligible_for_holiday_pay(employee, holiday_date, config)
-            holiday_detail["eligible"] = is_eligible
+            # If HR marked as exempt, skip Regular Holiday Pay entirely
+            if holiday_pay_exempt:
+                is_eligible = False
+                holiday_detail["eligible"] = False
+                holiday_detail["exempt_by_hr"] = True
+                logger.info(
+                    "Employee %s %s exempt from Regular holiday pay on %s (HR override)",
+                    employee.get("first_name"),
+                    employee.get("last_name"),
+                    holiday_name,
+                )
+            else:
+                is_eligible = self._is_eligible_for_holiday_pay(employee, holiday_date, config)
+                holiday_detail["eligible"] = is_eligible
 
-            if not is_eligible:
+            if not is_eligible and not holiday_pay_exempt:
                 reason = self._get_ineligibility_reason(employee, holiday_date, config)
                 logger.info(
                     "Employee %s %s not eligible for Regular holiday pay on %s (%s)",
@@ -197,7 +212,7 @@ class HolidayPayCalculator:
                 )
                 holiday_detail["ineligibility_reason"] = reason
                 # Even ineligible employees can get Premium Pay if they work
-            elif is_hourly:
+            elif is_eligible and is_hourly:
                 # Calculate Regular Holiday Pay (Hourly employees only, must be eligible)
                 daily_pay = self._calculate_regular_holiday_pay(
                     employee=employee,
