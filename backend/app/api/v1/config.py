@@ -5,9 +5,13 @@ Provides access to payroll configuration data for frontend display.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 
+from app.services.payroll.province_standards import (
+    InvalidProvinceCodeError,
+    get_province_standards,
+)
 from app.services.payroll.vacation_pay_config_loader import get_config
 
 router = APIRouter()
@@ -70,4 +74,125 @@ async def get_vacation_rates(
             for tier in config.tiers
         ],
         notes=config.notes,
+    )
+
+
+# =============================================================================
+# Province Standards Endpoint
+# =============================================================================
+
+
+class VacationStandardsResponse(BaseModel):
+    """Vacation standards summary."""
+
+    minimumWeeks: int
+    minimumRate: float
+    rateDisplay: str
+    upgradeYears: int | None = None
+    upgradeWeeks: int | None = None
+    notes: str | None = None
+
+
+class SickLeaveStandardsResponse(BaseModel):
+    """Sick leave standards summary."""
+
+    paidDays: int
+    unpaidDays: int
+    waitingPeriodDays: int
+    notes: str | None = None
+
+
+class OvertimeRulesResponse(BaseModel):
+    """Overtime rules for a province."""
+
+    dailyThreshold: int | None = None
+    weeklyThreshold: int
+    overtimeRate: float
+    doubleTimeDaily: int | None = None
+    notes: str
+
+
+class ProvinceStandardsResponse(BaseModel):
+    """Aggregated employment standards for a province."""
+
+    provinceCode: str
+    provinceName: str
+    vacation: VacationStandardsResponse
+    sickLeave: SickLeaveStandardsResponse
+    overtime: OvertimeRulesResponse
+    statutoryHolidaysCount: int
+
+
+@router.get("/province-standards/{province}", response_model=ProvinceStandardsResponse)
+async def get_province_standards_endpoint(
+    province: str,
+    year: int = Query(default=2025, description="Configuration year"),
+) -> ProvinceStandardsResponse:
+    """
+    Get aggregated employment standards for a province.
+
+    Returns vacation, sick leave, overtime rules, and statutory holiday count.
+    Used by frontend to display province-specific employment standards info card.
+
+    Example:
+        GET /api/v1/config/province-standards/ON?year=2025
+
+        Response:
+        {
+            "provinceCode": "ON",
+            "provinceName": "Ontario",
+            "vacation": {
+                "minimumWeeks": 2,
+                "minimumRate": 0.04,
+                "rateDisplay": "4.00%",
+                "upgradeYears": 5,
+                "upgradeWeeks": 3
+            },
+            "sickLeave": {
+                "paidDays": 0,
+                "unpaidDays": 3,
+                "waitingPeriodDays": 0
+            },
+            "overtime": {
+                "dailyThreshold": null,
+                "weeklyThreshold": 44,
+                "overtimeRate": 1.5,
+                "notes": "No daily overtime. Weekly overtime after 44 hours."
+            },
+            "statutoryHolidaysCount": 9
+        }
+    """
+    try:
+        standards = get_province_standards(province, year)
+    except InvalidProvinceCodeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+    return ProvinceStandardsResponse(
+        provinceCode=standards.province_code,
+        provinceName=standards.province_name,
+        vacation=VacationStandardsResponse(
+            minimumWeeks=standards.vacation.minimum_weeks,
+            minimumRate=standards.vacation.minimum_rate,
+            rateDisplay=standards.vacation.rate_display,
+            upgradeYears=standards.vacation.upgrade_years,
+            upgradeWeeks=standards.vacation.upgrade_weeks,
+            notes=standards.vacation.notes,
+        ),
+        sickLeave=SickLeaveStandardsResponse(
+            paidDays=standards.sick_leave.paid_days,
+            unpaidDays=standards.sick_leave.unpaid_days,
+            waitingPeriodDays=standards.sick_leave.waiting_period_days,
+            notes=standards.sick_leave.notes,
+        ),
+        overtime=OvertimeRulesResponse(
+            dailyThreshold=standards.overtime.daily_threshold,
+            weeklyThreshold=standards.overtime.weekly_threshold,
+            overtimeRate=standards.overtime.overtime_rate,
+            doubleTimeDaily=standards.overtime.double_time_daily,
+            notes=standards.overtime.notes,
+        ),
+        statutoryHolidaysCount=standards.statutory_holidays_count,
     )

@@ -102,6 +102,23 @@ export function clearBPACache(): void {
 	bpaCache.clear();
 }
 
+/**
+ * Get BPA defaults for a specific tax year.
+ * Uses July 1 of the year to get the July edition BPA.
+ *
+ * @param province - Province code
+ * @param year - Tax year (e.g., 2026, 2025)
+ * @returns BPA defaults for that year
+ */
+export async function getBPADefaultsByYear(
+	province: Province,
+	year: number
+): Promise<BPADefaults> {
+	// Use July 1 of the year to get July edition BPA
+	const payDate = new Date(year, 6, 1);
+	return getBPADefaults(province, payDate);
+}
+
 // =============================================================================
 // CPP/EI Contribution Limits
 // =============================================================================

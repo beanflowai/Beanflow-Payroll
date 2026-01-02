@@ -201,10 +201,6 @@ class EmployeeBase(BaseModel):
     is_ei_exempt: bool = False
     cpp2_exempt: bool = False  # CPT30 form exemption
 
-    # Optional per-period deductions
-    rrsp_per_period: Decimal = Decimal("0")
-    union_dues_per_period: Decimal = Decimal("0")
-
     # Dates
     hire_date: date
     termination_date: date | None = None
@@ -253,8 +249,6 @@ class EmployeeUpdate(BaseModel):
     is_cpp_exempt: bool | None = None
     is_ei_exempt: bool | None = None
     cpp2_exempt: bool | None = None
-    rrsp_per_period: Decimal | None = None
-    union_dues_per_period: Decimal | None = None
     termination_date: date | None = None
     vacation_config: VacationConfig | None = None
     # Initial YTD for transferred employees (with non-negative constraint)
@@ -314,8 +308,6 @@ class EmployeeResponse(BaseModel):
     is_cpp_exempt: bool
     is_ei_exempt: bool
     cpp2_exempt: bool
-    rrsp_per_period: Decimal
-    union_dues_per_period: Decimal
     hire_date: date
     termination_date: date | None
     vacation_config: VacationConfig
@@ -328,6 +320,69 @@ class EmployeeResponse(BaseModel):
     initial_ytd_year: int | None
     created_at: datetime
     updated_at: datetime
+
+
+# =============================================================================
+# Employee Tax Claims Models (TD1 by year)
+# =============================================================================
+
+class EmployeeTaxClaimBase(BaseModel):
+    """Base TD1 tax claim fields for a specific year."""
+    tax_year: int = Field(ge=2020, le=2100)
+    federal_bpa: Decimal = Field(ge=0, description="Federal Basic Personal Amount (from config)")
+    federal_additional_claims: Decimal = Field(default=Decimal("0"), ge=0)
+    provincial_bpa: Decimal = Field(ge=0, description="Provincial Basic Personal Amount (from config)")
+    provincial_additional_claims: Decimal = Field(default=Decimal("0"), ge=0)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def federal_total_claim(self) -> Decimal:
+        """Total federal TD1 claim amount."""
+        return self.federal_bpa + self.federal_additional_claims
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def provincial_total_claim(self) -> Decimal:
+        """Total provincial TD1 claim amount."""
+        return self.provincial_bpa + self.provincial_additional_claims
+
+
+class EmployeeTaxClaim(EmployeeTaxClaimBase):
+    """Complete tax claim record (from database)."""
+    id: UUID
+    employee_id: UUID
+    company_id: UUID
+    user_id: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class EmployeeTaxClaimCreate(BaseModel):
+    """Input for creating a tax claim record.
+
+    Note: BPA values are derived server-side from tax configuration based on
+    employee's province and tax year. Client only provides additional claims.
+    """
+    tax_year: int = Field(ge=2020, le=2100)
+    # BPA values removed - derived server-side from tax config
+    federal_additional_claims: Decimal = Field(default=Decimal("0"), ge=0)
+    provincial_additional_claims: Decimal = Field(default=Decimal("0"), ge=0)
+
+
+class EmployeeTaxClaimUpdate(BaseModel):
+    """Input for updating a tax claim record.
+
+    By default, only additional claims are editable. Set recalculate_bpa=True
+    to recalculate BPA values from tax config (e.g., when province changes).
+    """
+    federal_additional_claims: Decimal | None = Field(default=None, ge=0)
+    provincial_additional_claims: Decimal | None = Field(default=None, ge=0)
+    recalculate_bpa: bool = Field(
+        default=False,
+        description="If true, recalculate BPA values from tax config based on current province"
+    )
 
 
 # =============================================================================
@@ -694,13 +749,6 @@ class Company(CompanyBase):
 # Pay Group Policy Models (embedded in PayGroup)
 # =============================================================================
 
-class StatutoryDefaults(BaseModel):
-    """Statutory deduction defaults for new employees in pay group."""
-    cpp_exempt_by_default: bool = False
-    cpp2_exempt_by_default: bool = False
-    ei_exempt_by_default: bool = False
-
-
 class OvertimePolicy(BaseModel):
     """Overtime and bank time policy configuration."""
     bank_time_enabled: bool = False
@@ -774,7 +822,6 @@ class PayGroupBase(BaseModel):
     leave_enabled: bool = True
 
     # Policy Configurations
-    statutory_defaults: StatutoryDefaults = Field(default_factory=StatutoryDefaults)
     overtime_policy: OvertimePolicy = Field(default_factory=OvertimePolicy)
     wcb_config: WcbConfig = Field(default_factory=WcbConfig)
     group_benefits: GroupBenefits = Field(default_factory=GroupBenefits)
@@ -795,7 +842,6 @@ class PayGroupUpdate(BaseModel):
     next_pay_date: date | None = None
     period_start_day: PeriodStartDay | None = None
     leave_enabled: bool | None = None
-    statutory_defaults: StatutoryDefaults | None = None
     overtime_policy: OvertimePolicy | None = None
     wcb_config: WcbConfig | None = None
     group_benefits: GroupBenefits | None = None

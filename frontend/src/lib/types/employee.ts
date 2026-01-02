@@ -122,8 +122,6 @@ export interface Employee {
 	isCppExempt: boolean;
 	isEiExempt: boolean;
 	cpp2Exempt: boolean;
-	rrspPerPeriod: number;
-	unionDuesPerPeriod: number;
 	vacationConfig: VacationConfig;
 	vacationBalance: number;  // Read-only, updated by payroll system
 	sickBalance: number;  // Read-only, updated by payroll system
@@ -137,14 +135,13 @@ export interface Employee {
 }
 
 // Column groups for Excel-like table view
-export type ColumnGroup = 'personal' | 'employment' | 'compensation' | 'tax' | 'deductions';
+export type ColumnGroup = 'personal' | 'employment' | 'compensation' | 'tax';
 
 export const COLUMN_GROUP_LABELS: Record<ColumnGroup, string> = {
 	personal: 'Personal',
 	employment: 'Employment',
 	compensation: 'Compensation',
-	tax: 'Tax',
-	deductions: 'Deductions'
+	tax: 'Tax'
 };
 
 // ============================================================================
@@ -272,6 +269,81 @@ export function canEditVacationBalance(employee: Employee): boolean {
 }
 
 // ============================================================================
+// Employee Tax Claims (TD1 by year)
+// ============================================================================
+
+/**
+ * TD1 tax claim for a specific year
+ * BPA values are read-only (from tax config), only additional claims are editable
+ */
+export interface EmployeeTaxClaim {
+	id: string;
+	employeeId: string;
+	companyId: string;
+	taxYear: number;
+	// Federal TD1
+	federalBpa: number;           // Read-only, from config
+	federalAdditionalClaims: number;
+	federalTotalClaim: number;    // Computed: bpa + additional
+	// Provincial TD1
+	provincialBpa: number;        // Read-only, from config
+	provincialAdditionalClaims: number;
+	provincialTotalClaim: number; // Computed: bpa + additional
+	// Metadata
+	createdAt: string;
+	updatedAt: string;
+}
+
+/**
+ * Database row type for employee_tax_claims (snake_case)
+ */
+export interface DbEmployeeTaxClaim {
+	id: string;
+	employee_id: string;
+	company_id: string;
+	user_id: string;
+	tax_year: number;
+	federal_bpa: number;
+	federal_additional_claims: number;
+	federal_total_claim?: number;  // Computed field
+	provincial_bpa: number;
+	provincial_additional_claims: number;
+	provincial_total_claim?: number;  // Computed field
+	created_at: string;
+	updated_at: string;
+}
+
+/**
+ * Input for updating tax claim additional claims
+ */
+export interface TaxClaimUpdateInput {
+	federalAdditionalClaims?: number;
+	provincialAdditionalClaims?: number;
+}
+
+/**
+ * Convert database tax claim to UI format
+ */
+export function dbTaxClaimToUi(db: DbEmployeeTaxClaim): EmployeeTaxClaim {
+	const federalTotal = db.federal_bpa + db.federal_additional_claims;
+	const provincialTotal = db.provincial_bpa + db.provincial_additional_claims;
+	return {
+		id: db.id,
+		employeeId: db.employee_id,
+		companyId: db.company_id,
+		taxYear: db.tax_year,
+		federalBpa: db.federal_bpa,
+		federalAdditionalClaims: db.federal_additional_claims,
+		federalTotalClaim: db.federal_total_claim ?? federalTotal,
+		provincialBpa: db.provincial_bpa,
+		provincialAdditionalClaims: db.provincial_additional_claims,
+		provincialTotalClaim: db.provincial_total_claim ?? provincialTotal,
+		createdAt: db.created_at,
+		updatedAt: db.updated_at
+	};
+}
+
+// ============================================================================
 // Database Types (for Supabase interactions)
 // ============================================================================
 
@@ -301,8 +373,6 @@ export interface DbEmployee {
 	is_cpp_exempt: boolean;
 	is_ei_exempt: boolean;
 	cpp2_exempt: boolean;
-	rrsp_per_period: number;
-	union_dues_per_period: number;
 	hire_date: string;
 	termination_date: string | null;
 	vacation_config: {
@@ -346,8 +416,6 @@ export interface EmployeeCreateInput {
 	is_cpp_exempt?: boolean;
 	is_ei_exempt?: boolean;
 	cpp2_exempt?: boolean;
-	rrsp_per_period?: number;
-	union_dues_per_period?: number;
 	hire_date: string;
 	termination_date?: string | null;
 	vacation_config?: {
@@ -396,8 +464,6 @@ export function dbEmployeeToUi(db: DbEmployee, maskedSin: string): Employee {
 		isCppExempt: db.is_cpp_exempt,
 		isEiExempt: db.is_ei_exempt,
 		cpp2Exempt: db.cpp2_exempt,
-		rrspPerPeriod: db.rrsp_per_period,
-		unionDuesPerPeriod: db.union_dues_per_period,
 		vacationConfig: {
 			payoutMethod: db.vacation_config.payout_method,
 			vacationRate: (db.vacation_config.vacation_rate ?? '0.04') as VacationRate
@@ -441,8 +507,6 @@ export function uiEmployeeToDbCreate(
 		is_cpp_exempt: ui.isCppExempt,
 		is_ei_exempt: ui.isEiExempt,
 		cpp2_exempt: ui.cpp2Exempt,
-		rrsp_per_period: ui.rrspPerPeriod,
-		union_dues_per_period: ui.unionDuesPerPeriod,
 		hire_date: ui.hireDate,
 		termination_date: ui.terminationDate ?? null,
 		vacation_config: {

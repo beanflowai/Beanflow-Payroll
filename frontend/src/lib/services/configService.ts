@@ -126,3 +126,84 @@ export function calculateYearsOfService(hireDate: Date, referenceDate: Date = ne
 export function clearVacationRatesCache(): void {
 	vacationRatesCache.clear();
 }
+
+// =============================================================================
+// Province Employment Standards
+// =============================================================================
+
+export interface VacationStandards {
+	minimumWeeks: number;
+	minimumRate: number;
+	rateDisplay: string;
+	upgradeYears: number | null;
+	upgradeWeeks: number | null;
+	notes: string | null;
+}
+
+export interface SickLeaveStandards {
+	paidDays: number;
+	unpaidDays: number;
+	waitingPeriodDays: number;
+	notes: string | null;
+}
+
+export interface OvertimeRules {
+	dailyThreshold: number | null;
+	weeklyThreshold: number;
+	overtimeRate: number;
+	doubleTimeDaily: number | null;
+	notes: string;
+}
+
+export interface ProvinceStandards {
+	provinceCode: string;
+	provinceName: string;
+	vacation: VacationStandards;
+	sickLeave: SickLeaveStandards;
+	overtime: OvertimeRules;
+	statutoryHolidaysCount: number;
+}
+
+// Cache for province standards
+const provinceStandardsCache = new Map<string, { data: ProvinceStandards; timestamp: number }>();
+
+/**
+ * Get aggregated employment standards for a province.
+ *
+ * @param province - Province code (e.g., 'ON', 'BC', 'Federal')
+ * @param year - Optional configuration year (default: 2025)
+ * @returns Province employment standards
+ */
+export async function getProvinceStandards(
+	province: Province,
+	year: number = 2025
+): Promise<ProvinceStandards | null> {
+	const cacheKey = `${province}-${year}`;
+
+	// Check cache
+	const cached = provinceStandardsCache.get(cacheKey);
+	if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+		return cached.data;
+	}
+
+	try {
+		const data = await api.get<ProvinceStandards>(`/config/province-standards/${province}`, {
+			year: String(year)
+		});
+
+		// Update cache
+		provinceStandardsCache.set(cacheKey, { data, timestamp: Date.now() });
+
+		return data;
+	} catch (error) {
+		console.warn(`Failed to fetch province standards for ${province}:`, error);
+		return null;
+	}
+}
+
+/**
+ * Clear the province standards cache.
+ */
+export function clearProvinceStandardsCache(): void {
+	provinceStandardsCache.clear();
+}

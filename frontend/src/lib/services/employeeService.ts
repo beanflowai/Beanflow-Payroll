@@ -6,16 +6,20 @@
  */
 
 import { supabase } from '$lib/api/supabase';
+import { api, APIError } from '$lib/api/client';
 import type {
 	DbEmployee,
+	DbEmployeeTaxClaim,
 	EmployeeCreateInput,
 	EmployeeUpdateInput,
+	EmployeeTaxClaim,
+	TaxClaimUpdateInput,
 	Employee,
 	Province,
 	PayFrequency,
 	EmploymentType
 } from '$lib/types/employee';
-import { dbEmployeeToUi } from '$lib/types/employee';
+import { dbEmployeeToUi, dbTaxClaimToUi } from '$lib/types/employee';
 import { authState } from '$lib/stores/auth.svelte';
 import { getCurrentCompanyId as getCompanyIdFromStore } from '$lib/stores/company.svelte';
 
@@ -178,8 +182,6 @@ export async function createEmployee(
 			is_cpp_exempt: input.is_cpp_exempt ?? false,
 			is_ei_exempt: input.is_ei_exempt ?? false,
 			cpp2_exempt: input.cpp2_exempt ?? false,
-			rrsp_per_period: input.rrsp_per_period ?? 0,
-			union_dues_per_period: input.union_dues_per_period ?? 0,
 			hire_date: input.hire_date,
 			termination_date: input.termination_date ?? null,
 			vacation_config: input.vacation_config ?? {
@@ -247,9 +249,6 @@ export async function updateEmployee(
 		if (input.is_cpp_exempt !== undefined) updateData.is_cpp_exempt = input.is_cpp_exempt;
 		if (input.is_ei_exempt !== undefined) updateData.is_ei_exempt = input.is_ei_exempt;
 		if (input.cpp2_exempt !== undefined) updateData.cpp2_exempt = input.cpp2_exempt;
-		if (input.rrsp_per_period !== undefined) updateData.rrsp_per_period = input.rrsp_per_period;
-		if (input.union_dues_per_period !== undefined)
-			updateData.union_dues_per_period = input.union_dues_per_period;
 		if (input.hire_date !== undefined) updateData.hire_date = input.hire_date;
 		if (input.termination_date !== undefined) updateData.termination_date = input.termination_date;
 		if (input.vacation_config !== undefined) updateData.vacation_config = input.vacation_config;
@@ -596,5 +595,362 @@ export async function checkEmployeeHasPayrollRecords(
 		return (count ?? 0) > 0;
 	} catch {
 		return false;
+	}
+}
+
+// =============================================================================
+// Tax Claims Functions (TD1 by year)
+// =============================================================================
+
+const TAX_CLAIMS_TABLE = 'employee_tax_claims';
+
+export type TaxClaimServiceResult<T> = {
+	data: T | null;
+	error: string | null;
+};
+
+/**
+ * Get all tax claims for an employee, ordered by year descending
+ */
+export async function getEmployeeTaxClaims(
+	employeeId: string
+): Promise<TaxClaimServiceResult<EmployeeTaxClaim[]>> {
+	try {
+		const userId = getCurrentUserId();
+
+		const { data, error } = await supabase
+			.from(TAX_CLAIMS_TABLE)
+			.select('*')
+			.eq('employee_id', employeeId)
+			.eq('user_id', userId)
+			.order('tax_year', { ascending: false });
+
+		if (error) {
+			console.error('Failed to fetch tax claims:', error);
+			return { data: null, error: error.message };
+		}
+
+		return {
+			data: (data as DbEmployeeTaxClaim[]).map(dbTaxClaimToUi),
+			error: null
+		};
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to fetch tax claims';
+		return { data: null, error: message };
+	}
+}
+
+/**
+ * Get tax claim for a specific year
+ */
+export async function getEmployeeTaxClaimByYear(
+	employeeId: string,
+	taxYear: number
+): Promise<TaxClaimServiceResult<EmployeeTaxClaim>> {
+	try {
+		const userId = getCurrentUserId();
+		const companyId = getCurrentCompanyId();
+
+		const { data, error } = await supabase
+			.from(TAX_CLAIMS_TABLE)
+			.select('*')
+			.eq('employee_id', employeeId)
+			.eq('user_id', userId)
+			.eq('company_id', companyId)
+			.eq('tax_year', taxYear)
+			.single();
+
+		if (error) {
+			console.error('Failed to fetch tax claim:', error);
+			return { data: null, error: error.message };
+		}
+
+		return {
+			data: dbTaxClaimToUi(data as DbEmployeeTaxClaim),
+			error: null
+		};
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to fetch tax claim';
+		return { data: null, error: message };
+	}
+}
+
+/**
+ * Create tax claim record for a specific year
+ */
+export async function createEmployeeTaxClaim(
+	employeeId: string,
+	taxYear: number,
+	federalBpa: number,
+	provincialBpa: number,
+	federalAdditionalClaims: number = 0,
+	provincialAdditionalClaims: number = 0
+): Promise<TaxClaimServiceResult<EmployeeTaxClaim>> {
+	try {
+		const userId = getCurrentUserId();
+		const companyId = getCurrentCompanyId();
+
+		const record = {
+			employee_id: employeeId,
+			company_id: companyId,
+			user_id: userId,
+			tax_year: taxYear,
+			federal_bpa: federalBpa,
+			federal_additional_claims: federalAdditionalClaims,
+			provincial_bpa: provincialBpa,
+			provincial_additional_claims: provincialAdditionalClaims
+		};
+
+		const { data, error } = await supabase
+			.from(TAX_CLAIMS_TABLE)
+			.insert(record)
+			.select()
+			.single();
+
+		if (error) {
+			console.error('Failed to create tax claim:', error);
+			return { data: null, error: error.message };
+		}
+
+		return {
+			data: dbTaxClaimToUi(data as DbEmployeeTaxClaim),
+			error: null
+		};
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to create tax claim';
+		return { data: null, error: message };
+	}
+}
+
+/**
+ * Update tax claim additional claims for a specific year
+ * Note: BPA values are read-only and cannot be updated
+ */
+export async function updateEmployeeTaxClaim(
+	employeeId: string,
+	taxYear: number,
+	input: TaxClaimUpdateInput
+): Promise<TaxClaimServiceResult<EmployeeTaxClaim>> {
+	try {
+		const userId = getCurrentUserId();
+		const companyId = getCurrentCompanyId();
+
+		// Only allow updating additional claims (BPA is read-only)
+		const updateData: Record<string, number> = {};
+		if (input.federalAdditionalClaims !== undefined) {
+			updateData.federal_additional_claims = input.federalAdditionalClaims;
+		}
+		if (input.provincialAdditionalClaims !== undefined) {
+			updateData.provincial_additional_claims = input.provincialAdditionalClaims;
+		}
+
+		if (Object.keys(updateData).length === 0) {
+			return { data: null, error: 'No fields to update' };
+		}
+
+		const { data, error } = await supabase
+			.from(TAX_CLAIMS_TABLE)
+			.update(updateData)
+			.eq('employee_id', employeeId)
+			.eq('user_id', userId)
+			.eq('company_id', companyId)
+			.eq('tax_year', taxYear)
+			.select()
+			.single();
+
+		if (error) {
+			console.error('Failed to update tax claim:', error);
+			return { data: null, error: error.message };
+		}
+
+		return {
+			data: dbTaxClaimToUi(data as DbEmployeeTaxClaim),
+			error: null
+		};
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to update tax claim';
+		return { data: null, error: message };
+	}
+}
+
+/**
+ * Ensure tax claims exist for an employee for the current and previous year.
+ * Creates records if they don't exist with BPA values from tax config.
+ */
+export async function ensureTaxClaimsForEmployee(
+	employeeId: string,
+	province: Province,
+	federalBpa2026: number,
+	federalBpa2025: number,
+	provincialBpa2026: number,
+	provincialBpa2025: number,
+	existingFederalClaims: number = 0,
+	existingProvincialClaims: number = 0
+): Promise<void> {
+	const currentYear = new Date().getFullYear();
+	const previousYear = currentYear - 1;
+
+	// Check and create for current year
+	const currentResult = await getEmployeeTaxClaimByYear(employeeId, currentYear);
+	if (!currentResult.data) {
+		await createEmployeeTaxClaim(
+			employeeId,
+			currentYear,
+			federalBpa2026,
+			provincialBpa2026,
+			existingFederalClaims,
+			existingProvincialClaims
+		);
+	}
+
+	// Check and create for previous year
+	const previousResult = await getEmployeeTaxClaimByYear(employeeId, previousYear);
+	if (!previousResult.data) {
+		await createEmployeeTaxClaim(
+			employeeId,
+			previousYear,
+			federalBpa2025,
+			provincialBpa2025,
+			existingFederalClaims,
+			existingProvincialClaims
+		);
+	}
+}
+
+// =============================================================================
+// Tax Claims API Functions (Backend API - BPA derived server-side)
+// =============================================================================
+
+/**
+ * Backend API response format for tax claims
+ */
+interface ApiTaxClaim {
+	id: string;
+	employee_id: string;
+	company_id: string;
+	tax_year: number;
+	federal_bpa: number;
+	federal_additional_claims: number;
+	provincial_bpa: number;
+	provincial_additional_claims: number;
+	created_at: string;
+	updated_at: string;
+}
+
+/**
+ * Convert API response to UI format
+ */
+function apiTaxClaimToUi(api: ApiTaxClaim): EmployeeTaxClaim {
+	return {
+		id: api.id,
+		employeeId: api.employee_id,
+		companyId: api.company_id,
+		taxYear: api.tax_year,
+		federalBpa: api.federal_bpa,
+		federalAdditionalClaims: api.federal_additional_claims,
+		federalTotalClaim: api.federal_bpa + api.federal_additional_claims,
+		provincialBpa: api.provincial_bpa,
+		provincialAdditionalClaims: api.provincial_additional_claims,
+		provincialTotalClaim: api.provincial_bpa + api.provincial_additional_claims,
+		createdAt: api.created_at,
+		updatedAt: api.updated_at
+	};
+}
+
+/**
+ * Create tax claim via backend API (BPA derived server-side).
+ * This is the preferred method as it ensures BPA values come from
+ * the authoritative tax configuration on the server.
+ */
+export async function createEmployeeTaxClaimViaApi(
+	employeeId: string,
+	taxYear: number,
+	federalAdditionalClaims: number = 0,
+	provincialAdditionalClaims: number = 0
+): Promise<TaxClaimServiceResult<EmployeeTaxClaim>> {
+	try {
+		const response = await api.post<ApiTaxClaim>(`/employees/${employeeId}/tax-claims`, {
+			tax_year: taxYear,
+			federal_additional_claims: federalAdditionalClaims,
+			provincial_additional_claims: provincialAdditionalClaims
+		});
+
+		return {
+			data: apiTaxClaimToUi(response),
+			error: null
+		};
+	} catch (err) {
+		if (err instanceof APIError) {
+			// Handle conflict (claim already exists)
+			if (err.status === 409) {
+				return { data: null, error: `Tax claim already exists for year ${taxYear}` };
+			}
+			return { data: null, error: err.message };
+		}
+		const message = err instanceof Error ? err.message : 'Failed to create tax claim via API';
+		return { data: null, error: message };
+	}
+}
+
+/**
+ * Update tax claim via backend API.
+ * By default, only additional claims can be updated.
+ * Set recalculateBpa=true to refresh BPA values from tax config (e.g., after province change).
+ */
+export async function updateEmployeeTaxClaimViaApi(
+	employeeId: string,
+	taxYear: number,
+	input: TaxClaimUpdateInput,
+	recalculateBpa: boolean = false
+): Promise<TaxClaimServiceResult<EmployeeTaxClaim>> {
+	try {
+		const body: Record<string, number | boolean> = {};
+		if (input.federalAdditionalClaims !== undefined) {
+			body.federal_additional_claims = input.federalAdditionalClaims;
+		}
+		if (input.provincialAdditionalClaims !== undefined) {
+			body.provincial_additional_claims = input.provincialAdditionalClaims;
+		}
+		if (recalculateBpa) {
+			body.recalculate_bpa = true;
+		}
+
+		const response = await api.put<ApiTaxClaim>(
+			`/employees/${employeeId}/tax-claims/${taxYear}`,
+			body
+		);
+
+		return {
+			data: apiTaxClaimToUi(response),
+			error: null
+		};
+	} catch (err) {
+		if (err instanceof APIError) {
+			return { data: null, error: err.message };
+		}
+		const message = err instanceof Error ? err.message : 'Failed to update tax claim via API';
+		return { data: null, error: message };
+	}
+}
+
+/**
+ * Get tax claims via backend API.
+ */
+export async function getEmployeeTaxClaimsViaApi(
+	employeeId: string
+): Promise<TaxClaimServiceResult<EmployeeTaxClaim[]>> {
+	try {
+		const response = await api.get<ApiTaxClaim[]>(`/employees/${employeeId}/tax-claims`);
+
+		return {
+			data: response.map(apiTaxClaimToUi),
+			error: null
+		};
+	} catch (err) {
+		if (err instanceof APIError) {
+			return { data: null, error: err.message };
+		}
+		const message = err instanceof Error ? err.message : 'Failed to fetch tax claims via API';
+		return { data: null, error: message };
 	}
 }

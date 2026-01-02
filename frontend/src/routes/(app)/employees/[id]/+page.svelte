@@ -2,10 +2,8 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
-	import type { PayGroup } from '$lib/types/pay-group';
 	import type { Employee } from '$lib/types/employee';
 	import { getEmployee, deleteEmployee } from '$lib/services/employeeService';
-	import { listPayGroups } from '$lib/services/payGroupService';
 	import EmployeeForm from '$lib/components/employees/EmployeeForm.svelte';
 
 	// Get employee ID from route params
@@ -13,7 +11,6 @@
 
 	// State
 	let employee = $state<Employee | null>(null);
-	let payGroups = $state<PayGroup[]>([]);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let isSaving = $state(false);
@@ -37,19 +34,10 @@
 				return;
 			}
 
-			// Load employee and pay groups in parallel
-			const [employeeResult, payGroupsResult] = await Promise.all([
-				getEmployee(employeeId),
-				listPayGroups()
-			]);
+			const employeeResult = await getEmployee(employeeId);
 
 			if (employeeResult.error) {
 				error = employeeResult.error;
-				return;
-			}
-
-			if (payGroupsResult.error) {
-				error = payGroupsResult.error;
 				return;
 			}
 
@@ -59,7 +47,6 @@
 			}
 
 			employee = employeeResult.data;
-			payGroups = payGroupsResult.data;
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load employee';
 		} finally {
@@ -184,7 +171,6 @@
 		<div class="form-container">
 			<EmployeeForm
 				{employee}
-				{payGroups}
 				mode="edit"
 				onSuccess={handleSuccess}
 				onCancel={handleCancel}

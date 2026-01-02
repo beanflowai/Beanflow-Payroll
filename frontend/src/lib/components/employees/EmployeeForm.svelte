@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import type { Employee, Province, VacationPayoutMethod, VacationRate, VacationRatePreset, EmployeeCreateInput, EmployeeUpdateInput, PayFrequency, EmploymentType } from '$lib/types/employee';
-	import type { PayGroup } from '$lib/types/pay-group';
+	import type { Employee, Province, VacationPayoutMethod, VacationRate, VacationRatePreset, EmployeeCreateInput, EmployeeUpdateInput, PayFrequency, EmploymentType, EmployeeTaxClaim } from '$lib/types/employee';
 	import {
 		PROVINCE_LABELS,
 		PAY_FREQUENCY_LABELS,
@@ -14,19 +13,19 @@
 		suggestVacationRate,
 		getVacationRatePreset
 	} from '$lib/types/employee';
-	import { getBPADefaults, getContributionLimits, type BPADefaults, type ContributionLimits } from '$lib/services/taxConfigService';
-	import { getVacationRates, type VacationRatesConfig } from '$lib/services/configService';
-	import { createEmployee, updateEmployee, checkEmployeeHasPayrollRecords } from '$lib/services/employeeService';
+	import { getBPADefaults, getBPADefaultsByYear, getContributionLimits, type BPADefaults, type ContributionLimits } from '$lib/services/taxConfigService';
+	import { getVacationRates, getProvinceStandards, type VacationRatesConfig, type ProvinceStandards } from '$lib/services/configService';
+	import { createEmployee, updateEmployee, checkEmployeeHasPayrollRecords, getEmployeeTaxClaims, createEmployeeTaxClaimViaApi, updateEmployeeTaxClaimViaApi } from '$lib/services/employeeService';
+	import TaxYearClaimsCard from './TaxYearClaimsCard.svelte';
 
 	interface Props {
 		employee?: Employee | null;
-		payGroups: PayGroup[];
 		mode: 'create' | 'edit';
 		onSuccess: (employee: Employee) => void;
 		onCancel: () => void;
 	}
 
-	let { employee = null, payGroups, mode, onSuccess, onCancel }: Props = $props();
+	let { employee = null, mode, onSuccess, onCancel }: Props = $props();
 
 	// Form state
 	let firstName = $state(employee?.firstName ?? '');
@@ -38,7 +37,6 @@
 	let addressCity = $state(employee?.addressCity ?? '');
 	let addressPostalCode = $state(employee?.addressPostalCode ?? '');
 	let occupation = $state(employee?.occupation ?? '');
-	let payGroupId = $state(employee?.payGroupId ?? '');
 	let province = $state<Province>(employee?.provinceOfEmployment ?? 'ON');
 	let payFrequency = $state<PayFrequency>(employee?.payFrequency ?? 'bi_weekly');
 	let employmentType = $state<EmploymentType>(employee?.employmentType ?? 'full_time');
@@ -53,8 +51,22 @@
 	let annualSalary = $state(employee?.annualSalary ?? 0);
 	let hourlyRate = $state(employee?.hourlyRate ?? 0);
 
-	// Tax - BPA is read-only, user inputs Additional Claims only
-	// Dynamic BPA from API (with fallback to hardcoded values)
+	// Tax - Multi-year TD1 claims state
+	// Tax years: current year and previous year
+	const currentTaxYearForClaims = new Date().getFullYear(); // e.g., 2026
+	const previousTaxYear = currentTaxYearForClaims - 1;       // e.g., 2025
+
+	// Tax claims by year (loaded from DB in edit mode, initialized in create mode)
+	let taxClaimsByYear = $state<Map<number, EmployeeTaxClaim>>(new Map());
+	let taxClaimsLoading = $state(false);
+	let bpaDefaultsByYear = $state<Map<number, BPADefaults>>(new Map());
+
+	// Expand/collapse state for year cards
+	let currentYearExpanded = $state(true);
+	let previousYearExpanded = $state(false);
+
+	// Legacy single-year state (for backward compatibility during transition)
+	// These are still used for create mode and fallback
 	let bpaDefaults = $state<BPADefaults | null>(null);
 	let bpaLoading = $state(false);
 
@@ -62,11 +74,14 @@
 	const federalBPA = $derived(bpaDefaults?.federalBPA ?? FEDERAL_BPA_2025);
 	const provincialBPA = $derived(bpaDefaults?.provincialBPA ?? PROVINCIAL_BPA_2025[province]);
 
-	// Additional claims are now stored directly in the database (not derived from total)
+	// Additional claims - now derived from taxClaimsByYear for current year
 	let federalAdditionalClaims = $state(employee?.federalAdditionalClaims ?? 0);
 	let provincialAdditionalClaims = $state(employee?.provincialAdditionalClaims ?? 0);
 	let bpaRequestVersion = $state(0);
 	let showProvinceChangeWarning = $state(false);
+	// Track original province for detecting changes (Fix #3)
+	let originalProvince = $state<Province | null>(employee?.provinceOfEmployment ?? null);
+	let provinceChanged = $derived(mode === 'edit' && originalProvince !== null && province !== originalProvince);
 	let isCppExempt = $state(employee?.isCppExempt ?? false);
 	let isEiExempt = $state(employee?.isEiExempt ?? false);
 	let cpp2Exempt = $state(employee?.cpp2Exempt ?? false);
@@ -96,9 +111,210 @@
 		}
 	});
 
-	// Deductions
-	let rrspPerPeriod = $state(employee?.rrspPerPeriod ?? 0);
-	let unionDuesPerPeriod = $state(employee?.unionDuesPerPeriod ?? 0);
+	// Load tax claims for edit mode or initialize for create mode
+	$effect(() => {
+		if (mode === 'edit' && employee?.id) {
+			loadTaxClaims(employee.id);
+		} else if (mode === 'create') {
+			initializeNewClaims();
+		}
+	});
+
+	// Reload BPA defaults when province changes (for multi-year)
+	$effect(() => {
+		const currentProvince = province;
+		if (currentProvince) {
+			loadBpaDefaultsForYears(currentProvince);
+		}
+	});
+
+	/**
+	 * Load tax claims from database for an existing employee.
+	 * Also initializes placeholder claims for any missing years.
+	 */
+	async function loadTaxClaims(employeeId: string) {
+		taxClaimsLoading = true;
+		try {
+			// First ensure BPA defaults are loaded
+			await loadBpaDefaultsForYears(province);
+
+			const result = await getEmployeeTaxClaims(employeeId);
+			const claimsMap = new Map<number, EmployeeTaxClaim>();
+
+			// Load existing claims
+			if (result.data) {
+				for (const claim of result.data) {
+					claimsMap.set(claim.taxYear, claim);
+				}
+			}
+
+			// Initialize placeholder claims for any missing years (Fix #5)
+			const years = [currentTaxYearForClaims, previousTaxYear];
+			for (const year of years) {
+				if (!claimsMap.has(year)) {
+					const bpaForYear = bpaDefaultsByYear.get(year);
+					claimsMap.set(year, {
+						id: '', // Empty ID indicates new claim to be created
+						employeeId: employeeId,
+						companyId: '',
+						taxYear: year,
+						federalBpa: bpaForYear?.federalBPA ?? FEDERAL_BPA_2025,
+						federalAdditionalClaims: 0,
+						federalTotalClaim: bpaForYear?.federalBPA ?? FEDERAL_BPA_2025,
+						provincialBpa: bpaForYear?.provincialBPA ?? PROVINCIAL_BPA_2025[province],
+						provincialAdditionalClaims: 0,
+						provincialTotalClaim: bpaForYear?.provincialBPA ?? PROVINCIAL_BPA_2025[province],
+						createdAt: '',
+						updatedAt: ''
+					});
+				}
+			}
+
+			taxClaimsByYear = claimsMap;
+
+			// Also sync the legacy single-year state for backward compatibility
+			const currentClaim = claimsMap.get(currentTaxYearForClaims);
+			if (currentClaim) {
+				federalAdditionalClaims = currentClaim.federalAdditionalClaims;
+				provincialAdditionalClaims = currentClaim.provincialAdditionalClaims;
+			}
+		} catch (err) {
+			console.error('Failed to load tax claims:', err);
+		} finally {
+			taxClaimsLoading = false;
+		}
+	}
+
+	/**
+	 * Initialize placeholder claims for a new employee
+	 */
+	async function initializeNewClaims() {
+		await loadBpaDefaultsForYears(province);
+
+		// Create placeholder claims using BPA defaults
+		const currentBpa = bpaDefaultsByYear.get(currentTaxYearForClaims);
+		const previousBpa = bpaDefaultsByYear.get(previousTaxYear);
+
+		const newClaimsMap = new Map<number, EmployeeTaxClaim>();
+
+		// Current year placeholder
+		newClaimsMap.set(currentTaxYearForClaims, {
+			id: '',
+			employeeId: '',
+			companyId: '',
+			taxYear: currentTaxYearForClaims,
+			federalBpa: currentBpa?.federalBPA ?? FEDERAL_BPA_2025,
+			federalAdditionalClaims: federalAdditionalClaims,
+			federalTotalClaim: (currentBpa?.federalBPA ?? FEDERAL_BPA_2025) + federalAdditionalClaims,
+			provincialBpa: currentBpa?.provincialBPA ?? PROVINCIAL_BPA_2025[province],
+			provincialAdditionalClaims: provincialAdditionalClaims,
+			provincialTotalClaim: (currentBpa?.provincialBPA ?? PROVINCIAL_BPA_2025[province]) + provincialAdditionalClaims,
+			createdAt: '',
+			updatedAt: ''
+		});
+
+		// Previous year placeholder
+		newClaimsMap.set(previousTaxYear, {
+			id: '',
+			employeeId: '',
+			companyId: '',
+			taxYear: previousTaxYear,
+			federalBpa: previousBpa?.federalBPA ?? FEDERAL_BPA_2025,
+			federalAdditionalClaims: 0,
+			federalTotalClaim: previousBpa?.federalBPA ?? FEDERAL_BPA_2025,
+			provincialBpa: previousBpa?.provincialBPA ?? PROVINCIAL_BPA_2025[province],
+			provincialAdditionalClaims: 0,
+			provincialTotalClaim: previousBpa?.provincialBPA ?? PROVINCIAL_BPA_2025[province],
+			createdAt: '',
+			updatedAt: ''
+		});
+
+		taxClaimsByYear = newClaimsMap;
+	}
+
+	/**
+	 * Load BPA defaults for both tax years
+	 */
+	async function loadBpaDefaultsForYears(prov: Province) {
+		try {
+			const [currentBpa, previousBpa] = await Promise.all([
+				getBPADefaultsByYear(prov, currentTaxYearForClaims),
+				getBPADefaultsByYear(prov, previousTaxYear)
+			]);
+
+			const bpaMap = new Map<number, BPADefaults>();
+			bpaMap.set(currentTaxYearForClaims, currentBpa);
+			bpaMap.set(previousTaxYear, previousBpa);
+			bpaDefaultsByYear = bpaMap;
+
+			// Sync new BPA values to taxClaimsByYear (Fix: BPA not refreshed on province change)
+			syncBpaToTaxClaims(bpaMap);
+		} catch (err) {
+			console.error('Failed to load BPA defaults:', err);
+		}
+	}
+
+	/**
+	 * Sync BPA defaults to taxClaimsByYear.
+	 * Called when province changes to update BPA values in existing claims.
+	 */
+	function syncBpaToTaxClaims(bpaMap: Map<number, BPADefaults>) {
+		if (taxClaimsByYear.size === 0) return;
+
+		const updatedClaims = new Map<number, EmployeeTaxClaim>();
+
+		for (const [year, claim] of taxClaimsByYear) {
+			const bpaForYear = bpaMap.get(year);
+			if (bpaForYear) {
+				updatedClaims.set(year, {
+					...claim,
+					federalBpa: bpaForYear.federalBPA,
+					provincialBpa: bpaForYear.provincialBPA,
+					federalTotalClaim: bpaForYear.federalBPA + claim.federalAdditionalClaims,
+					provincialTotalClaim: bpaForYear.provincialBPA + claim.provincialAdditionalClaims
+				});
+			} else {
+				updatedClaims.set(year, claim);
+			}
+		}
+
+		taxClaimsByYear = updatedClaims;
+	}
+
+	/**
+	 * Handle claim update from TaxYearClaimsCard
+	 */
+	function handleClaimUpdate(year: number, fedAdditional: number, provAdditional: number) {
+		const existingClaim = taxClaimsByYear.get(year);
+		const bpaForYear = bpaDefaultsByYear.get(year);
+
+		const updatedClaim: EmployeeTaxClaim = {
+			id: existingClaim?.id ?? '',
+			employeeId: existingClaim?.employeeId ?? employee?.id ?? '',
+			companyId: existingClaim?.companyId ?? '',
+			taxYear: year,
+			federalBpa: existingClaim?.federalBpa ?? bpaForYear?.federalBPA ?? FEDERAL_BPA_2025,
+			federalAdditionalClaims: fedAdditional,
+			federalTotalClaim: (existingClaim?.federalBpa ?? bpaForYear?.federalBPA ?? FEDERAL_BPA_2025) + fedAdditional,
+			provincialBpa: existingClaim?.provincialBpa ?? bpaForYear?.provincialBPA ?? PROVINCIAL_BPA_2025[province],
+			provincialAdditionalClaims: provAdditional,
+			provincialTotalClaim: (existingClaim?.provincialBpa ?? bpaForYear?.provincialBPA ?? PROVINCIAL_BPA_2025[province]) + provAdditional,
+			createdAt: existingClaim?.createdAt ?? '',
+			updatedAt: existingClaim?.updatedAt ?? ''
+		};
+
+		// Create a new Map to trigger reactivity
+		const newMap = new Map(taxClaimsByYear);
+		newMap.set(year, updatedClaim);
+		taxClaimsByYear = newMap;
+
+		// Sync legacy state if updating current year
+		if (year === currentTaxYearForClaims) {
+			federalAdditionalClaims = fedAdditional;
+			provincialAdditionalClaims = provAdditional;
+		}
+	}
+
 
 	// Prior Employment (for transferred employees - CPP/EI only)
 	// Contribution limits - fetched from API with fallback to 2025 values
@@ -143,6 +359,73 @@
 	const currentTaxYear = new Date().getFullYear();
 	let initialYtdYear = $state<number | null>(employee?.initialYtdYear ?? null);
 
+	// Hire Date → Prior Employment linkage
+	// Determines whether to show the Prior Employment section based on hire date
+	const hireDateInfo = $derived(() => {
+		if (!hireDate) {
+			return { showSection: false, defaultPriorEmployment: false, message: '' };
+		}
+
+		const hireDateObj = new Date(hireDate);
+		const hireYear = hireDateObj.getFullYear();
+		const hireMonth = hireDateObj.getMonth(); // 0-indexed
+		const hireDay = hireDateObj.getDate();
+		const today = new Date();
+
+		// Future date: hide section
+		if (hireDateObj > today) {
+			return {
+				showSection: false,
+				defaultPriorEmployment: false,
+				message: 'Prior employment section is hidden for future hire dates.'
+			};
+		}
+
+		// Before current tax year: hide or show "Not applicable"
+		if (hireYear < currentTaxYear) {
+			return {
+				showSection: false,
+				defaultPriorEmployment: false,
+				message: 'Not applicable - employee started before the current tax year.'
+			};
+		}
+
+		// Current tax year: check if early year (Jan 1-15) or mid-year (Jan 16+)
+		if (hireYear === currentTaxYear) {
+			// January 1-15: show section, default "No"
+			if (hireMonth === 0 && hireDay <= 15) {
+				return {
+					showSection: true,
+					defaultPriorEmployment: false,
+					message: ''
+				};
+			}
+			// January 16+ or later months: show section, default "Yes"
+			return {
+				showSection: true,
+				defaultPriorEmployment: true,
+				message: `This employee started mid-year (${hireDateObj.toLocaleDateString('en-CA')}). They may have prior CPP/EI contributions from a previous employer.`
+			};
+		}
+
+		// Fallback: show section
+		return { showSection: true, defaultPriorEmployment: false, message: '' };
+	});
+
+	// Auto-update hasPriorEmployment when hire date changes (only for new employees)
+	$effect(() => {
+		const info = hireDateInfo();
+		// Only auto-set for new employees (create mode) and when hire date changes
+		if (mode === 'create' && info.showSection) {
+			// Check if there are existing prior YTD values
+			const hasExistingPriorYtd = initialYtdCpp > 0 || initialYtdCpp2 > 0 || initialYtdEi > 0;
+			// Only update if no existing values
+			if (!hasExistingPriorYtd) {
+				hasPriorEmployment = info.defaultPriorEmployment;
+			}
+		}
+	});
+
 	// Track if employee has payroll records (determines if vacation balance is editable)
 	// Must be defined before canEditPriorYtd which depends on it
 	let hasPayrollRecords = $state(false);
@@ -177,15 +460,17 @@
 	let errors = $state<Record<string, string>>({});
 	let submitError = $state<string | null>(null);
 
-	// Derived: Selected pay group details
-	const selectedPayGroup = $derived(payGroups.find(pg => pg.id === payGroupId) ?? null);
-
 	// Derived: Years of service for vacation rate suggestion
 	const yearsOfService = $derived(calculateYearsOfService(hireDate));
 	const suggestedRate = $derived(suggestVacationRate(yearsOfService));
 
 	// Province-specific vacation rates from API
 	let vacationRatesConfig = $state<VacationRatesConfig | null>(null);
+
+	// Province employment standards (vacation, sick leave, overtime, holidays)
+	let provinceStandards = $state<ProvinceStandards | null>(null);
+	let provinceStandardsLoading = $state(false);
+	let provinceStandardsRequestVersion = 0;  // For stale response guard
 
 	// Dynamic vacation rate options based on province
 	const vacationRateOptions = $derived(() => {
@@ -225,6 +510,25 @@
 		});
 	});
 
+	// Load province employment standards when province changes
+	$effect(() => {
+		const currentProvince = province;
+		provinceStandardsLoading = true;
+		// Use untrack to avoid creating a dependency on provinceStandardsRequestVersion
+		const requestVersion = untrack(() => ++provinceStandardsRequestVersion);
+		getProvinceStandards(currentProvince).then(standards => {
+			// Ignore stale responses from previous requests (race condition guard)
+			if (requestVersion !== provinceStandardsRequestVersion) return;
+			provinceStandards = standards;
+			provinceStandardsLoading = false;
+		}).catch(err => {
+			if (requestVersion !== provinceStandardsRequestVersion) return;
+			console.warn('Failed to load province standards:', err);
+			provinceStandards = null;
+			provinceStandardsLoading = false;
+		});
+	});
+
 	// Check if employee has payroll records (for edit mode)
 	$effect(() => {
 		if (mode === 'edit' && employee?.id) {
@@ -247,7 +551,6 @@
 			addressCity = employee.addressCity ?? '';
 			addressPostalCode = employee.addressPostalCode ?? '';
 			occupation = employee.occupation ?? '';
-			payGroupId = employee.payGroupId ?? '';
 			province = employee.provinceOfEmployment;
 			payFrequency = employee.payFrequency;
 			employmentType = employee.employmentType;
@@ -262,8 +565,6 @@
 			isCppExempt = employee.isCppExempt;
 			isEiExempt = employee.isEiExempt;
 			cpp2Exempt = employee.cpp2Exempt;
-			rrspPerPeriod = employee.rrspPerPeriod;
-			unionDuesPerPeriod = employee.unionDuesPerPeriod;
 			vacationPayoutMethod = employee.vacationConfig?.payoutMethod ?? 'accrual';
 			const resetPreset = getVacationRatePreset(employee.vacationConfig?.vacationRate ?? '0.04');
 			vacationRatePreset = resetPreset;
@@ -282,6 +583,7 @@
 			initialYtdEi = employee.initialYtdEi ?? 0;
 			initialYtdYear = employee.initialYtdYear ?? null;
 			showProvinceChangeWarning = false;
+			originalProvince = employee.provinceOfEmployment; // Reset original province (Fix #3)
 			errors = {};
 			submitError = null;
 		}
@@ -417,13 +719,12 @@
 				// Compensation
 				annual_salary: compensationType === 'salaried' ? annualSalary : null,
 				hourly_rate: compensationType === 'hourly' ? hourlyRate : null,
+				// Legacy fields - still needed for backward compatibility
 				federal_additional_claims: federalAdditionalClaims,
 				provincial_additional_claims: provincialAdditionalClaims,
 				is_cpp_exempt: isCppExempt,
 				is_ei_exempt: isEiExempt,
 				cpp2_exempt: cpp2Exempt,
-				rrsp_per_period: rrspPerPeriod,
-				union_dues_per_period: unionDuesPerPeriod,
 				vacation_config: {
 					payout_method: vacationPayoutMethod,
 					vacation_rate: vacationRate
@@ -438,19 +739,26 @@
 			};
 
 			const result = await createEmployee(createInput);
-			isSubmitting = false;
 
 			if (result.error) {
+				isSubmitting = false;
 				submitError = result.error;
 				return;
 			}
 
 			if (result.data) {
-				// After create, assign to pay group
-				if (payGroupId) {
-					const { assignEmployeesToPayGroup } = await import('$lib/services/employeeService');
-					await assignEmployeesToPayGroup([result.data.id], payGroupId);
+				// Create tax claims for each year
+				const employeeId = result.data.id;
+				const taxClaimError = await saveTaxClaimsForEmployee(employeeId);
+
+				if (taxClaimError) {
+					// Employee was created but tax claims failed - warn user but still succeed
+					console.warn('Tax claim save warning:', taxClaimError);
+					// Note: We still call onSuccess since the employee was created
+					// The tax claims can be fixed later by editing the employee
 				}
+
+				isSubmitting = false;
 				onSuccess(result.data);
 			}
 		} else {
@@ -473,13 +781,12 @@
 				// Compensation
 				annual_salary: compensationType === 'salaried' ? annualSalary : null,
 				hourly_rate: compensationType === 'hourly' ? hourlyRate : null,
+				// Legacy fields - still needed for backward compatibility
 				federal_additional_claims: federalAdditionalClaims,
 				provincial_additional_claims: provincialAdditionalClaims,
 				is_cpp_exempt: isCppExempt,
 				is_ei_exempt: isEiExempt,
 				cpp2_exempt: cpp2Exempt,
-				rrsp_per_period: rrspPerPeriod,
-				union_dues_per_period: unionDuesPerPeriod,
 				vacation_config: {
 					payout_method: vacationPayoutMethod,
 					vacation_rate: vacationRate
@@ -500,26 +807,77 @@
 			};
 
 			const result = await updateEmployee(employee.id, updateInput);
-			isSubmitting = false;
 
 			if (result.error) {
+				isSubmitting = false;
 				submitError = result.error;
 				return;
 			}
 
 			if (result.data) {
-				// Handle pay group change
-				if (payGroupId !== employee.payGroupId) {
-					const { assignEmployeesToPayGroup, removeEmployeeFromPayGroup } = await import('$lib/services/employeeService');
-					if (payGroupId) {
-						await assignEmployeesToPayGroup([employee.id], payGroupId);
-					} else {
-						await removeEmployeeFromPayGroup(employee.id);
-					}
+				// Save tax claims for each year
+				const taxClaimError = await saveTaxClaimsForEmployee(employee.id);
+
+				if (taxClaimError) {
+					// Employee was updated but tax claims failed - warn user but still succeed
+					console.warn('Tax claim save warning:', taxClaimError);
+					// Note: We still call onSuccess since the employee was updated
+					// The tax claims can be fixed later by re-editing the employee
 				}
+
+				isSubmitting = false;
 				onSuccess(result.data);
 			}
 		}
+	}
+
+	/**
+	 * Save tax claims for all years to the database via backend API.
+	 * Creates new claims or updates existing ones.
+	 * BPA values are derived server-side from tax configuration.
+	 * If province changed (Fix #3), requests BPA recalculation for existing claims.
+	 * Returns an error message if any operation fails, null on success.
+	 */
+	async function saveTaxClaimsForEmployee(employeeId: string): Promise<string | null> {
+		const years = [currentTaxYearForClaims, previousTaxYear];
+		const errors: string[] = [];
+		// Recalculate BPA if province changed (Fix #3)
+		const shouldRecalculateBpa = provinceChanged;
+
+		for (const year of years) {
+			const claim = taxClaimsByYear.get(year);
+			if (!claim) continue;
+
+			if (claim.id) {
+				// Update existing claim via API
+				// If province changed, also recalculate BPA values
+				const result = await updateEmployeeTaxClaimViaApi(
+					employeeId,
+					year,
+					{
+						federalAdditionalClaims: claim.federalAdditionalClaims,
+						provincialAdditionalClaims: claim.provincialAdditionalClaims
+					},
+					shouldRecalculateBpa
+				);
+				if (result.error) {
+					errors.push(`Failed to update ${year} tax claim: ${result.error}`);
+				}
+			} else {
+				// Create new claim via API (BPA derived server-side)
+				const result = await createEmployeeTaxClaimViaApi(
+					employeeId,
+					year,
+					claim.federalAdditionalClaims,
+					claim.provincialAdditionalClaims
+				);
+				if (result.error) {
+					errors.push(`Failed to create ${year} tax claim: ${result.error}`);
+				}
+			}
+		}
+
+		return errors.length > 0 ? errors.join('; ') : null;
 	}
 
 	// Format currency for display
@@ -656,20 +1014,6 @@
 		<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">Employment Details</h3>
 		<div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
 			<div class="flex flex-col gap-2">
-				<label for="payGroup" class="text-body-small font-medium text-surface-700">Pay Group</label>
-				<select
-					id="payGroup"
-					class="p-3 border border-surface-300 rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10"
-					bind:value={payGroupId}
-				>
-					<option value="">No pay group (unassigned)</option>
-					{#each payGroups as pg}
-						<option value={pg.id}>{pg.name}</option>
-					{/each}
-				</select>
-			</div>
-
-			<div class="flex flex-col gap-2">
 				<label for="province" class="text-body-small font-medium text-surface-700">Province of Employment *</label>
 				<select
 					id="province"
@@ -685,6 +1029,89 @@
 					<span class="text-auxiliary-text text-error-600">{errors.province}</span>
 				{/if}
 			</div>
+
+			<!-- Province Employment Standards Info Card -->
+			{#if provinceStandardsLoading}
+				<div class="col-span-full p-4 bg-surface-50 border border-surface-200 rounded-lg">
+					<div class="flex items-center gap-2 text-surface-500 text-body-small">
+						<i class="fas fa-spinner fa-spin"></i>
+						<span>Loading employment standards...</span>
+					</div>
+				</div>
+			{:else if provinceStandards}
+				<div class="col-span-full p-4 bg-primary-50 border border-primary-200 rounded-lg">
+					<div class="flex items-center gap-2 mb-3">
+						<i class="fas fa-info-circle text-primary-500"></i>
+						<h4 class="text-body-small font-semibold text-primary-700 m-0">{provinceStandards.provinceName} Employment Standards</h4>
+					</div>
+					<div class="grid grid-cols-4 gap-4 max-sm:grid-cols-2">
+						<!-- Vacation -->
+						<div class="flex flex-col gap-1">
+							<span class="text-auxiliary-text text-primary-600 font-medium uppercase tracking-wide">Vacation</span>
+							<span class="text-body-small text-primary-700">
+								{provinceStandards.vacation.minimumWeeks} weeks ({provinceStandards.vacation.rateDisplay})
+							</span>
+							{#if provinceStandards.vacation.upgradeYears}
+								<span class="text-auxiliary-text text-primary-500">
+									{provinceStandards.vacation.upgradeWeeks} weeks after {provinceStandards.vacation.upgradeYears} years
+								</span>
+							{/if}
+						</div>
+
+						<!-- Sick Leave -->
+						<div class="flex flex-col gap-1">
+							<span class="text-auxiliary-text text-primary-600 font-medium uppercase tracking-wide">Sick Leave</span>
+							{#if provinceStandards.sickLeave.paidDays > 0 || provinceStandards.sickLeave.unpaidDays > 0}
+								<span class="text-body-small text-primary-700">
+									{#if provinceStandards.sickLeave.paidDays > 0}
+										{provinceStandards.sickLeave.paidDays} paid
+									{/if}
+									{#if provinceStandards.sickLeave.paidDays > 0 && provinceStandards.sickLeave.unpaidDays > 0}
+										+
+									{/if}
+									{#if provinceStandards.sickLeave.unpaidDays > 0}
+										{provinceStandards.sickLeave.unpaidDays} unpaid
+									{/if}
+									days/year
+								</span>
+								{#if provinceStandards.sickLeave.waitingPeriodDays > 0}
+									<span class="text-auxiliary-text text-primary-500">
+										After {provinceStandards.sickLeave.waitingPeriodDays} days
+									</span>
+								{/if}
+							{:else}
+								<span class="text-body-small text-primary-500 italic">No statutory sick leave</span>
+							{/if}
+						</div>
+
+						<!-- Overtime -->
+						<div class="flex flex-col gap-1">
+							<span class="text-auxiliary-text text-primary-600 font-medium uppercase tracking-wide">Overtime</span>
+							<span class="text-body-small text-primary-700">
+								{#if provinceStandards.overtime.dailyThreshold}
+									After {provinceStandards.overtime.dailyThreshold} hrs/day
+								{:else}
+									After {provinceStandards.overtime.weeklyThreshold} hrs/week
+								{/if}
+							</span>
+							<span class="text-auxiliary-text text-primary-500">
+								{provinceStandards.overtime.overtimeRate}x rate
+								{#if provinceStandards.overtime.doubleTimeDaily}
+									(2x after {provinceStandards.overtime.doubleTimeDaily} hrs)
+								{/if}
+							</span>
+						</div>
+
+						<!-- Statutory Holidays -->
+						<div class="flex flex-col gap-1">
+							<span class="text-auxiliary-text text-primary-600 font-medium uppercase tracking-wide">Stat Holidays</span>
+							<span class="text-body-small text-primary-700">
+								{provinceStandards.statutoryHolidaysCount} per year
+							</span>
+						</div>
+					</div>
+				</div>
+			{/if}
 
 			<div class="flex flex-col gap-2">
 				<label for="payFrequency" class="text-body-small font-medium text-surface-700">Pay Frequency *</label>
@@ -844,139 +1271,74 @@
 		<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">Tax Information (TD1)</h3>
 		<p class="text-body-small text-surface-500 m-0 mb-4 flex items-center gap-2">
 			<i class="fas fa-info-circle text-primary-500"></i>
-			BPA is set based on 2025 tax tables. Enter any additional claims from TD1 (spouse, dependants, etc.)
+			Enter additional claims from TD1 forms (spouse, dependants, etc.) for each tax year.
 		</p>
 
 		{#if showProvinceChangeWarning}
 			<div class="flex items-center gap-3 p-3 mb-4 bg-warning-50 border border-warning-200 rounded-lg text-warning-700 text-body-small">
 				<i class="fas fa-exclamation-triangle text-warning-500"></i>
-				<span>Province changed. Please review your additional TD1 claims before saving.</span>
+				<span>Province changed. Please review your additional TD1 claims for all years before saving.</span>
 				<button type="button" class="ml-auto bg-transparent border-none text-warning-500 cursor-pointer p-1 opacity-70 hover:opacity-100" onclick={() => showProvinceChangeWarning = false}>
 					<i class="fas fa-times"></i>
 				</button>
 			</div>
 		{/if}
 
-		<!-- Federal TD1 -->
-		<div class="mb-6">
-			<h4 class="text-body-small font-semibold text-surface-600 m-0 mb-3">Federal TD1</h4>
-			<div class="grid grid-cols-3 gap-4 max-sm:grid-cols-1">
-				<div class="flex flex-col gap-2">
-					<label class="text-body-small font-medium text-surface-700">
-						Basic Personal Amount
-						{#if bpaDefaults}
-							<span class="text-surface-400">({bpaDefaults.year})</span>
-						{/if}
-					</label>
-					<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600 font-medium">
-						{#if bpaLoading}
-							<span class="text-surface-400">Loading...</span>
-						{:else}
-							{formatCurrency(federalBPA)}
-						{/if}
-					</div>
-				</div>
-
-				<div class="flex flex-col gap-2">
-					<label for="federalAdditionalClaims" class="text-body-small font-medium text-surface-700">Additional Claims</label>
-					<div class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10">
-						<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
-						<input
-							id="federalAdditionalClaims"
-							type="number"
-							class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
-							bind:value={federalAdditionalClaims}
-							min="0"
-							step="1"
-						/>
-					</div>
-					{#if errors.federalAdditionalClaims}
-						<span class="text-auxiliary-text text-error-600">{errors.federalAdditionalClaims}</span>
-					{/if}
-					<span class="text-auxiliary-text text-surface-500">From TD1 Line 13 minus BPA</span>
-				</div>
-
-				<div class="flex flex-col gap-2">
-					<label class="text-body-small font-medium text-surface-700">Total Claim Amount</label>
-					<div class="p-3 bg-primary-50 border border-primary-200 rounded-md text-body-content text-primary-700 font-semibold">
-						{formatCurrency(federalClaimAmount)}
-					</div>
-				</div>
+		{#if taxClaimsLoading}
+			<div class="flex items-center justify-center p-8 text-surface-500">
+				<i class="fas fa-spinner fa-spin mr-2"></i>
+				<span>Loading tax claims...</span>
 			</div>
-		</div>
+		{:else}
+			<!-- Multi-year Tax Claims Cards -->
+			<div class="flex flex-col gap-4 mb-6">
+				<!-- Current Year -->
+				<TaxYearClaimsCard
+					taxYear={currentTaxYearForClaims}
+					claim={taxClaimsByYear.get(currentTaxYearForClaims) ?? null}
+					bpaDefaults={bpaDefaultsByYear.get(currentTaxYearForClaims) ?? null}
+					{province}
+					isExpanded={currentYearExpanded}
+					isCurrentYear={true}
+					onUpdate={handleClaimUpdate}
+					onToggleExpand={() => currentYearExpanded = !currentYearExpanded}
+				/>
 
-		<!-- Provincial TD1 -->
-		<div class="mb-6">
-			<h4 class="text-body-small font-semibold text-surface-600 m-0 mb-3">Provincial TD1 ({PROVINCE_LABELS[province]})</h4>
-			<div class="grid grid-cols-3 gap-4 max-sm:grid-cols-1">
-				<div class="flex flex-col gap-2">
-					<label class="text-body-small font-medium text-surface-700">
-						Basic Personal Amount
-						{#if bpaDefaults}
-							<span class="text-surface-400">({bpaDefaults.year})</span>
-						{/if}
-					</label>
-					<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600 font-medium">
-						{#if bpaLoading}
-							<span class="text-surface-400">Loading...</span>
-						{:else}
-							{formatCurrency(provincialBPA)}
-							{#if bpaDefaults && PROVINCES_WITH_EDITION_DIFF.includes(province as typeof PROVINCES_WITH_EDITION_DIFF[number])}
-								<span class="text-caption text-surface-500 block mt-1">
-									Edition: {bpaDefaults.edition === 'jan' ? 'January' : 'July'}
-								</span>
-							{/if}
-						{/if}
-					</div>
-				</div>
-
-				<div class="flex flex-col gap-2">
-					<label for="provincialAdditionalClaims" class="text-body-small font-medium text-surface-700">Additional Claims</label>
-					<div class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10">
-						<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
-						<input
-							id="provincialAdditionalClaims"
-							type="number"
-							class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
-							bind:value={provincialAdditionalClaims}
-							min="0"
-							step="1"
-						/>
-					</div>
-					{#if errors.provincialAdditionalClaims}
-						<span class="text-auxiliary-text text-error-600">{errors.provincialAdditionalClaims}</span>
-					{/if}
-					<span class="text-auxiliary-text text-surface-500">From TD1 Line 13 minus BPA</span>
-				</div>
-
-				<div class="flex flex-col gap-2">
-					<label class="text-body-small font-medium text-surface-700">Total Claim Amount</label>
-					<div class="p-3 bg-primary-50 border border-primary-200 rounded-md text-body-content text-primary-700 font-semibold">
-						{formatCurrency(provincialClaimAmount)}
-					</div>
-				</div>
+				<!-- Previous Year -->
+				<TaxYearClaimsCard
+					taxYear={previousTaxYear}
+					claim={taxClaimsByYear.get(previousTaxYear) ?? null}
+					bpaDefaults={bpaDefaultsByYear.get(previousTaxYear) ?? null}
+					{province}
+					isExpanded={previousYearExpanded}
+					isCurrentYear={false}
+					onUpdate={handleClaimUpdate}
+					onToggleExpand={() => previousYearExpanded = !previousYearExpanded}
+				/>
 			</div>
-		</div>
+		{/if}
 
-		<!-- Exemptions -->
-		<div class="flex flex-col gap-2">
-			<label class="text-body-small font-medium text-surface-700">Exemptions</label>
-			<div class="flex gap-6 flex-wrap max-sm:flex-col max-sm:gap-3">
-				<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
-					<input type="checkbox" bind:checked={isCppExempt} />
-					<span>CPP Exempt</span>
-				</label>
-				<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
-					<input type="checkbox" bind:checked={isEiExempt} />
-					<span>EI Exempt</span>
-				</label>
-				<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
-					<input type="checkbox" bind:checked={cpp2Exempt} />
-					<span>CPP2 Exempt</span>
-					<span class="text-surface-400 cursor-help" title="CPT30 form on file - exempt from additional CPP contributions">
-						<i class="fas fa-info-circle"></i>
-					</span>
-				</label>
+		<!-- Exemptions (unchanged, employee-level) -->
+		<div class="mt-6 pt-6 border-t border-surface-200">
+			<div class="flex flex-col gap-2">
+				<label class="text-body-small font-medium text-surface-700">Exemptions</label>
+				<div class="flex gap-6 flex-wrap max-sm:flex-col max-sm:gap-3">
+					<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
+						<input type="checkbox" bind:checked={isCppExempt} />
+						<span>CPP Exempt</span>
+					</label>
+					<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
+						<input type="checkbox" bind:checked={isEiExempt} />
+						<span>EI Exempt</span>
+					</label>
+					<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
+						<input type="checkbox" bind:checked={cpp2Exempt} />
+						<span>CPP2 Exempt</span>
+						<span class="text-surface-400 cursor-help" title="CPT30 form on file - exempt from additional CPP contributions">
+							<i class="fas fa-info-circle"></i>
+						</span>
+					</label>
+				</div>
 			</div>
 		</div>
 	</section>
@@ -984,218 +1346,205 @@
 	<!-- Section 5: Prior Employment This Year -->
 	<section class="bg-white rounded-xl p-6 shadow-md3-1">
 		<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">Prior Employment This Year</h3>
-		<p class="text-body-small text-surface-500 m-0 mb-4 flex items-start gap-2">
-			<i class="fas fa-info-circle text-primary-500 mt-0.5"></i>
-			<span>If this employee worked for another employer earlier this year, enter their prior CPP/EI contributions to avoid over-deduction. Income tax is automatically adjusted through Cumulative Averaging.</span>
-		</p>
 
-		<!-- Question 1: Has prior employment? -->
-		<div class="flex flex-col gap-4">
-			<div class="flex flex-col gap-2">
-				<label class="text-body-small font-medium text-surface-700">Has this employee worked for another employer this year?</label>
-				{#if canEditPriorYtd}
-					<div class="flex gap-6 flex-wrap max-sm:flex-col max-sm:gap-3">
-						<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
-							<input
-								type="radio"
-								name="hasPriorEmployment"
-								value="no"
-								checked={!hasPriorEmployment}
-								onchange={() => { hasPriorEmployment = false; }}
-							/>
-							<span>No - Started fresh this year</span>
-						</label>
-						<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
-							<input
-								type="radio"
-								name="hasPriorEmployment"
-								value="yes"
-								checked={hasPriorEmployment}
-								onchange={() => { hasPriorEmployment = true; }}
-							/>
-							<span>Yes - Transferred from another employer</span>
-						</label>
-					</div>
-				{:else}
-					<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600">
-						{hasPriorEmployment ? 'Yes - Transferred from another employer' : 'No - Started fresh this year'}
-						<span class="text-auxiliary-text text-surface-400 ml-2">(locked after first payroll)</span>
-					</div>
-				{/if}
-			</div>
+		{#if hireDateInfo().showSection}
+			<p class="text-body-small text-surface-500 m-0 mb-4 flex items-start gap-2">
+				<i class="fas fa-info-circle text-primary-500 mt-0.5"></i>
+				<span>If this employee worked for another employer earlier this year, enter their prior CPP/EI contributions to avoid over-deduction. Income tax is automatically adjusted through Cumulative Averaging.</span>
+			</p>
 
-			{#if hasPriorEmployment}
-				<!-- Question 2: Income level -->
+			<!-- Mid-year hire prompt -->
+			{#if hireDateInfo().message}
+				<div class="flex items-start gap-3 p-3 bg-warning-50 border border-warning-200 rounded-lg text-warning-700 text-body-small mb-4">
+					<i class="fas fa-calendar-alt text-warning-500 mt-0.5"></i>
+					<span>{hireDateInfo().message}</span>
+				</div>
+			{/if}
+
+			<div class="flex flex-col gap-4">
+				<!-- Question 1: Has prior employment? -->
 				<div class="flex flex-col gap-2">
-					<label class="text-body-small font-medium text-surface-700">Estimated annual income level?</label>
+					<label class="text-body-small font-medium text-surface-700">Has this employee worked for another employer this year?</label>
 					{#if canEditPriorYtd}
 						<div class="flex gap-6 flex-wrap max-sm:flex-col max-sm:gap-3">
 							<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
 								<input
 									type="radio"
-									name="incomeLevel"
-									value="low"
-									checked={incomeLevel === 'low'}
-									onchange={() => { incomeLevel = 'low'; }}
+									name="hasPriorEmployment"
+									value="no"
+									checked={!hasPriorEmployment}
+									onchange={() => { hasPriorEmployment = false; }}
 								/>
-								<span>Below ${HIGH_INCOME_THRESHOLD.toLocaleString()}/year</span>
+								<span>No - Started fresh this year</span>
 							</label>
 							<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
 								<input
 									type="radio"
-									name="incomeLevel"
-									value="high"
-									checked={incomeLevel === 'high'}
-									onchange={() => { incomeLevel = 'high'; }}
+									name="hasPriorEmployment"
+									value="yes"
+									checked={hasPriorEmployment}
+									onchange={() => { hasPriorEmployment = true; }}
 								/>
-								<span>${HIGH_INCOME_THRESHOLD.toLocaleString()}/year or above</span>
+								<span>Yes - Transferred from another employer</span>
 							</label>
 						</div>
 					{:else}
 						<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600">
-							{incomeLevel === 'high' ? `$${HIGH_INCOME_THRESHOLD.toLocaleString()}/year or above` : `Below $${HIGH_INCOME_THRESHOLD.toLocaleString()}/year`}
+							{hasPriorEmployment ? 'Yes - Transferred from another employer' : 'No - Started fresh this year'}
+							<span class="text-auxiliary-text text-surface-400 ml-2">(locked after first payroll)</span>
 						</div>
 					{/if}
 				</div>
 
-				{#if incomeLevel === 'low'}
-					<!-- Low income notice -->
-					<div class="flex items-center gap-3 p-3 bg-success-50 border border-success-200 rounded-lg text-success-700 text-body-small">
-						<i class="fas fa-check-circle text-success-500"></i>
-						<span>No prior CPP/EI input needed - employees below ${HIGH_INCOME_THRESHOLD.toLocaleString()}/year rarely hit annual maximums.</span>
-					</div>
-				{:else}
-					<!-- High income: Show YTD input fields -->
-					<div class="grid grid-cols-3 gap-4 max-sm:grid-cols-1">
-						<div class="flex flex-col gap-2">
-							<label for="initialYtdCpp" class="text-body-small font-medium text-surface-700">Prior CPP Contributions</label>
-							{#if canEditPriorYtd}
-								<div class="flex items-center border rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10 {errors.initialYtdCpp ? 'border-error-500' : 'border-surface-300'}">
-									<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
+				{#if hasPriorEmployment}
+					<!-- Question 2: Income level -->
+					<div class="flex flex-col gap-2">
+						<label class="text-body-small font-medium text-surface-700">Estimated annual income level?</label>
+						{#if canEditPriorYtd}
+							<div class="flex gap-6 flex-wrap max-sm:flex-col max-sm:gap-3">
+								<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
 									<input
-										id="initialYtdCpp"
-										type="number"
-										class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
-										bind:value={initialYtdCpp}
-										min="0"
-										max={maxCpp}
-										step="0.01"
+										type="radio"
+										name="incomeLevel"
+										value="low"
+										checked={incomeLevel === 'low'}
+										onchange={() => { incomeLevel = 'low'; }}
 									/>
-								</div>
-								{#if errors.initialYtdCpp}
-									<span class="text-auxiliary-text text-error-600">{errors.initialYtdCpp}</span>
-								{:else}
-									<span class="text-auxiliary-text text-surface-500">Max: ${maxCpp.toLocaleString()}</span>
-								{/if}
-							{:else}
-								<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600">
-									{formatCurrency(initialYtdCpp)}
-								</div>
-							{/if}
-						</div>
-
-						<div class="flex flex-col gap-2">
-							<label for="initialYtdEi" class="text-body-small font-medium text-surface-700">Prior EI Premiums</label>
-							{#if canEditPriorYtd}
-								<div class="flex items-center border rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10 {errors.initialYtdEi ? 'border-error-500' : 'border-surface-300'}">
-									<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
+									<span>Below ${HIGH_INCOME_THRESHOLD.toLocaleString()}/year</span>
+								</label>
+								<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
 									<input
-										id="initialYtdEi"
-										type="number"
-										class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
-										bind:value={initialYtdEi}
-										min="0"
-										max={maxEi}
-										step="0.01"
+										type="radio"
+										name="incomeLevel"
+										value="high"
+										checked={incomeLevel === 'high'}
+										onchange={() => { incomeLevel = 'high'; }}
 									/>
-								</div>
-								{#if errors.initialYtdEi}
-									<span class="text-auxiliary-text text-error-600">{errors.initialYtdEi}</span>
-								{:else}
-									<span class="text-auxiliary-text text-surface-500">Max: ${maxEi.toLocaleString()}</span>
-								{/if}
-							{:else}
-								<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600">
-									{formatCurrency(initialYtdEi)}
-								</div>
-							{/if}
-						</div>
-
-						<div class="flex flex-col gap-2">
-							<label for="initialYtdCpp2" class="text-body-small font-medium text-surface-700">
-								Prior CPP2
-								<span class="text-surface-400">(optional)</span>
-							</label>
-							{#if canEditPriorYtd}
-								<div class="flex items-center border rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10 {errors.initialYtdCpp2 ? 'border-error-500' : 'border-surface-300'}">
-									<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
-									<input
-										id="initialYtdCpp2"
-										type="number"
-										class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
-										bind:value={initialYtdCpp2}
-										min="0"
-										max={maxCpp2}
-										step="0.01"
-									/>
-								</div>
-								{#if errors.initialYtdCpp2}
-									<span class="text-auxiliary-text text-error-600">{errors.initialYtdCpp2}</span>
-								{:else}
-									<span class="text-auxiliary-text text-surface-500">For income &gt;$71,300. Max: ${maxCpp2.toLocaleString()}</span>
-								{/if}
-							{:else}
-								<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600">
-									{formatCurrency(initialYtdCpp2)}
-								</div>
-							{/if}
-						</div>
+									<span>${HIGH_INCOME_THRESHOLD.toLocaleString()}/year or above</span>
+								</label>
+							</div>
+						{:else}
+							<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600">
+								{incomeLevel === 'high' ? `$${HIGH_INCOME_THRESHOLD.toLocaleString()}/year or above` : `Below $${HIGH_INCOME_THRESHOLD.toLocaleString()}/year`}
+							</div>
+						{/if}
 					</div>
 
-					<!-- Help text -->
-					<div class="flex items-start gap-2 p-3 bg-primary-50 border border-primary-200 rounded-lg text-primary-700 text-body-small">
-						<i class="fas fa-lightbulb text-primary-500 mt-0.5"></i>
-						<span>These values can be found on the employee's most recent pay stub from their previous employer.</span>
-					</div>
+					{#if incomeLevel === 'low'}
+						<!-- Low income notice -->
+						<div class="flex items-center gap-3 p-3 bg-success-50 border border-success-200 rounded-lg text-success-700 text-body-small">
+							<i class="fas fa-check-circle text-success-500"></i>
+							<span>No prior CPP/EI input needed - employees below ${HIGH_INCOME_THRESHOLD.toLocaleString()}/year rarely hit annual maximums.</span>
+						</div>
+					{:else}
+						<!-- High income: Show YTD input fields -->
+						<div class="grid grid-cols-3 gap-4 max-sm:grid-cols-1">
+							<div class="flex flex-col gap-2">
+								<label for="initialYtdCpp" class="text-body-small font-medium text-surface-700">Prior CPP Contributions</label>
+								{#if canEditPriorYtd}
+									<div class="flex items-center border rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10 {errors.initialYtdCpp ? 'border-error-500' : 'border-surface-300'}">
+										<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
+										<input
+											id="initialYtdCpp"
+											type="number"
+											class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
+											bind:value={initialYtdCpp}
+											min="0"
+											max={maxCpp}
+											step="0.01"
+										/>
+									</div>
+									{#if errors.initialYtdCpp}
+										<span class="text-auxiliary-text text-error-600">{errors.initialYtdCpp}</span>
+									{:else}
+										<span class="text-auxiliary-text text-surface-500">Max: ${maxCpp.toLocaleString()}</span>
+									{/if}
+								{:else}
+									<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600">
+										{formatCurrency(initialYtdCpp)}
+									</div>
+								{/if}
+							</div>
+
+							<div class="flex flex-col gap-2">
+								<label for="initialYtdEi" class="text-body-small font-medium text-surface-700">Prior EI Premiums</label>
+								{#if canEditPriorYtd}
+									<div class="flex items-center border rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10 {errors.initialYtdEi ? 'border-error-500' : 'border-surface-300'}">
+										<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
+										<input
+											id="initialYtdEi"
+											type="number"
+											class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
+											bind:value={initialYtdEi}
+											min="0"
+											max={maxEi}
+											step="0.01"
+										/>
+									</div>
+									{#if errors.initialYtdEi}
+										<span class="text-auxiliary-text text-error-600">{errors.initialYtdEi}</span>
+									{:else}
+										<span class="text-auxiliary-text text-surface-500">Max: ${maxEi.toLocaleString()}</span>
+									{/if}
+								{:else}
+									<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600">
+										{formatCurrency(initialYtdEi)}
+									</div>
+								{/if}
+							</div>
+
+							<div class="flex flex-col gap-2">
+								<label for="initialYtdCpp2" class="text-body-small font-medium text-surface-700">
+									Prior CPP2
+									<span class="text-surface-400">(optional)</span>
+								</label>
+								{#if canEditPriorYtd}
+									<div class="flex items-center border rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10 {errors.initialYtdCpp2 ? 'border-error-500' : 'border-surface-300'}">
+										<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
+										<input
+											id="initialYtdCpp2"
+											type="number"
+											class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
+											bind:value={initialYtdCpp2}
+											min="0"
+											max={maxCpp2}
+											step="0.01"
+										/>
+									</div>
+									{#if errors.initialYtdCpp2}
+										<span class="text-auxiliary-text text-error-600">{errors.initialYtdCpp2}</span>
+									{:else}
+										<span class="text-auxiliary-text text-surface-500">For income &gt;$71,300. Max: ${maxCpp2.toLocaleString()}</span>
+									{/if}
+								{:else}
+									<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600">
+										{formatCurrency(initialYtdCpp2)}
+									</div>
+								{/if}
+							</div>
+						</div>
+
+						<!-- Help text -->
+						<div class="flex items-start gap-2 p-3 bg-primary-50 border border-primary-200 rounded-lg text-primary-700 text-body-small">
+							<i class="fas fa-lightbulb text-primary-500 mt-0.5"></i>
+							<span>These values can be found on the employee's most recent pay stub from their previous employer.</span>
+						</div>
+					{/if}
 				{/if}
-			{/if}
-		</div>
-	</section>
-
-	<!-- Section 6: Optional Deductions -->
-	<section class="bg-white rounded-xl p-6 shadow-md3-1">
-		<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">Optional Deductions</h3>
-		<div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
-			<div class="flex flex-col gap-2">
-				<label for="rrsp" class="text-body-small font-medium text-surface-700">RRSP Per Period</label>
-				<div class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10">
-					<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
-					<input
-						id="rrsp"
-						type="number"
-						class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
-						bind:value={rrspPerPeriod}
-						min="0"
-						step="0.01"
-					/>
-				</div>
 			</div>
-
-			<div class="flex flex-col gap-2">
-				<label for="unionDues" class="text-body-small font-medium text-surface-700">Union Dues Per Period</label>
-				<div class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10">
-					<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
-					<input
-						id="unionDues"
-						type="number"
-						class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
-						bind:value={unionDuesPerPeriod}
-						min="0"
-						step="0.01"
-					/>
-				</div>
+		{:else if hireDate}
+			<!-- Section hidden - show reason -->
+			<div class="flex items-start gap-3 p-4 bg-surface-50 border border-surface-200 rounded-lg text-surface-600 text-body-small">
+				<i class="fas fa-calendar-check text-surface-400 mt-0.5"></i>
+				<span>{hireDateInfo().message || 'Not applicable for this hire date.'}</span>
 			</div>
-		</div>
+		{:else}
+			<!-- No hire date entered yet -->
+			<div class="flex items-start gap-3 p-4 bg-surface-50 border border-surface-200 rounded-lg text-surface-500 text-body-small">
+				<i class="fas fa-calendar text-surface-400 mt-0.5"></i>
+				<span>Enter a hire date to see prior employment options.</span>
+			</div>
+		{/if}
 	</section>
 
 	<!-- Section 6: Vacation Settings -->
