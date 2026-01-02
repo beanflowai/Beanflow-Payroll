@@ -54,7 +54,7 @@ class GLMParser(BaseLLMParser):
     """
     GLM API client for parsing tax tables from PDF text.
 
-    Uses the ZhipuAI SDK to call GLM-4.6 for intelligent table parsing.
+    Uses the zai-sdk to call GLM-4.7 for intelligent table parsing.
     Requires GLM_API_KEY environment variable.
 
     Usage:
@@ -99,16 +99,16 @@ class GLMParser(BaseLLMParser):
                 )
 
             try:
-                from zhipuai import ZhipuAI
-                self._client = ZhipuAI(
+                from zai import ZhipuAiClient
+                self._client = ZhipuAiClient(
                     api_key=api_key,
-                    base_url="https://open.bigmodel.cn/api/coding/paas/v4/"
+                    base_url="https://open.bigmodel.cn/api/paas/v4/"
                 )
-                logger.info("ZhipuAI client initialized successfully")
+                logger.info("ZhipuAiClient initialized successfully")
             except ImportError:
                 raise ImportError(
-                    "zhipuai package is required. Install with: "
-                    "uv add --optional tools zhipuai"
+                    "zai-sdk package is required. Install with: "
+                    "uv add --optional tools zai-sdk"
                 )
 
         return self._client
@@ -120,7 +120,7 @@ class GLMParser(BaseLLMParser):
             return False
 
         try:
-            from zhipuai import ZhipuAI  # noqa: F401
+            from zai import ZhipuAiClient  # noqa: F401
             return True
         except ImportError:
             return False
