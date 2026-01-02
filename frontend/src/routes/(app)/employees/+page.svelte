@@ -322,6 +322,7 @@
 		display: flex;
 		gap: var(--spacing-6);
 		max-width: 1400px;
+		margin: 0 auto;
 	}
 
 	.main-content {

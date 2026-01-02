@@ -184,7 +184,7 @@
 	<title>Remittance - BeanFlow Payroll</title>
 </svelte:head>
 
-<div class="max-w-[1000px]">
+<div class="max-w-[1000px] mx-auto">
 	<header class="flex justify-between items-start mb-6 max-md:flex-col max-md:gap-4">
 		<div>
 			<h1 class="text-headline-minimum font-semibold text-surface-800 m-0 mb-1">CRA Remittance</h1>

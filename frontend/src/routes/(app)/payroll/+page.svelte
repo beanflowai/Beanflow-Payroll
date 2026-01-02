@@ -156,7 +156,7 @@
 	</div>
 {:else if pageStatus?.status === 'no_pay_groups'}
 	<!-- No Pay Groups State -->
-	<div class="max-w-[1200px]">
+	<div class="max-w-[1200px] mx-auto">
 		<header class="mb-6">
 			<div>
 				<h1 class="text-headline-minimum font-semibold text-surface-800 m-0 mb-1">Run Payroll</h1>
@@ -178,7 +178,7 @@
 	</div>
 {:else if pageStatus?.status === 'no_employees' || pageStatus?.status === 'ready'}
 	<!-- Ready State - Normal Dashboard -->
-	<div class="max-w-[1200px]">
+	<div class="max-w-[1200px] mx-auto">
 		<!-- Header -->
 		<header class="mb-6">
 			<div>

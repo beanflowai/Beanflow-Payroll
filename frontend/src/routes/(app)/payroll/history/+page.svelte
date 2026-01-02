@@ -164,7 +164,7 @@
 	<title>Payroll History - BeanFlow Payroll</title>
 </svelte:head>
 
-<div class="max-w-[1400px]">
+<div class="max-w-[1400px] mx-auto">
 	<!-- Main Content -->
 	<div class="flex-1 min-w-0">
 		<header class="flex items-start justify-between mb-6 max-md:flex-col max-md:gap-4">

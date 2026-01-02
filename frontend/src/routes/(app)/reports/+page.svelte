@@ -14,7 +14,7 @@
 	<title>Reports - BeanFlow Payroll</title>
 </svelte:head>
 
-<div class="max-w-[1200px]">
+<div class="max-w-[1200px] mx-auto">
 	<header class="mb-8">
 		<h1 class="text-headline-minimum font-semibold text-surface-800 mb-1">Reports</h1>
 		<p class="text-body-content text-surface-600">Generate and download payroll reports</p>
