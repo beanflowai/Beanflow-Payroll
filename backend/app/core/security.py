@@ -113,8 +113,25 @@ def encrypt_sin(sin: str) -> str | None:
 
 
 def decrypt_sin(encrypted_sin: str) -> str | None:
-    """Decrypt a SIN number"""
-    return SecurityManager.decrypt(encrypted_sin)
+    """Decrypt a SIN number.
+
+    Handles both encrypted SINs and plain-text SINs (only in debug/dev environments).
+    """
+    # First, try to decrypt
+    decrypted = SecurityManager.decrypt(encrypted_sin)
+    if decrypted:
+        return decrypted
+
+    # If decryption fails, check if it's already a plain-text SIN (9 digits)
+    # Only allow this fallback in debug/development environments for safety
+    config = get_config()
+    if config.debug:
+        clean_sin = encrypted_sin.replace("-", "").replace(" ", "")
+        if len(clean_sin) == 9 and clean_sin.isdigit():
+            logger.warning("Using plain-text SIN - only allowed in debug mode")
+            return clean_sin
+
+    return None
 
 
 def mask_sin(sin: str) -> str:

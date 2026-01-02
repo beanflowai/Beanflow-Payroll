@@ -7,7 +7,7 @@ Provides REST API for T4 generation, storage, and download.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -79,7 +79,7 @@ async def list_t4_slips(
             T4SlipSummary(
                 id=UUID(row["id"]),
                 employee_id=UUID(row["employee_id"]),
-                employee_name=slip_data.get("employee_full_name", "Unknown"),
+                employee_name=f"{slip_data.get('employee_last_name', '')}, {slip_data.get('employee_first_name', '')}".strip(", ") or "Unknown",
                 sin_masked=mask_sin(slip_data.get("sin", "")),
                 box_14_employment_income=slip_data.get("box_14_employment_income", 0),
                 box_22_income_tax_deducted=slip_data.get("box_22_income_tax_deducted", 0),
@@ -161,18 +161,20 @@ async def generate_t4_slips(
     for slip in slips:
         try:
             # Check if slip already exists
-            existing = (
+            existing_result = (
                 supabase.table("t4_slips")
                 .select("id")
                 .eq("company_id", str(company_id))
+                .eq("user_id", current_user.id)
                 .eq("employee_id", str(slip.employee_id))
                 .eq("tax_year", tax_year)
                 .eq("amendment_number", 0)
-                .maybe_single()
+                .limit(1)
                 .execute()
             )
+            existing_data = existing_result.data[0] if existing_result and existing_result.data else None
 
-            if existing.data and not regenerate:
+            if existing_data and not regenerate:
                 slips_skipped += 1
                 continue
 
@@ -189,19 +191,26 @@ async def generate_t4_slips(
                     employee_id=slip.employee_id,
                 )
 
-            # Build slip_data JSON
-            slip_data = slip.model_dump(mode="json")
+            # Build slip_data JSON - exclude computed fields
+            slip_data = slip.model_dump(
+                mode="json",
+                exclude={
+                    "employee_full_name",  # Computed field
+                    "sin_formatted",  # Computed field
+                },
+            )
 
             # Upsert to database
-            if existing.data:
+            now_utc = datetime.now(timezone.utc).isoformat()
+            if existing_data:
                 # Update existing
                 supabase.table("t4_slips").update({
                     "slip_data": slip_data,
                     "pdf_storage_key": pdf_storage_key,
-                    "pdf_generated_at": datetime.now().isoformat(),
+                    "pdf_generated_at": now_utc,
                     "status": T4Status.GENERATED.value,
-                    "updated_at": datetime.now().isoformat(),
-                }).eq("id", existing.data["id"]).execute()
+                    "updated_at": now_utc,
+                }).eq("id", existing_data["id"]).execute()
             else:
                 # Insert new
                 supabase.table("t4_slips").insert({
@@ -211,7 +220,7 @@ async def generate_t4_slips(
                     "tax_year": tax_year,
                     "slip_data": slip_data,
                     "pdf_storage_key": pdf_storage_key,
-                    "pdf_generated_at": datetime.now().isoformat(),
+                    "pdf_generated_at": now_utc,
                     "status": T4Status.GENERATED.value,
                 }).execute()
 
@@ -346,6 +355,7 @@ async def get_t4_summary(
     """
     supabase = get_supabase_client()
 
+    # Fetch summary from database
     result = (
         supabase.table("t4_summaries")
         .select("*")
@@ -362,9 +372,36 @@ async def get_t4_summary(
             detail="T4 Summary not found. Use POST /generate to create one.",
         )
 
+    # Fetch company info (employer fields are stored in companies, not t4_summaries)
+    company_result = (
+        supabase.table("companies")
+        .select("company_name, payroll_account_number, province, address_street, address_city, address_postal_code")
+        .eq("id", str(company_id))
+        .eq("user_id", current_user.id)
+        .limit(1)
+        .execute()
+    )
+
+    if not company_result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company not found",
+        )
+
+    company = company_result.data[0]
+
+    # Merge database record with company info to build T4Summary
+    summary_data = result.data[0]
+    summary_data["employer_name"] = company.get("company_name", "")
+    summary_data["employer_account_number"] = company.get("payroll_account_number", "")
+    summary_data["employer_address_line1"] = company.get("address_street")
+    summary_data["employer_city"] = company.get("address_city")
+    summary_data["employer_province"] = company.get("province")
+    summary_data["employer_postal_code"] = company.get("address_postal_code")
+
     from app.models.t4 import T4Summary
 
-    summary = T4Summary.model_validate(result.data[0])
+    summary = T4Summary.model_validate(summary_data)
 
     return T4SummaryResponse(
         success=True,
@@ -459,25 +496,47 @@ async def generate_t4_summary(
     # Update summary with storage keys
     summary.pdf_storage_key = pdf_storage_key
     summary.xml_storage_key = xml_storage_key
-    summary.generated_at = datetime.now()
+    summary.generated_at = datetime.now(timezone.utc)
     summary.status = T4Status.GENERATED
 
-    # Save to database
-    summary_data = summary.model_dump(mode="json")
+    # Save to database - exclude fields not in database table
+    # employer info is stored in companies table, not duplicated here
+    # computed fields are also excluded as they're not stored
+    # created_at/updated_at have DB defaults - passing null violates NOT NULL
+    summary_data = summary.model_dump(
+        mode="json",
+        exclude={
+            # Employer info - stored in companies table
+            "employer_name",
+            "employer_account_number",
+            "employer_address_line1",
+            "employer_city",
+            "employer_province",
+            "employer_postal_code",
+            # Computed fields - not in database
+            "total_employer_contributions",
+            "total_remittance_required",
+            # Auto-generated by database - must not pass null
+            "created_at",
+            "updated_at",
+        },
+    )
 
     # Check if summary exists
-    existing = (
+    existing_result = (
         supabase.table("t4_summaries")
         .select("id")
         .eq("company_id", str(company_id))
+        .eq("user_id", current_user.id)
         .eq("tax_year", tax_year)
-        .maybe_single()
+        .limit(1)
         .execute()
     )
+    existing_data = existing_result.data[0] if existing_result and existing_result.data else None
 
-    if existing.data:
+    if existing_data:
         supabase.table("t4_summaries").update(summary_data).eq(
-            "id", existing.data["id"]
+            "id", existing_data["id"]
         ).execute()
     else:
         supabase.table("t4_summaries").insert(summary_data).execute()

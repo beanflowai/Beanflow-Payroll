@@ -68,7 +68,8 @@ class T4AggregationService:
         year_end = f"{tax_year}-12-31"
 
         # Query payroll_records with inner joins to payroll_runs and employees
-        # Filter by completed run status and pay date in the tax year
+        # Filter by completed run status and pay_date in the tax year
+        # CRA T4 uses cash basis: report income when PAID, not when earned
         result = self.supabase.table("payroll_records").select(
             """
             employee_id,
@@ -126,6 +127,7 @@ class T4AggregationService:
         year_end = f"{tax_year}-12-31"
 
         # Query all payroll records for this employee in the year
+        # CRA T4 uses cash basis: filter by pay_date (when paid)
         result = self.supabase.table("payroll_records").select(
             """
             *,
@@ -361,6 +363,7 @@ class T4AggregationService:
         year_start = f"{tax_year}-01-01"
         year_end = f"{tax_year}-12-31"
 
+        # CRA T4 uses cash basis: filter by pay_date (when paid)
         result = self.supabase.table("payroll_records").select(
             """
             cpp_employer,
