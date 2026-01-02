@@ -125,8 +125,6 @@ class CalculationResponse(BaseModel):
     # Calculation Details (optional, for debugging)
     calculation_details: dict[str, Any] | None = None
 
-    model_config = {"json_encoders": {Decimal: str}}
-
 
 class BatchCalculationRequest(BaseModel):
     """Batch calculation request for multiple employees."""

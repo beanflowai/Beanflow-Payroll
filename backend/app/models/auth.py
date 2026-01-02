@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr
 
 
 class UserResponse(BaseModel):
@@ -15,8 +15,7 @@ class UserResponse(BaseModel):
     created_at: datetime | None = None
     last_sign_in_at: datetime | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TokenPayload(BaseModel):

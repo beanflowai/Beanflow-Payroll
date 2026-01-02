@@ -55,7 +55,7 @@ async def calculate_single(
         errors = engine.validate_input(input_data)
         if errors:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail={"errors": errors},
             )
 
@@ -94,7 +94,7 @@ async def calculate_batch(
     """
     if not request.employees:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="At least one employee is required",
         )
 
@@ -113,7 +113,7 @@ async def calculate_batch(
 
         if all_errors:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail={"validation_errors": all_errors},
             )
 
