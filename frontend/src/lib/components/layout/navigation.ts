@@ -43,5 +43,10 @@ export const navigationItems: NavigationItem[] = [
 		label: 'Company',
 		href: '/company',
 		icon: 'fa-building'
+	},
+	{
+		label: 'Support',
+		href: '/support',
+		icon: 'fa-life-ring'
 	}
 ];
