@@ -228,6 +228,12 @@ class T4Summary(BaseModel):
     xml_storage_key: str | None = None
     generated_at: datetime | None = None
 
+    # CRA Submission tracking
+    cra_confirmation_number: str | None = None
+    submitted_at: datetime | None = None
+    submitted_by: str | None = None
+    submission_notes: str | None = None
+
     # Timestamps
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -314,3 +320,53 @@ class T4XmlDownloadInfo(BaseModel):
     content_type: str = "application/xml"
     storage_key: str
     size_bytes: int | None = None
+
+
+# =============================================================================
+# CRA Submission Models
+# =============================================================================
+
+
+class T4ValidationError(BaseModel):
+    """A validation error found in T4 XML."""
+    code: str
+    message: str
+    field: str | None = None
+
+
+class T4ValidationWarning(BaseModel):
+    """A validation warning found in T4 XML."""
+    code: str
+    message: str
+    field: str | None = None
+
+
+class T4ValidationResult(BaseModel):
+    """Result of T4 XML validation."""
+    is_valid: bool
+    errors: list[T4ValidationError] = Field(default_factory=list)
+    warnings: list[T4ValidationWarning] = Field(default_factory=list)
+    cra_portal_url: str = Field(
+        default="https://www.canada.ca/en/revenue-agency/services/e-services/filing-information-returns-electronically-t4-t5-other-types-returns-overview/filing-information-returns-electronically-t4-t5-other-types-returns-file/filing-internet-file-transfer.html",
+        description="CRA Internet File Transfer portal URL"
+    )
+
+
+class RecordSubmissionRequest(BaseModel):
+    """Request to record a CRA submission."""
+    confirmation_number: str = Field(
+        ...,
+        min_length=1,
+        description="CRA confirmation number"
+    )
+    submission_notes: str | None = Field(
+        default=None,
+        description="Optional notes about the submission"
+    )
+
+
+class T4ValidationResponse(BaseModel):
+    """Response from T4 XML validation endpoint."""
+    success: bool
+    validation: T4ValidationResult | None = None
+    message: str | None = None

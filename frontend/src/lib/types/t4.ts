@@ -105,6 +105,11 @@ export interface T4SummaryData {
 	pdfStorageKey?: string;
 	xmlStorageKey?: string;
 	generatedAt?: string;
+	// CRA Submission tracking
+	craConfirmationNumber?: string;
+	submittedAt?: string;
+	submittedBy?: string;
+	submissionNotes?: string;
 }
 
 /**
@@ -123,4 +128,53 @@ export function getAvailableTaxYears(): number[] {
 	const currentYear = new Date().getFullYear();
 	// Include current year and previous 2 years
 	return [currentYear, currentYear - 1, currentYear - 2];
+}
+
+// =============================================================================
+// CRA Submission Types
+// =============================================================================
+
+/**
+ * Validation error from T4 XML validation
+ */
+export interface T4ValidationError {
+	code: string;
+	message: string;
+	field?: string;
+}
+
+/**
+ * Validation warning from T4 XML validation
+ */
+export interface T4ValidationWarning {
+	code: string;
+	message: string;
+	field?: string;
+}
+
+/**
+ * Result of T4 XML validation
+ */
+export interface T4ValidationResult {
+	isValid: boolean;
+	errors: T4ValidationError[];
+	warnings: T4ValidationWarning[];
+	craPortalUrl: string;
+}
+
+/**
+ * Response from T4 validation endpoint
+ */
+export interface T4ValidationResponse {
+	success: boolean;
+	validation?: T4ValidationResult;
+	message?: string;
+}
+
+/**
+ * Input for recording CRA submission
+ */
+export interface RecordSubmissionInput {
+	confirmationNumber: string;
+	submissionNotes?: string;
 }

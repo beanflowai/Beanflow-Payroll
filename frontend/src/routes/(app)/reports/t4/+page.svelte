@@ -12,6 +12,7 @@
 		downloadT4SummaryPdf,
 		downloadT4Xml
 	} from '$lib/services/t4Service';
+	import T4SubmissionModal from '$lib/components/t4/T4SubmissionModal.svelte';
 
 	// State
 	let selectedYear = $state(new Date().getFullYear() - 1); // Default to previous year for T4
@@ -29,6 +30,9 @@
 	let downloadingSlipId = $state<string | null>(null);
 	let downloadingSummaryPdf = $state(false);
 	let downloadingXml = $state(false);
+
+	// Submission modal state
+	let showSubmissionModal = $state(false);
 
 	// Available tax years
 	const taxYears = getAvailableTaxYears();
@@ -180,6 +184,16 @@
 		} finally {
 			downloadingXml = false;
 		}
+	}
+
+	// Open submission modal
+	function handleOpenSubmissionModal() {
+		showSubmissionModal = true;
+	}
+
+	// Handle submission complete
+	function handleSubmissionComplete(updatedSummary: T4SummaryData) {
+		summary = updatedSummary;
 	}
 </script>
 
@@ -400,7 +414,7 @@
 						{/if}
 					</p>
 				</div>
-				<div class="flex gap-2">
+				<div class="flex gap-2 flex-wrap">
 					{#if summary}
 						<button
 							class="inline-flex items-center gap-2 px-4 py-2 bg-surface-100 text-surface-700 border-none rounded-lg text-body-content font-medium cursor-pointer transition-colors hover:bg-surface-200 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -415,7 +429,7 @@
 							<span>Download PDF</span>
 						</button>
 						<button
-							class="inline-flex items-center gap-2 px-4 py-2 bg-success-600 text-white border-none rounded-lg text-body-content font-medium cursor-pointer transition-colors hover:bg-success-700 disabled:opacity-50 disabled:cursor-not-allowed"
+							class="inline-flex items-center gap-2 px-4 py-2 bg-surface-100 text-surface-700 border-none rounded-lg text-body-content font-medium cursor-pointer transition-colors hover:bg-surface-200 disabled:opacity-50 disabled:cursor-not-allowed"
 							onclick={handleDownloadXml}
 							disabled={downloadingXml}
 						>
@@ -424,22 +438,33 @@
 							{:else}
 								<i class="fas fa-file-code"></i>
 							{/if}
-							<span>Download CRA XML</span>
+							<span>Download XML</span>
+						</button>
+						{#if summary.status === 'generated'}
+							<button
+								class="inline-flex items-center gap-2 px-4 py-2 bg-success-600 text-white border-none rounded-lg text-body-content font-medium cursor-pointer transition-colors hover:bg-success-700"
+								onclick={handleOpenSubmissionModal}
+							>
+								<i class="fas fa-paper-plane"></i>
+								<span>Submit to CRA</span>
+							</button>
+						{/if}
+					{/if}
+					{#if !summary || summary.status !== 'filed'}
+						<button
+							class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-br from-primary-600 to-secondary-600 text-white border-none rounded-lg text-body-content font-medium cursor-pointer shadow-md3-1 transition-all hover:opacity-90 hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
+							onclick={handleGenerateSummary}
+							disabled={generatingSummary || !hasSlips}
+						>
+							{#if generatingSummary}
+								<i class="fas fa-spinner fa-spin"></i>
+								<span>Generating...</span>
+							{:else}
+								<i class="fas fa-calculator"></i>
+								<span>{summary ? 'Regenerate Summary' : 'Generate Summary'}</span>
+							{/if}
 						</button>
 					{/if}
-					<button
-						class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-br from-primary-600 to-secondary-600 text-white border-none rounded-lg text-body-content font-medium cursor-pointer shadow-md3-1 transition-all hover:opacity-90 hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
-						onclick={handleGenerateSummary}
-						disabled={generatingSummary || !hasSlips}
-					>
-						{#if generatingSummary}
-							<i class="fas fa-spinner fa-spin"></i>
-							<span>Generating...</span>
-						{:else}
-							<i class="fas fa-calculator"></i>
-							<span>{summary ? 'Regenerate Summary' : 'Generate Summary'}</span>
-						{/if}
-					</button>
 				</div>
 			</div>
 
@@ -474,6 +499,14 @@
 							<i class="fas fa-{T4_STATUS_INFO[summary.status].icon}"></i>
 							{T4_STATUS_INFO[summary.status].label}
 						</span>
+						{#if summary.status === 'filed' && summary.craConfirmationNumber}
+							<div class="mt-2">
+								<span class="text-auxiliary-text text-surface-500">Confirmation: </span>
+								<span class="text-auxiliary-text font-mono text-surface-800"
+									>{summary.craConfirmationNumber}</span
+								>
+							</div>
+						{/if}
 					</div>
 				</div>
 
@@ -555,3 +588,14 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Submission Modal -->
+{#if currentCompany}
+	<T4SubmissionModal
+		companyId={currentCompany.id}
+		taxYear={selectedYear}
+		isOpen={showSubmissionModal}
+		onClose={() => (showSubmissionModal = false)}
+		onSubmissionComplete={handleSubmissionComplete}
+	/>
+{/if}

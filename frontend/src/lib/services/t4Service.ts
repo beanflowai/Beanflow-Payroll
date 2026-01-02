@@ -11,7 +11,9 @@ import type {
 	T4GenerationRequest,
 	T4GenerationResponse,
 	T4SummaryData,
-	T4SummaryResponse
+	T4SummaryResponse,
+	T4ValidationResult,
+	RecordSubmissionInput
 } from '$lib/types/t4';
 
 // API base URL from environment
@@ -70,6 +72,36 @@ interface ApiT4Summary {
 	pdf_storage_key?: string;
 	xml_storage_key?: string;
 	generated_at?: string;
+	// CRA Submission tracking
+	cra_confirmation_number?: string;
+	submitted_at?: string;
+	submitted_by?: string;
+	submission_notes?: string;
+}
+
+interface ApiT4ValidationError {
+	code: string;
+	message: string;
+	field?: string;
+}
+
+interface ApiT4ValidationWarning {
+	code: string;
+	message: string;
+	field?: string;
+}
+
+interface ApiT4ValidationResult {
+	is_valid: boolean;
+	errors: ApiT4ValidationError[];
+	warnings: ApiT4ValidationWarning[];
+	cra_portal_url: string;
+}
+
+interface ApiT4ValidationResponse {
+	success: boolean;
+	validation?: ApiT4ValidationResult;
+	message?: string;
 }
 
 interface ApiT4SummaryResponse {
@@ -114,7 +146,29 @@ function apiSummaryToUi(apiSummary: ApiT4Summary): T4SummaryData {
 		status: apiSummary.status as T4SummaryData['status'],
 		pdfStorageKey: apiSummary.pdf_storage_key,
 		xmlStorageKey: apiSummary.xml_storage_key,
-		generatedAt: apiSummary.generated_at
+		generatedAt: apiSummary.generated_at,
+		// CRA Submission tracking
+		craConfirmationNumber: apiSummary.cra_confirmation_number,
+		submittedAt: apiSummary.submitted_at,
+		submittedBy: apiSummary.submitted_by,
+		submissionNotes: apiSummary.submission_notes
+	};
+}
+
+function apiValidationToUi(apiValidation: ApiT4ValidationResult): T4ValidationResult {
+	return {
+		isValid: apiValidation.is_valid,
+		errors: apiValidation.errors.map((e) => ({
+			code: e.code,
+			message: e.message,
+			field: e.field
+		})),
+		warnings: apiValidation.warnings.map((w) => ({
+			code: w.code,
+			message: w.message,
+			field: w.field
+		})),
+		craPortalUrl: apiValidation.cra_portal_url
 	};
 }
 
@@ -505,5 +559,102 @@ export async function downloadT4Xml(
 		const message = err instanceof Error ? err.message : 'Failed to download T4 XML';
 		console.error('T4 XML download error:', err);
 		return { error: message };
+	}
+}
+
+// =============================================================================
+// CRA Submission Operations
+// =============================================================================
+
+/**
+ * Validate T4 XML for CRA submission
+ */
+export async function validateT4ForCRA(
+	companyId: string,
+	taxYear: number
+): Promise<T4ServiceResult<T4ValidationResult>> {
+	try {
+		const {
+			data: { session }
+		} = await supabase.auth.getSession();
+		if (!session?.access_token) {
+			return { data: null, error: 'Not authenticated' };
+		}
+
+		const url = `${API_BASE_URL}/api/v1/t4/summary/${companyId}/${taxYear}/validate`;
+		const response = await fetch(url, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${session.access_token}`
+			}
+		});
+
+		if (!response.ok) {
+			const errorData = await response.json().catch(() => ({}));
+			const errorMessage = errorData.detail || `HTTP ${response.status}`;
+			return { data: null, error: errorMessage };
+		}
+
+		const data: ApiT4ValidationResponse = await response.json();
+
+		if (!data.success || !data.validation) {
+			return { data: null, error: data.message || 'Validation failed' };
+		}
+
+		return { data: apiValidationToUi(data.validation), error: null };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to validate T4 XML';
+		console.error('T4 validation error:', err);
+		return { data: null, error: message };
+	}
+}
+
+/**
+ * Record T4 CRA submission
+ */
+export async function recordT4Submission(
+	companyId: string,
+	taxYear: number,
+	input: RecordSubmissionInput
+): Promise<T4ServiceResult<T4SummaryData>> {
+	try {
+		const {
+			data: { session }
+		} = await supabase.auth.getSession();
+		if (!session?.access_token) {
+			return { data: null, error: 'Not authenticated' };
+		}
+
+		const url = `${API_BASE_URL}/api/v1/t4/summary/${companyId}/${taxYear}/record-submission`;
+		const response = await fetch(url, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${session.access_token}`
+			},
+			body: JSON.stringify({
+				confirmation_number: input.confirmationNumber,
+				submission_notes: input.submissionNotes
+			})
+		});
+
+		if (!response.ok) {
+			const errorData = await response.json().catch(() => ({}));
+			const errorMessage = errorData.detail || `HTTP ${response.status}`;
+			return { data: null, error: errorMessage };
+		}
+
+		const data: ApiT4SummaryResponse = await response.json();
+
+		if (!data.success || !data.summary) {
+			return { data: null, error: data.message || 'Failed to record submission' };
+		}
+
+		return { data: apiSummaryToUi(data.summary), error: null };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to record T4 submission';
+		console.error('T4 submission recording error:', err);
+		return { data: null, error: message };
 	}
 }

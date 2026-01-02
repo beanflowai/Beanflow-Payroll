@@ -18,17 +18,20 @@ from app.api.deps import CurrentUser
 from app.core.security import mask_sin
 from app.core.supabase_client import get_supabase_client
 from app.models.t4 import (
+    RecordSubmissionRequest,
     T4GenerationRequest,
     T4GenerationResponse,
     T4SlipListResponse,
     T4SlipSummary,
     T4Status,
     T4SummaryResponse,
+    T4ValidationResponse,
 )
 from app.services.t4 import (
     T4AggregationService,
     T4PDFGenerator,
     T4XMLGenerator,
+    T4XMLValidator,
     get_t4_storage,
 )
 
@@ -679,4 +682,227 @@ async def download_t4_xml(
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',
         },
+    )
+
+
+# =============================================================================
+# CRA Submission Endpoints
+# =============================================================================
+
+
+@router.post(
+    "/summary/{company_id}/{tax_year}/validate",
+    summary="Validate T4 XML for CRA submission",
+    response_model=T4ValidationResponse,
+)
+async def validate_t4_xml(
+    company_id: UUID,
+    tax_year: int,
+    current_user: CurrentUser,
+) -> T4ValidationResponse:
+    """
+    Validate T4 XML structure and content before CRA submission.
+
+    Performs basic validation checks:
+    - XML structure is valid
+    - Required elements are present
+    - Business Number format is correct
+    - SIN format and Luhn validation
+    - Amount formats are valid
+    - TotalSlips matches actual slip count
+    - Summary totals match slip totals
+
+    Returns validation result with CRA portal URL for submission.
+    """
+    supabase = get_supabase_client()
+
+    # Get XML storage key from summary
+    result = (
+        supabase.table("t4_summaries")
+        .select("xml_storage_key, status")
+        .eq("company_id", str(company_id))
+        .eq("user_id", current_user.id)
+        .eq("tax_year", tax_year)
+        .maybe_single()
+        .execute()
+    )
+
+    if not result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="T4 Summary not found. Generate the summary first.",
+        )
+
+    xml_storage_key = result.data.get("xml_storage_key")
+    if not xml_storage_key:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="T4 XML not available. Regenerate the summary.",
+        )
+
+    # Get XML content from storage
+    try:
+        storage = get_t4_storage()
+        xml_bytes = await storage.get_file_content(xml_storage_key)
+        xml_content = xml_bytes.decode("utf-8")
+    except Exception as e:
+        logger.error(f"Failed to retrieve T4 XML for validation: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve T4 XML for validation",
+        )
+
+    # Validate XML
+    validator = T4XMLValidator()
+    validation_result = validator.validate(xml_content)
+
+    return T4ValidationResponse(
+        success=True,
+        validation=validation_result,
+        message="Validation completed" if validation_result.is_valid else "Validation failed with errors",
+    )
+
+
+@router.post(
+    "/summary/{company_id}/{tax_year}/record-submission",
+    summary="Record T4 CRA submission",
+    response_model=T4SummaryResponse,
+)
+async def record_t4_submission(
+    company_id: UUID,
+    tax_year: int,
+    current_user: CurrentUser,
+    request: RecordSubmissionRequest,
+) -> T4SummaryResponse:
+    """
+    Record that T4 has been submitted to CRA.
+
+    Updates the T4 Summary status to FILED and stores:
+    - CRA confirmation number
+    - Submission timestamp
+    - User who submitted
+    - Optional notes
+
+    This should be called after the user manually uploads
+    the XML file to CRA and receives a confirmation number.
+    """
+    supabase = get_supabase_client()
+
+    # Check if summary exists and is in GENERATED status
+    result = (
+        supabase.table("t4_summaries")
+        .select("id, status, xml_storage_key")
+        .eq("company_id", str(company_id))
+        .eq("user_id", current_user.id)
+        .eq("tax_year", tax_year)
+        .maybe_single()
+        .execute()
+    )
+
+    if not result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="T4 Summary not found",
+        )
+
+    current_status = result.data.get("status")
+    if current_status == T4Status.FILED.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="T4 Summary has already been filed",
+        )
+
+    # Must be in GENERATED status with XML file before filing
+    if current_status != T4Status.GENERATED.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"T4 Summary must be in 'generated' status before filing. Current status: {current_status}",
+        )
+
+    if not result.data.get("xml_storage_key"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="T4 XML file must be generated before recording submission",
+        )
+
+    # Validate confirmation number format (basic validation)
+    confirmation_number = request.confirmation_number.strip()
+    if not confirmation_number:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Confirmation number cannot be empty",
+        )
+
+    # Update summary with submission info
+    now_utc = datetime.now(timezone.utc).isoformat()
+    update_data = {
+        "status": T4Status.FILED.value,
+        "cra_confirmation_number": confirmation_number,
+        "submitted_at": now_utc,
+        "submitted_by": current_user.id,
+        "submission_notes": request.submission_notes,
+        "updated_at": now_utc,
+    }
+
+    update_result = supabase.table("t4_summaries").update(update_data).eq(
+        "id", result.data["id"]
+    ).execute()
+
+    # Verify update was successful
+    if not update_result.data:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update T4 summary with submission information",
+        )
+
+    # Fetch updated summary with company info
+    updated_result = (
+        supabase.table("t4_summaries")
+        .select("*")
+        .eq("id", result.data["id"])
+        .maybe_single()
+        .execute()
+    )
+
+    if not updated_result.data:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve updated summary",
+        )
+
+    # Get company info
+    company_result = (
+        supabase.table("companies")
+        .select("company_name, payroll_account_number, province, address_street, address_city, address_postal_code")
+        .eq("id", str(company_id))
+        .eq("user_id", current_user.id)
+        .maybe_single()
+        .execute()
+    )
+
+    if not company_result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company not found",
+        )
+
+    company = company_result.data
+
+    # Merge with company info
+    summary_data = updated_result.data
+    summary_data["employer_name"] = company.get("company_name", "")
+    summary_data["employer_account_number"] = company.get("payroll_account_number", "")
+    summary_data["employer_address_line1"] = company.get("address_street")
+    summary_data["employer_city"] = company.get("address_city")
+    summary_data["employer_province"] = company.get("province")
+    summary_data["employer_postal_code"] = company.get("address_postal_code")
+
+    from app.models.t4 import T4Summary
+
+    summary = T4Summary.model_validate(summary_data)
+
+    return T4SummaryResponse(
+        success=True,
+        summary=summary,
+        message=f"T4 submission recorded with confirmation number: {request.confirmation_number}",
     )
