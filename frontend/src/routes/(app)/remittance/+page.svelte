@@ -14,7 +14,7 @@
 		listRemittancePeriods,
 		getRemittanceSummary,
 		recordPayment,
-		getPD7ADownloadUrl
+		downloadPD7A
 	} from '$lib/services/remittanceService';
 
 	// State
@@ -154,10 +154,20 @@
 	}
 
 	// PDF download
-	function downloadPD7A(remittance: RemittancePeriod) {
+	let downloadingPdfId = $state<string | null>(null);
+
+	async function handleDownloadPD7A(remittance: RemittancePeriod) {
 		if (!companyId) return;
-		const url = getPD7ADownloadUrl(companyId, remittance.id);
-		window.open(url, '_blank');
+
+		downloadingPdfId = remittance.id;
+		try {
+			const result = await downloadPD7A(companyId, remittance.id);
+			if (result.error) {
+				error = result.error;
+			}
+		} finally {
+			downloadingPdfId = null;
+		}
 	}
 
 	// Expanded row state
@@ -300,11 +310,17 @@
 
 					<div class="flex justify-center gap-3 pt-4 border-t border-surface-100 max-md:flex-col">
 						<button
-							class="inline-flex items-center justify-center gap-2 py-3 px-5 bg-white text-surface-700 border border-surface-200 rounded-lg text-body-content font-medium cursor-pointer transition-[150ms] hover:bg-surface-50 hover:border-surface-300"
-							onclick={() => downloadPD7A(upcomingRemittance)}
+							class="inline-flex items-center justify-center gap-2 py-3 px-5 bg-white text-surface-700 border border-surface-200 rounded-lg text-body-content font-medium cursor-pointer transition-[150ms] hover:bg-surface-50 hover:border-surface-300 disabled:opacity-50 disabled:cursor-not-allowed"
+							onclick={() => handleDownloadPD7A(upcomingRemittance)}
+							disabled={downloadingPdfId === upcomingRemittance.id}
 						>
-							<i class="fas fa-file-pdf"></i>
-							<span>Generate PD7A</span>
+							{#if downloadingPdfId === upcomingRemittance.id}
+								<i class="fas fa-spinner fa-spin"></i>
+								<span>Downloading...</span>
+							{:else}
+								<i class="fas fa-file-pdf"></i>
+								<span>Generate PD7A</span>
+							{/if}
 						</button>
 						<button
 							class="inline-flex items-center justify-center gap-2 py-3 px-5 bg-gradient-to-br from-primary-600 to-secondary-600 text-white border-none rounded-lg text-body-content font-medium cursor-pointer shadow-md3-1 transition-[150ms] hover:opacity-90 hover:-translate-y-px"
@@ -402,11 +418,16 @@
 									<td class="px-4 py-3 text-center text-body-content border-b border-surface-100 text-surface-800">
 										<div class="flex items-center justify-center gap-1">
 											<button
-												class="w-8 h-8 border-none bg-transparent text-surface-500 cursor-pointer rounded-md transition-[150ms] hover:bg-surface-100 hover:text-surface-700"
+												class="w-8 h-8 border-none bg-transparent text-surface-500 cursor-pointer rounded-md transition-[150ms] hover:bg-surface-100 hover:text-surface-700 disabled:opacity-50 disabled:cursor-not-allowed"
 												title="Download PD7A"
-												onclick={(e) => { e.stopPropagation(); downloadPD7A(remittance); }}
+												onclick={(e) => { e.stopPropagation(); handleDownloadPD7A(remittance); }}
+												disabled={downloadingPdfId === remittance.id}
 											>
-												<i class="fas fa-file-pdf"></i>
+												{#if downloadingPdfId === remittance.id}
+													<i class="fas fa-spinner fa-spin"></i>
+												{:else}
+													<i class="fas fa-file-pdf"></i>
+												{/if}
 											</button>
 											{#if remittance.status !== 'paid' && remittance.status !== 'paid_late'}
 												<button

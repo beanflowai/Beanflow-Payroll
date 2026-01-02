@@ -426,12 +426,72 @@ export async function getRemittanceSummary(
 }
 
 // =============================================================================
-// PDF Download URL (Backend API)
+// PDF Download (Backend API)
 // =============================================================================
 
+// API base URL from environment (same as client.ts)
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 /**
- * Get the URL for downloading PD7A PDF voucher
- * This calls the backend API endpoint
+ * Download PD7A PDF voucher from backend API
+ * Uses fetch with auth headers and triggers browser download
+ */
+export async function downloadPD7A(
+	companyId: string,
+	periodId: string
+): Promise<{ error: string | null }> {
+	try {
+		const { data: { session } } = await supabase.auth.getSession();
+		if (!session?.access_token) {
+			return { error: 'Not authenticated' };
+		}
+
+		const url = `${API_BASE_URL}/api/v1/remittance/pd7a/${companyId}/${periodId}`;
+		const response = await fetch(url, {
+			method: 'GET',
+			headers: {
+				Authorization: `Bearer ${session.access_token}`
+			}
+		});
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			console.error('PD7A download failed:', response.status, errorText);
+			return { error: `Download failed: ${response.status}` };
+		}
+
+		// Get filename from Content-Disposition header or use default
+		const contentDisposition = response.headers.get('Content-Disposition');
+		let filename = 'PD7A_remittance.pdf';
+		if (contentDisposition) {
+			const match = contentDisposition.match(/filename=(.+)/);
+			if (match) {
+				filename = match[1].replace(/['"]/g, '');
+			}
+		}
+
+		// Create blob and trigger download
+		const blob = await response.blob();
+		const blobUrl = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = blobUrl;
+		link.download = filename;
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+		URL.revokeObjectURL(blobUrl);
+
+		return { error: null };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to download PD7A';
+		console.error('PD7A download error:', err);
+		return { error: message };
+	}
+}
+
+/**
+ * Get the URL for downloading PD7A PDF voucher (deprecated - use downloadPD7A instead)
+ * @deprecated Use downloadPD7A() which handles authentication properly
  */
 export function getPD7ADownloadUrl(companyId: string, periodId: string): string {
 	return `/api/v1/remittance/pd7a/${companyId}/${periodId}`;
