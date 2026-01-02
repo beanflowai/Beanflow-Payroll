@@ -612,3 +612,159 @@ async def get_my_leave_balance(
         sickHoursUsedThisYear=round(sick_ytd_used_hours, 2),
         leaveHistory=leave_history,
     )
+
+
+# =============================================================================
+# T4 Tax Documents
+# =============================================================================
+
+
+class TaxDocument(BaseModel):
+    """Tax document available for download."""
+
+    id: str
+    type: str = "T4"
+    year: int
+    generatedAt: str
+    downloadUrl: str = ""  # Not used, download via API
+
+
+class T4ListResponse(BaseModel):
+    """Response for T4 list endpoint."""
+
+    taxDocuments: list[TaxDocument]
+
+
+@router.get(
+    "/t4",
+    response_model=T4ListResponse,
+    summary="Get my T4 documents",
+    description="Get the current employee's T4 tax documents.",
+)
+async def get_my_t4_documents(current_user: CurrentUser) -> T4ListResponse:
+    """Get T4 documents for the current employee."""
+    employee = await get_employee_by_user_email(current_user)
+
+    if not employee:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No employee record found for email: {current_user.email}",
+        )
+
+    supabase = get_supabase_client()
+
+    # Query T4 slips for this employee
+    result = (
+        supabase.table("t4_slips")
+        .select("id, tax_year, pdf_generated_at, status")
+        .eq("employee_id", employee["id"])
+        .in_("status", ["generated", "filed", "amended"])
+        .order("tax_year", desc=True)
+        .execute()
+    )
+
+    documents: list[TaxDocument] = []
+    for row in result.data or []:
+        if row.get("pdf_generated_at"):
+            documents.append(
+                TaxDocument(
+                    id=row["id"],
+                    type="T4",
+                    year=row["tax_year"],
+                    generatedAt=row["pdf_generated_at"],
+                )
+            )
+
+    return T4ListResponse(taxDocuments=documents)
+
+
+@router.get(
+    "/t4/{tax_year}/download",
+    summary="Download my T4 slip PDF",
+    responses={
+        200: {
+            "content": {"application/pdf": {}},
+            "description": "PDF file for download",
+        }
+    },
+)
+async def download_my_t4(
+    tax_year: int,
+    current_user: CurrentUser,
+) -> Any:
+    """Download T4 slip PDF for the current employee."""
+    from fastapi.responses import Response
+
+    from app.services.t4 import T4PDFGenerator, get_t4_storage
+
+    employee = await get_employee_by_user_email(current_user)
+
+    if not employee:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No employee record found for email: {current_user.email}",
+        )
+
+    supabase = get_supabase_client()
+
+    # Get the T4 slip for this employee and year
+    result = (
+        supabase.table("t4_slips")
+        .select("id, pdf_storage_key, slip_data, status")
+        .eq("employee_id", employee["id"])
+        .eq("tax_year", tax_year)
+        .in_("status", ["generated", "filed", "amended"])
+        .maybe_single()
+        .execute()
+    )
+
+    if not result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"T4 not found for tax year {tax_year}",
+        )
+
+    slip_record = result.data
+    pdf_bytes: bytes | None = None
+
+    # Try to get from storage first
+    storage_key = slip_record.get("pdf_storage_key")
+    if storage_key:
+        try:
+            storage = get_t4_storage()
+            pdf_bytes = await storage.get_file_content(storage_key)
+        except Exception:
+            logger.warning(f"Failed to get T4 from storage: {storage_key}")
+
+    # If no storage or failed, generate on-the-fly
+    if not pdf_bytes:
+        slip_data = slip_record.get("slip_data")
+        if not slip_data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="T4 data not available",
+            )
+
+        try:
+            from app.models.t4 import T4SlipData
+
+            slip = T4SlipData.model_validate(slip_data)
+            pdf_generator = T4PDFGenerator()
+            pdf_bytes = pdf_generator.generate_t4_slip_pdf(slip)
+        except Exception as e:
+            logger.error(f"Failed to generate T4 PDF: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate T4 PDF",
+            )
+
+    employee_name = f"{employee.get('last_name', '')}_{employee.get('first_name', '')}"
+    filename = f"T4_{tax_year}_{employee_name}.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )

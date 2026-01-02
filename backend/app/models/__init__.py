@@ -6,6 +6,18 @@ from app.models.compensation import (
     CompensationHistoryCreate,
     CompensationHistoryResponse,
 )
+from app.models.t4 import (
+    T4GenerationRequest,
+    T4GenerationResponse,
+    T4SlipData,
+    T4SlipListResponse,
+    T4SlipRecord,
+    T4SlipSummary,
+    T4Status,
+    T4Summary,
+    T4SummaryResponse,
+    T4XmlDownloadInfo,
+)
 from app.models.payroll import (
     CppConfig,
     EiConfig,
@@ -46,6 +58,17 @@ __all__ = [
     "CompensationHistory",
     "CompensationHistoryCreate",
     "CompensationHistoryResponse",
+    # T4 models
+    "T4GenerationRequest",
+    "T4GenerationResponse",
+    "T4SlipData",
+    "T4SlipListResponse",
+    "T4SlipRecord",
+    "T4SlipSummary",
+    "T4Status",
+    "T4Summary",
+    "T4SummaryResponse",
+    "T4XmlDownloadInfo",
     # Payroll enums
     "Province",
     "PayFrequency",

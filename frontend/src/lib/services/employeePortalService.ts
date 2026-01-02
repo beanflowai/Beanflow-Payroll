@@ -12,7 +12,8 @@ import type {
 	PaystubYTD,
 	EmployeePortalProfile,
 	EmployeeLeaveBalance,
-	LeaveHistoryEntry
+	LeaveHistoryEntry,
+	TaxDocument
 } from '$lib/types/employee-portal';
 
 // ============================================================================
@@ -114,4 +115,82 @@ export async function getMyLeaveBalance(
 	return api.get<LeaveBalanceResponse>('/employee-portal/leave-balance', {
 		year: String(year)
 	});
+}
+
+// ============================================================================
+// T4 Tax Documents
+// ============================================================================
+
+export interface T4ListResponse {
+	taxDocuments: TaxDocument[];
+}
+
+/**
+ * Get the current employee's T4 tax documents.
+ *
+ * @returns List of T4 documents available for download
+ */
+export async function getMyT4Documents(): Promise<T4ListResponse> {
+	return api.get<T4ListResponse>('/employee-portal/t4');
+}
+
+/**
+ * Download T4 slip PDF for a specific tax year.
+ *
+ * @param taxYear - Tax year to download
+ * @returns Blob URL for the PDF
+ */
+export async function downloadMyT4(taxYear: number): Promise<{ error: string | null }> {
+	const { supabase } = await import('$lib/api/supabase');
+	const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+	try {
+		const {
+			data: { session }
+		} = await supabase.auth.getSession();
+		if (!session?.access_token) {
+			return { error: 'Not authenticated' };
+		}
+
+		const url = `${API_BASE_URL}/api/v1/employee-portal/t4/${taxYear}/download`;
+		const response = await fetch(url, {
+			method: 'GET',
+			headers: {
+				Authorization: `Bearer ${session.access_token}`
+			}
+		});
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			console.error('T4 download failed:', response.status, errorText);
+			return { error: `Download failed: ${response.status}` };
+		}
+
+		// Get filename from Content-Disposition header or use default
+		const contentDisposition = response.headers.get('Content-Disposition');
+		let filename = `T4_${taxYear}.pdf`;
+		if (contentDisposition) {
+			const match = contentDisposition.match(/filename=(.+)/);
+			if (match) {
+				filename = match[1].replace(/['"]/g, '');
+			}
+		}
+
+		// Create blob and trigger download
+		const blob = await response.blob();
+		const blobUrl = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = blobUrl;
+		link.download = filename;
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+		URL.revokeObjectURL(blobUrl);
+
+		return { error: null };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to download T4';
+		console.error('T4 download error:', err);
+		return { error: message };
+	}
 }

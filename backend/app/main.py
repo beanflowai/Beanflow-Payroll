@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app import __version__
-from app.api.v1 import auth, employee_portal, employees, health, payroll, remittance
+from app.api.v1 import auth, employee_portal, employees, health, payroll, remittance, t4
 from app.api.v1 import config as config_api
 from app.core.config import get_config
 from app.core.exceptions import (
@@ -123,6 +123,7 @@ def create_app() -> FastAPI:
     app.include_router(employees.router, prefix="/api/v1/employees", tags=["Employees"])
     app.include_router(employee_portal.router, prefix="/api/v1", tags=["Employee Portal"])
     app.include_router(remittance.router, prefix="/api/v1/remittance", tags=["Remittance"])
+    app.include_router(t4.router, prefix="/api/v1/t4", tags=["T4 Year-End"])
 
     return app
 

@@ -3,9 +3,10 @@
 	 * Employee Portal - Paystubs List Page
 	 * Shows list of paystubs with year filter and YTD summary
 	 */
+	import { onMount } from 'svelte';
 	import PaystubCard from '$lib/components/employee-portal/PaystubCard.svelte';
-	import { getMyPaystubs } from '$lib/services/employeePortalService';
-	import type { PaystubSummary, PaystubYTD } from '$lib/types/employee-portal';
+	import { getMyPaystubs, getMyT4Documents, downloadMyT4 } from '$lib/services/employeePortalService';
+	import type { PaystubSummary, PaystubYTD, TaxDocument } from '$lib/types/employee-portal';
 
 	// State
 	let selectedYear = $state(new Date().getFullYear());
@@ -21,9 +22,19 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
+	// T4 Documents state
+	let taxDocuments = $state<TaxDocument[]>([]);
+	let loadingT4s = $state(true);
+	let downloadingT4Year = $state<number | null>(null);
+
 	// Fetch paystubs when year changes
 	$effect(() => {
 		loadPaystubs(selectedYear);
+	});
+
+	// Load T4 documents on mount
+	onMount(async () => {
+		await loadT4Documents();
 	});
 
 	async function loadPaystubs(year: number) {
@@ -43,6 +54,20 @@
 		}
 	}
 
+	async function loadT4Documents() {
+		loadingT4s = true;
+		try {
+			const response = await getMyT4Documents();
+			taxDocuments = response.taxDocuments;
+		} catch (err) {
+			console.error('Failed to load T4 documents:', err);
+			// Don't show error - T4s may not be available yet
+			taxDocuments = [];
+		} finally {
+			loadingT4s = false;
+		}
+	}
+
 	function formatMoney(amount: number): string {
 		return new Intl.NumberFormat('en-CA', {
 			style: 'currency',
@@ -50,9 +75,30 @@
 		}).format(amount);
 	}
 
+	function formatDate(dateStr: string): string {
+		return new Date(dateStr).toLocaleDateString('en-CA', {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric'
+		});
+	}
+
 	function handleDownload(paystubId: string) {
 		// TODO: Implement download
 		console.log('Download paystub:', paystubId);
+	}
+
+	async function handleT4Download(doc: TaxDocument) {
+		downloadingT4Year = doc.year;
+		try {
+			const result = await downloadMyT4(doc.year);
+			if (result.error) {
+				console.error('T4 download failed:', result.error);
+				// Could show a toast notification here
+			}
+		} finally {
+			downloadingT4Year = null;
+		}
 	}
 </script>
 
@@ -122,56 +168,54 @@
 	<!-- Tax Documents -->
 	<section class="documents-section" id="documents">
 		<h2 class="section-title">Tax Documents</h2>
-		<div class="documents-list">
-			<div class="document-item">
-				<div class="document-info">
-					<span class="document-icon">
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-							<polyline points="14,2 14,8 20,8" />
-						</svg>
-					</span>
-					<div class="document-details">
-						<span class="document-name">T4 - 2024</span>
-						<span class="document-date">Generated Feb 15, 2025</span>
-					</div>
-				</div>
-				<button class="download-btn">
-					<svg viewBox="0 0 20 20" fill="currentColor">
-						<path
-							fill-rule="evenodd"
-							d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
-							clip-rule="evenodd"
-						/>
-					</svg>
-					Download
-				</button>
+		{#if loadingT4s}
+			<div class="documents-loading">
+				<div class="spinner small"></div>
+				<span>Loading tax documents...</span>
 			</div>
-			<div class="document-item">
-				<div class="document-info">
-					<span class="document-icon">
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-							<polyline points="14,2 14,8 20,8" />
-						</svg>
-					</span>
-					<div class="document-details">
-						<span class="document-name">T4 - 2023</span>
-						<span class="document-date">Generated Feb 20, 2024</span>
-					</div>
-				</div>
-				<button class="download-btn">
-					<svg viewBox="0 0 20 20" fill="currentColor">
-						<path
-							fill-rule="evenodd"
-							d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
-							clip-rule="evenodd"
-						/>
-					</svg>
-					Download
-				</button>
+		{:else if taxDocuments.length === 0}
+			<div class="documents-empty">
+				<p>No tax documents available yet.</p>
 			</div>
-		</div>
+		{:else}
+			<div class="documents-list">
+				{#each taxDocuments as doc (doc.id)}
+					<div class="document-item">
+						<div class="document-info">
+							<span class="document-icon">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+									<polyline points="14,2 14,8 20,8" />
+								</svg>
+							</span>
+							<div class="document-details">
+								<span class="document-name">{doc.type} - {doc.year}</span>
+								<span class="document-date">Generated {formatDate(doc.generatedAt)}</span>
+							</div>
+						</div>
+						<button
+							class="download-btn"
+							onclick={() => handleT4Download(doc)}
+							disabled={downloadingT4Year === doc.year}
+						>
+							{#if downloadingT4Year === doc.year}
+								<div class="spinner tiny"></div>
+								<span>Downloading...</span>
+							{:else}
+								<svg viewBox="0 0 20 20" fill="currentColor">
+									<path
+										fill-rule="evenodd"
+										d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+										clip-rule="evenodd"
+									/>
+								</svg>
+								<span>Download</span>
+							{/if}
+						</button>
+					</div>
+				{/each}
+			</div>
+		{/if}
 	</section>
 </div>
 
@@ -398,6 +442,46 @@
 	.download-btn svg {
 		width: 16px;
 		height: 16px;
+	}
+
+	.download-btn:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+
+	/* Documents loading/empty states */
+	.documents-loading {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-3);
+		padding: var(--spacing-6);
+		background: var(--color-surface-50);
+		border-radius: var(--radius-lg);
+		color: var(--color-surface-600);
+	}
+
+	.documents-empty {
+		padding: var(--spacing-6);
+		background: var(--color-surface-50);
+		border-radius: var(--radius-lg);
+		text-align: center;
+		color: var(--color-surface-600);
+	}
+
+	.documents-empty p {
+		margin: 0;
+	}
+
+	.spinner.small {
+		width: 20px;
+		height: 20px;
+		border-width: 2px;
+	}
+
+	.spinner.tiny {
+		width: 14px;
+		height: 14px;
+		border-width: 2px;
 	}
 
 	/* Mobile adjustments */
