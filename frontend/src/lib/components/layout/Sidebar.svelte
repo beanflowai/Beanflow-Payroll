@@ -1,13 +1,15 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { navigationItems } from './navigation';
+	import CompanySwitcher from './CompanySwitcher.svelte';
 
 	interface Props {
 		collapsed?: boolean;
 		onToggleCollapse?: () => void;
+		onAddCompany?: () => void;
 	}
 
-	let { collapsed = false, onToggleCollapse }: Props = $props();
+	let { collapsed = false, onToggleCollapse, onAddCompany }: Props = $props();
 
 	const currentPath = $derived($page.url.pathname);
 
@@ -30,6 +32,9 @@
 			<span class="brand-text">BeanFlow Payroll</span>
 		{/if}
 	</div>
+
+	<!-- Company Switcher -->
+	<CompanySwitcher {collapsed} {onAddCompany} />
 
 	<!-- Navigation -->
 	<nav class="sidebar-nav">

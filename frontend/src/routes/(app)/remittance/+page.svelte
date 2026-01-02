@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { REMITTER_TYPE_INFO } from '$lib/types/company';
 	import type { RemitterType } from '$lib/types/company';
 	import {
@@ -9,7 +8,7 @@
 	import type { RemittancePeriod, RemittanceSummary, PaymentMethod } from '$lib/types/remittance';
 	import MarkAsPaidModal from '$lib/components/remittance/MarkAsPaidModal.svelte';
 	import { formatShortDate } from '$lib/utils/dateUtils';
-	import { getOrCreateDefaultCompany } from '$lib/services/companyService';
+	import { companyState } from '$lib/stores/company.svelte';
 	import {
 		listRemittancePeriods,
 		getRemittanceSummary,
@@ -19,8 +18,6 @@
 
 	// State
 	let selectedYear = $state(new Date().getFullYear());
-	let companyId = $state<string | null>(null);
-	let remitterType = $state<RemitterType>('regular');
 	let remittances = $state<RemittancePeriod[]>([]);
 	let summary = $state<RemittanceSummary | null>(null);
 	let loading = $state(true);
@@ -31,16 +28,18 @@
 		remittances.find((r) => r.status === 'pending' || r.status === 'due_soon' || r.status === 'overdue') || null
 	);
 
-	// Load data
-	async function loadData() {
-		if (!companyId) return;
+	// Current company derived from store
+	const currentCompany = $derived(companyState.currentCompany);
+	const remitterType = $derived<RemitterType>(currentCompany?.remitterType ?? 'regular');
 
+	// Load data
+	async function loadData(companyId: string, year: number) {
 		loading = true;
 		error = null;
 
 		try {
 			// Load remittance periods
-			const periodsResult = await listRemittancePeriods(companyId, { year: selectedYear });
+			const periodsResult = await listRemittancePeriods(companyId, { year });
 			if (periodsResult.error) {
 				error = periodsResult.error;
 				return;
@@ -48,7 +47,7 @@
 			remittances = periodsResult.data;
 
 			// Load summary
-			const summaryResult = await getRemittanceSummary(companyId, selectedYear);
+			const summaryResult = await getRemittanceSummary(companyId, year);
 			if (summaryResult.error) {
 				error = summaryResult.error;
 				return;
@@ -61,26 +60,13 @@
 		}
 	}
 
-	// Watch for year changes
+	// Load data when company or year changes
 	$effect(() => {
-		if (companyId) {
-			loadData();
-		}
-	});
-
-	onMount(async () => {
-		try {
-			const result = await getOrCreateDefaultCompany();
-			if (result.error || !result.data) {
-				error = result.error || 'No company found. Please create a company first.';
-				loading = false;
-				return;
-			}
-			companyId = result.data.id;
-			remitterType = result.data.remitterType;
-			await loadData();
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load company';
+		const company = companyState.currentCompany;
+		if (company) {
+			loadData(company.id, selectedYear);
+		} else if (!companyState.isLoading) {
+			// No company selected and not loading - stop spinner
 			loading = false;
 		}
 	});
@@ -128,7 +114,7 @@
 		paymentMethod: PaymentMethod;
 		confirmationNumber: string;
 	}) {
-		if (!selectedRemittance) return;
+		if (!selectedRemittance || !currentCompany) return;
 
 		submitting = true;
 		try {
@@ -144,7 +130,7 @@
 			}
 
 			// Reload data
-			await loadData();
+			await loadData(currentCompany.id, selectedYear);
 			closeModal();
 		} catch (err) {
 			alert('Failed to record payment: ' + (err instanceof Error ? err.message : 'Unknown error'));
@@ -157,11 +143,11 @@
 	let downloadingPdfId = $state<string | null>(null);
 
 	async function handleDownloadPD7A(remittance: RemittancePeriod) {
-		if (!companyId) return;
+		if (!currentCompany) return;
 
 		downloadingPdfId = remittance.id;
 		try {
-			const result = await downloadPD7A(companyId, remittance.id);
+			const result = await downloadPD7A(currentCompany.id, remittance.id);
 			if (result.error) {
 				error = result.error;
 			}

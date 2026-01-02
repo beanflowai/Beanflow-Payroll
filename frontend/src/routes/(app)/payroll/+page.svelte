@@ -8,6 +8,7 @@
 		getRecentCompletedRuns
 	} from '$lib/services/payroll';
 	import { formatShortDate } from '$lib/utils/dateUtils';
+	import { companyState } from '$lib/stores/company.svelte';
 
 	// ===========================================
 	// State
@@ -59,9 +60,16 @@
 		}
 	}
 
-	// Load data on mount
+	// Load data when company changes
 	$effect(() => {
-		loadData();
+		// Depend on currentCompany to reload when company switches
+		const company = companyState.currentCompany;
+		if (company) {
+			loadData();
+		} else if (!companyState.isLoading) {
+			// No company selected and not loading - stop spinner
+			isLoading = false;
+		}
 	});
 
 	// ===========================================
@@ -123,6 +131,15 @@
 	<div class="flex flex-col items-center justify-center min-h-[400px] text-center">
 		<div class="w-12 h-12 border-4 border-surface-200 border-t-primary-500 rounded-full animate-spin mb-4"></div>
 		<p class="text-body-content text-surface-600">Loading payroll data...</p>
+	</div>
+{:else if !companyState.currentCompany}
+	<!-- No Company Selected State -->
+	<div class="flex flex-col items-center justify-center min-h-[400px] text-center">
+		<div class="w-20 h-20 rounded-full bg-surface-100 text-surface-400 flex items-center justify-center text-[32px] mb-4">
+			<i class="fas fa-building"></i>
+		</div>
+		<h3 class="text-title-small font-semibold text-surface-800 m-0 mb-2">No Company Selected</h3>
+		<p class="text-body-content text-surface-600 m-0 mb-6">Please select or create a company to run payroll.</p>
 	</div>
 {:else if error}
 	<!-- Error State -->

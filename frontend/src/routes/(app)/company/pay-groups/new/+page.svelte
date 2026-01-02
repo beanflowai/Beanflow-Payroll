@@ -4,7 +4,7 @@
 	import type { PayGroup } from '$lib/types/pay-group';
 	import { createDefaultPayGroup } from '$lib/types/pay-group';
 	import { createPayGroup, type PayGroupCreateInput } from '$lib/services/payGroupService';
-	import { getOrCreateDefaultCompany } from '$lib/services/companyService';
+	import { companyState } from '$lib/stores/company.svelte';
 	import PayGroupDetailHeader from '$lib/components/company/pay-group-detail/PayGroupDetailHeader.svelte';
 	import PayGroupBasicInfoSection from '$lib/components/company/pay-group-detail/PayGroupBasicInfoSection.svelte';
 	import PayGroupStatutorySection from '$lib/components/company/pay-group-detail/PayGroupStatutorySection.svelte';
@@ -14,11 +14,13 @@
 	import PayGroupDeductionsSection from '$lib/components/company/pay-group-detail/PayGroupDeductionsSection.svelte';
 
 	// State
-	let companyId = $state<string | null>(null);
-	let isLoadingCompany = $state(true);
 	let isSaving = $state(false);
 	let validationError = $state<string | null>(null);
 	let error = $state<string | null>(null);
+
+	// Current company derived from store
+	const currentCompany = $derived(companyState.currentCompany);
+	const isLoadingCompany = $derived(companyState.isLoading);
 
 	// Create a new pay group with default values (temporary ID, will be replaced by server)
 	const tempId = `temp-${Date.now()}`;
@@ -31,34 +33,12 @@
 		updatedAt: now
 	});
 
-	// Load company on mount
+	// Update payGroup with companyId when company changes
 	$effect(() => {
-		loadCompany();
-	});
-
-	async function loadCompany() {
-		isLoadingCompany = true;
-		error = null;
-
-		try {
-			const result = await getOrCreateDefaultCompany();
-			if (result.error) {
-				error = result.error;
-				return;
-			}
-			if (!result.data) {
-				error = 'No company found. Please create a company first.';
-				return;
-			}
-			companyId = result.data.id;
-			// Update payGroup with real companyId
-			payGroup = { ...payGroup, companyId: result.data.id };
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load company';
-		} finally {
-			isLoadingCompany = false;
+		if (currentCompany && payGroup.companyId !== currentCompany.id) {
+			payGroup.companyId = currentCompany.id;
 		}
-	}
+	});
 
 	// Handle back navigation
 	function handleBack() {
@@ -73,6 +53,11 @@
 	}
 
 	// Validate required fields
+	// NOTE: We intentionally do NOT validate that nextPeriodEnd is in the future.
+	// This allows users to create pay groups with historical dates for scenarios like:
+	// - Regenerating past payroll data
+	// - System migration from another payroll system
+	// - Correcting historical payroll records
 	function validate(): boolean {
 		if (!payGroup.name.trim()) {
 			validationError = 'Pay group name is required';
@@ -82,21 +67,13 @@
 			validationError = 'Next period end date is required';
 			return false;
 		}
-		// Validate that next period end is not in the past
-		const today = new Date();
-		today.setHours(0, 0, 0, 0);
-		const periodEnd = new Date(payGroup.nextPeriodEnd);
-		if (periodEnd < today) {
-			validationError = 'Next period end date cannot be in the past';
-			return false;
-		}
 		return true;
 	}
 
 	// Handle save
 	async function handleSave() {
 		if (!validate()) return;
-		if (!companyId) {
+		if (!currentCompany) {
 			error = 'No company found. Please create a company first.';
 			return;
 		}
@@ -106,7 +83,7 @@
 
 		// Build create input
 		const createInput: PayGroupCreateInput = {
-			company_id: companyId,
+			company_id: currentCompany.id,
 			name: payGroup.name,
 			description: payGroup.description,
 			pay_frequency: payGroup.payFrequency,
@@ -157,7 +134,7 @@
 			<div class="loading-spinner"></div>
 			<p>Loading...</p>
 		</div>
-	{:else if error && !companyId}
+	{:else if error && !currentCompany}
 		<!-- No Company Error -->
 		<div class="error-state">
 			<i class="fas fa-building"></i>

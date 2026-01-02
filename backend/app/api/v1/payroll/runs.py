@@ -10,7 +10,7 @@ import logging
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Header, HTTPException, Query, status
 
 from app.api.deps import CurrentUser
 from app.services.payroll_run_service import get_payroll_run_service
@@ -48,6 +48,7 @@ async def list_payroll_runs(
     exclude_status: str | None = Query(None, description="Exclude runs with this status"),
     limit: int = Query(50, ge=1, le=100, description="Maximum runs to return"),
     offset: int = Query(0, ge=0, description="Number of runs to skip"),
+    x_company_id: str | None = Header(None, alias="X-Company-Id"),
 ) -> ListPayrollRunsResponse:
     """
     List payroll runs for the current user's company.
@@ -55,7 +56,7 @@ async def list_payroll_runs(
     Supports filtering by status and pagination.
     """
     try:
-        company_id = await get_user_company_id(current_user.id)
+        company_id = await get_user_company_id(current_user.id, x_company_id)
         service = get_payroll_run_service(current_user.id, company_id)
         result = await service.list_runs(
             run_status=run_status,
@@ -106,6 +107,7 @@ async def update_payroll_record(
     record_id: UUID,
     request: UpdatePayrollRecordRequest,
     current_user: CurrentUser,
+    x_company_id: str | None = Header(None, alias="X-Company-Id"),
 ) -> PayrollRecordResponse:
     """
     Update a payroll record's input data while in draft status.
@@ -121,7 +123,7 @@ async def update_payroll_record(
     The record will be marked as modified, requiring recalculation.
     """
     try:
-        company_id = await get_user_company_id(current_user.id)
+        company_id = await get_user_company_id(current_user.id, x_company_id)
         service = get_payroll_run_service(current_user.id, company_id)
 
         # Build input_data from request
@@ -191,6 +193,7 @@ async def update_payroll_record(
 async def recalculate_payroll_run(
     run_id: UUID,
     current_user: CurrentUser,
+    x_company_id: str | None = Header(None, alias="X-Company-Id"),
 ) -> PayrollRunResponse:
     """
     Recalculate all payroll deductions for a draft run.
@@ -205,7 +208,7 @@ async def recalculate_payroll_run(
     Only works on runs in 'draft' status.
     """
     try:
-        company_id = await get_user_company_id(current_user.id)
+        company_id = await get_user_company_id(current_user.id, x_company_id)
         service = get_payroll_run_service(current_user.id, company_id)
         result = await service.recalculate_run(run_id)
 
@@ -245,6 +248,7 @@ async def recalculate_payroll_run(
 async def sync_employees(
     run_id: UUID,
     current_user: CurrentUser,
+    x_company_id: str | None = Header(None, alias="X-Company-Id"),
 ) -> SyncEmployeesResponse:
     """
     Sync new employees to a draft payroll run.
@@ -259,7 +263,7 @@ async def sync_employees(
     Only works on runs in 'draft' status. Non-draft runs return empty result.
     """
     try:
-        company_id = await get_user_company_id(current_user.id)
+        company_id = await get_user_company_id(current_user.id, x_company_id)
         service = get_payroll_run_service(current_user.id, company_id)
         result = await service.sync_employees(run_id)
 
@@ -304,6 +308,7 @@ async def sync_employees(
 async def create_or_get_run(
     request: CreateOrGetRunRequest,
     current_user: CurrentUser,
+    x_company_id: str | None = Header(None, alias="X-Company-Id"),
 ) -> CreateOrGetRunResponse:
     """
     Create a new draft payroll run or get existing one for a period end.
@@ -317,7 +322,7 @@ async def create_or_get_run(
     this date as their next_period_end.
     """
     try:
-        company_id = await get_user_company_id(current_user.id)
+        company_id = await get_user_company_id(current_user.id, x_company_id)
         service = get_payroll_run_service(current_user.id, company_id)
         result = await service.create_or_get_run_by_period_end(request.periodEnd)
 
@@ -363,6 +368,7 @@ async def add_employee_to_run(
     run_id: UUID,
     request: AddEmployeeRequest,
     current_user: CurrentUser,
+    x_company_id: str | None = Header(None, alias="X-Company-Id"),
 ) -> AddEmployeeResponse:
     """
     Add an employee to a draft payroll run.
@@ -371,7 +377,7 @@ async def add_employee_to_run(
     Only works on runs in 'draft' status.
     """
     try:
-        company_id = await get_user_company_id(current_user.id)
+        company_id = await get_user_company_id(current_user.id, x_company_id)
         service = get_payroll_run_service(current_user.id, company_id)
         result = await service.add_employee_to_run(run_id, request.employeeId)
 
@@ -401,6 +407,7 @@ async def remove_employee_from_run(
     run_id: UUID,
     employee_id: str,
     current_user: CurrentUser,
+    x_company_id: str | None = Header(None, alias="X-Company-Id"),
 ) -> RemoveEmployeeResponse:
     """
     Remove an employee from a draft payroll run.
@@ -409,7 +416,7 @@ async def remove_employee_from_run(
     Only works on runs in 'draft' status.
     """
     try:
-        company_id = await get_user_company_id(current_user.id)
+        company_id = await get_user_company_id(current_user.id, x_company_id)
         service = get_payroll_run_service(current_user.id, company_id)
         result = await service.remove_employee_from_run(run_id, employee_id)
 
@@ -438,6 +445,7 @@ async def remove_employee_from_run(
 async def delete_payroll_run(
     run_id: UUID,
     current_user: CurrentUser,
+    x_company_id: str | None = Header(None, alias="X-Company-Id"),
 ) -> DeleteRunResponse:
     """
     Delete a draft payroll run.
@@ -446,7 +454,7 @@ async def delete_payroll_run(
     Only works on runs in 'draft' status.
     """
     try:
-        company_id = await get_user_company_id(current_user.id)
+        company_id = await get_user_company_id(current_user.id, x_company_id)
         service = get_payroll_run_service(current_user.id, company_id)
         result = await service.delete_run(run_id)
 
@@ -475,6 +483,7 @@ async def delete_payroll_run(
 async def finalize_payroll_run(
     run_id: UUID,
     current_user: CurrentUser,
+    x_company_id: str | None = Header(None, alias="X-Company-Id"),
 ) -> PayrollRunResponse:
     """
     Finalize a draft payroll run.
@@ -487,7 +496,7 @@ async def finalize_payroll_run(
     - No records can have is_modified = True (must recalculate first)
     """
     try:
-        company_id = await get_user_company_id(current_user.id)
+        company_id = await get_user_company_id(current_user.id, x_company_id)
         service = get_payroll_run_service(current_user.id, company_id)
         result = await service.finalize_run(run_id)
 
@@ -527,6 +536,7 @@ async def finalize_payroll_run(
 async def approve_payroll_run(
     run_id: UUID,
     current_user: CurrentUser,
+    x_company_id: str | None = Header(None, alias="X-Company-Id"),
 ) -> ApprovePayrollRunResponse:
     """
     Approve a pending_approval payroll run.
@@ -541,7 +551,7 @@ async def approve_payroll_run(
     - Run must be in 'pending_approval' status
     """
     try:
-        company_id = await get_user_company_id(current_user.id)
+        company_id = await get_user_company_id(current_user.id, x_company_id)
         service = get_payroll_run_service(current_user.id, company_id)
         result = await service.approve_run(run_id, approved_by=current_user.id)
 

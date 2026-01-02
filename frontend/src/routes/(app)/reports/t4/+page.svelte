@@ -1,9 +1,8 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { T4_STATUS_INFO, getAvailableTaxYears } from '$lib/types/t4';
 	import type { T4SlipSummary, T4SummaryData } from '$lib/types/t4';
 	import { formatShortDate } from '$lib/utils/dateUtils';
-	import { getOrCreateDefaultCompany } from '$lib/services/companyService';
+	import { companyState } from '$lib/stores/company.svelte';
 	import {
 		listT4Slips,
 		generateT4Slips,
@@ -16,11 +15,13 @@
 
 	// State
 	let selectedYear = $state(new Date().getFullYear() - 1); // Default to previous year for T4
-	let companyId = $state<string | null>(null);
 	let slips = $state<T4SlipSummary[]>([]);
 	let summary = $state<T4SummaryData | null>(null);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+
+	// Current company derived from store
+	const currentCompany = $derived(companyState.currentCompany);
 
 	// Operation states
 	let generating = $state(false);
@@ -46,15 +47,13 @@
 	}
 
 	// Load data
-	async function loadData() {
-		if (!companyId) return;
-
+	async function loadData(companyId: string, year: number) {
 		loading = true;
 		error = null;
 
 		try {
 			// Load T4 slips
-			const slipsResult = await listT4Slips(companyId, selectedYear);
+			const slipsResult = await listT4Slips(companyId, year);
 			if (slipsResult.error) {
 				error = slipsResult.error;
 				return;
@@ -62,7 +61,7 @@
 			slips = slipsResult.data?.slips ?? [];
 
 			// Load T4 Summary
-			const summaryResult = await getT4Summary(companyId, selectedYear);
+			const summaryResult = await getT4Summary(companyId, year);
 			if (summaryResult.error) {
 				error = summaryResult.error;
 				return;
@@ -75,43 +74,31 @@
 		}
 	}
 
-	// Watch for year changes
+	// Load data when company or year changes
 	$effect(() => {
-		if (companyId) {
-			loadData();
-		}
-	});
-
-	onMount(async () => {
-		try {
-			const result = await getOrCreateDefaultCompany();
-			if (result.error || !result.data) {
-				error = result.error || 'No company found. Please create a company first.';
-				loading = false;
-				return;
-			}
-			companyId = result.data.id;
-			await loadData();
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load company';
+		const company = companyState.currentCompany;
+		if (company) {
+			loadData(company.id, selectedYear);
+		} else if (!companyState.isLoading) {
+			// No company selected and not loading - stop spinner
 			loading = false;
 		}
 	});
 
 	// Generate T4 slips
 	async function handleGenerateSlips(regenerate: boolean = false) {
-		if (!companyId) return;
+		if (!currentCompany) return;
 
 		generating = true;
 		try {
-			const result = await generateT4Slips(companyId, selectedYear, { regenerate });
+			const result = await generateT4Slips(currentCompany.id, selectedYear, { regenerate });
 			if (result.error) {
 				error = result.error;
 				return;
 			}
 
 			// Reload data first
-			await loadData();
+			await loadData(currentCompany.id, selectedYear);
 
 			// Then set any error/warning messages (after loadData clears error)
 			if (result.data) {
@@ -131,18 +118,18 @@
 
 	// Generate T4 Summary
 	async function handleGenerateSummary() {
-		if (!companyId) return;
+		if (!currentCompany) return;
 
 		generatingSummary = true;
 		try {
-			const result = await generateT4Summary(companyId, selectedYear);
+			const result = await generateT4Summary(currentCompany.id, selectedYear);
 			if (result.error) {
 				error = result.error;
 				return;
 			}
 
 			// Reload data
-			await loadData();
+			await loadData(currentCompany.id, selectedYear);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to generate T4 Summary';
 		} finally {
@@ -152,11 +139,11 @@
 
 	// Download individual T4 slip
 	async function handleDownloadSlip(slip: T4SlipSummary) {
-		if (!companyId) return;
+		if (!currentCompany) return;
 
 		downloadingSlipId = slip.id;
 		try {
-			const result = await downloadT4Slip(companyId, selectedYear, slip.employeeId);
+			const result = await downloadT4Slip(currentCompany.id, selectedYear, slip.employeeId);
 			if (result.error) {
 				error = result.error;
 			}
@@ -167,11 +154,11 @@
 
 	// Download T4 Summary PDF
 	async function handleDownloadSummaryPdf() {
-		if (!companyId) return;
+		if (!currentCompany) return;
 
 		downloadingSummaryPdf = true;
 		try {
-			const result = await downloadT4SummaryPdf(companyId, selectedYear);
+			const result = await downloadT4SummaryPdf(currentCompany.id, selectedYear);
 			if (result.error) {
 				error = result.error;
 			}
@@ -182,11 +169,11 @@
 
 	// Download T4 XML
 	async function handleDownloadXml() {
-		if (!companyId) return;
+		if (!currentCompany) return;
 
 		downloadingXml = true;
 		try {
-			const result = await downloadT4Xml(companyId, selectedYear);
+			const result = await downloadT4Xml(currentCompany.id, selectedYear);
 			if (result.error) {
 				error = result.error;
 			}

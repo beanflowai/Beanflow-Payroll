@@ -11,7 +11,7 @@ import type {
 	PayrollRunWithGroups
 } from '$lib/types/payroll';
 import { calculatePayDate } from '$lib/types/pay-group';
-import { getCurrentUserId } from './helpers';
+import { getCurrentUserId, getCurrentCompanyId } from './helpers';
 import type { PayrollServiceResult, PayrollDashboardStats } from './types';
 import { listPayrollRuns, type PayrollRunListOptionsExt } from './payroll-runs';
 
@@ -28,11 +28,13 @@ import { listPayrollRuns, type PayrollRunListOptionsExt } from './payroll-runs';
 export async function checkPayrollPageStatus(): Promise<PayrollServiceResult<PayrollPageStatus>> {
 	try {
 		getCurrentUserId();
+		const companyId = getCurrentCompanyId();
 
-		// Query pay groups count via the summary view
+		// Query pay groups count via the summary view (filter by company_id)
 		const { data: payGroups, error: pgError } = await supabase
 			.from('v_pay_group_summary')
 			.select('id, employee_count')
+			.eq('company_id', companyId)
 			.limit(100);
 
 		if (pgError) {
@@ -84,11 +86,13 @@ export async function checkPayrollPageStatus(): Promise<PayrollServiceResult<Pay
 export async function getUpcomingPeriods(): Promise<PayrollServiceResult<UpcomingPeriod[]>> {
 	try {
 		getCurrentUserId();
+		const companyId = getCurrentCompanyId();
 
-		// Query pay groups with employee counts (ordered by next_period_end)
+		// Query pay groups with employee counts (ordered by next_period_end, filter by company_id)
 		const { data: payGroups, error: pgError } = await supabase
 			.from('v_pay_group_summary')
 			.select('*')
+			.eq('company_id', companyId)
 			.order('next_period_end');
 
 		if (pgError) {
@@ -141,12 +145,13 @@ export async function getUpcomingPeriods(): Promise<PayrollServiceResult<Upcomin
 			}
 		}
 
-		// Check for existing payroll runs for these period ends
+		// Check for existing payroll runs for these period ends (filter by company_id)
 		const periodEnds = Array.from(periodMap.keys());
 		if (periodEnds.length > 0) {
 			const { data: runs } = await supabase
 				.from('payroll_runs')
 				.select('id, period_end, status')
+				.eq('company_id', companyId)
 				.in('period_end', periodEnds);
 
 			if (runs) {

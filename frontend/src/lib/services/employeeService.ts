@@ -17,6 +17,7 @@ import type {
 } from '$lib/types/employee';
 import { dbEmployeeToUi } from '$lib/types/employee';
 import { authState } from '$lib/stores/auth.svelte';
+import { getCurrentCompanyId as getCompanyIdFromStore } from '$lib/stores/company.svelte';
 
 // Re-export the conversion function for convenience
 export { dbEmployeeToUi } from '$lib/types/employee';
@@ -33,14 +34,10 @@ export function maskSin(sinEncrypted: string): string {
 }
 
 /**
- * Get current user's company_id
- * For now, using user's id as a simple company_id
- * In production, this would come from the companies table
+ * Get current company ID from company store
  */
 function getCurrentCompanyId(): string {
-	const user = authState.user;
-	if (!user) throw new Error('User not authenticated');
-	return user.id; // Using user ID as company_id for simplicity
+	return getCompanyIdFromStore();
 }
 
 /**

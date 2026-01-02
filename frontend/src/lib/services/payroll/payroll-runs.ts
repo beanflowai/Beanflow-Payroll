@@ -24,7 +24,7 @@ import {
 	type DeductionsConfig,
 	type GroupBenefits
 } from '$lib/types/pay-group';
-import { getCurrentUserId } from './helpers';
+import { getCurrentUserId, getCurrentCompanyId } from './helpers';
 import type { PayrollServiceResult, PayrollRunListOptions, PayrollRunListResult } from './types';
 import type { Holiday } from '$lib/types/payroll';
 
@@ -85,14 +85,16 @@ export async function getPayrollRunByPayDate(
 ): Promise<PayrollServiceResult<PayrollRunWithGroups>> {
 	try {
 		const userId = getCurrentUserId();
+		const companyId = getCurrentCompanyId();
 
-		// Query payroll run for this date (RLS handles access control)
+		// Query payroll run for this date (filter by user_id and company_id)
 		// Use order + limit(1) instead of maybeSingle() to safely handle
 		// edge cases where multiple runs exist for the same pay_date
 		const { data: runsData, error: runError } = await supabase
 			.from('payroll_runs')
 			.select('*')
 			.eq('user_id', userId)
+			.eq('company_id', companyId)
 			.eq('pay_date', payDate)
 			.order('created_at', { ascending: false })
 			.limit(1);
@@ -253,12 +255,14 @@ export async function getPayrollRunByPeriodEnd(
 ): Promise<PayrollServiceResult<PayrollRunWithGroups>> {
 	try {
 		const userId = getCurrentUserId();
+		const companyId = getCurrentCompanyId();
 
-		// Query payroll run for this period end (RLS handles access control)
+		// Query payroll run for this period end (filter by user_id and company_id)
 		const { data: runsData, error: runError } = await supabase
 			.from('payroll_runs')
 			.select('*')
 			.eq('user_id', userId)
+			.eq('company_id', companyId)
 			.eq('period_end', periodEnd)
 			.order('created_at', { ascending: false })
 			.limit(1);
@@ -413,12 +417,14 @@ export async function getPayrollRunById(
 ): Promise<PayrollServiceResult<PayrollRunWithGroups>> {
 	try {
 		const userId = getCurrentUserId();
+		const companyId = getCurrentCompanyId();
 
-		// Query payroll run by ID (RLS handles access control)
+		// Query payroll run by ID (filter by user_id and company_id)
 		const { data: runData, error: runError } = await supabase
 			.from('payroll_runs')
 			.select('*')
 			.eq('user_id', userId)
+			.eq('company_id', companyId)
 			.eq('id', runId)
 			.maybeSingle();
 
@@ -478,6 +484,7 @@ export async function updatePayrollRunStatus(
 ): Promise<PayrollServiceResult<PayrollRunWithGroups>> {
 	try {
 		const userId = getCurrentUserId();
+		const companyId = getCurrentCompanyId();
 
 		const updateData: Record<string, unknown> = { status };
 
@@ -491,6 +498,7 @@ export async function updatePayrollRunStatus(
 			.from('payroll_runs')
 			.update(updateData)
 			.eq('user_id', userId)
+			.eq('company_id', companyId)
 			.eq('id', runId)
 			.select()
 			.single();
@@ -572,12 +580,14 @@ export async function listPayrollRuns(
 
 	try {
 		const userId = getCurrentUserId();
+		const companyId = getCurrentCompanyId();
 
-		// Direct Supabase query
+		// Direct Supabase query (filter by user_id and company_id)
 		let query = supabase
 			.from('payroll_runs')
 			.select('*', { count: 'exact' })
-			.eq('user_id', userId);
+			.eq('user_id', userId)
+			.eq('company_id', companyId);
 
 		if (status) {
 			query = query.eq('status', status);
@@ -733,13 +743,15 @@ export async function revertToDraft(
 ): Promise<PayrollServiceResult<PayrollRunWithGroups>> {
 	try {
 		const userId = getCurrentUserId();
+		const companyId = getCurrentCompanyId();
 
-		// Verify run is in pending_approval status
+		// Verify run is in pending_approval status (filter by user_id and company_id)
 		const { data: runData, error: runError } = await supabase
 			.from('payroll_runs')
 			.select('status')
 			.eq('id', runId)
 			.eq('user_id', userId)
+			.eq('company_id', companyId)
 			.single();
 
 		if (runError) {

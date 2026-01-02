@@ -4,9 +4,18 @@
  */
 
 import { supabase } from './supabase';
+import { companyState } from '$lib/stores/company.svelte';
 
 // API base URL from environment
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+/**
+ * Safely get the current company ID without throwing.
+ * Returns null if no company is selected.
+ */
+function getCompanyIdSafe(): string | null {
+	return companyState.currentCompany?.id ?? null;
+}
 
 /**
  * API Error class for standardized error handling
@@ -38,6 +47,7 @@ async function getAuthToken(): Promise<string | null> {
  */
 export async function apiClient<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
 	const token = await getAuthToken();
+	const companyId = getCompanyIdSafe();
 
 	const headers: HeadersInit = {
 		'Content-Type': 'application/json',
@@ -46,6 +56,10 @@ export async function apiClient<T>(endpoint: string, options: RequestInit = {}):
 
 	if (token) {
 		(headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+	}
+
+	if (companyId) {
+		(headers as Record<string, string>)['X-Company-Id'] = companyId;
 	}
 
 	const response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {

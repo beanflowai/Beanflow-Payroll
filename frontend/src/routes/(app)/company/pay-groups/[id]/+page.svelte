@@ -12,6 +12,7 @@
 	import PayGroupWcbSection from '$lib/components/company/pay-group-detail/PayGroupWcbSection.svelte';
 	import PayGroupBenefitsSection from '$lib/components/company/pay-group-detail/PayGroupBenefitsSection.svelte';
 	import PayGroupDeductionsSection from '$lib/components/company/pay-group-detail/PayGroupDeductionsSection.svelte';
+	import { companyState } from '$lib/stores/company.svelte';
 
 	// Get pay group ID from route
 	const payGroupId = $derived($page.params.id);
@@ -23,9 +24,11 @@
 	let isDeleting = $state(false);
 	let error = $state<string | null>(null);
 
-	// Load pay group on mount
+	// Load pay group when company changes or ID changes
 	$effect(() => {
-		if (payGroupId) {
+		// Depend on currentCompany to reload when company switches
+		const company = companyState.currentCompany;
+		if (company && payGroupId) {
 			loadPayGroupData(payGroupId);
 		}
 	});

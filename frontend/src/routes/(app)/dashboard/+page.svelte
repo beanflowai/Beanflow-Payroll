@@ -1,11 +1,96 @@
 <script lang="ts">
-	// Dashboard page - Phase 0 static UI prototype
+	// Dashboard page - Dynamic data based on current company
+	import { companyState } from '$lib/stores/company.svelte';
+	import { listEmployees } from '$lib/services/employeeService';
+	import { getRecentCompletedRuns, getUpcomingPeriods } from '$lib/services/payroll';
+	import { formatShortDate } from '$lib/utils/dateUtils';
+
+	// State
+	let employeeCount = $state(0);
+	let lastPayrollAmount = $state(0);
+	let nextPayDate = $state<string | null>(null);
+	let isLoading = $state(true);
+	let error = $state<string | null>(null);
+
+	// Load dashboard data
+	async function loadDashboardData() {
+		isLoading = true;
+		error = null;
+		try {
+			const [employeesResult, recentRunsResult, upcomingResult] = await Promise.all([
+				listEmployees(),
+				getRecentCompletedRuns(1),
+				getUpcomingPeriods()
+			]);
+
+			if (employeesResult.error) {
+				error = employeesResult.error;
+				return;
+			}
+
+			employeeCount = employeesResult.data?.length ?? 0;
+			lastPayrollAmount = recentRunsResult.data?.[0]?.totalNetPay ?? 0;
+			nextPayDate = upcomingResult.data?.[0]?.payDate ?? null;
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to load dashboard data';
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	// Load data when company changes
+	$effect(() => {
+		const company = companyState.currentCompany;
+		if (company) {
+			loadDashboardData();
+		} else if (!companyState.isLoading) {
+			// No company selected and not loading - stop spinner
+			isLoading = false;
+		}
+	});
+
+	// Format currency
+	function formatCurrency(amount: number): string {
+		return new Intl.NumberFormat('en-CA', {
+			style: 'currency',
+			currency: 'CAD',
+			minimumFractionDigits: 0,
+			maximumFractionDigits: 0
+		}).format(amount);
+	}
 </script>
 
 <svelte:head>
 	<title>Dashboard - BeanFlow Payroll</title>
 </svelte:head>
 
+{#if isLoading}
+	<div class="dashboard">
+		<header class="page-header">
+			<h1 class="page-title">Dashboard</h1>
+			<p class="page-subtitle">Loading...</p>
+		</header>
+		<div class="flex items-center justify-center py-16">
+			<div class="w-10 h-10 border-[3px] border-surface-200 border-t-primary-500 rounded-full animate-spin"></div>
+		</div>
+	</div>
+{:else if error}
+	<div class="dashboard">
+		<header class="page-header">
+			<h1 class="page-title">Dashboard</h1>
+			<p class="page-subtitle">Welcome to BeanFlow Payroll</p>
+		</header>
+		<div class="flex flex-col items-center justify-center py-16 text-center">
+			<div class="w-16 h-16 rounded-full bg-error-100 text-error-600 flex items-center justify-center text-2xl mb-4">
+				<i class="fas fa-exclamation-triangle"></i>
+			</div>
+			<p class="text-body-content text-surface-600 mb-4">{error}</p>
+			<button class="py-2 px-4 bg-primary-600 text-white rounded-lg" onclick={() => loadDashboardData()}>
+				Try Again
+			</button>
+		</div>
+	</div>
+{:else}
 <div class="dashboard">
 	<header class="page-header">
 		<h1 class="page-title">Dashboard</h1>
@@ -19,7 +104,7 @@
 				<i class="fas fa-users"></i>
 			</div>
 			<div class="stat-content">
-				<span class="stat-value">12</span>
+				<span class="stat-value">{employeeCount}</span>
 				<span class="stat-label">Active Employees</span>
 			</div>
 		</div>
@@ -29,7 +114,7 @@
 				<i class="fas fa-dollar-sign"></i>
 			</div>
 			<div class="stat-content">
-				<span class="stat-value">$45,230</span>
+				<span class="stat-value">{lastPayrollAmount > 0 ? formatCurrency(lastPayrollAmount) : '—'}</span>
 				<span class="stat-label">Last Payroll</span>
 			</div>
 		</div>
@@ -39,17 +124,18 @@
 				<i class="fas fa-calendar-alt"></i>
 			</div>
 			<div class="stat-content">
-				<span class="stat-value">Dec 15</span>
+				<span class="stat-value">{nextPayDate ? formatShortDate(nextPayDate) : '—'}</span>
 				<span class="stat-label">Next Pay Date</span>
 			</div>
 		</div>
 
+		<!-- TODO: Fetch actual CRA remittance due amount from remittance service -->
 		<div class="stat-card">
 			<div class="stat-icon remittance">
 				<i class="fas fa-file-invoice-dollar"></i>
 			</div>
 			<div class="stat-content">
-				<span class="stat-value">$8,420</span>
+				<span class="stat-value">—</span>
 				<span class="stat-label">CRA Remittance Due</span>
 			</div>
 		</div>
@@ -129,6 +215,7 @@
 		</div>
 	</section>
 </div>
+{/if}
 
 <style>
 	.dashboard {

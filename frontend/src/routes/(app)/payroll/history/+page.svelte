@@ -4,6 +4,7 @@
 	import { PAYROLL_STATUS_LABELS } from '$lib/types/payroll';
 	import { listPayrollRuns, type PayrollRunListOptionsExt } from '$lib/services/payroll';
 	import { formatShortDate } from '$lib/utils/dateUtils';
+	import { companyState } from '$lib/stores/company.svelte';
 
 	// Filter tabs configuration
 	type FilterTab = 'all' | 'draft' | 'pending' | 'completed' | 'cancelled';
@@ -84,9 +85,18 @@
 		loading = false;
 	}
 
-	// Initial load
+	// Load when company changes
 	$effect(() => {
-		loadRuns();
+		// Depend on currentCompany to reload when company switches
+		const company = companyState.currentCompany;
+		if (company) {
+			loadRuns();
+		} else if (!companyState.isLoading) {
+			// No company selected and not loading - stop spinner
+			loading = false;
+			runs = [];
+			totalCount = 0;
+		}
 	});
 
 	// Reload when tab or page changes
@@ -191,6 +201,13 @@
 					<i class="fas fa-spinner fa-spin text-3xl text-primary-500"></i>
 					<span class="text-body-content text-surface-600">Loading payroll history...</span>
 				</div>
+			</div>
+		{:else if !companyState.currentCompany}
+			<!-- No Company Selected State -->
+			<div class="bg-white rounded-xl shadow-md3-1 p-12 text-center">
+				<i class="fas fa-building text-5xl text-surface-300 mb-4"></i>
+				<h3 class="text-title-medium font-semibold text-surface-800 m-0 mb-2">No Company Selected</h3>
+				<p class="text-body-content text-surface-600 m-0">Please select or create a company to view payroll history.</p>
 			</div>
 		{:else if error}
 			<!-- Error State -->

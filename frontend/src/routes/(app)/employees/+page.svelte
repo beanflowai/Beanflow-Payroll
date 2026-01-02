@@ -9,6 +9,7 @@
 	import { EmployeeTable, EmployeeDetailSidebar, EmployeeFilters as EmployeeFiltersComponent } from '$lib/components/employees';
 	import { listEmployees } from '$lib/services/employeeService';
 	import { listPayGroups } from '$lib/services/payGroupService';
+	import { companyState } from '$lib/stores/company.svelte';
 
 	// ===========================================
 	// State
@@ -54,10 +55,17 @@
 		}
 	}
 
-	// Load employees and pay groups on mount
+	// Load employees and pay groups when company changes
 	$effect(() => {
-		loadEmployees();
-		loadPayGroups();
+		// Depend on currentCompany to reload when company switches
+		const company = companyState.currentCompany;
+		if (company) {
+			loadEmployees();
+			loadPayGroups();
+		} else if (!companyState.isLoading) {
+			// No company selected and not loading - stop spinner
+			isLoading = false;
+		}
 	});
 
 	// ===========================================

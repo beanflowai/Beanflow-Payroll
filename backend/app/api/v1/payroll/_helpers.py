@@ -19,24 +19,45 @@ from ._models import CalculationResponse, EmployeeCalculationRequest
 logger = logging.getLogger(__name__)
 
 
-async def get_user_company_id(user_id: str) -> str:
-    """Get the primary company ID for a user.
+async def get_user_company_id(
+    user_id: str, requested_company_id: str | None = None
+) -> str:
+    """Get the company ID for a user.
 
-    Note: Currently the system assumes one company per user.
-    This function returns the oldest (first created) company for the user.
-    If multi-company support is added in the future, this should be updated
-    to accept company_id as a parameter or use a user preference.
+    If requested_company_id is provided, validates that it belongs to the user
+    and returns it. Otherwise, returns the oldest (first created) company.
 
     Args:
         user_id: The user's ID
+        requested_company_id: Optional company ID from X-Company-Id header
 
     Returns:
         The company ID string
 
     Raises:
-        HTTPException: If no company found for user
+        HTTPException: If no company found for user or requested company is invalid
     """
     supabase = get_supabase_client()
+
+    # If a specific company ID is requested, validate it belongs to the user
+    if requested_company_id:
+        result = supabase.table("companies").select("id").eq(
+            "id", requested_company_id
+        ).eq("user_id", user_id).execute()
+
+        if result.data and len(result.data) > 0:
+            return str(result.data[0]["id"])
+
+        # Invalid company ID provided - return error instead of silent fallback
+        logger.warning(
+            f"Requested company {requested_company_id} not found for user {user_id}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Company not found or access denied.",
+        )
+
+    # Fallback: return the first (oldest) company for the user
     result = supabase.table("companies").select("id").eq(
         "user_id", user_id
     ).order("created_at", desc=False).limit(1).execute()

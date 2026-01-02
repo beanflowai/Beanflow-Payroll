@@ -4,6 +4,7 @@
  */
 
 import { authState } from '$lib/stores/auth.svelte';
+import { getCurrentCompanyId as getCompanyIdFromStore } from '$lib/stores/company.svelte';
 
 /**
  * Get the current authenticated user's ID.
@@ -32,16 +33,12 @@ export function ensureAuthenticated(): void {
 }
 
 /**
- * Get the current company ID (using user ID for simplicity)
+ * Get the current company ID from the company store
  *
- * In production, this would come from the companies table.
- *
- * @throws Error if user is not authenticated
+ * @throws Error if no company is selected
  */
 export function getCurrentCompanyId(): string {
-	const user = authState.user;
-	if (!user) throw new Error('User not authenticated');
-	return user.id;
+	return getCompanyIdFromStore();
 }
 
 /**

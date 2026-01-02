@@ -9,6 +9,7 @@
 		sidebarCollapsed?: boolean;
 		onLogout?: () => void;
 		onToggleSidebar?: () => void;
+		onAddCompany?: () => void;
 		children: Snippet;
 	}
 
@@ -18,6 +19,7 @@
 		sidebarCollapsed = false,
 		onLogout,
 		onToggleSidebar,
+		onAddCompany,
 		children
 	}: Props = $props();
 </script>
@@ -28,7 +30,7 @@
 
 	<div class="app-layout" class:sidebar-collapsed={sidebarCollapsed}>
 		<!-- Left Sidebar (hidden on mobile) -->
-		<Sidebar collapsed={sidebarCollapsed} onToggleCollapse={onToggleSidebar} />
+		<Sidebar collapsed={sidebarCollapsed} onToggleCollapse={onToggleSidebar} {onAddCompany} />
 
 		<!-- Main Content Area -->
 		<div class="main-area">

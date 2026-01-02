@@ -3,7 +3,9 @@
 	import { goto } from '$app/navigation';
 	import type { Snippet } from 'svelte';
 	import AppShell from '$lib/components/layout/AppShell.svelte';
+	import AddCompanyModal from '$lib/components/company/AddCompanyModal.svelte';
 	import { initializeAuth, logout, authState } from '$lib/stores/auth.svelte';
+	import { initializeCompanyContext, companyState } from '$lib/stores/company.svelte';
 
 	interface Props {
 		children: Snippet;
@@ -14,6 +16,7 @@
 	// Local UI state
 	let sidebarCollapsed = $state(false);
 	let isReady = $state(false);
+	let showAddCompanyModal = $state(false);
 
 	onMount(async () => {
 		// Initialize auth
@@ -23,6 +26,14 @@
 		if (!authState.isAuthenticated && !authState.isLoading) {
 			goto('/login');
 			return;
+		}
+
+		// Initialize company context after auth
+		await initializeCompanyContext();
+
+		// If no companies exist, show the add company modal
+		if (!companyState.hasCompanies) {
+			showAddCompanyModal = true;
 		}
 
 		isReady = true;
@@ -37,6 +48,14 @@
 		goto('/login');
 	}
 
+	function handleAddCompany() {
+		showAddCompanyModal = true;
+	}
+
+	function handleCloseAddCompanyModal() {
+		showAddCompanyModal = false;
+	}
+
 	// Derived values for user display
 	// Supabase User stores name in user_metadata.name or user_metadata.full_name
 	const userName = $derived(
@@ -45,7 +64,7 @@
 			authState.user?.email?.split('@')[0] ||
 			'User'
 	);
-	const companyName = $derived('My Company'); // TODO: Get from company store
+	const companyName = $derived(companyState.currentCompany?.companyName ?? 'Select Company');
 </script>
 
 {#if authState.isLoading}
@@ -71,9 +90,16 @@
 		{sidebarCollapsed}
 		onLogout={handleLogout}
 		onToggleSidebar={handleToggleSidebar}
+		onAddCompany={handleAddCompany}
 	>
 		{@render children()}
 	</AppShell>
+
+	<!-- Add Company Modal -->
+	<AddCompanyModal
+		isOpen={showAddCompanyModal}
+		onClose={handleCloseAddCompanyModal}
+	/>
 {/if}
 
 <style>

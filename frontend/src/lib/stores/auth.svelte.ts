@@ -6,6 +6,7 @@
 import { browser } from '$app/environment';
 import { supabase } from '$lib/api/supabase';
 import type { User } from '@supabase/supabase-js';
+import { clearCompanyContext } from './company.svelte';
 
 // Auth state using module-level state
 let _user = $state<User | null>(null);
@@ -105,6 +106,8 @@ export async function logout(): Promise<void> {
 		} else {
 			_user = null;
 			_isAuthenticated = false;
+			// Clear company context on logout
+			clearCompanyContext();
 		}
 	} catch (err) {
 		_error = err instanceof Error ? err.message : 'Failed to logout';

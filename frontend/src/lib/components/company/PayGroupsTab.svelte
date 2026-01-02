@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import type { PayGroup } from '$lib/types/pay-group';
 	import { listPayGroupsWithCounts, deletePayGroup, type PayGroupWithCount } from '$lib/services/payGroupService';
-	import { getOrCreateDefaultCompany } from '$lib/services/companyService';
+	import { companyState } from '$lib/stores/company.svelte';
 	import PayGroupCard from './PayGroupCard.svelte';
 	import PayGroupDeleteModal from './PayGroupDeleteModal.svelte';
 
@@ -22,31 +22,26 @@
 	const isEmpty = $derived(payGroups.length === 0);
 	const hasNoCompany = $derived(!companyId && !isLoading);
 
-	// Load data on mount
+	// Load data when company changes
 	$effect(() => {
-		loadData();
+		const company = companyState.currentCompany;
+		if (company) {
+			companyId = company.id;
+			loadPayGroups();
+		} else {
+			companyId = null;
+			payGroups = [];
+			isLoading = false;
+		}
 	});
 
-	async function loadData() {
+	async function loadPayGroups() {
+		if (!companyId) return;
+
 		isLoading = true;
 		error = null;
 
 		try {
-			// First get the company
-			const companyResult = await getOrCreateDefaultCompany();
-			if (companyResult.error) {
-				error = companyResult.error;
-				return;
-			}
-			if (!companyResult.data) {
-				// No company yet
-				companyId = null;
-				return;
-			}
-
-			companyId = companyResult.data.id;
-
-			// Then load pay groups
 			const result = await listPayGroupsWithCounts(companyId);
 			if (result.error) {
 				error = result.error;

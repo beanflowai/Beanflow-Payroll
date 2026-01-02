@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Header, HTTPException, status
 
 from app.api.deps import CurrentUser
 from app.api.v1.payroll._helpers import get_user_company_id
@@ -40,6 +40,7 @@ async def update_compensation(
     employee_id: UUID,
     request: CompensationHistoryCreate,
     current_user: CurrentUser,
+    x_company_id: str | None = Header(None, alias="X-Company-Id"),
 ) -> CompensationHistory:
     """
     Update employee compensation with history tracking.
@@ -52,7 +53,7 @@ async def update_compensation(
     The effective_date determines when the new compensation takes effect.
     """
     try:
-        company_id = await get_user_company_id(current_user.id)
+        company_id = await get_user_company_id(current_user.id, x_company_id)
         service = CompensationService(current_user.id, company_id)
 
         # Verify employee belongs to user

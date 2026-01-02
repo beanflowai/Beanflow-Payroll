@@ -9,12 +9,12 @@
 	import type { RemitterType, CompanyProfile } from '$lib/types/company';
 	import type { Province } from '$lib/types/employee';
 	import {
-		getOrCreateDefaultCompany,
 		createCompany,
 		updateCompany,
 		uploadCompanyLogo,
 		type CompanyCreateInput
 	} from '$lib/services/companyService';
+	import { companyState, refreshCompanies } from '$lib/stores/company.svelte';
 
 	interface Props {
 		onSave?: () => void;
@@ -40,40 +40,26 @@
 	// UI state
 	let showRemitterInfo = $state(false);
 	let isSaving = $state(false);
-	let isLoading = $state(true);
 	let isUploadingLogo = $state(false);
 	let error = $state<string | null>(null);
 	let logoInputRef = $state<HTMLInputElement | null>(null);
 
-	// Load company data on mount
-	$effect(() => {
-		loadCompany();
-	});
+	// Derive isLoading from companyState
+	const isLoading = $derived(companyState.isLoading);
 
-	async function loadCompany() {
-		isLoading = true;
-		error = null;
-		try {
-			const result = await getOrCreateDefaultCompany();
-			if (result.error) {
-				error = result.error;
-				return;
-			}
-			if (result.data) {
-				// Existing company - populate form
-				populateForm(result.data);
-				companyId = result.data.id;
-				isNewCompany = false;
-			} else {
-				// No company yet - show empty form for creation
-				isNewCompany = true;
-			}
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load company';
-		} finally {
-			isLoading = false;
+	// Load company data when current company changes
+	$effect(() => {
+		const company = companyState.currentCompany;
+		if (company) {
+			// Existing company - populate form
+			populateForm(company);
+			companyId = company.id;
+			isNewCompany = false;
+		} else {
+			// No company yet - show empty form for creation
+			isNewCompany = true;
 		}
-	}
+	});
 
 	function populateForm(company: CompanyProfile) {
 		companyName = company.companyName;
@@ -172,6 +158,8 @@
 					return;
 				}
 			}
+			// Refresh companies list to update CompanySwitcher
+			await refreshCompanies();
 			onSave?.();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to save company';

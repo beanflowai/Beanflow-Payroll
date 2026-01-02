@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Header, HTTPException, status
 
 from app.api.deps import CurrentUser
 from app.services.payroll.paystub_storage import (
@@ -35,6 +35,7 @@ router = APIRouter()
 async def send_paystubs(
     run_id: UUID,
     current_user: CurrentUser,
+    x_company_id: str | None = Header(None, alias="X-Company-Id"),
 ) -> SendPaystubsResponse:
     """
     Send paystub emails to all employees.
@@ -49,7 +50,7 @@ async def send_paystubs(
     - Paystubs must have been generated (have storage keys)
     """
     try:
-        company_id = await get_user_company_id(current_user.id)
+        company_id = await get_user_company_id(current_user.id, x_company_id)
         service = get_payroll_run_service(current_user.id, company_id)
         result = await service.send_paystubs(run_id)
 
@@ -78,6 +79,7 @@ async def send_paystubs(
 async def get_paystub_download_url(
     record_id: str,
     current_user: CurrentUser,
+    x_company_id: str | None = Header(None, alias="X-Company-Id"),
 ) -> PaystubUrlResponse:
     """
     Get a presigned download URL for a paystub.
@@ -89,7 +91,7 @@ async def get_paystub_download_url(
     """
     try:
         # Get the payroll record to verify access and get storage key
-        company_id = await get_user_company_id(current_user.id)
+        company_id = await get_user_company_id(current_user.id, x_company_id)
         service = get_payroll_run_service(current_user.id, company_id)
         record = await service.get_record(record_id)
 
