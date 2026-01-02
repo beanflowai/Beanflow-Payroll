@@ -180,23 +180,6 @@
 					</th>
 					<th class="col-exempt">CPP Exempt</th>
 					<th class="col-exempt">EI Exempt</th>
-				{:else if activeColumnGroup === 'deductions'}
-					<th class="col-amount">
-						<span class="header-with-tooltip">
-							RRSP/Period
-							<span class="tooltip-trigger" title="RRSP contribution deducted each pay period. Reduces taxable income.">
-								<i class="fas fa-info-circle"></i>
-							</span>
-						</span>
-					</th>
-					<th class="col-amount">
-						<span class="header-with-tooltip">
-							Union Dues
-							<span class="tooltip-trigger" title="Union dues deducted each pay period. Tax-deductible for employee. Reported on T4 Box 44.">
-								<i class="fas fa-info-circle"></i>
-							</span>
-						</span>
-					</th>
 				{/if}
 
 				<th class="col-actions"></th>
@@ -266,9 +249,6 @@
 						<td class="col-exempt">
 							<span class="exempt-value" class:yes={emp.isEiExempt}>{emp.isEiExempt ? 'Yes' : 'No'}</span>
 						</td>
-					{:else if activeColumnGroup === 'deductions'}
-						<td class="col-amount money">{formatCurrency(emp.rrspPerPeriod)}</td>
-						<td class="col-amount money">{formatCurrency(emp.unionDuesPerPeriod)}</td>
 					{/if}
 
 					<td class="col-actions">

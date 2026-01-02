@@ -200,19 +200,6 @@
 			</div>
 		</section>
 
-		<!-- Deductions -->
-		<section class="detail-section">
-			<h3 class="section-title">Optional Deductions</h3>
-			<div class="detail-row">
-				<span class="detail-label">RRSP Per Period</span>
-				<span class="detail-value">{formatCurrency(employee.rrspPerPeriod)}</span>
-			</div>
-			<div class="detail-row">
-				<span class="detail-label">Union Dues Per Period</span>
-				<span class="detail-value">{formatCurrency(employee.unionDuesPerPeriod)}</span>
-			</div>
-		</section>
-
 		<!-- Vacation -->
 		<section class="detail-section">
 			<h3 class="section-title">Vacation</h3>
