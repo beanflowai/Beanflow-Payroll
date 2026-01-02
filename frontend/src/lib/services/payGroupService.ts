@@ -12,7 +12,6 @@ import type {
 	EmploymentType,
 	PeriodStartDay,
 	TaxCalculationMethod,
-	StatutoryDefaults,
 	OvertimePolicy,
 	WcbConfig,
 	GroupBenefits,
@@ -44,7 +43,6 @@ export interface DbPayGroup {
 	period_start_day: PeriodStartDay;
 	leave_enabled: boolean;
 	tax_calculation_method: TaxCalculationMethod;
-	statutory_defaults: StatutoryDefaults;
 	overtime_policy: OvertimePolicy;
 	wcb_config: WcbConfig;
 	group_benefits: GroupBenefits;
@@ -68,7 +66,6 @@ export interface PayGroupCreateInput {
 	period_start_day?: PeriodStartDay;
 	leave_enabled?: boolean;
 	tax_calculation_method?: TaxCalculationMethod;
-	statutory_defaults?: StatutoryDefaults;
 	overtime_policy?: OvertimePolicy;
 	wcb_config?: WcbConfig;
 	group_benefits?: GroupBenefits;
@@ -89,7 +86,6 @@ export interface PayGroupUpdateInput {
 	period_start_day?: PeriodStartDay;
 	leave_enabled?: boolean;
 	tax_calculation_method?: TaxCalculationMethod;
-	statutory_defaults?: StatutoryDefaults;
 	overtime_policy?: OvertimePolicy;
 	wcb_config?: WcbConfig;
 	group_benefits?: GroupBenefits;
@@ -113,7 +109,6 @@ export function dbPayGroupToUi(db: DbPayGroup): PayGroup {
 		periodStartDay: db.period_start_day,
 		leaveEnabled: db.leave_enabled,
 		taxCalculationMethod: db.tax_calculation_method ?? DEFAULT_TAX_CALCULATION_METHOD,
-		statutoryDefaults: db.statutory_defaults,
 		overtimePolicy: db.overtime_policy,
 		wcbConfig: db.wcb_config,
 		groupBenefits: db.group_benefits,
@@ -283,11 +278,6 @@ export async function createPayGroup(
 			next_period_end: input.next_period_end,
 			period_start_day: input.period_start_day ?? 'monday',
 			leave_enabled: input.leave_enabled ?? true,
-			statutory_defaults: input.statutory_defaults ?? {
-				cppExemptByDefault: false,
-				cpp2ExemptByDefault: false,
-				eiExemptByDefault: false
-			},
 			overtime_policy: input.overtime_policy ?? {
 				bankTimeEnabled: false,
 				bankTimeRate: 1.5,
@@ -348,8 +338,6 @@ export async function updatePayGroup(
 		if (input.next_period_end !== undefined) updateData.next_period_end = input.next_period_end;
 		if (input.period_start_day !== undefined) updateData.period_start_day = input.period_start_day;
 		if (input.leave_enabled !== undefined) updateData.leave_enabled = input.leave_enabled;
-		if (input.statutory_defaults !== undefined)
-			updateData.statutory_defaults = input.statutory_defaults;
 		if (input.overtime_policy !== undefined) updateData.overtime_policy = input.overtime_policy;
 		if (input.wcb_config !== undefined) updateData.wcb_config = input.wcb_config;
 		if (input.group_benefits !== undefined) updateData.group_benefits = input.group_benefits;
@@ -484,7 +472,6 @@ export async function duplicatePayGroup(
 			next_period_end: original.nextPeriodEnd,
 			period_start_day: original.periodStartDay,
 			leave_enabled: original.leaveEnabled,
-			statutory_defaults: original.statutoryDefaults,
 			overtime_policy: original.overtimePolicy,
 			wcb_config: original.wcbConfig,
 			group_benefits: original.groupBenefits,

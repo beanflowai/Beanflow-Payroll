@@ -10,13 +10,8 @@
 	let { payGroup }: Props = $props();
 
 	// Derived values for summary cards
-	const statutorySummary = $derived(() => {
-		const exemptions: string[] = [];
-		if (payGroup.statutoryDefaults.cppExemptByDefault) exemptions.push('CPP');
-		if (payGroup.statutoryDefaults.cpp2ExemptByDefault) exemptions.push('CPP2');
-		if (payGroup.statutoryDefaults.eiExemptByDefault) exemptions.push('EI');
-		return exemptions.length > 0 ? exemptions.join(', ') + ' Exempt' : 'Standard';
-	});
+	// Statutory exemptions are now managed at employee level, not pay group
+	const statutorySummary = $derived(() => 'Standard');
 
 	const wcbSummary = $derived(
 		payGroup.wcbConfig.enabled

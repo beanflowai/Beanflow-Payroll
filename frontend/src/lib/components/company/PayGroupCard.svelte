@@ -117,24 +117,6 @@
 					{/if}
 					Bank Time
 				</span>
-				{#if policySummary.cppExempt}
-					<span class="badge exempt" title="CPP Exempt by Default">
-						<i class="fas fa-minus-circle"></i>
-						CPP Exempt
-					</span>
-				{/if}
-				{#if policySummary.cpp2Exempt}
-					<span class="badge exempt" title="CPP2 Exempt by Default (Multiple Employers)">
-						<i class="fas fa-minus-circle"></i>
-						CPP2 Exempt
-					</span>
-				{/if}
-				{#if policySummary.eiExempt}
-					<span class="badge exempt" title="EI Exempt by Default">
-						<i class="fas fa-minus-circle"></i>
-						EI Exempt
-					</span>
-				{/if}
 			</div>
 		</div>
 	</div>

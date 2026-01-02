@@ -10,7 +10,6 @@ import type {
 import type {
 	OvertimePolicy,
 	GroupBenefits,
-	StatutoryDefaults,
 	EarningsConfig,
 	TaxableBenefitsConfig,
 	DeductionsConfig
@@ -99,7 +98,6 @@ export interface PayGroupWithEmployees {
 	leaveEnabled: boolean;
 	overtimePolicy: OvertimePolicy;
 	groupBenefits: GroupBenefits;
-	statutoryDefaults: StatutoryDefaults;
 	// Structured configurations
 	earningsConfig: EarningsConfig;
 	taxableBenefitsConfig: TaxableBenefitsConfig;
@@ -133,8 +131,6 @@ export interface EmployeeCalculationRequest {
 	other_earnings?: string;
 	federal_claim_amount?: string;
 	provincial_claim_amount?: string;
-	rrsp_per_period?: string;
-	union_dues_per_period?: string;
 	garnishments?: string;
 	other_deductions?: string;
 	ytd_gross?: string;

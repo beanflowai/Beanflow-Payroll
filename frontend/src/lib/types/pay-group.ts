@@ -324,18 +324,6 @@ export type PeriodStartDay =
 // ============================================
 
 /**
- * Statutory deduction defaults for new employees in this pay group
- */
-export interface StatutoryDefaults {
-	/** CPP default exemption for new employees (e.g., for 65+ employees) */
-	cppExemptByDefault: boolean;
-	/** CPP2 exemption for employees with multiple jobs who've hit contribution ceiling */
-	cpp2ExemptByDefault: boolean;
-	/** EI exemption for related parties or >40% shareholders */
-	eiExemptByDefault: boolean;
-}
-
-/**
  * Overtime and bank time (TOIL) policy configuration
  */
 export interface OvertimePolicy {
@@ -438,9 +426,6 @@ export interface PayGroup {
 	/** CRA-approved tax calculation method */
 	taxCalculationMethod: TaxCalculationMethod;
 
-	// Statutory Deduction Defaults
-	statutoryDefaults: StatutoryDefaults;
-
 	// Overtime & Bank Time Policy
 	overtimePolicy: OvertimePolicy;
 
@@ -512,15 +497,6 @@ export const TAX_CALCULATION_METHOD_INFO: Record<
 		badge: 'Coming Soon',
 		disabled: true
 	}
-};
-
-/**
- * Default statutory defaults (no exemptions)
- */
-export const DEFAULT_STATUTORY_DEFAULTS: StatutoryDefaults = {
-	cppExemptByDefault: false,
-	cpp2ExemptByDefault: false,
-	eiExemptByDefault: false
 };
 
 /**
@@ -690,7 +666,6 @@ export function createDefaultPayGroup(companyId: string): Omit<PayGroup, 'id' | 
 		periodStartDay: 'monday',
 		leaveEnabled: true,
 		taxCalculationMethod: DEFAULT_TAX_CALCULATION_METHOD,
-		statutoryDefaults: { ...DEFAULT_STATUTORY_DEFAULTS },
 		overtimePolicy: { ...DEFAULT_OVERTIME_POLICY },
 		wcbConfig: { ...DEFAULT_WCB_CONFIG },
 		groupBenefits: { ...DEFAULT_GROUP_BENEFITS },
@@ -887,17 +862,11 @@ export function getPayGroupPolicySummary(payGroup: PayGroup): {
 	wcb: boolean;
 	benefits: boolean;
 	bankTime: boolean;
-	cppExempt: boolean;
-	cpp2Exempt: boolean;
-	eiExempt: boolean;
 } {
 	return {
 		wcb: payGroup.wcbConfig.enabled,
 		benefits: payGroup.groupBenefits.enabled,
-		bankTime: payGroup.overtimePolicy.bankTimeEnabled,
-		cppExempt: payGroup.statutoryDefaults.cppExemptByDefault,
-		cpp2Exempt: payGroup.statutoryDefaults.cpp2ExemptByDefault,
-		eiExempt: payGroup.statutoryDefaults.eiExemptByDefault
+		bankTime: payGroup.overtimePolicy.bankTimeEnabled
 	};
 }
 

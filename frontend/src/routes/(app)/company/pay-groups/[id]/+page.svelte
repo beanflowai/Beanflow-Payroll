@@ -7,7 +7,6 @@
 	import PayGroupDetailHeader from '$lib/components/company/pay-group-detail/PayGroupDetailHeader.svelte';
 	import PayGroupSummaryCards from '$lib/components/company/pay-group-detail/PayGroupSummaryCards.svelte';
 	import PayGroupBasicInfoSection from '$lib/components/company/pay-group-detail/PayGroupBasicInfoSection.svelte';
-	import PayGroupStatutorySection from '$lib/components/company/pay-group-detail/PayGroupStatutorySection.svelte';
 	import PayGroupOvertimeSection from '$lib/components/company/pay-group-detail/PayGroupOvertimeSection.svelte';
 	import PayGroupWcbSection from '$lib/components/company/pay-group-detail/PayGroupWcbSection.svelte';
 	import PayGroupBenefitsSection from '$lib/components/company/pay-group-detail/PayGroupBenefitsSection.svelte';
@@ -94,7 +93,6 @@
 			next_period_end: updatedPayGroup.nextPeriodEnd,
 			period_start_day: updatedPayGroup.periodStartDay,
 			leave_enabled: updatedPayGroup.leaveEnabled,
-			statutory_defaults: updatedPayGroup.statutoryDefaults,
 			overtime_policy: updatedPayGroup.overtimePolicy,
 			wcb_config: updatedPayGroup.wcbConfig,
 			group_benefits: updatedPayGroup.groupBenefits,
@@ -173,11 +171,6 @@
 		<!-- Sections -->
 		<div class="sections">
 			<PayGroupBasicInfoSection
-				{payGroup}
-				onUpdate={handleUpdate}
-			/>
-
-			<PayGroupStatutorySection
 				{payGroup}
 				onUpdate={handleUpdate}
 			/>

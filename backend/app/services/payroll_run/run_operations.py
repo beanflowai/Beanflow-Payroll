@@ -518,7 +518,7 @@ class PayrollRunOperations:
                 pay_groups (
                     id, name, description, pay_frequency, employment_type,
                     next_period_end, period_start_day, leave_enabled,
-                    statutory_defaults, overtime_policy, wcb_config, group_benefits
+                    overtime_policy, wcb_config, group_benefits
                 )
             )
             """

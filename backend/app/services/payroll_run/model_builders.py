@@ -25,7 +25,6 @@ from app.models.payroll import (
     PeriodStartDay,
     Province,
     RemitterType,
-    StatutoryDefaults,
     VacationConfig,
     VacationPayoutMethod,
     WcbConfig,
@@ -89,8 +88,6 @@ class ModelBuilder:
             is_cpp_exempt=data.get("is_cpp_exempt", False),
             is_ei_exempt=data.get("is_ei_exempt", False),
             cpp2_exempt=data.get("cpp2_exempt", False),
-            rrsp_per_period=Decimal(str(data.get("rrsp_per_period", 0))),
-            union_dues_per_period=Decimal(str(data.get("union_dues_per_period", 0))),
             hire_date=date.fromisoformat(data["hire_date"]),
             termination_date=date.fromisoformat(data["termination_date"]) if data.get("termination_date") else None,
             vacation_config=VacationConfig(
@@ -192,13 +189,6 @@ class ModelBuilder:
         )
 
         # Parse other JSONB fields
-        sd_data = data.get("statutory_defaults") or {}
-        statutory_defaults = StatutoryDefaults(
-            cpp_exempt_by_default=sd_data.get("cpp_exempt_by_default", False),
-            cpp2_exempt_by_default=sd_data.get("cpp2_exempt_by_default", False),
-            ei_exempt_by_default=sd_data.get("ei_exempt_by_default", False),
-        )
-
         op_data = data.get("overtime_policy") or {}
         overtime_policy = OvertimePolicy(
             bank_time_enabled=op_data.get("bank_time_enabled", False),
@@ -226,7 +216,6 @@ class ModelBuilder:
             next_pay_date=date.fromisoformat(data["next_pay_date"]) if data.get("next_pay_date") else date.today(),
             period_start_day=PeriodStartDay(data.get("period_start_day", "monday")),
             leave_enabled=data.get("leave_enabled", True),
-            statutory_defaults=statutory_defaults,
             overtime_policy=overtime_policy,
             wcb_config=wcb_config,
             group_benefits=group_benefits,

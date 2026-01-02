@@ -14,7 +14,6 @@ import {
 	DEFAULT_DEDUCTIONS_CONFIG,
 	DEFAULT_OVERTIME_POLICY,
 	DEFAULT_GROUP_BENEFITS,
-	DEFAULT_STATUTORY_DEFAULTS,
 	calculatePayDate
 } from '$lib/types/pay-group';
 import { getCurrentUserId, getCurrentCompanyId } from './helpers';
@@ -201,7 +200,6 @@ export async function getPayGroupsWithEmployeesForPeriodEnd(
 				leaveEnabled: pg.leave_enabled ?? true,
 				overtimePolicy: pg.overtime_policy ?? DEFAULT_OVERTIME_POLICY,
 				groupBenefits: pg.group_benefits ?? DEFAULT_GROUP_BENEFITS,
-				statutoryDefaults: pg.statutory_defaults ?? DEFAULT_STATUTORY_DEFAULTS,
 				// Structured configurations
 				earningsConfig: pg.earnings_config ?? DEFAULT_EARNINGS_CONFIG,
 				taxableBenefitsConfig: pg.taxable_benefits_config ?? DEFAULT_TAXABLE_BENEFITS_CONFIG,
