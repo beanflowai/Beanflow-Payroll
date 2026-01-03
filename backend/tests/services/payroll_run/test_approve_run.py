@@ -581,17 +581,17 @@ class TestApproveRunPaystubErrors:
 
         mock_ytd_calculator.get_ytd_records_for_employee = AsyncMock(return_value=[])
 
-        # Mock PaystubDataBuilder to raise exception
+        # Mock PaystubDataBuilder to raise exception (now in paystub_orchestrator)
         mock_builder = MagicMock()
         mock_builder.build.side_effect = Exception("PDF generation failed")
 
         with (
             patch(
-                "app.services.payroll_run.run_operations.PaystubDataBuilder",
+                "app.services.payroll_run.paystub_orchestrator.PaystubDataBuilder",
                 return_value=mock_builder,
             ),
             patch(
-                "app.services.payroll_run.run_operations.PaystubGenerator",
+                "app.services.payroll_run.paystub_orchestrator.PaystubGenerator",
                 return_value=MagicMock(),
             ),
             patch(
@@ -652,11 +652,11 @@ class TestApproveRunPaystubErrors:
 
         with (
             patch(
-                "app.services.payroll_run.run_operations.PaystubDataBuilder",
+                "app.services.payroll_run.paystub_orchestrator.PaystubDataBuilder",
                 return_value=mock_builder,
             ),
             patch(
-                "app.services.payroll_run.run_operations.PaystubGenerator",
+                "app.services.payroll_run.paystub_orchestrator.PaystubGenerator",
                 return_value=MagicMock(),
             ),
             patch(

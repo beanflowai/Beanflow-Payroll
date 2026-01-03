@@ -524,23 +524,23 @@ def patch_paystub_services():
     ):
         patches = {}
 
-        # PaystubDataBuilder
+        # PaystubDataBuilder - now in paystub_orchestrator
         mock_builder = MagicMock()
         mock_builder.build.return_value = MagicMock()
         patches["builder"] = patch(
-            "app.services.payroll_run.run_operations.PaystubDataBuilder",
+            "app.services.payroll_run.paystub_orchestrator.PaystubDataBuilder",
             return_value=mock_builder,
         )
 
-        # PaystubGenerator
+        # PaystubGenerator - now in paystub_orchestrator
         mock_generator = MagicMock()
         mock_generator.generate_paystub_bytes.return_value = pdf_bytes
         patches["generator"] = patch(
-            "app.services.payroll_run.run_operations.PaystubGenerator",
+            "app.services.payroll_run.paystub_orchestrator.PaystubGenerator",
             return_value=mock_generator,
         )
 
-        # PaystubStorage
+        # PaystubStorage - still imported in run_operations for config check
         if raise_storage_error:
             from app.services.payroll.paystub_storage import PaystubStorageConfigError
             patches["storage"] = patch(
@@ -579,8 +579,9 @@ def patch_httpx_client():
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client.get = AsyncMock(return_value=mock_response)
 
+        # httpx is now in paystub_orchestrator
         return patch(
-            "app.services.payroll_run.run_operations.httpx.AsyncClient",
+            "app.services.payroll_run.paystub_orchestrator.httpx.AsyncClient",
             return_value=mock_client,
         )
 

@@ -1,9 +1,9 @@
 """
-Tests for PayrollRunOperations vacation balance methods.
+Tests for VacationManager methods (extracted from PayrollRunOperations).
 
 Covers:
-- _validate_vacation_balances
-- _update_vacation_balances
+- validate_balances
+- update_balances
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from .conftest import make_employee, make_payroll_record
 
 
 class TestValidateVacationBalances:
-    """Tests for _validate_vacation_balances."""
+    """Tests for VacationManager.validate_balances."""
 
     def test_no_accrual_employees(self, run_operations: PayrollRunOperations):
         """Should return empty list when no accrual employees."""
@@ -31,7 +31,7 @@ class TestValidateVacationBalances:
             )
         ]
 
-        errors = run_operations._validate_vacation_balances(records)
+        errors = run_operations.vacation_manager.validate_balances(records)
         assert errors == []
 
     def test_sufficient_balance(self, run_operations: PayrollRunOperations):
@@ -48,7 +48,7 @@ class TestValidateVacationBalances:
             )
         ]
 
-        errors = run_operations._validate_vacation_balances(records)
+        errors = run_operations.vacation_manager.validate_balances(records)
         assert errors == []
 
     def test_insufficient_balance(self, run_operations: PayrollRunOperations):
@@ -65,7 +65,7 @@ class TestValidateVacationBalances:
             )
         ]
 
-        errors = run_operations._validate_vacation_balances(records)
+        errors = run_operations.vacation_manager.validate_balances(records)
         assert len(errors) == 1
         assert "John Doe" in errors[0]
         assert "balance $50.00" in errors[0]
@@ -83,7 +83,7 @@ class TestValidateVacationBalances:
             )
         ]
 
-        errors = run_operations._validate_vacation_balances(records)
+        errors = run_operations.vacation_manager.validate_balances(records)
         assert errors == []
 
     def test_multiple_employees_with_errors(self, run_operations: PayrollRunOperations):
@@ -109,7 +109,7 @@ class TestValidateVacationBalances:
             ),
         ]
 
-        errors = run_operations._validate_vacation_balances(records)
+        errors = run_operations.vacation_manager.validate_balances(records)
         assert len(errors) == 2
 
     def test_more_than_five_errors_truncated(self, run_operations: PayrollRunOperations):
@@ -128,13 +128,13 @@ class TestValidateVacationBalances:
             for i in range(7)
         ]
 
-        errors = run_operations._validate_vacation_balances(records)
+        errors = run_operations.vacation_manager.validate_balances(records)
         # All 7 errors should be returned (truncation is done in approve_run)
         assert len(errors) == 7
 
 
 class TestUpdateVacationBalances:
-    """Tests for _update_vacation_balances."""
+    """Tests for VacationManager.update_balances."""
 
     @pytest.mark.asyncio
     async def test_skip_non_accrual_employees(
@@ -154,7 +154,7 @@ class TestUpdateVacationBalances:
         mock_table = MagicMock()
         mock_supabase.table = MagicMock(return_value=mock_table)
 
-        await run_operations._update_vacation_balances(records)
+        await run_operations.vacation_manager.update_balances(records)
 
         # No update should be called
         mock_table.update.assert_not_called()
@@ -179,7 +179,7 @@ class TestUpdateVacationBalances:
         mock_table = MagicMock()
         mock_supabase.table = MagicMock(return_value=mock_table)
 
-        await run_operations._update_vacation_balances(records)
+        await run_operations.vacation_manager.update_balances(records)
 
         mock_table.update.assert_not_called()
 
@@ -210,7 +210,7 @@ class TestUpdateVacationBalances:
         mock_table.execute.return_value = MagicMock(data=[])
         mock_supabase.table = MagicMock(return_value=mock_table)
 
-        await run_operations._update_vacation_balances(records)
+        await run_operations.vacation_manager.update_balances(records)
 
         # New balance: 500 + 80 - 100 = 480
         mock_table.update.assert_called()
@@ -244,7 +244,7 @@ class TestUpdateVacationBalances:
         mock_table.execute.return_value = MagicMock(data=[])
         mock_supabase.table = MagicMock(return_value=mock_table)
 
-        await run_operations._update_vacation_balances(records)
+        await run_operations.vacation_manager.update_balances(records)
 
         # Should be max(50 + 10 - 100, 0) = 0
         update_call_args = mock_table.update.call_args[0][0]

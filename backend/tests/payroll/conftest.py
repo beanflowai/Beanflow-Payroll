@@ -2,18 +2,25 @@
 Shared fixtures for payroll calculator tests.
 
 Provides common test data and calculator instances for CPP, EI,
-Federal Tax, and Provincial Tax calculations.
+Federal Tax, Provincial Tax, and Holiday Pay calculations.
 """
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
+from unittest.mock import MagicMock
 
 import pytest
 
+from app.models.holiday_pay_config import (
+    HolidayPayConfig,
+    HolidayPayEligibility,
+    HolidayPayFormulaParams,
+)
 from app.services.payroll.cpp_calculator import CPPCalculator
 from app.services.payroll.ei_calculator import EICalculator
 from app.services.payroll.federal_tax_calculator import FederalTaxCalculator
 from app.services.payroll.provincial_tax_calculator import ProvincialTaxCalculator
+from app.services.payroll_run.holiday_pay_calculator import HolidayPayCalculator
 
 # =============================================================================
 # CPP Calculator Fixtures
@@ -214,3 +221,182 @@ ALL_PROVINCE_CODES = ["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE"
 def all_provinces():
     """All province codes for parametrized tests."""
     return ALL_PROVINCE_CODES
+
+
+# =============================================================================
+# Holiday Pay Calculator Fixtures
+# =============================================================================
+
+
+def make_bc_config() -> HolidayPayConfig:
+    """Create BC test config."""
+    return HolidayPayConfig(
+        province_code="BC",
+        formula_type="30_day_average",
+        formula_params=HolidayPayFormulaParams(
+            lookback_days=30,
+            method="total_wages_div_days",
+            default_daily_hours=Decimal("8"),
+        ),
+        eligibility=HolidayPayEligibility(
+            min_employment_days=30,
+            require_last_first_rule=False,
+        ),
+        premium_rate=Decimal("1.5"),
+    )
+
+
+def make_on_config() -> HolidayPayConfig:
+    """Create Ontario test config - no 30-day requirement."""
+    return HolidayPayConfig(
+        province_code="ON",
+        formula_type="4_week_average",
+        formula_params=HolidayPayFormulaParams(
+            lookback_weeks=4,
+            divisor=20,
+            include_vacation_pay=True,
+            new_employee_fallback="pro_rated",
+        ),
+        eligibility=HolidayPayEligibility(
+            min_employment_days=0,  # Ontario has no min days
+            require_last_first_rule=True,
+        ),
+        premium_rate=Decimal("1.5"),
+    )
+
+
+def make_ab_config() -> HolidayPayConfig:
+    """Create Alberta test config."""
+    return HolidayPayConfig(
+        province_code="AB",
+        formula_type="4_week_average_daily",
+        formula_params=HolidayPayFormulaParams(
+            lookback_weeks=4,
+            method="wages_div_days_worked",
+            new_employee_fallback="ineligible",
+        ),
+        eligibility=HolidayPayEligibility(
+            min_employment_days=30,
+            require_last_first_rule=True,
+        ),
+        premium_rate=Decimal("1.5"),
+    )
+
+
+def make_sk_config() -> HolidayPayConfig:
+    """Create Saskatchewan test config with pro_rated fallback."""
+    return HolidayPayConfig(
+        province_code="SK",
+        formula_type="5_percent_28_days",
+        formula_params=HolidayPayFormulaParams(
+            lookback_days=28,
+            percentage=Decimal("0.05"),
+            include_vacation_pay=True,
+            include_previous_holiday_pay=True,
+            new_employee_fallback="pro_rated",
+        ),
+        eligibility=HolidayPayEligibility(
+            min_employment_days=0,
+            require_last_first_rule=False,
+        ),
+        premium_rate=Decimal("1.5"),
+    )
+
+
+def make_qc_config() -> HolidayPayConfig:
+    """Create Quebec test config with pro_rated fallback."""
+    return HolidayPayConfig(
+        province_code="QC",
+        formula_type="30_day_average",
+        formula_params=HolidayPayFormulaParams(
+            lookback_days=30,
+            method="total_wages_div_days",
+            default_daily_hours=Decimal("8"),
+            new_employee_fallback="pro_rated",
+        ),
+        eligibility=HolidayPayEligibility(
+            min_employment_days=0,
+            require_last_first_rule=False,
+        ),
+        premium_rate=Decimal("1.5"),
+    )
+
+
+class MockConfigLoader:
+    """Mock config loader for testing."""
+
+    def __init__(self, configs: dict[str, HolidayPayConfig] | None = None):
+        self.configs = configs or {
+            "BC": make_bc_config(),
+            "ON": make_on_config(),
+            "AB": make_ab_config(),
+        }
+
+    def get_config(self, province_code: str) -> HolidayPayConfig:
+        return self.configs.get(province_code, make_bc_config())
+
+
+@pytest.fixture
+def mock_supabase():
+    """Create a mock Supabase client."""
+    return MagicMock()
+
+
+@pytest.fixture
+def mock_config_loader():
+    """Create a mock config loader."""
+    return MockConfigLoader()
+
+
+@pytest.fixture
+def holiday_calculator(mock_supabase, mock_config_loader):
+    """Create a HolidayPayCalculator instance with mock config."""
+    return HolidayPayCalculator(
+        supabase=mock_supabase,
+        user_id="test-user-id",
+        company_id="test-company-id",
+        config_loader=mock_config_loader,
+    )
+
+
+@pytest.fixture
+def hourly_employee():
+    """Create a test hourly employee."""
+    return {
+        "id": "emp-001",
+        "first_name": "John",
+        "last_name": "Doe",
+        "hourly_rate": 25.00,
+        "annual_salary": None,
+        "hire_date": "2024-01-01",  # Eligible (>30 days)
+        "province_of_employment": "BC",
+    }
+
+
+@pytest.fixture
+def salaried_employee():
+    """Create a test salaried employee."""
+    return {
+        "id": "emp-002",
+        "first_name": "Jane",
+        "last_name": "Smith",
+        "hourly_rate": None,
+        "annual_salary": 60000.00,  # ~$28.85/hr based on 2080 hours
+        "hire_date": "2024-01-01",
+        "province_of_employment": "BC",
+    }
+
+
+@pytest.fixture
+def new_hire_employee():
+    """Create an employee hired less than 30 days ago."""
+    recent_date = (date.today() - timedelta(days=20)).isoformat()
+    return {
+        "id": "emp-003",
+        "first_name": "New",
+        "last_name": "Hire",
+        "hourly_rate": 20.00,
+        "annual_salary": None,
+        "hire_date": recent_date,
+        "province_of_employment": "BC",
+    }

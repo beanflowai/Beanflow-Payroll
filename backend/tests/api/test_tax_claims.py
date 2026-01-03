@@ -164,10 +164,11 @@ class TestGetTaxClaims:
         )
 
         with patch("app.api.v1.employees.get_supabase_client", return_value=mock_supabase):
-            response = client.get(
-                f"/api/v1/employees/{employee_id}/tax-claims",
-                headers={"X-Company-Id": TEST_COMPANY_UUID},
-            )
+            with patch("app.api.v1.employees.get_user_company_id", new=mock_get_company_id()):
+                response = client.get(
+                    f"/api/v1/employees/{employee_id}/tax-claims",
+                    headers={"X-Company-Id": TEST_COMPANY_UUID},
+                )
 
         assert response.status_code == 200
         data = response.json()
@@ -220,16 +221,17 @@ class TestGetTaxClaimByYear:
         )
 
         with patch("app.api.v1.employees.get_supabase_client", return_value=mock_supabase):
-            response = client.get(
-                f"/api/v1/employees/{employee_id}/tax-claims/2025",
-                headers={"X-Company-Id": TEST_COMPANY_UUID},
-            )
+            with patch("app.api.v1.employees.get_user_company_id", new=mock_get_company_id()):
+                response = client.get(
+                    f"/api/v1/employees/{employee_id}/tax-claims/2025",
+                    headers={"X-Company-Id": TEST_COMPANY_UUID},
+                )
 
         assert response.status_code == 200
         data = response.json()
         assert data["tax_year"] == 2025
-        assert data["federal_bpa"] == 16129.0
-        assert data["provincial_bpa"] == 12747.0
+        assert float(data["federal_bpa"]) == 16129.0
+        assert float(data["provincial_bpa"]) == 12747.0
 
     def test_get_tax_claim_by_year_not_found(self, client: TestClient):
         """Return 404 when tax claim for year doesn't exist."""
@@ -273,20 +275,21 @@ class TestCreateTaxClaim:
 
         # Mock tax config functions
         with patch("app.api.v1.employees.get_supabase_client", return_value=mock_supabase):
-            with patch("app.services.payroll.get_federal_config") as mock_federal:
-                with patch("app.services.payroll.get_province_config") as mock_province:
-                    mock_federal.return_value = {"bpaf": 16129.0}
-                    mock_province.return_value = {"bpa": 12747.0}
+            with patch("app.api.v1.employees.get_user_company_id", new=mock_get_company_id()):
+                with patch("app.services.payroll.get_federal_config") as mock_federal:
+                    with patch("app.services.payroll.get_province_config") as mock_province:
+                        mock_federal.return_value = {"bpaf": 16129.0}
+                        mock_province.return_value = {"bpa": 12747.0}
 
-                    response = client.post(
-                        f"/api/v1/employees/{employee_id}/tax-claims",
-                        json={
-                            "tax_year": 2025,
-                            "federal_additional_claims": 500,
-                            "provincial_additional_claims": 300,
-                        },
-                        headers={"X-Company-Id": TEST_COMPANY_UUID},
-                    )
+                        response = client.post(
+                            f"/api/v1/employees/{employee_id}/tax-claims",
+                            json={
+                                "tax_year": 2025,
+                                "federal_additional_claims": 500,
+                                "provincial_additional_claims": 300,
+                            },
+                            headers={"X-Company-Id": TEST_COMPANY_UUID},
+                        )
 
         assert response.status_code == 201
         data = response.json()
@@ -324,7 +327,7 @@ class TestCreateTaxClaim:
                 "federal_additional_claims": 0,
                 "provincial_additional_claims": 0,
             },
-            headers={"X-Company-Id": TEST_COMPANY_ID},
+            headers={"X-Company-Id": TEST_COMPANY_UUID},
         )
 
         assert response.status_code == 422  # Validation error
@@ -340,7 +343,7 @@ class TestCreateTaxClaim:
                 "federal_additional_claims": -100,  # Invalid
                 "provincial_additional_claims": 0,
             },
-            headers={"X-Company-Id": TEST_COMPANY_ID},
+            headers={"X-Company-Id": TEST_COMPANY_UUID},
         )
 
         assert response.status_code == 422
@@ -369,18 +372,19 @@ class TestUpdateTaxClaim:
         )
 
         with patch("app.api.v1.employees.get_supabase_client", return_value=mock_supabase):
-            response = client.put(
-                f"/api/v1/employees/{employee_id}/tax-claims/2025",
-                json={
-                    "federal_additional_claims": 1000,
-                    "provincial_additional_claims": 500,
-                },
-                headers={"X-Company-Id": TEST_COMPANY_UUID},
-            )
+            with patch("app.api.v1.employees.get_user_company_id", new=mock_get_company_id()):
+                response = client.put(
+                    f"/api/v1/employees/{employee_id}/tax-claims/2025",
+                    json={
+                        "federal_additional_claims": 1000,
+                        "provincial_additional_claims": 500,
+                    },
+                    headers={"X-Company-Id": TEST_COMPANY_UUID},
+                )
 
         assert response.status_code == 200
         data = response.json()
-        assert data["federal_additional_claims"] == 1000.0
+        assert float(data["federal_additional_claims"]) == 1000.0
 
     def test_update_tax_claim_with_bpa_recalculation(
         self,
@@ -403,20 +407,21 @@ class TestUpdateTaxClaim:
         )
 
         with patch("app.api.v1.employees.get_supabase_client", return_value=mock_supabase):
-            with patch("app.services.payroll.get_federal_config") as mock_federal:
-                with patch("app.services.payroll.get_province_config") as mock_province:
-                    mock_federal.return_value = {"bpaf": 16500.0}
-                    mock_province.return_value = {"bpa": 13000.0}
+            with patch("app.api.v1.employees.get_user_company_id", new=mock_get_company_id()):
+                with patch("app.services.payroll.get_federal_config") as mock_federal:
+                    with patch("app.services.payroll.get_province_config") as mock_province:
+                        mock_federal.return_value = {"bpaf": 16500.0}
+                        mock_province.return_value = {"bpa": 13000.0}
 
-                    response = client.put(
-                        f"/api/v1/employees/{employee_id}/tax-claims/2025",
-                        json={
-                            "federal_additional_claims": 500,
-                            "provincial_additional_claims": 300,
-                            "recalculate_bpa": True,
-                        },
-                        headers={"X-Company-Id": TEST_COMPANY_UUID},
-                    )
+                        response = client.put(
+                            f"/api/v1/employees/{employee_id}/tax-claims/2025",
+                            json={
+                                "federal_additional_claims": 500,
+                                "provincial_additional_claims": 300,
+                                "recalculate_bpa": True,
+                            },
+                            headers={"X-Company-Id": TEST_COMPANY_UUID},
+                        )
 
         assert response.status_code == 200
 
@@ -443,11 +448,15 @@ class TestUpdateTaxClaim:
         """Return 400 when no fields to update."""
         employee_id = str(uuid4())
 
-        response = client.put(
-            f"/api/v1/employees/{employee_id}/tax-claims/2025",
-            json={},  # No fields
-            headers={"X-Company-Id": TEST_COMPANY_ID},
-        )
+        mock_supabase = create_mock_supabase_for_tax_claims()
+
+        with patch("app.api.v1.employees.get_supabase_client", return_value=mock_supabase):
+            with patch("app.api.v1.employees.get_user_company_id", new=mock_get_company_id()):
+                response = client.put(
+                    f"/api/v1/employees/{employee_id}/tax-claims/2025",
+                    json={},  # No fields
+                    headers={"X-Company-Id": TEST_COMPANY_UUID},
+                )
 
         assert response.status_code == 400
 
@@ -460,7 +469,7 @@ class TestUpdateTaxClaim:
             json={
                 "federal_additional_claims": -100,  # Invalid
             },
-            headers={"X-Company-Id": TEST_COMPANY_ID},
+            headers={"X-Company-Id": TEST_COMPANY_UUID},
         )
 
         assert response.status_code == 422
