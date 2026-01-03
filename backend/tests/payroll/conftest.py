@@ -7,6 +7,7 @@ Federal Tax, Provincial Tax, and Holiday Pay calculations.
 
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import NamedTuple
 from unittest.mock import MagicMock
 
 import pytest
@@ -16,11 +17,116 @@ from app.models.holiday_pay_config import (
     HolidayPayEligibility,
     HolidayPayFormulaParams,
 )
+from app.models.payroll import PayFrequency, Province
 from app.services.payroll.cpp_calculator import CPPCalculator
 from app.services.payroll.ei_calculator import EICalculator
 from app.services.payroll.federal_tax_calculator import FederalTaxCalculator
+from app.services.payroll.payroll_engine import EmployeePayrollInput, PayrollEngine
 from app.services.payroll.provincial_tax_calculator import ProvincialTaxCalculator
 from app.services.payroll_run.holiday_pay_calculator import HolidayPayCalculator
+
+
+# =============================================================================
+# Test Matrix Constants
+# =============================================================================
+
+# 2025 CPP Parameters
+CPP_YMPE = Decimal("71300.00")
+CPP_YAMPE = Decimal("81200.00")
+CPP_BASIC_EXEMPTION = Decimal("3500.00")
+CPP_BASE_RATE = Decimal("0.0595")
+CPP_ADDITIONAL_RATE = Decimal("0.04")
+CPP_MAX_BASE = Decimal("4034.10")
+CPP_MAX_ADDITIONAL = Decimal("396.00")
+
+# 2025 EI Parameters
+EI_MIE = Decimal("65700.00")
+EI_RATE = Decimal("0.0164")
+EI_MAX = Decimal("1077.48")
+
+# 2025 Federal BPA
+FEDERAL_BPA = Decimal("16129.00")
+
+# Provincial BPA 2025 (using Province enum)
+PROVINCIAL_BPA = {
+    Province.AB: Decimal("22323.00"),
+    Province.BC: Decimal("12932.00"),
+    Province.MB: Decimal("15780.00"),
+    Province.NB: Decimal("13396.00"),
+    Province.NL: Decimal("11067.00"),
+    Province.NS: Decimal("11744.00"),
+    Province.NT: Decimal("17842.00"),
+    Province.NU: Decimal("19274.00"),
+    Province.ON: Decimal("12747.00"),
+    Province.PE: Decimal("14250.00"),
+    Province.SK: Decimal("18991.00"),
+    Province.YT: Decimal("16129.00"),
+}
+
+# Income levels for testing
+INCOME_LEVELS = {
+    "very_low": Decimal("18000"),      # Below tax threshold (~$692/biweekly)
+    "low": Decimal("35000"),           # First tax bracket (~$1,346/biweekly)
+    "medium": Decimal("60000"),        # Second tax bracket (~$2,308/biweekly)
+    "high": Decimal("85000"),          # Third bracket, CPP2 range (~$3,269/biweekly)
+    "very_high": Decimal("150000"),    # Top brackets, all maxes (~$5,769/biweekly)
+}
+
+
+class ExpectedRange(NamedTuple):
+    """Expected value range for test validation."""
+    min_value: Decimal
+    max_value: Decimal
+
+
+# =============================================================================
+# Test Matrix Helper Functions
+# =============================================================================
+
+
+def create_standard_input(
+    province: Province,
+    pay_frequency: PayFrequency,
+    annual_income: Decimal,
+    pay_date: date = date(2025, 7, 18),
+    ytd_gross: Decimal = Decimal("0"),
+    ytd_cpp_base: Decimal = Decimal("0"),
+    ytd_cpp_additional: Decimal = Decimal("0"),
+    ytd_ei: Decimal = Decimal("0"),
+    is_cpp_exempt: bool = False,
+    is_ei_exempt: bool = False,
+    cpp2_exempt: bool = False,
+    rrsp: Decimal = Decimal("0"),
+) -> EmployeePayrollInput:
+    """Create a standard employee payroll input for testing."""
+    periods = pay_frequency.periods_per_year
+    gross_per_period = (annual_income / periods).quantize(Decimal("0.01"))
+
+    return EmployeePayrollInput(
+        employee_id=f"matrix_{province.value}_{pay_frequency.value}_{annual_income}",
+        province=province,
+        pay_frequency=pay_frequency,
+        pay_date=pay_date,
+        gross_regular=gross_per_period,
+        federal_claim_amount=FEDERAL_BPA,
+        provincial_claim_amount=PROVINCIAL_BPA[province],
+        rrsp_per_period=rrsp,
+        ytd_gross=ytd_gross,
+        ytd_pensionable_earnings=ytd_gross,
+        ytd_insurable_earnings=ytd_gross,
+        ytd_cpp_base=ytd_cpp_base,
+        ytd_cpp_additional=ytd_cpp_additional,
+        ytd_ei=ytd_ei,
+        is_cpp_exempt=is_cpp_exempt,
+        is_ei_exempt=is_ei_exempt,
+        cpp2_exempt=cpp2_exempt,
+    )
+
+
+@pytest.fixture
+def payroll_engine():
+    """PayrollEngine instance for 2025."""
+    return PayrollEngine(year=2025)
 
 # =============================================================================
 # CPP Calculator Fixtures
