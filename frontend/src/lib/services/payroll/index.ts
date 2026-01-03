@@ -33,33 +33,53 @@ export {
 	getRecentCompletedRuns
 } from './dashboard';
 
-// Re-export payroll run functions
+// Re-export payroll run query functions
 export {
 	getPayrollRunByPayDate,
 	getPayrollRunByPeriodEnd,
 	getPayrollRunById,
-	createPayrollRunForDate,
+	listPayrollRuns,
+	type PayrollRunListOptionsExt
+} from './run-queries';
+
+// Re-export payroll run status functions
+export {
 	updatePayrollRunStatus,
 	approvePayrollRun,
 	cancelPayrollRun,
-	listPayrollRuns,
+	finalizePayrollRun,
+	revertToDraft
+} from './run-status';
+
+// Re-export payroll run record functions
+export {
 	updatePayrollRecord,
 	recalculatePayrollRun,
-	finalizePayrollRun,
-	revertToDraft,
-	checkHasModifiedRecords,
+	checkHasModifiedRecords
+} from './run-records';
+
+// Re-export payroll run employee functions
+export {
 	syncEmployeesToRun,
-	createOrGetPayrollRun,
-	createOrGetPayrollRunByPeriodEnd,
 	addEmployeeToRun,
 	removeEmployeeFromRun,
+	type SyncEmployeesResult
+} from './run-employees';
+
+// Re-export payroll run lifecycle functions
+export {
+	createOrGetPayrollRun,
+	createOrGetPayrollRunByPeriodEnd,
+	createPayrollRunForDate,
 	deletePayrollRun,
+	type CreateOrGetRunResult
+} from './run-lifecycle';
+
+// Re-export paystub functions
+export {
 	getPaystubDownloadUrl,
-	sendPaystubs,
-	type SyncEmployeesResult,
-	type CreateOrGetRunResult,
-	type PayrollRunListOptionsExt
-} from './payroll-runs';
+	sendPaystubs
+} from './run-paystubs';
 
 // Re-export pay group functions
 export {
