@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to BeanFlow Payroll</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f7fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f7fa;">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+          <!-- Header with Welcome Badge -->
+          <tr>
+            <td style="padding: 40px 40px 30px; text-align: center; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 12px 12px 0 0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td align="center">
+                    <!-- Celebration icon -->
+                    <div style="width: 70px; height: 70px; background-color: rgba(255, 255, 255, 0.2); border-radius: 50%; display: inline-block; line-height: 70px; margin-bottom: 16px;">
+                      <span style="font-size: 32px; color: #ffffff;">&#x1F389;</span>
+                    </div>
+                    <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">Welcome to BeanFlow!</h1>
+                    <p style="margin: 8px 0 0; color: rgba(255, 255, 255, 0.9); font-size: 14px;">Employee Portal Invitation</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <h2 style="margin: 0 0 16px; color: #1f2937; font-size: 22px; font-weight: 600; text-align: center;">You've Been Invited!</h2>
+              <p style="margin: 0 0 24px; color: #6b7280; font-size: 16px; line-height: 24px; text-align: center;">
+                Your employer has invited you to access your payroll information through the BeanFlow Employee Portal. Click the button below to activate your account.
+              </p>
+
+              <!-- Features List -->
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 24px;">
+                <tr>
+                  <td style="padding: 16px; background-color: #f0fdf4; border-radius: 8px;">
+                    <p style="margin: 0 0 12px; color: #166534; font-size: 14px; font-weight: 600;">With your Employee Portal, you can:</p>
+                    <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td style="padding: 4px 0; color: #15803d; font-size: 14px;">&#x2713; View and download your pay stubs</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 4px 0; color: #15803d; font-size: 14px;">&#x2713; Access your T4 tax slips</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 4px 0; color: #15803d; font-size: 14px;">&#x2713; Check vacation and sick leave balances</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 4px 0; color: #15803d; font-size: 14px;">&#x2713; Update your personal information</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA Button -->
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td align="center" style="padding: 16px 0 32px;">
+                    <a href="{{ .ConfirmationURL }}" target="_blank" style="display: inline-block; padding: 16px 48px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; border-radius: 8px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);">
+                      Accept Invitation
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Divider -->
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="padding: 0 0 24px;">
+                    <div style="height: 1px; background-color: #e5e7eb;"></div>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Alternative Link -->
+              <p style="margin: 0 0 12px; color: #6b7280; font-size: 14px; text-align: center;">
+                If the button doesn't work, copy and paste this link into your browser:
+              </p>
+              <p style="margin: 0 0 24px; color: #10b981; font-size: 12px; word-break: break-all; text-align: center; background-color: #f0fdf4; padding: 12px; border-radius: 6px; border: 1px solid #bbf7d0;">
+                {{ .ConfirmationURL }}
+              </p>
+
+              <!-- Info Notice -->
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color: #eff6ff; border-radius: 8px; border: 1px solid #93c5fd;">
+                <tr>
+                  <td style="padding: 16px;">
+                    <p style="margin: 0; color: #1e40af; font-size: 13px; line-height: 20px;">
+                      <strong style="color: #1e3a8a;">Note:</strong> This invitation link will expire in 24 hours. If it expires, please contact your employer to send a new invitation.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 24px 40px 32px; background-color: #f9fafb; border-radius: 0 0 12px 12px; border-top: 1px solid #e5e7eb;">
+              <p style="margin: 0 0 8px; color: #9ca3af; font-size: 12px; text-align: center;">
+                This invitation was sent to {{ .Email }}
+              </p>
+              <p style="margin: 0; color: #9ca3af; font-size: 12px; text-align: center;">
+                &copy; {{ now.Year }} BeanFlow Payroll. All rights reserved.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

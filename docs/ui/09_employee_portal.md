@@ -1,9 +1,9 @@
 # Employee Self-Service Portal UI Design
 
-> **Last Updated**: 2025-12-11
+> **Last Updated**: 2026-01-03
 > **Phase**: Phase 2 (Post-MVP)
 > **Priority**: Medium
-> **Status**: Design Planning
+> **Status**: Core Features Complete (Polish Remaining)
 
 ---
 
@@ -13,7 +13,7 @@
 
 Employee Self-Service Portal allows employees to:
 - **View** their payroll information, paystubs, leave balances
-- **Edit** personal information, tax credits (TD1), bank account details
+- **Edit** personal information, tax credits (TD1)
 - **Download** paystubs and tax documents (T4)
 
 This reduces HR workload and ensures employees can manage their own information securely.
@@ -22,16 +22,35 @@ This reduces HR workload and ensures employees can manage their own information 
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| **Authentication** | Email Magic Link | Simplest for employees, no password to remember |
-| **Deployment** | Sub-route (`payroll.beanflow.com/employee/`) | Share same frontend, simpler deployment |
-| **Editable Scope** | Personal + Tax + Bank | Balance between self-service and HR control |
+| **Authentication** | Email + OTP 验证码 | More secure than magic link, Supabase native support |
+| **Deployment** | Sub-route (`payroll.beanflow.ai/employee/`) | Share same frontend, simpler deployment |
+| **Editable Scope** | Personal + Tax (no Bank) | MVP 不实现直接打款功能 |
+| **Data Access** | Supabase Direct + API | 简单 CRUD 直接 Supabase，复杂逻辑通过 API |
+| **Dual Role** | Supported | 同一 email 可以既是管理员又是员工 |
 
 ### 1.3 User Roles
 
 | Role | Access | Description |
 |------|--------|-------------|
-| **Employee** | Own data only | Can view/edit their own information |
-| **Employer/Admin** | All employees | Full access via main Payroll app |
+| **Employee** | Own data only | Can view/edit their own information (via email matching) |
+| **Employer/Admin** | All employees | Full access via main Payroll app (via user_id matching) |
+
+### 1.4 Dual-Role Support
+
+一个用户可以同时拥有两种身份：
+
+```
+判断逻辑：
+├── 管理系统访问：WHERE employees.user_id = auth.uid()
+│   └── 用户创建的员工记录归属于该用户
+│
+└── 员工门户访问：WHERE employees.email = current_user.email
+    └── 通过 email 匹配查找对应的员工记录
+```
+
+**典型场景**：小企业老板 `boss@company.com`
+- 作为管理员：可以管理所有员工（通过 user_id 关联）
+- 作为员工：如果自己也在员工表中，可以查看自己的工资单（通过 email 匹配）
 
 ---
 
@@ -115,7 +134,7 @@ For inviting multiple employees at once:
 
 ## 3. Employee Portal - Authentication
 
-### 3.1 Login Flow (Magic Link)
+### 3.1 Login Flow (Email + OTP)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -134,58 +153,60 @@ For inviting multiple employees at once:
 │  └─────────────────────────────────────────────────────┘   │
 │                                                             │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │              Send Login Link                         │   │
+│  │              Send Verification Code                  │   │
 │  └─────────────────────────────────────────────────────┘   │
 │                                                             │
-│  ℹ️ We'll send you a secure link to access your portal.    │
+│  ℹ️ We'll send you a 6-digit code to verify your email.    │
 │     No password needed.                                     │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 3.2 Email Sent Confirmation
+### 3.2 OTP Verification
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    [Company Logo]                           │
 │                                                             │
-│              ✅ Check Your Email                            │
+│              Enter Verification Code                        │
 │                                                             │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  We've sent a login link to:                                │
+│  We've sent a 6-digit code to:                              │
 │  sarah@example.com                                          │
 │                                                             │
-│  Click the link in the email to access your portal.         │
-│  The link will expire in 15 minutes.                        │
+│  Verification Code                                          │
+│  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐          │
+│  │  1  │ │  2  │ │  3  │ │  4  │ │  5  │ │  6  │          │
+│  └─────┘ └─────┘ └─────┘ └─────┘ └─────┘ └─────┘          │
 │                                                             │
-│  ─────────────────────────────────────────────────────────  │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │                    Verify                            │   │
+│  └─────────────────────────────────────────────────────┘   │
 │                                                             │
-│  Didn't receive the email?                                  │
-│  • Check your spam folder                                   │
-│  • [Resend Link] (available after 60 seconds)               │
+│  Code expires in 10 minutes                                 │
+│  [Resend Code] (available after 60 seconds)                 │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 3.3 Magic Link Email Template
+### 3.3 OTP Email Template
 
 ```
-Subject: Sign in to [Company Name] Employee Portal
+Subject: Your verification code for [Company Name] Employee Portal
 
 ──────────────────────────────────────────────────────────────
 
 Hi Sarah,
 
-Click the button below to access your employee portal:
+Your verification code is:
 
         ┌─────────────────────────────┐
-        │     Access Portal           │
+        │         123456              │
         └─────────────────────────────┘
 
-Or copy this link: https://payroll.beanflow.com/employee/auth?token=xxx
-
-This link expires in 15 minutes and can only be used once.
+Enter this code to access your employee portal.
+This code expires in 10 minutes.
 
 If you didn't request this, you can safely ignore this email.
 
@@ -222,13 +243,13 @@ Powered by BeanFlow
 │                                                                         │
 │  Quick Actions                                                          │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐           │
-│  │ 📄              │ │ 👤              │ │ 🏦              │           │
-│  │ View Paystubs   │ │ Update Profile  │ │ Bank Details    │           │
+│  │ 📄              │ │ 👤              │ │ 📋              │           │
+│  │ View Paystubs   │ │ Update Profile  │ │ Tax Info (TD1)  │           │
 │  └─────────────────┘ └─────────────────┘ └─────────────────┘           │
-│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐           │
-│  │ 📋              │ │ 📊              │ │ 📥              │           │
-│  │ Tax Info (TD1)  │ │ YTD Summary     │ │ Download T4     │           │
-│  └─────────────────┘ └─────────────────┘ └─────────────────┘           │
+│  ┌─────────────────┐ ┌─────────────────┐                               │
+│  │ 📊              │ │ 📥              │                               │
+│  │ YTD Summary     │ │ Download T4     │                               │
+│  └─────────────────┘ └─────────────────┘                               │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -253,7 +274,7 @@ Powered by BeanFlow
 |-----|------|----------|
 | Home | 🏠 | Dashboard, Quick Actions |
 | Paystubs | 📄 | Paystub History, T4 Downloads |
-| Profile | 👤 | Personal Info, Tax Info, Bank Details |
+| Profile | 👤 | Personal Info, Tax Info |
 | Settings | ⚙️ | Notification Preferences |
 
 ---
@@ -368,15 +389,6 @@ Powered by BeanFlow
 │  │ Additional Tax     $0.00 per pay period                           │ │
 │  └───────────────────────────────────────────────────────────────────┘ │
 │                                                                         │
-│  ┌───────────────────────────────────────────────────────────────────┐ │
-│  │ 🏦 Bank Information                                  [Edit ✏️]    │ │
-│  │ ─────────────────────────────────────────────────────────────────│ │
-│  │ Bank               TD Canada Trust                                │ │
-│  │ Account            ****4567                                       │ │
-│  │ Transit            12345                                          │ │
-│  │ Institution        004                                            │ │
-│  └───────────────────────────────────────────────────────────────────┘ │
-│                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -470,52 +482,6 @@ Powered by BeanFlow
 │    Amount: CA$ [________]                                              │
 │    ℹ️ Some employees request extra tax be withheld to avoid owing     │
 │       at tax time.                                                     │
-│                                                                         │
-├─────────────────────────────────────────────────────────────────────────┤
-│                              [Cancel]              [Submit for Review]  │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-### 6.4 Edit Bank Information Modal
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│ Edit Bank Information                                              [X]  │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  ⚠️ Changes to bank information will be reviewed by your employer      │
-│     before taking effect. Your next pay will use the new account       │
-│     once approved.                                                      │
-│                                                                         │
-│  ───────────────────────────────────────────────────────────────────── │
-│                                                                         │
-│  Bank Name                                                              │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │ TD Canada Trust                                            [▼]  │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-│  Transit Number (5 digits)                                              │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │ 12345                                                            │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-│  Institution Number (3 digits)                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │ 004                                                              │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-│  Account Number                                                         │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │ ************4567                                                 │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-│  ───────────────────────────────────────────────────────────────────── │
-│                                                                         │
-│  📎 Upload void cheque (optional)                                       │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                 [Drop file here or click to upload]              │   │
-│  │                      PNG, JPG, PDF (max 5MB)                     │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
 │                                                                         │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                              [Cancel]              [Submit for Review]  │
@@ -679,12 +645,6 @@ export interface EmployeePortalProfile {
   provincialClaimAmount: number;
   additionalTaxPerPeriod: number;
 
-  // Bank info (partially masked)
-  bankName: string;
-  transitNumber: string;
-  institutionNumber: string;
-  accountNumber: string;  // Masked: ****4567
-
   // Employment (read-only)
   hireDate: string;
   jobTitle?: string;
@@ -706,103 +666,159 @@ export interface EmployeeLeaveBalance {
 
 ---
 
-## 10. API Endpoints
+## 10. Data Access Architecture
+
+### 10.1 Direct Supabase Access (Frontend)
+
+以下数据通过前端直接访问 Supabase，使用 RLS 保障安全：
 
 ```typescript
-// Employee Portal Authentication
-POST /api/v1/employee-portal/request-login    // Send magic link
-POST /api/v1/employee-portal/verify-token     // Verify magic link token
-POST /api/v1/employee-portal/logout           // Invalidate session
+// Authentication - 使用 Supabase Auth 原生 OTP
+supabase.auth.signInWithOtp({ email })     // 发送 OTP 验证码
+supabase.auth.verifyOtp({ email, token })  // 验证 OTP
+supabase.auth.signOut()                    // 登出
 
+// Employee Profile - 直接查询 employees 表
+supabase.from('employees').select('*').eq('email', userEmail)
+
+// Personal Info Update - 直接更新（无需审批）
+supabase.from('employees').update({ phone, address }).eq('id', empId)
+
+// Paystub List - 直接查询 payroll_records 表
+supabase.from('payroll_records').select('*').eq('employee_id', empId)
+
+// T4 Documents List - 直接查询 t4_slips 表
+supabase.from('t4_slips').select('*').eq('employee_id', empId)
+
+// Leave History - 直接查询
+supabase.from('leave_history').select('*').eq('employee_id', empId)
+
+// Profile Changes List - 直接查询
+supabase.from('profile_change_requests').select('*')
+
+// Portal Status Update - 直接更新
+supabase.from('employees').update({ portal_status: 'disabled' })
+
+// Reject Change Request - 直接更新状态
+supabase.from('profile_change_requests').update({ status: 'rejected' })
+```
+
+### 10.2 Backend API Endpoints (Complex Logic)
+
+以下操作需要通过后端 API，因为涉及复杂计算或外部服务：
+
+```typescript
 // Employee Portal Data (requires employee auth)
-GET  /api/v1/employee-portal/profile          // Get own profile
-PUT  /api/v1/employee-portal/profile/personal // Submit personal info change
-PUT  /api/v1/employee-portal/profile/tax      // Submit tax info change
-PUT  /api/v1/employee-portal/profile/bank     // Submit bank info change
-
-GET  /api/v1/employee-portal/paystubs         // List own paystubs
-GET  /api/v1/employee-portal/paystubs/:id     // Get single paystub
-GET  /api/v1/employee-portal/paystubs/:id/pdf // Download paystub PDF
-
-GET  /api/v1/employee-portal/leave            // Get leave balances
-GET  /api/v1/employee-portal/leave/history    // Get leave history
-
-GET  /api/v1/employee-portal/documents        // List tax documents (T4)
-GET  /api/v1/employee-portal/documents/:id    // Download document
+PUT  /api/v1/employee-portal/profile/tax      // 税务信息变更（需审批流程）
+GET  /api/v1/employee-portal/paystubs/:id     // 工资单详情（YTD 计算）
+GET  /api/v1/employee-portal/paystubs/:id/pdf // 工资单 PDF 生成
+GET  /api/v1/employee-portal/leave            // 假期余额（SickLeaveService 计算）
+GET  /api/v1/employee-portal/documents/:id    // T4 PDF 下载
 
 // Employer Portal Management (requires employer auth)
-POST /api/v1/employees/:id/portal/invite      // Send portal invitation
-POST /api/v1/employees/:id/portal/disable     // Disable portal access
-POST /api/v1/employees/:id/portal/resend      // Resend invitation
-
-GET  /api/v1/profile-changes                  // List pending changes
-PUT  /api/v1/profile-changes/:id/approve      // Approve change
-PUT  /api/v1/profile-changes/:id/reject       // Reject change
+POST /api/v1/employees/:id/portal/invite      // 发送邀请邮件
+POST /api/v1/employees/:id/portal/resend      // 重发邮件
+PUT  /api/v1/profile-changes/:id/approve      // 审批变更（应用到员工记录）
 ```
+
+### 10.3 API 统计
+
+| 类别 | 直接 Supabase | 后端 API |
+|------|---------------|----------|
+| 认证 | 3 | 0 |
+| 员工数据 | 6 | 5 |
+| 雇主管理 | 3 | 3 |
+| **总计** | **12** | **8** |
 
 ---
 
-## 11. Component Files
+## 11. Implemented Files
+
+### 11.1 Backend API (`backend/app/api/v1/employee_portal.py`)
+
+| Endpoint | Method | Description | Status |
+|----------|--------|-------------|--------|
+| `/employee-portal/paystubs/{id}` | GET | Paystub detail with YTD | ✅ Implemented |
+| `/employee-portal/leave-balance` | GET | Vacation & sick leave balance | ✅ Implemented |
+| `/employee-portal/t4/{year}/download` | GET | Download T4 PDF | ✅ Implemented |
+| `/employee-portal/profile/personal` | PUT | Update personal info (auto-approved) | ✅ Implemented |
+| `/employee-portal/profile/tax` | PUT | Submit tax change request | ✅ Implemented |
+| `/employees/{id}/portal/invite` | POST | Invite employee to portal | ✅ Implemented |
+| `/profile-changes` | GET | List pending change requests | ✅ Implemented |
+| `/profile-changes/{id}/approve` | PUT | Approve change request | ✅ Implemented |
+| `/profile-changes/{id}/reject` | PUT | Reject change request | ✅ Implemented |
+
+### 11.2 Database Migrations
+
+| Migration | Description | Status |
+|-----------|-------------|--------|
+| `20260104100000_add_employee_portal_status.sql` | Add `portal_status`, `portal_invited_at`, `portal_last_login_at` to employees | ✅ Created |
+| `20260104110000_create_profile_change_requests.sql` | Create `profile_change_requests` table with RLS policies | ✅ Created |
+
+### 11.3 Frontend Service (`frontend/src/lib/services/employeePortalService.ts`)
+
+| Function | Description | Status |
+|----------|-------------|--------|
+| `getCurrentEmployee()` | Get employee profile by email | ✅ Implemented |
+| `getMyPaystubs()` | List paystubs with YTD summary | ✅ Implemented |
+| `getPaystubDetail()` | Get detailed paystub | ✅ Implemented |
+| `getMyLeaveBalance()` | Get leave balance | ✅ Implemented |
+| `getMyT4Documents()` | List T4 documents | ✅ Implemented |
+| `downloadMyT4()` | Download T4 PDF | ✅ Implemented |
+| `updatePersonalInfo()` | Update personal info | ✅ Implemented |
+| `submitTaxChange()` | Submit tax change request | ✅ Implemented |
+| `inviteToPortal()` | Invite employee to portal | ✅ Implemented |
+| `getPendingProfileChanges()` | List pending changes | ✅ Implemented |
+| `approveProfileChange()` | Approve change | ✅ Implemented |
+| `rejectProfileChange()` | Reject change | ✅ Implemented |
+
+### 11.4 Frontend Components
 
 ```
-payroll-frontend/src/
+frontend/src/
 ├── routes/
-│   └── (app)/
-│       └── employees/
-│           └── +page.svelte          # Add Portal column & actions
-│
-├── lib/
-│   └── components/
-│       └── employees/
-│           ├── PortalStatusBadge.svelte       # NEW
-│           ├── InviteToPortalModal.svelte     # NEW
-│           ├── BulkInviteModal.svelte         # NEW
-│           └── ProfileChangeReviewModal.svelte # NEW
-
-# Employee Portal (separate route group)
-payroll-frontend/src/
-├── routes/
-│   └── employee/                      # NEW: Employee portal routes
-│       ├── +layout.svelte             # Portal layout (different from admin)
-│       ├── +page.svelte               # Portal dashboard
+│   ├── (app)/employees/
+│   │   └── +page.svelte                    # Portal column & actions
+│   │
+│   └── employee/                           # Employee portal routes
+│       ├── +layout.svelte                  # ✅ Portal layout
+│       ├── +page.svelte                    # ✅ Dashboard
 │       ├── auth/
-│       │   ├── +page.svelte           # Login page
-│       │   └── verify/+page.svelte    # Magic link verification
+│       │   ├── +page.svelte                # ✅ OTP login (Supabase Auth)
+│       │   └── verify/+page.svelte         # ✅ 6-digit OTP verification
 │       ├── paystubs/
-│       │   ├── +page.svelte           # Paystub list
-│       │   └── [id]/+page.svelte      # Paystub detail
+│       │   ├── +page.svelte                # ✅ Paystub list
+│       │   └── [id]/+page.svelte           # ✅ Paystub detail
 │       ├── profile/
-│       │   └── +page.svelte           # Profile management
+│       │   └── +page.svelte                # ✅ Profile management
 │       └── leave/
-│           └── +page.svelte           # Leave balances
+│           └── +page.svelte                # ✅ Leave balances
 │
-├── lib/
-│   └── components/
-│       └── employee-portal/           # NEW: Portal-specific components
-│           ├── PortalHeader.svelte
-│           ├── PortalNav.svelte
-│           ├── DashboardCard.svelte
-│           ├── PaystubCard.svelte
-│           ├── PaystubDetail.svelte
-│           ├── ProfileSection.svelte
-│           ├── EditPersonalInfoModal.svelte
-│           ├── EditTaxInfoModal.svelte
-│           ├── EditBankInfoModal.svelte
-│           └── LeaveBalanceCard.svelte
+├── lib/components/
+│   ├── employees/
+│   │   ├── PortalStatusBadge.svelte        # ✅ Implemented
+│   │   ├── InviteToPortalModal.svelte      # ✅ Single & bulk invite
+│   │   └── ProfileChangeReviewModal.svelte # ✅ Implemented
+│   │
+│   └── employee-portal/
+│       ├── EditPersonalInfoModal.svelte    # ✅ Auto-approved updates
+│       └── EditTaxInfoModal.svelte         # ✅ Change request flow
 ```
 
 ---
 
 ## 12. Security Considerations
 
-### 12.1 Magic Link Security
+### 12.1 OTP Authentication Security (Implemented)
 
-| Aspect | Implementation |
-|--------|----------------|
-| Token expiry | 15 minutes |
-| Single use | Token invalidated after first use |
-| Token format | JWT with employee_id, company_id, exp |
-| Storage | Redis with TTL |
+| Aspect | Implementation | File |
+|--------|----------------|------|
+| OTP sending | `supabase.auth.signInWithOtp({ email, shouldCreateUser: false })` | `auth/+page.svelte` |
+| OTP format | 6-digit numeric code with auto-advance | `auth/verify/+page.svelte` |
+| OTP verify | `supabase.auth.verifyOtp({ email, token, type: 'email' })` | `auth/verify/+page.svelte` |
+| Resend cooldown | 60 seconds between resend requests | `auth/verify/+page.svelte` |
+| Portal status | Auto-updates to 'active' on first login | `auth/verify/+page.svelte` |
+| Rate limiting | Handled by Supabase Auth | Supabase |
 
 ### 12.2 Session Security
 
@@ -810,16 +826,14 @@ payroll-frontend/src/
 |--------|----------------|
 | Session duration | 24 hours |
 | Refresh | Sliding expiry on activity |
-| Storage | HTTP-only cookie |
-| Scope | Employee can only access own data |
+| Storage | Supabase Auth session (HTTP-only cookie) |
+| Scope | Employee can only access own data via RLS |
 
 ### 12.3 Sensitive Data Masking
 
 | Field | Display Format | Full Access |
 |-------|----------------|-------------|
 | SIN | `***-***-789` | Never shown in full to employee |
-| Bank Account | `****4567` | Last 4 digits only |
-| Transit/Institution | Full display | Employee needs this for verification |
 
 ### 12.4 Change Request Workflow
 
@@ -827,13 +841,10 @@ payroll-frontend/src/
 Employee submits change
     │
     ├─► Personal info (address, phone, emergency contact)
-    │   └─► Auto-approved (low risk)
+    │   └─► Auto-approved via direct Supabase update
     │
-    ├─► Tax info (SIN, TD1 amounts)
-    │   └─► Requires employer approval
-    │
-    └─► Bank info
-        └─► Requires employer approval + optional void cheque
+    └─► Tax info (SIN, TD1 amounts)
+        └─► Requires employer approval via API
 ```
 
 ---
@@ -841,33 +852,77 @@ Employee submits change
 ## 13. Implementation Checklist
 
 ### Phase 2.1 - Foundation
-- [ ] Magic link authentication system
-- [ ] Employee portal layout and navigation
-- [ ] Portal status tracking in employee model
+- [x] Employee portal layout and navigation ✓
+- [x] Portal status tracking (PortalStatusBadge) ✓
+- [x] Database: `portal_status` column on employees table ✓ (migration created)
+- [x] Email + OTP authentication system (Supabase Auth) ✓
+  - Login page: Send OTP via `supabase.auth.signInWithOtp()`
+  - Verify page: 6-digit OTP input with `supabase.auth.verifyOtp()`
+  - Auto-updates `portal_status` to 'active' on first login
 
 ### Phase 2.2 - Core Features
-- [ ] Employee dashboard
-- [ ] Paystub list and detail views
-- [ ] Profile view (read-only)
+- [x] Employee dashboard (UI ready) ✓
+- [x] Paystub list and detail views ✓
+- [x] Profile view (read-only) ✓
+- [x] Leave balance display ✓
+- [x] T4 document access ✓
 
-### Phase 2.3 - Self-Service
-- [ ] Personal info editing
-- [ ] Tax info editing (with approval workflow)
-- [ ] Bank info editing (with approval workflow)
-- [ ] Leave balance display
+### Phase 2.3 - Self-Service (Backend Complete)
+- [x] Personal info editing modal (UI + API) ✓
+- [x] Personal info API endpoint (`PUT /employee-portal/profile/personal`) ✓
+- [x] Tax info editing modal (UI + API) ✓
+- [x] Tax info API endpoint (`PUT /employee-portal/profile/tax`) ✓
+- [x] Database: `profile_change_requests` table ✓ (migration created)
 
-### Phase 2.4 - Employer Management
-- [ ] Portal invitation flow
-- [ ] Bulk invite functionality
-- [ ] Change request review interface
+### Phase 2.4 - Employer Management (Backend Complete)
+- [x] Portal invitation modal (UI ready, supports single & bulk) ✓
+- [x] Invitation API endpoint (`POST /employees/:id/portal/invite`) ✓
+- [x] Tax change request review modal (UI ready) ✓
+- [x] Change request API endpoints (`GET/PUT /profile-changes/:id`) ✓
 
 ### Phase 2.5 - Polish
-- [ ] Email templates
-- [ ] Mobile responsive design
-- [ ] Notification preferences
+- [ ] Custom OTP email templates (using Supabase default templates for now)
+- [x] Basic responsive design ✓
+- [ ] Mobile-optimized bottom tab navigation
+- [ ] Notification preferences page
 
 ---
 
-**Document Version**: 1.0
+**Document Version**: 2.4
 **Created**: 2025-12-11
+**Updated**: 2026-01-03
 **For**: BeanFlow Payroll - Employee Self-Service Portal (Phase 2)
+
+**Changes in v2.4**:
+- Reorganized: Section 11 now lists all implemented files with detailed tables
+  - Backend API: 9 endpoints in `employee_portal.py`
+  - Database: 2 migrations for portal_status and profile_change_requests
+  - Frontend Service: 12 functions in `employeePortalService.ts`
+  - Frontend Components: All routes and modals listed with status
+- Updated: Security section 12.1 with actual OTP implementation details
+
+**Changes in v2.3**:
+- Completed: OTP authentication using Supabase Auth
+  - Login page sends OTP via `supabase.auth.signInWithOtp()`
+  - Verify page handles 6-digit OTP with auto-submit
+  - Auto-updates `portal_status` to 'active' on first login
+  - 60-second resend cooldown implemented
+- Remaining: Custom OTP email templates, mobile bottom nav, notification preferences
+
+**Changes in v2.2**:
+- Updated: Implementation checklist - all backend APIs now complete
+- Added: All employee-portal API endpoints implemented in `backend/app/api/v1/employee_portal.py`
+- Added: Database migrations for `portal_status` and `profile_change_requests`
+- Added: Frontend service functions in `employeePortalService.ts`
+
+**Changes in v2.1**:
+- Updated: Implementation checklist with accurate status (UI vs API completion)
+- Removed: BulkInviteModal (merged into InviteToPortalModal)
+- Added: Database migration requirements to checklist
+
+**Changes in v2.0**:
+- Authentication: Magic Link → Email + OTP
+- Removed: Bank info editing (MVP scope)
+- Simplified: API architecture (12 direct Supabase + 8 API endpoints)
+- Added: Dual-role support documentation
+- Added: Data access architecture section
