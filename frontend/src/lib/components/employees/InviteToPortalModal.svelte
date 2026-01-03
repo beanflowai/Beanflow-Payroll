@@ -5,6 +5,7 @@
 	 */
 	import BaseModal from '$lib/shared-base/BaseModal.svelte';
 	import type { EmployeeWithPortalStatus } from '$lib/types/employee-portal';
+	import { inviteToPortal } from '$lib/services/employeePortalService';
 
 	interface Props {
 		visible: boolean;
@@ -16,13 +17,21 @@
 	let { visible = $bindable(), employees, onclose, onInvite }: Props = $props();
 
 	// Track selected employees for bulk invite
-	let selectedIds = $state<Set<string>>(new Set(employees.map((e) => e.id)));
+	let selectedIds = $state<Set<string>>(new Set());
+
+	// Sync selectedIds when employees prop changes
+	$effect(() => {
+		// When employees change, select all by default
+		selectedIds = new Set(employees.map((e) => e.id));
+	});
 
 	// Single employee mode if only one employee passed
 	const isSingleMode = $derived(employees.length === 1);
 	const singleEmployee = $derived(isSingleMode ? employees[0] : null);
 
 	let isSubmitting = $state(false);
+	let error = $state<string | null>(null);
+	let warning = $state<string | null>(null);
 
 	function toggleSelection(id: string) {
 		if (selectedIds.has(id)) {
@@ -41,17 +50,51 @@
 		}
 	}
 
-	function handleSendInvitations() {
+	async function handleSendInvitations() {
 		if (selectedIds.size === 0) return;
 
 		isSubmitting = true;
+		error = null;
+		warning = null;
 
-		// Simulate API call
-		setTimeout(() => {
+		const ids = Array.from(selectedIds);
+		const successfulIds: string[] = [];
+		let failedCount = 0;
+
+		try {
+			// Send invitations to all selected employees
+			const results = await Promise.allSettled(
+				ids.map((id) => inviteToPortal(id, true))
+			);
+
+			// Track successes and failures
+			results.forEach((result, index) => {
+				if (result.status === 'fulfilled') {
+					successfulIds.push(ids[index]);
+				} else {
+					failedCount++;
+				}
+			});
+
+			if (failedCount > 0 && successfulIds.length === 0) {
+				// All failed
+				error = 'Failed to send invitations. Please try again.';
+			} else if (failedCount > 0 && successfulIds.length > 0) {
+				// Partial success - show warning but still notify parent of successful invites
+				warning = `${successfulIds.length} invitation(s) sent successfully, ${failedCount} failed.`;
+				onInvite(successfulIds);
+				// Delay close to show the message
+				setTimeout(() => onclose(), 2000);
+			} else {
+				// All succeeded
+				onInvite(successfulIds);
+				onclose();
+			}
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to send invitations';
+		} finally {
 			isSubmitting = false;
-			onInvite(Array.from(selectedIds));
-			onclose();
-		}, 500);
+		}
 	}
 </script>
 
@@ -62,6 +105,12 @@
 	title={isSingleMode ? 'Invite to Portal' : 'Invite Employees to Portal'}
 >
 	<div class="invite-modal">
+		{#if error}
+			<div class="error-banner">{error}</div>
+		{/if}
+		{#if warning}
+			<div class="warning-banner">{warning}</div>
+		{/if}
 		{#if isSingleMode && singleEmployee}
 			<!-- Single Employee Mode -->
 			<div class="single-employee-info">
@@ -155,6 +204,24 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-5);
+	}
+
+	.error-banner {
+		padding: var(--spacing-3) var(--spacing-4);
+		background: var(--color-danger-50);
+		border: 1px solid var(--color-danger-200);
+		border-radius: var(--radius-md);
+		color: var(--color-danger-700);
+		font-size: var(--font-size-auxiliary-text);
+	}
+
+	.warning-banner {
+		padding: var(--spacing-3) var(--spacing-4);
+		background: var(--color-warning-50);
+		border: 1px solid var(--color-warning-200);
+		border-radius: var(--radius-md);
+		color: var(--color-warning-700);
+		font-size: var(--font-size-auxiliary-text);
 	}
 
 	.single-employee-info {

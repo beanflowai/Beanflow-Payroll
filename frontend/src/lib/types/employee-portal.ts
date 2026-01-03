@@ -80,7 +80,6 @@ export interface EmployeePortalProfile {
 	// Additional claims beyond BPA (BPA is dynamic based on province and pay date)
 	federalAdditionalClaims: number;
 	provincialAdditionalClaims: number;
-	additionalTaxPerPeriod: number;
 
 	// Bank info (partially masked)
 	bankName: string;
@@ -109,7 +108,6 @@ export interface TaxInfoFormData {
 	// Additional claims beyond BPA
 	federalAdditionalClaims: number;
 	provincialAdditionalClaims: number;
-	additionalTaxPerPeriod: number;
 }
 
 export interface BankInfoFormData {
@@ -316,3 +314,20 @@ export const RELATIONSHIP_OPTIONS = [
 ] as const;
 
 // BPA constants are centralized in employee.ts - use FEDERAL_BPA_2025 and PROVINCIAL_BPA_2025
+
+// ============================================================================
+// Portal Company Context (for [slug] routing)
+// ============================================================================
+
+export const PORTAL_COMPANY_CONTEXT_KEY = Symbol('portal-company-context');
+
+export interface PortalCompanyContext {
+	readonly company: {
+		id: string;
+		companyName: string;
+		slug: string;
+		logoUrl?: string;
+	} | null;
+	readonly slug: string;
+	readonly employeeId: string | null;
+}

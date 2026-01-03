@@ -27,11 +27,13 @@
 		onToggleExpand
 	}: Props = $props();
 
-	// Local state for form inputs
+	// Local state for form inputs - initialized with current claim values
+	// svelte-ignore state_referenced_locally
 	let federalAdditional = $state(claim?.federalAdditionalClaims ?? 0);
+	// svelte-ignore state_referenced_locally
 	let provincialAdditional = $state(claim?.provincialAdditionalClaims ?? 0);
 
-	// Sync local state when claim changes
+	// Sync local state when claim changes (this is intentional - claim prop updates externally)
 	$effect(() => {
 		federalAdditional = claim?.federalAdditionalClaims ?? 0;
 		provincialAdditional = claim?.provincialAdditionalClaims ?? 0;

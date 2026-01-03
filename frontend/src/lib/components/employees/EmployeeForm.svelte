@@ -31,32 +31,84 @@
 	let { employee = null, mode, onSuccess, onCancel }: Props = $props();
 
 	// ============================================
+	// INITIAL VALUES FROM PROPS
+	// ============================================
+	// Extract initial values from employee prop once at component creation.
+	// This is intentional - form state should not reactively update when the prop changes.
+	// The form captures a snapshot of the employee data for editing.
+	const initialValues = (() => {
+		const emp = employee;
+		const hasPrior = (emp?.initialYtdCpp ?? 0) > 0 ||
+			(emp?.initialYtdCpp2 ?? 0) > 0 ||
+			(emp?.initialYtdEi ?? 0) > 0;
+		const vacationPreset = getVacationRatePreset(emp?.vacationConfig?.vacationRate ?? '0.04');
+		return {
+			// Personal Information
+			firstName: emp?.firstName ?? '',
+			lastName: emp?.lastName ?? '',
+			email: emp?.email ?? '',
+			addressStreet: emp?.addressStreet ?? '',
+			addressCity: emp?.addressCity ?? '',
+			addressPostalCode: emp?.addressPostalCode ?? '',
+			// Employment Details
+			occupation: emp?.occupation ?? '',
+			province: (emp?.provinceOfEmployment ?? 'ON') as Province,
+			payFrequency: (emp?.payFrequency ?? 'bi_weekly') as PayFrequency,
+			employmentType: (emp?.employmentType ?? 'full_time') as EmploymentType,
+			hireDate: emp?.hireDate ?? '',
+			tags: emp?.tags ?? [],
+			// Compensation
+			compensationType: (emp?.hourlyRate ? 'hourly' : 'salaried') as 'salaried' | 'hourly',
+			annualSalary: emp?.annualSalary ?? 0,
+			hourlyRate: emp?.hourlyRate ?? 0,
+			// Tax
+			federalAdditionalClaims: emp?.federalAdditionalClaims ?? 0,
+			provincialAdditionalClaims: emp?.provincialAdditionalClaims ?? 0,
+			isCppExempt: emp?.isCppExempt ?? false,
+			isEiExempt: emp?.isEiExempt ?? false,
+			cpp2Exempt: emp?.cpp2Exempt ?? false,
+			// Prior Employment
+			hasPriorEmployment: hasPrior,
+			incomeLevel: (hasPrior ? 'high' : 'low') as 'low' | 'high',
+			initialYtdCpp: emp?.initialYtdCpp ?? 0,
+			initialYtdCpp2: emp?.initialYtdCpp2 ?? 0,
+			initialYtdEi: emp?.initialYtdEi ?? 0,
+			initialYtdYear: emp?.initialYtdYear ?? null,
+			// Vacation
+			vacationPayoutMethod: (emp?.vacationConfig?.payoutMethod ?? 'accrual') as VacationPayoutMethod,
+			vacationRatePreset: vacationPreset,
+			customVacationRate: vacationPreset === 'custom'
+				? Math.round(parseFloat(emp?.vacationConfig?.vacationRate ?? '0') * 10000) / 100
+				: 4,
+			vacationBalance: emp?.vacationBalance ?? 0,
+		};
+	})();
+
+	// ============================================
 	// STATE DECLARATIONS
 	// ============================================
 
 	// Personal Information
-	let firstName = $state(employee?.firstName ?? '');
-	let lastName = $state(employee?.lastName ?? '');
+	let firstName = $state(initialValues.firstName);
+	let lastName = $state(initialValues.lastName);
 	let sin = $state(''); // Only used in create mode
-	let email = $state(employee?.email ?? '');
-	let addressStreet = $state(employee?.addressStreet ?? '');
-	let addressCity = $state(employee?.addressCity ?? '');
-	let addressPostalCode = $state(employee?.addressPostalCode ?? '');
+	let email = $state(initialValues.email);
+	let addressStreet = $state(initialValues.addressStreet);
+	let addressCity = $state(initialValues.addressCity);
+	let addressPostalCode = $state(initialValues.addressPostalCode);
 
 	// Employment Details
-	let occupation = $state(employee?.occupation ?? '');
-	let province = $state<Province>(employee?.provinceOfEmployment ?? 'ON');
-	let payFrequency = $state<PayFrequency>(employee?.payFrequency ?? 'bi_weekly');
-	let employmentType = $state<EmploymentType>(employee?.employmentType ?? 'full_time');
-	let hireDate = $state(employee?.hireDate ?? '');
-	let tags = $state<string[]>(employee?.tags ?? []);
+	let occupation = $state(initialValues.occupation);
+	let province = $state<Province>(initialValues.province);
+	let payFrequency = $state<PayFrequency>(initialValues.payFrequency);
+	let employmentType = $state<EmploymentType>(initialValues.employmentType);
+	let hireDate = $state(initialValues.hireDate);
+	let tags = $state<string[]>(initialValues.tags);
 
 	// Compensation
-	let compensationType = $state<'salaried' | 'hourly'>(
-		employee?.hourlyRate ? 'hourly' : 'salaried'
-	);
-	let annualSalary = $state(employee?.annualSalary ?? 0);
-	let hourlyRate = $state(employee?.hourlyRate ?? 0);
+	let compensationType = $state<'salaried' | 'hourly'>(initialValues.compensationType);
+	let annualSalary = $state(initialValues.annualSalary);
+	let hourlyRate = $state(initialValues.hourlyRate);
 
 	// Tax - Multi-year TD1 claims state
 	const currentTaxYearForClaims = new Date().getFullYear();
@@ -72,15 +124,15 @@
 	let bpaLoading = $state(false);
 	const federalBPA = $derived(bpaDefaults?.federalBPA ?? FEDERAL_BPA_2025);
 	const provincialBPA = $derived(bpaDefaults?.provincialBPA ?? PROVINCIAL_BPA_2025[province]);
-	let federalAdditionalClaims = $state(employee?.federalAdditionalClaims ?? 0);
-	let provincialAdditionalClaims = $state(employee?.provincialAdditionalClaims ?? 0);
+	let federalAdditionalClaims = $state(initialValues.federalAdditionalClaims);
+	let provincialAdditionalClaims = $state(initialValues.provincialAdditionalClaims);
 	let bpaRequestVersion = $state(0);
 	let showProvinceChangeWarning = $state(false);
-	let originalProvince = $state<Province | null>(employee?.provinceOfEmployment ?? null);
+	let originalProvince = $state<Province | null>(initialValues.province);
 	let provinceChanged = $derived(mode === 'edit' && originalProvince !== null && province !== originalProvince);
-	let isCppExempt = $state(employee?.isCppExempt ?? false);
-	let isEiExempt = $state(employee?.isEiExempt ?? false);
-	let cpp2Exempt = $state(employee?.cpp2Exempt ?? false);
+	let isCppExempt = $state(initialValues.isCppExempt);
+	let isEiExempt = $state(initialValues.isEiExempt);
+	let cpp2Exempt = $state(initialValues.cpp2Exempt);
 	const federalClaimAmount = $derived(federalBPA + federalAdditionalClaims);
 	const provincialClaimAmount = $derived(provincialBPA + provincialAdditionalClaims);
 
@@ -94,30 +146,22 @@
 	const maxCpp = $derived(contributionLimits?.cpp.maxBaseContribution ?? FALLBACK_MAX_CPP);
 	const maxCpp2 = $derived(contributionLimits?.cpp.maxAdditionalContribution ?? FALLBACK_MAX_CPP2);
 	const maxEi = $derived(contributionLimits?.ei.maxEmployeePremium ?? FALLBACK_MAX_EI);
-	let hasPriorEmployment = $state(
-		(employee?.initialYtdCpp ?? 0) > 0 ||
-		(employee?.initialYtdCpp2 ?? 0) > 0 ||
-		(employee?.initialYtdEi ?? 0) > 0
-	);
-	let incomeLevel = $state<'low' | 'high'>(hasPriorEmployment ? 'high' : 'low');
-	let initialYtdCpp = $state(employee?.initialYtdCpp ?? 0);
-	let initialYtdCpp2 = $state(employee?.initialYtdCpp2 ?? 0);
-	let initialYtdEi = $state(employee?.initialYtdEi ?? 0);
+	let hasPriorEmployment = $state(initialValues.hasPriorEmployment);
+	let incomeLevel = $state<'low' | 'high'>(initialValues.incomeLevel);
+	let initialYtdCpp = $state(initialValues.initialYtdCpp);
+	let initialYtdCpp2 = $state(initialValues.initialYtdCpp2);
+	let initialYtdEi = $state(initialValues.initialYtdEi);
 	const currentTaxYear = new Date().getFullYear();
-	let initialYtdYear = $state<number | null>(employee?.initialYtdYear ?? null);
+	let initialYtdYear = $state<number | null>(initialValues.initialYtdYear);
 	let hasPayrollRecords = $state(false);
 	const canEditPriorYtd = $derived(mode === 'create' || !hasPayrollRecords);
 
 	// Vacation
-	let vacationPayoutMethod = $state<VacationPayoutMethod>(employee?.vacationConfig?.payoutMethod ?? 'accrual');
-	const initialPreset = getVacationRatePreset(employee?.vacationConfig?.vacationRate ?? '0.04');
+	let vacationPayoutMethod = $state<VacationPayoutMethod>(initialValues.vacationPayoutMethod);
+	const initialPreset = initialValues.vacationRatePreset;
 	let vacationRatePreset = $state<string>(initialPreset);
-	let customVacationRate = $state<number>(
-		initialPreset === 'custom'
-			? Math.round(parseFloat(employee?.vacationConfig?.vacationRate ?? '0') * 10000) / 100
-			: 4
-	);
-	let vacationBalance = $state(employee?.vacationBalance ?? 0);
+	let customVacationRate = $state<number>(initialValues.customVacationRate);
+	let vacationBalance = $state(initialValues.vacationBalance);
 	const vacationRate = $derived<VacationRate>(
 		vacationRatePreset === 'custom'
 			? (Math.round(customVacationRate * 100) / 10000).toFixed(4)

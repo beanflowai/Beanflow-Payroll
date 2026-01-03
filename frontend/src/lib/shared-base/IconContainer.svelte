@@ -39,10 +39,9 @@
 		error: 'icon-error',
 		surface: 'bg-surface-100 text-surface-800'
 	};
-	const interactiveClasses = interactive ? 'interactive cursor-pointer' : '';
 
 	const containerClasses = $derived(
-		[baseClasses, sizeClasses[size], variantClasses[variant], interactiveClasses, className]
+		[baseClasses, sizeClasses[size], variantClasses[variant], interactive ? 'interactive cursor-pointer' : '', className]
 			.filter(Boolean)
 			.join(' ')
 	);

@@ -21,10 +21,20 @@
 
 	let { visible = $bindable(), initialData, onclose, onSubmit }: Props = $props();
 
+	// Extract initial values once at component creation (form snapshot pattern)
+	const initial = (() => {
+		const data = initialData;
+		return {
+			bankName: data.bankName,
+			transitNumber: data.transitNumber,
+			institutionNumber: data.institutionNumber,
+		};
+	})();
+
 	// Form state
-	let bankName = $state(initialData.bankName);
-	let transitNumber = $state(initialData.transitNumber);
-	let institutionNumber = $state(initialData.institutionNumber);
+	let bankName = $state(initial.bankName);
+	let transitNumber = $state(initial.transitNumber);
+	let institutionNumber = $state(initial.institutionNumber);
 	let accountNumber = $state(''); // Always start empty for security
 	let voidChequeFile = $state<File | null>(null);
 	let dragOver = $state(false);
@@ -171,7 +181,7 @@
 
 		<!-- Void Cheque Upload -->
 		<div class="form-group">
-			<label class="form-label">Upload void cheque (optional)</label>
+			<span class="form-label">Upload void cheque (optional)</span>
 			<div
 				class="file-upload-zone"
 				class:drag-over={dragOver}
@@ -189,7 +199,7 @@
 							<polyline points="14,2 14,8 20,8" />
 						</svg>
 						<span class="file-name">{voidChequeFile.name}</span>
-						<button type="button" class="remove-file" onclick={removeFile}>
+						<button type="button" class="remove-file" onclick={removeFile} aria-label="Remove file">
 							<svg viewBox="0 0 20 20" fill="currentColor">
 								<path
 									fill-rule="evenodd"

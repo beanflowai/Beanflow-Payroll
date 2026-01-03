@@ -13,7 +13,7 @@ import type {
 import { calculatePayDate } from '$lib/types/pay-group';
 import { getCurrentUserId, getCurrentCompanyId } from './helpers';
 import type { PayrollServiceResult, PayrollDashboardStats } from './types';
-import { listPayrollRuns, type PayrollRunListOptionsExt } from './payroll-runs';
+import { listPayrollRuns, type PayrollRunListOptionsExt } from './run-queries';
 
 // ===========================================
 // Page Status Check

@@ -38,16 +38,13 @@
 		medium: 'p-6',
 		large: 'p-8'
 	};
-	const interactiveClasses = interactive ? 'interactive cursor-pointer' : '';
-	const hoverClasses = hover ? 'hover-lift' : '';
-
 	const cardClasses = $derived(
 		[
 			baseClasses,
 			variantClasses[variant],
 			paddingClasses[padding],
-			interactiveClasses,
-			hoverClasses,
+			interactive ? 'interactive cursor-pointer' : '',
+			hover ? 'hover-lift' : '',
 			className
 		]
 			.filter(Boolean)

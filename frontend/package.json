@@ -20,6 +20,7 @@
 		"@eslint/compat": "^1.4.0",
 		"@eslint/js": "^9.39.1",
 		"@sveltejs/adapter-auto": "^7.0.0",
+		"@sveltejs/adapter-cloudflare": "^7.2.4",
 		"@sveltejs/kit": "^2.48.5",
 		"@sveltejs/vite-plugin-svelte": "^6.2.1",
 		"@tailwindcss/vite": "^4.1.17",
@@ -43,10 +44,6 @@
 	},
 	"dependencies": {
 		"@jsrob/svelte-portal": "^0.2.1",
-		"@supabase/supabase-js": "^2.86.2",
-		"isomorphic-dompurify": "^2.33.0",
-		"papaparse": "^5.5.3",
-		"svelte-dnd-action": "^0.9.68",
-		"svelte5-milkdown-editor": "^0.0.6"
+		"@supabase/supabase-js": "^2.86.2"
 	}
 }

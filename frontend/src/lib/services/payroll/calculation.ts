@@ -8,7 +8,7 @@ import { api } from '$lib/api/client';
 import type { PayrollRunWithGroups } from '$lib/types/payroll';
 import { getCurrentUserId, getCurrentCompanyId, getProvincialBpa } from './helpers';
 import { getPayGroupsWithEmployeesForPayDate } from './pay-groups';
-import { getPayrollRunByPayDate } from './payroll-runs';
+import { getPayrollRunByPayDate } from './run-queries';
 import type {
 	PayrollServiceResult,
 	EmployeeHoursInput,

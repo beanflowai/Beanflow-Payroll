@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import type { Employee, ColumnGroup } from '$lib/types/employee';
 	import {
 		PAY_FREQUENCY_LABELS,
@@ -8,6 +9,7 @@
 		formatVacationRate
 	} from '$lib/types/employee';
 	import { Avatar } from '$lib/components/shared';
+	import { PortalStatusBadge } from '$lib/components/employees';
 	import { formatShortDate } from '$lib/utils/dateUtils';
 
 	interface Props {
@@ -17,6 +19,7 @@
 		onToggleSelectAll: () => void;
 		onToggleSelect: (id: string) => void;
 		onRowClick: (id: string) => void;
+		onInviteToPortal?: (employee: Employee) => void;
 	}
 
 	let {
@@ -25,8 +28,48 @@
 		activeColumnGroup,
 		onToggleSelectAll,
 		onToggleSelect,
-		onRowClick
+		onRowClick,
+		onInviteToPortal
 	}: Props = $props();
+
+	// Track which employee's menu is open
+	let openMenuId = $state<string | null>(null);
+
+	function toggleMenu(e: MouseEvent, empId: string) {
+		e.stopPropagation();
+		openMenuId = openMenuId === empId ? null : empId;
+	}
+
+	function closeMenu() {
+		openMenuId = null;
+	}
+
+	function handleMenuAction(e: MouseEvent, action: string, emp: Employee) {
+		e.stopPropagation();
+		closeMenu();
+
+		switch (action) {
+			case 'view':
+				onRowClick(emp.id);
+				break;
+			case 'edit':
+				goto(`/employees/${emp.id}`);
+				break;
+			case 'invite':
+				onInviteToPortal?.(emp);
+				break;
+			case 'resend':
+				onInviteToPortal?.(emp);
+				break;
+		}
+	}
+
+	// Close menu when clicking outside
+	function handleClickOutside(e: MouseEvent) {
+		if (openMenuId && !(e.target as HTMLElement).closest('.action-menu-container')) {
+			closeMenu();
+		}
+	}
 
 	// Helpers
 	function formatCurrency(amount: number | null | undefined): string {
@@ -77,6 +120,8 @@
 	}
 </script>
 
+<svelte:window onclick={handleClickOutside} />
+
 <!-- Column Group Tabs -->
 <div class="column-group-tabs">
 	{#each Object.entries(COLUMN_GROUP_LABELS) as [key, label]}
@@ -114,7 +159,14 @@
 							</span>
 						</span>
 					</th>
-					<th class="col-date">Hire Date</th>
+					<th class="col-portal">
+						<span class="header-with-tooltip">
+							Portal
+							<span class="tooltip-trigger" title="Employee Self-Service Portal access status. Employees can view paystubs, update personal info, and download T4s.">
+								<i class="fas fa-info-circle"></i>
+							</span>
+						</span>
+					</th>
 					<th class="col-status">Status</th>
 				{:else if activeColumnGroup === 'employment'}
 					<th class="col-province">
@@ -212,7 +264,9 @@
 							<span class="type-badge">{EMPLOYMENT_TYPE_LABELS[emp.employmentType]}</span>
 						</td>
 						<td class="col-frequency">{PAY_FREQUENCY_LABELS[emp.payFrequency]}</td>
-						<td class="col-date">{formatDate(emp.hireDate)}</td>
+						<td class="col-portal">
+							<PortalStatusBadge status={emp.portalStatus} />
+						</td>
 						<td class="col-status">
 							<div class="status-display">
 								<span
@@ -252,9 +306,51 @@
 					{/if}
 
 					<td class="col-actions">
-						<button class="action-btn" title="View details">
-							<i class="fas fa-chevron-right"></i>
-						</button>
+						<div class="action-menu-container">
+							<button
+								class="action-btn"
+								title="Actions"
+								onclick={(e) => toggleMenu(e, emp.id)}
+							>
+								<i class="fas fa-ellipsis-v"></i>
+							</button>
+							{#if openMenuId === emp.id}
+								<div class="action-menu">
+									<button
+										class="menu-item"
+										onclick={(e) => handleMenuAction(e, 'view', emp)}
+									>
+										<i class="fas fa-eye"></i>
+										View Details
+									</button>
+									<button
+										class="menu-item"
+										onclick={(e) => handleMenuAction(e, 'edit', emp)}
+									>
+										<i class="fas fa-edit"></i>
+										Edit
+									</button>
+									<div class="menu-divider"></div>
+									{#if emp.portalStatus === 'not_set'}
+										<button
+											class="menu-item"
+											onclick={(e) => handleMenuAction(e, 'invite', emp)}
+										>
+											<i class="fas fa-envelope"></i>
+											Invite to Portal
+										</button>
+									{:else if emp.portalStatus === 'invited'}
+										<button
+											class="menu-item"
+											onclick={(e) => handleMenuAction(e, 'resend', emp)}
+										>
+											<i class="fas fa-redo"></i>
+											Resend Invitation
+										</button>
+									{/if}
+								</div>
+							{/if}
+						</div>
 					</td>
 				</tr>
 			{/each}
@@ -305,7 +401,7 @@
 		background: white;
 		border-radius: var(--radius-xl);
 		box-shadow: var(--shadow-md3-1);
-		overflow: hidden;
+		overflow: visible;
 	}
 
 	/* Data Table */
@@ -458,7 +554,11 @@
 		color: var(--color-success-700);
 	}
 
-	/* Action Button */
+	/* Action Menu */
+	.action-menu-container {
+		position: relative;
+	}
+
 	.action-btn {
 		padding: var(--spacing-2);
 		border: none;
@@ -472,6 +572,61 @@
 	.action-btn:hover {
 		background: var(--color-surface-100);
 		color: var(--color-primary-600);
+	}
+
+	.action-menu {
+		position: absolute;
+		top: 100%;
+		right: 0;
+		z-index: 50;
+		min-width: 180px;
+		background: white;
+		border: 1px solid var(--color-surface-200);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-md3-2);
+		padding: var(--spacing-1) 0;
+		margin-top: var(--spacing-1);
+	}
+
+	.menu-item {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
+		width: 100%;
+		padding: var(--spacing-2) var(--spacing-3);
+		border: none;
+		background: transparent;
+		color: var(--color-surface-700);
+		font-size: var(--font-size-body-content);
+		text-align: left;
+		cursor: pointer;
+		transition: var(--transition-fast);
+	}
+
+	.menu-item:hover {
+		background: var(--color-surface-50);
+		color: var(--color-primary-600);
+	}
+
+	.menu-item i {
+		width: 16px;
+		text-align: center;
+		color: var(--color-surface-500);
+	}
+
+	.menu-item:hover i {
+		color: var(--color-primary-500);
+	}
+
+	.menu-divider {
+		height: 1px;
+		background: var(--color-surface-100);
+		margin: var(--spacing-1) 0;
+	}
+
+	/* Portal column */
+	.col-portal {
+		min-width: 100px;
 	}
 
 	/* Empty State */

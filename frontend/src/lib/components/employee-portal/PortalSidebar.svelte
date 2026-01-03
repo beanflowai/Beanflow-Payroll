@@ -5,23 +5,37 @@
 	 */
 	import { page } from '$app/stores';
 
+	interface Props {
+		/** Company slug from URL - required for navigation links */
+		slug: string;
+	}
+
+	let { slug }: Props = $props();
+
 	interface NavItem {
 		id: string;
 		label: string;
-		href: string;
+		path: string;  // Relative path after /employee/{slug}
 		icon: 'home' | 'paystubs' | 'profile' | 'leave';
 	}
 
 	const navItems: NavItem[] = [
-		{ id: 'home', label: 'Dashboard', href: '/employee', icon: 'home' },
-		{ id: 'paystubs', label: 'Paystubs', href: '/employee/paystubs', icon: 'paystubs' },
-		{ id: 'profile', label: 'My Profile', href: '/employee/profile', icon: 'profile' },
-		{ id: 'leave', label: 'Leave Balances', href: '/employee/leave', icon: 'leave' }
+		{ id: 'home', label: 'Dashboard', path: '', icon: 'home' },
+		{ id: 'paystubs', label: 'Paystubs', path: '/paystubs', icon: 'paystubs' },
+		{ id: 'profile', label: 'My Profile', path: '/profile', icon: 'profile' },
+		{ id: 'leave', label: 'Leave Balances', path: '/leave', icon: 'leave' }
 	];
 
-	function isActive(href: string, currentPath: string): boolean {
-		if (href === '/employee') {
-			return currentPath === '/employee' || currentPath === '/employee/';
+	// Build href with slug (slug is required)
+	function getHref(path: string): string {
+		return `/employee/${slug}${path}`;
+	}
+
+	function isActive(path: string, currentPath: string): boolean {
+		const href = getHref(path);
+		if (path === '') {
+			// Dashboard: exact match or trailing slash
+			return currentPath === href || currentPath === href + '/';
 		}
 		return currentPath.startsWith(href);
 	}
@@ -31,10 +45,10 @@
 	<nav class="sidebar-nav">
 		{#each navItems as item}
 			<a
-				href={item.href}
+				href={getHref(item.path)}
 				class="nav-item"
-				class:active={isActive(item.href, $page.url.pathname)}
-				aria-current={isActive(item.href, $page.url.pathname) ? 'page' : undefined}
+				class:active={isActive(item.path, $page.url.pathname)}
+				aria-current={isActive(item.path, $page.url.pathname) ? 'page' : undefined}
 			>
 				<span class="nav-icon">
 					{#if item.icon === 'home'}

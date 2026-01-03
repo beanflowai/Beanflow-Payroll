@@ -6,7 +6,13 @@
 		DEFAULT_EMPLOYEE_FILTERS
 	} from '$lib/types/employee';
 	import type { PayGroup } from '$lib/types/pay-group';
-	import { EmployeeTable, EmployeeDetailSidebar, EmployeeFilters as EmployeeFiltersComponent } from '$lib/components/employees';
+	import type { EmployeeWithPortalStatus } from '$lib/types/employee-portal';
+	import {
+		EmployeeTable,
+		EmployeeDetailSidebar,
+		EmployeeFilters as EmployeeFiltersComponent,
+		InviteToPortalModal
+	} from '$lib/components/employees';
 	import { listEmployees } from '$lib/services/employeeService';
 	import { listPayGroups } from '$lib/services/payGroupService';
 	import { companyState } from '$lib/stores/company.svelte';
@@ -23,6 +29,10 @@
 	let activeColumnGroup = $state<ColumnGroup>('personal');
 	let selectedEmployeeId = $state<string | null>(null);
 	let showSidebarSIN = $state(false);
+
+	// Portal invite modal state
+	let showInviteModal = $state(false);
+	let employeesToInvite = $state<EmployeeWithPortalStatus[]>([]);
 
 	// ===========================================
 	// Data Loading
@@ -181,6 +191,39 @@
 	function handleAddEmployee() {
 		goto('/employees/new');
 	}
+
+	// ===========================================
+	// Portal Invite Actions
+	// ===========================================
+	function convertToPortalEmployee(emp: Employee): EmployeeWithPortalStatus {
+		return {
+			id: emp.id,
+			firstName: emp.firstName,
+			lastName: emp.lastName,
+			email: emp.email || '',
+			status: emp.status === 'terminated' ? 'terminated' : 'active',
+			portalStatus: emp.portalStatus,
+			portalInvitedAt: emp.portalInvitedAt ?? undefined,
+			portalLastLoginAt: emp.portalLastLoginAt ?? undefined
+		};
+	}
+
+	function handleInviteToPortal(employee: Employee) {
+		employeesToInvite = [convertToPortalEmployee(employee)];
+		showInviteModal = true;
+	}
+
+	function handleInviteSuccess(employeeIds: string[]) {
+		// Refresh employee list to get updated portal status
+		loadEmployees();
+		showInviteModal = false;
+		employeesToInvite = [];
+	}
+
+	function closeInviteModal() {
+		showInviteModal = false;
+		employeesToInvite = [];
+	}
 </script>
 
 <svelte:head>
@@ -213,7 +256,7 @@
 			<div class="error-banner">
 				<i class="fas fa-exclamation-circle"></i>
 				<span>{error}</span>
-				<button class="error-dismiss" onclick={() => error = null}>
+				<button class="error-dismiss" onclick={() => error = null} aria-label="Dismiss error">
 					<i class="fas fa-times"></i>
 				</button>
 			</div>
@@ -295,6 +338,7 @@
 				onToggleSelectAll={toggleSelectAll}
 				onToggleSelect={toggleSelect}
 				onRowClick={handleRowClick}
+				onInviteToPortal={handleInviteToPortal}
 			/>
 
 			<!-- Results Summary -->
@@ -313,9 +357,18 @@
 			showSIN={showSidebarSIN}
 			onToggleSIN={toggleSidebarSIN}
 			onClose={closeDetails}
+			onInviteToPortal={handleInviteToPortal}
 		/>
 	{/if}
 </div>
+
+<!-- Portal Invite Modal -->
+<InviteToPortalModal
+	bind:visible={showInviteModal}
+	employees={employeesToInvite}
+	onclose={closeInviteModal}
+	onInvite={handleInviteSuccess}
+/>
 
 <style>
 	.employees-page {

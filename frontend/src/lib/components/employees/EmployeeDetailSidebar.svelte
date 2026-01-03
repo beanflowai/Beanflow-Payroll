@@ -10,6 +10,7 @@
 	} from '$lib/types/employee';
 	import { formatShortDate } from '$lib/utils/dateUtils';
 	import { getEmployeeSickLeaveBalance } from '$lib/services/sickLeaveService';
+	import { PortalStatusBadge } from '$lib/components/employees';
 	import type { SickLeaveBalance } from '$lib/types/sick-leave';
 
 	interface Props {
@@ -17,9 +18,22 @@
 		showSIN: boolean;
 		onToggleSIN: () => void;
 		onClose: () => void;
+		onInviteToPortal?: (employee: Employee) => void;
 	}
 
-	let { employee, showSIN, onToggleSIN, onClose }: Props = $props();
+	let { employee, showSIN, onToggleSIN, onClose, onInviteToPortal }: Props = $props();
+
+	// Portal invite button labels based on status
+	const portalActionLabels = {
+		not_set: { label: 'Invite to Portal', icon: 'fa-envelope' },
+		invited: { label: 'Resend Invitation', icon: 'fa-redo' },
+		active: null,
+		disabled: { label: 'Re-enable Access', icon: 'fa-unlock' }
+	};
+
+	function handleInviteClick() {
+		onInviteToPortal?.(employee);
+	}
 
 	// Sick leave balance state
 	let sickLeaveBalance = $state<SickLeaveBalance | null>(null);
@@ -122,6 +136,35 @@
 					</span>
 				</span>
 			</div>
+		</section>
+
+		<!-- Portal Access -->
+		<section class="detail-section">
+			<h3 class="section-title">Portal Access</h3>
+			<div class="detail-row">
+				<span class="detail-label">Status</span>
+				<span class="detail-value">
+					<PortalStatusBadge status={employee.portalStatus} />
+				</span>
+			</div>
+			{#if employee.portalInvitedAt}
+				<div class="detail-row">
+					<span class="detail-label">Invited</span>
+					<span class="detail-value">{formatDate(employee.portalInvitedAt)}</span>
+				</div>
+			{/if}
+			{#if employee.portalLastLoginAt}
+				<div class="detail-row">
+					<span class="detail-label">Last Login</span>
+					<span class="detail-value">{formatDate(employee.portalLastLoginAt)}</span>
+				</div>
+			{/if}
+			{#if portalActionLabels[employee.portalStatus]}
+				<button class="btn-portal-action" onclick={handleInviteClick}>
+					<i class="fas {portalActionLabels[employee.portalStatus]?.icon}"></i>
+					{portalActionLabels[employee.portalStatus]?.label}
+				</button>
+			{/if}
 		</section>
 
 		<!-- Employment -->
@@ -435,6 +478,34 @@
 	.sin-toggle i {
 		font-size: var(--font-size-auxiliary-text);
 		color: var(--color-surface-400);
+	}
+
+	/* Portal Action Button */
+	.btn-portal-action {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--spacing-2);
+		width: 100%;
+		margin-top: var(--spacing-3);
+		padding: var(--spacing-2) var(--spacing-4);
+		border: 1px solid var(--color-primary-200);
+		border-radius: var(--radius-md);
+		background: var(--color-primary-50);
+		color: var(--color-primary-700);
+		font-size: var(--font-size-body-small);
+		font-weight: var(--font-weight-medium);
+		cursor: pointer;
+		transition: var(--transition-fast);
+	}
+
+	.btn-portal-action:hover {
+		background: var(--color-primary-100);
+		border-color: var(--color-primary-300);
+	}
+
+	.btn-portal-action i {
+		font-size: 0.875rem;
 	}
 
 	.sidebar-actions {

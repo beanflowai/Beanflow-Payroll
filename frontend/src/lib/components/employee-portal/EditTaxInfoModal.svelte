@@ -12,6 +12,7 @@
 	import type { TaxInfoFormData } from '$lib/types/employee-portal';
 	import { FEDERAL_BPA_2025, PROVINCIAL_BPA_2025, PROVINCE_LABELS, PROVINCES_WITH_EDITION_DIFF, type Province } from '$lib/types/employee';
 	import { getBPADefaults, type BPADefaults } from '$lib/services/taxConfigService';
+	import { submitTaxChange } from '$lib/services/employeePortalService';
 
 	interface Props {
 		visible: boolean;
@@ -19,7 +20,6 @@
 			sin: string;
 			federalAdditionalClaims: number;
 			provincialAdditionalClaims: number;
-			additionalTaxPerPeriod: number;
 			provinceOfEmployment: string;
 		};
 		onclose: () => void;
@@ -28,9 +28,20 @@
 
 	let { visible = $bindable(), initialData, onclose, onSubmit }: Props = $props();
 
+	// Extract initial values once at component creation (form snapshot pattern)
+	const initial = (() => {
+		const data = initialData;
+		return {
+			province: data.provinceOfEmployment as Province,
+			provinceName: PROVINCE_LABELS[data.provinceOfEmployment as Province] ?? data.provinceOfEmployment,
+			federalAdditionalClaims: data.federalAdditionalClaims,
+			provincialAdditionalClaims: data.provincialAdditionalClaims,
+		};
+	})();
+
 	// Get provincial BPA based on province (with fallback to ON for unsupported provinces like QC)
-	const province = initialData.provinceOfEmployment as Province;
-	const provinceName = PROVINCE_LABELS[province] ?? initialData.provinceOfEmployment;
+	const province = initial.province;
+	const provinceName = initial.provinceName;
 
 	// Dynamic BPA from API (with fallback to hardcoded values)
 	let bpaDefaults = $state<BPADefaults | null>(null);
@@ -41,31 +52,30 @@
 	const provincialBPA = $derived(bpaDefaults?.provincialBPA ?? PROVINCIAL_BPA_2025[province] ?? PROVINCIAL_BPA_2025.ON);
 
 	// Form state - additional claims are now stored directly (no reverse calculation needed)
-	let federalAdditionalClaims = $state(initialData.federalAdditionalClaims);
-	let provincialAdditionalClaims = $state(initialData.provincialAdditionalClaims);
-	let bpaRequestVersion = $state(0);
+	let federalAdditionalClaims = $state(initial.federalAdditionalClaims);
+	let provincialAdditionalClaims = $state(initial.provincialAdditionalClaims);
+
+	// Track if BPA has been fetched (non-reactive to avoid loops)
+	let bpaFetched = false;
 
 	// Fetch BPA on mount for display purposes
 	$effect(() => {
-		if (province) {
+		if (province && !bpaFetched) {
+			bpaFetched = true;
 			bpaLoading = true;
-			const requestVersion = ++bpaRequestVersion;
 			getBPADefaults(province).then(defaults => {
-				// Ignore stale responses from previous requests
-				if (requestVersion !== bpaRequestVersion) return;
 				bpaDefaults = defaults;
 				bpaLoading = false;
 			}).catch(() => {
-				if (requestVersion !== bpaRequestVersion) return;
 				// Fallback values are already set via $derived
 				bpaLoading = false;
 			});
 		}
 	});
-	let requestAdditionalTax = $state(initialData.additionalTaxPerPeriod > 0);
-	let additionalTaxAmount = $state(initialData.additionalTaxPerPeriod);
 
 	let isSubmitting = $state(false);
+	let error = $state<string | null>(null);
+	let successMessage = $state<string | null>(null);
 
 	// Derived: Total claim amounts (BPA + additional claims)
 	const federalTotalClaim = $derived(federalBPA + federalAdditionalClaims);
@@ -80,25 +90,36 @@
 		}).format(amount);
 	}
 
-	function handleSubmit() {
+	async function handleSubmit() {
 		isSubmitting = true;
+		error = null;
 
 		const data: TaxInfoFormData = {
 			federalAdditionalClaims,
-			provincialAdditionalClaims,
-			additionalTaxPerPeriod: requestAdditionalTax ? additionalTaxAmount : 0
+			provincialAdditionalClaims
 		};
 
-		setTimeout(() => {
-			isSubmitting = false;
+		try {
+			await submitTaxChange(data);
+			successMessage = 'Change request submitted for employer approval';
 			onSubmit(data);
-			onclose();
-		}, 500);
+			// Delay close to show success message
+			setTimeout(() => onclose(), 1500);
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to submit change request';
+			isSubmitting = false;
+		}
 	}
 </script>
 
 <BaseModal {visible} {onclose} size="medium" title="Edit Tax Information">
 	<form class="edit-form" onsubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+		{#if error}
+			<div class="error-banner">{error}</div>
+		{/if}
+		{#if successMessage}
+			<div class="success-banner">{successMessage}</div>
+		{/if}
 		<!-- Warning Banner -->
 		<div class="warning-banner">
 			<svg class="warning-icon" viewBox="0 0 20 20" fill="currentColor">
@@ -113,7 +134,7 @@
 
 		<!-- SIN Display (read-only) -->
 		<div class="form-group">
-			<label class="form-label">Social Insurance Number (SIN)</label>
+			<span class="form-label">Social Insurance Number (SIN)</span>
 			<div class="sin-display">
 				<span class="sin-value">{initialData.sin}</span>
 				<span class="sin-note">Your SIN is encrypted and only visible to your employer.</span>
@@ -124,7 +145,7 @@
 
 		<!-- Federal TD1 -->
 		<div class="form-group">
-			<label class="form-label">Federal TD1</label>
+			<span class="form-label">Federal TD1</span>
 			<div class="claim-grid">
 				<div class="claim-item">
 					<span class="claim-sublabel">
@@ -166,7 +187,7 @@
 
 		<!-- Provincial TD1 -->
 		<div class="form-group">
-			<label class="form-label">Provincial TD1 ({provinceName})</label>
+			<span class="form-label">Provincial TD1 ({provinceName})</span>
 			<div class="claim-grid">
 				<div class="claim-item">
 					<span class="claim-sublabel">
@@ -206,32 +227,6 @@
 			</div>
 		</div>
 
-		<div class="form-divider"></div>
-
-		<!-- Additional Tax Deductions -->
-		<div class="form-group">
-			<label class="checkbox-option">
-				<input type="checkbox" bind:checked={requestAdditionalTax} />
-				<span class="checkbox-label">Request additional tax deductions each pay period</span>
-			</label>
-			{#if requestAdditionalTax}
-				<div class="custom-amount-input" style="margin-top: var(--spacing-3)">
-					<span class="currency-prefix">CA$</span>
-					<input
-						type="number"
-						class="form-input amount-input"
-						bind:value={additionalTaxAmount}
-						min="0"
-						step="1"
-						placeholder="0"
-					/>
-				</div>
-				<p class="form-hint">
-					Some employees request extra tax be withheld to avoid owing at tax time.
-				</p>
-			{/if}
-		</div>
-
 		<!-- Actions -->
 		<div class="form-actions">
 			<button type="button" class="btn-cancel" onclick={onclose} disabled={isSubmitting}>
@@ -253,6 +248,24 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-4);
+	}
+
+	.error-banner {
+		padding: var(--spacing-3) var(--spacing-4);
+		background: var(--color-danger-50);
+		border: 1px solid var(--color-danger-200);
+		border-radius: var(--radius-md);
+		color: var(--color-danger-700);
+		font-size: var(--font-size-auxiliary-text);
+	}
+
+	.success-banner {
+		padding: var(--spacing-3) var(--spacing-4);
+		background: var(--color-success-50);
+		border: 1px solid var(--color-success-200);
+		border-radius: var(--radius-md);
+		color: var(--color-success-700);
+		font-size: var(--font-size-auxiliary-text);
 	}
 
 	.warning-banner {
@@ -397,18 +410,6 @@
 		color: var(--color-surface-600);
 		margin: 0;
 		line-height: 1.5;
-	}
-
-	.checkbox-option {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		cursor: pointer;
-	}
-
-	.checkbox-label {
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-700);
 	}
 
 	.form-divider {

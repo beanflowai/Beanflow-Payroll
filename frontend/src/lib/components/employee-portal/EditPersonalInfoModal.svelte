@@ -3,8 +3,9 @@
 	 * EditPersonalInfoModal - Edit personal information form
 	 */
 	import BaseModal from '$lib/shared-base/BaseModal.svelte';
-	import type { PersonalInfoFormData, EmployeeAddress, EmergencyContact } from '$lib/types/employee-portal';
+	import type { PersonalInfoFormData } from '$lib/types/employee-portal';
 	import { CANADIAN_PROVINCES, RELATIONSHIP_OPTIONS } from '$lib/types/employee-portal';
+	import { updatePersonalInfo } from '$lib/services/employeePortalService';
 
 	interface Props {
 		visible: boolean;
@@ -15,20 +16,37 @@
 
 	let { visible = $bindable(), initialData, onclose, onSave }: Props = $props();
 
+	// Extract initial values once at component creation (form snapshot pattern)
+	const initial = (() => {
+		const data = initialData;
+		return {
+			phone: data.phone,
+			street: data.address.street,
+			city: data.address.city,
+			province: data.address.province,
+			postalCode: data.address.postalCode,
+			emergencyName: data.emergencyContact.name,
+			emergencyRelationship: data.emergencyContact.relationship,
+			emergencyPhone: data.emergencyContact.phone,
+		};
+	})();
+
 	// Form state
-	let phone = $state(initialData.phone);
-	let street = $state(initialData.address.street);
-	let city = $state(initialData.address.city);
-	let province = $state(initialData.address.province);
-	let postalCode = $state(initialData.address.postalCode);
-	let emergencyName = $state(initialData.emergencyContact.name);
-	let emergencyRelationship = $state(initialData.emergencyContact.relationship);
-	let emergencyPhone = $state(initialData.emergencyContact.phone);
+	let phone = $state(initial.phone);
+	let street = $state(initial.street);
+	let city = $state(initial.city);
+	let province = $state(initial.province);
+	let postalCode = $state(initial.postalCode);
+	let emergencyName = $state(initial.emergencyName);
+	let emergencyRelationship = $state(initial.emergencyRelationship);
+	let emergencyPhone = $state(initial.emergencyPhone);
 
 	let isSubmitting = $state(false);
+	let error = $state<string | null>(null);
 
-	function handleSubmit() {
+	async function handleSubmit() {
 		isSubmitting = true;
+		error = null;
 
 		const data: PersonalInfoFormData = {
 			phone,
@@ -45,17 +63,23 @@
 			}
 		};
 
-		// Simulate save
-		setTimeout(() => {
-			isSubmitting = false;
+		try {
+			await updatePersonalInfo(data);
 			onSave(data);
 			onclose();
-		}, 500);
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to save changes';
+		} finally {
+			isSubmitting = false;
+		}
 	}
 </script>
 
 <BaseModal {visible} {onclose} size="medium" title="Edit Personal Information">
 	<form class="edit-form" onsubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+		{#if error}
+			<div class="error-banner">{error}</div>
+		{/if}
 		<!-- Phone -->
 		<div class="form-group">
 			<label for="phone" class="form-label">Phone Number</label>
@@ -168,6 +192,15 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-4);
+	}
+
+	.error-banner {
+		padding: var(--spacing-3) var(--spacing-4);
+		background: var(--color-danger-50);
+		border: 1px solid var(--color-danger-200);
+		border-radius: var(--radius-md);
+		color: var(--color-danger-700);
+		font-size: var(--font-size-auxiliary-text);
 	}
 
 	.form-group {

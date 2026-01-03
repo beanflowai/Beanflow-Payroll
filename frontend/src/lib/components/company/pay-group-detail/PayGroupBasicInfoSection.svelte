@@ -26,26 +26,35 @@
 
 	let { payGroup, companyProvince = 'SK', onUpdate, startInEditMode = false }: Props = $props();
 
+	// Extract initial values for edit mode (form snapshot pattern)
+	const initialEditValues = (() => {
+		const pg = payGroup;
+		const editMode = startInEditMode;
+		return {
+			isEditing: editMode,
+			name: editMode ? pg.name : '',
+			description: editMode ? (pg.description ?? '') : '',
+			payFrequency: (editMode ? pg.payFrequency : 'bi_weekly') as PayFrequency,
+			employmentType: (editMode ? pg.employmentType : 'full_time') as EmploymentType,
+			nextPeriodEnd: editMode ? pg.nextPeriodEnd : '',
+			periodStartDay: (editMode ? pg.periodStartDay : 'monday') as PeriodStartDay,
+			leaveEnabled: editMode ? pg.leaveEnabled : true,
+			taxCalculationMethod: (editMode ? pg.taxCalculationMethod : 'annualization') as TaxCalculationMethod,
+		};
+	})();
+
 	// Edit mode state - start in edit mode if requested
-	let isEditing = $state(startInEditMode);
+	let isEditing = $state(initialEditValues.isEditing);
 
 	// Form state (only used during editing)
-	let editName = $state(startInEditMode ? payGroup.name : '');
-	let editDescription = $state(startInEditMode ? (payGroup.description ?? '') : '');
-	let editPayFrequency = $state<PayFrequency>(
-		startInEditMode ? payGroup.payFrequency : 'bi_weekly'
-	);
-	let editEmploymentType = $state<EmploymentType>(
-		startInEditMode ? payGroup.employmentType : 'full_time'
-	);
-	let editNextPeriodEnd = $state(startInEditMode ? payGroup.nextPeriodEnd : '');
-	let editPeriodStartDay = $state<PeriodStartDay>(
-		startInEditMode ? payGroup.periodStartDay : 'monday'
-	);
-	let editLeaveEnabled = $state(startInEditMode ? payGroup.leaveEnabled : true);
-	let editTaxCalculationMethod = $state<TaxCalculationMethod>(
-		startInEditMode ? payGroup.taxCalculationMethod : 'annualization'
-	);
+	let editName = $state(initialEditValues.name);
+	let editDescription = $state(initialEditValues.description);
+	let editPayFrequency = $state<PayFrequency>(initialEditValues.payFrequency);
+	let editEmploymentType = $state<EmploymentType>(initialEditValues.employmentType);
+	let editNextPeriodEnd = $state(initialEditValues.nextPeriodEnd);
+	let editPeriodStartDay = $state<PeriodStartDay>(initialEditValues.periodStartDay);
+	let editLeaveEnabled = $state(initialEditValues.leaveEnabled);
+	let editTaxCalculationMethod = $state<TaxCalculationMethod>(initialEditValues.taxCalculationMethod);
 
 	// Enter edit mode
 	function enterEditMode() {

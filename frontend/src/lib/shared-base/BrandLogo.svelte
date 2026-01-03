@@ -7,17 +7,19 @@
 
 	let { size = 'md', variant = 'solid', class: className = '' }: BrandLogoProps = $props();
 
-	const sizeClass = {
+	const sizeClasses = {
 		sm: 'bf-brand-logo-sm',
 		md: 'bf-brand-logo-md',
 		lg: 'bf-brand-logo-lg'
-	}[size];
-
-	const variantClass =
-		variant === 'transparent' ? 'bf-brand-logo-transparent' : 'bf-brand-logo-solid';
+	};
 
 	const classes = $derived(
-		['bf-brand-logo', sizeClass, variantClass, className].filter(Boolean).join(' ')
+		[
+			'bf-brand-logo',
+			sizeClasses[size],
+			variant === 'transparent' ? 'bf-brand-logo-transparent' : 'bf-brand-logo-solid',
+			className
+		].filter(Boolean).join(' ')
 	);
 </script>
 

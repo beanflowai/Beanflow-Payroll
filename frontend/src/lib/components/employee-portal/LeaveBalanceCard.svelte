@@ -27,8 +27,8 @@
 		usedThisYear
 	}: Props = $props();
 
-	const title = type === 'vacation' ? 'Vacation' : 'Sick Leave';
-	const icon = type === 'vacation' ? 'vacation' : 'sick';
+	const title = $derived(type === 'vacation' ? 'Vacation' : 'Sick Leave');
+	const icon = $derived(type === 'vacation' ? 'vacation' : 'sick');
 
 	// Calculate percentage for progress ring
 	const percentage = $derived(() => {
@@ -99,7 +99,7 @@
 				{#if accrualRate}
 					<div class="detail-row">
 						<span class="detail-label">Accrual Rate</span>
-						<span class="detail-value">{accrualRate}%</span>
+						<span class="detail-value">{accrualRate.toFixed(2)}%</span>
 					</div>
 				{/if}
 				{#if ytdAccrued !== undefined}

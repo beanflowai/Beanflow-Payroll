@@ -2,6 +2,9 @@
  * Employee types for Payroll UI
  */
 
+// Re-export PortalStatus from employee-portal for convenience
+export type { PortalStatus } from './employee-portal';
+
 // 12 provinces/territories supported (Quebec excluded - separate system required)
 export type Province =
 	| 'AB' | 'BC' | 'MB' | 'NB' | 'NL' | 'NS'
@@ -132,6 +135,10 @@ export interface Employee {
 	initialYtdCpp2: number;
 	initialYtdEi: number;
 	initialYtdYear: number | null;  // Tax year these values apply to
+	// Portal access fields
+	portalStatus: 'not_set' | 'invited' | 'active' | 'disabled';
+	portalInvitedAt?: string | null;
+	portalLastLoginAt?: string | null;
 }
 
 // Column groups for Excel-like table view
@@ -388,6 +395,10 @@ export interface DbEmployee {
 	initial_ytd_cpp2: number;
 	initial_ytd_ei: number;
 	initial_ytd_year: number | null;
+	// Portal access fields
+	portal_status: 'not_set' | 'invited' | 'active' | 'disabled';
+	portal_invited_at: string | null;
+	portal_last_login_at: string | null;
 	created_at: string;
 	updated_at: string;
 }
@@ -476,7 +487,11 @@ export function dbEmployeeToUi(db: DbEmployee, maskedSin: string): Employee {
 		initialYtdCpp: db.initial_ytd_cpp ?? 0,
 		initialYtdCpp2: db.initial_ytd_cpp2 ?? 0,
 		initialYtdEi: db.initial_ytd_ei ?? 0,
-		initialYtdYear: db.initial_ytd_year ?? null
+		initialYtdYear: db.initial_ytd_year ?? null,
+		// Portal access fields
+		portalStatus: db.portal_status ?? 'not_set',
+		portalInvitedAt: db.portal_invited_at,
+		portalLastLoginAt: db.portal_last_login_at
 	};
 }
 

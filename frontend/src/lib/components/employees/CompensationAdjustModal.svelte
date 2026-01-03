@@ -13,16 +13,20 @@
 
 	let { employee, currentCompensation, onClose, onSuccess }: Props = $props();
 
+	// Extract initial values from currentCompensation (form snapshot pattern)
+	const initial = (() => {
+		const comp = currentCompensation;
+		return {
+			compensationType: (comp?.compensationType || 'salary') as CompensationType,
+			annualSalary: comp?.annualSalary?.toString() || '',
+			hourlyRate: comp?.hourlyRate?.toString() || '',
+		};
+	})();
+
 	// Form state
-	let compensationType = $state<CompensationType>(
-		currentCompensation?.compensationType || 'salary'
-	);
-	let annualSalary = $state<string>(
-		currentCompensation?.annualSalary?.toString() || ''
-	);
-	let hourlyRate = $state<string>(
-		currentCompensation?.hourlyRate?.toString() || ''
-	);
+	let compensationType = $state<CompensationType>(initial.compensationType);
+	let annualSalary = $state<string>(initial.annualSalary);
+	let hourlyRate = $state<string>(initial.hourlyRate);
 	let effectiveDate = $state<string>(getCurrentDate());
 	let changeReason = $state<string>('');
 
