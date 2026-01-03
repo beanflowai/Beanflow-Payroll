@@ -3,19 +3,27 @@ Employee Portal API Endpoints
 
 Provides endpoints for employees to access their own payroll data.
 Uses email matching to identify the current employee.
+
+NOTE: Simple queries (profile, paystub list, t4 list) are handled via
+direct Supabase access on the frontend. This API only handles:
+- Complex calculations (YTD, leave balance)
+- PDF generation (paystub, T4)
+- Operations requiring business logic
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import date
+from datetime import date, datetime
 from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.api.deps import CurrentUser
-from app.core.supabase_client import get_supabase_client
+from app.core.config import get_config
+from app.core.supabase_client import get_supabase_admin_client, get_supabase_client
+from app.services.payroll.tax_tables import get_federal_config, get_province_config
 from app.services.payroll_run.gross_calculator import GrossCalculator
 
 logger = logging.getLogger(__name__)
@@ -99,6 +107,45 @@ class EmployeePaystubListResponse(BaseModel):
     ytdSummary: PaystubYTD
 
 
+class EmployeeAddress(BaseModel):
+    """Employee address."""
+
+    street: str
+    city: str
+    province: str
+    postalCode: str
+
+
+class EmergencyContact(BaseModel):
+    """Emergency contact information."""
+
+    name: str
+    relationship: str
+    phone: str
+
+
+class FullProfileResponse(BaseModel):
+    """Full employee profile with decrypted SIN for self-service."""
+
+    id: str
+    firstName: str
+    lastName: str
+    email: str
+    phone: str | None = None
+    address: EmployeeAddress
+    emergencyContact: EmergencyContact | None = None
+    sin: str  # Decrypted SIN for employee to verify
+    federalAdditionalClaims: float
+    provincialAdditionalClaims: float
+    bankName: str
+    transitNumber: str
+    institutionNumber: str
+    accountNumber: str  # Masked
+    hireDate: str
+    jobTitle: str | None = None
+    provinceOfEmployment: str
+
+
 class LeaveHistoryEntry(BaseModel):
     """Leave usage history entry."""
 
@@ -134,20 +181,40 @@ class EmployeeLeaveBalanceResponse(BaseModel):
 # =============================================================================
 
 
-async def get_employee_by_user_email(current_user: CurrentUser) -> dict[str, Any] | None:
-    """Find employee record matching the current user's email."""
+async def get_employee_by_user_email(
+    current_user: CurrentUser,
+    company_id: str | None = None,
+) -> dict[str, Any] | None:
+    """Find employee record matching the current user's email.
+
+    Args:
+        current_user: The authenticated user
+        company_id: Optional company ID to scope the search. If provided, only
+                   returns the employee record for that specific company.
+
+    Returns:
+        Employee record dict or None if not found
+    """
     if not current_user.email:
         return None
 
     supabase = get_supabase_client()
 
-    result = (
+    query = (
         supabase.table("employees")
         .select("*")
         .eq("email", current_user.email)
-        .limit(1)
-        .execute()
+        .not_.is_("portal_invited_at", "null")  # Must have been invited
     )
+
+    # If company_id is provided, scope to that company
+    if company_id:
+        query = query.eq("company_id", company_id)
+    else:
+        # If no company_id, prioritize the most recently invited company
+        query = query.order("portal_invited_at", desc=True)
+
+    result = query.limit(1).execute()
 
     if result.data:
         return cast(dict[str, Any], result.data[0])
@@ -159,69 +226,87 @@ async def get_employee_by_user_email(current_user: CurrentUser) -> dict[str, Any
 # =============================================================================
 
 
-@router.get(
-    "/me",
-    response_model=EmployeePortalProfile,
-    summary="Get current employee profile",
-    description="Get the current employee's profile based on authenticated user email.",
-)
-async def get_current_employee(current_user: CurrentUser) -> EmployeePortalProfile:
-    """Get the current employee's profile."""
-    employee = await get_employee_by_user_email(current_user)
+# =============================================================================
+# Public Company Lookup (No Auth Required)
+# =============================================================================
 
-    if not employee:
+
+class CompanyPublicInfo(BaseModel):
+    """Public company information for portal login page."""
+
+    id: str
+    companyName: str
+    slug: str
+    logoUrl: str | None = None
+
+
+@router.get(
+    "/company/by-slug/{slug}",
+    response_model=CompanyPublicInfo,
+    summary="Get company info by slug",
+    description="Public endpoint to get company information for portal login page.",
+)
+async def get_company_by_slug(slug: str) -> CompanyPublicInfo:
+    """Get public company information by URL slug.
+
+    This is a public endpoint (no auth required) used by the portal login page
+    to display company name/logo before user authenticates.
+
+    Uses public_company_portal_info view which has anon access granted,
+    avoiding direct access to companies table which may have RLS restrictions.
+    """
+    from app.core.supabase_client import SupabaseClient
+
+    # Use the base client (not authenticated) since this is a public endpoint
+    # The view public_company_portal_info has GRANT SELECT to anon
+    supabase = SupabaseClient.get_client()
+
+    result = (
+        supabase.table("public_company_portal_info")
+        .select("id, company_name, slug, logo_url")
+        .eq("slug", slug)
+        .maybe_single()
+        .execute()
+    )
+
+    if not result.data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No employee record found for email: {current_user.email}",
+            detail="Company portal not found",
         )
 
-    # Get sick leave balance
-    sick_days_remaining = 0.0
-    try:
-        from app.services.payroll.sick_leave_service import SickLeaveService
-
-        service = SickLeaveService()
-        hire_date = (
-            date.fromisoformat(employee["hire_date"])
-            if employee.get("hire_date")
-            else date.today()
-        )
-        balance = service.create_new_year_balance(
-            employee_id=employee["id"],
-            year=date.today().year,
-            province_code=employee.get("province_of_employment", "ON"),
-            hire_date=hire_date,
-        )
-        sick_days_remaining = float(balance.paid_days_remaining)
-    except Exception:
-        logger.exception("Error calculating sick leave balance")
-
-    return EmployeePortalProfile(
-        id=employee["id"],
-        firstName=employee.get("first_name", ""),
-        lastName=employee.get("last_name", ""),
-        email=employee.get("email", ""),
-        provinceOfEmployment=employee.get("province_of_employment", ""),
-        payFrequency=employee.get("pay_frequency", ""),
-        hireDate=employee.get("hire_date"),
-        vacationBalance=float(employee.get("vacation_balance") or 0),
-        sickDaysRemaining=sick_days_remaining,
+    company = result.data
+    return CompanyPublicInfo(
+        id=company["id"],
+        companyName=company["company_name"],
+        slug=company["slug"],
+        logoUrl=company.get("logo_url"),
     )
 
 
+# NOTE: GET /paystubs list endpoint removed - use direct Supabase query:
+# supabase.from('payroll_records').select('*, payroll_runs!inner(*)').eq('employee_id', empId)
+
+
 @router.get(
-    "/paystubs",
-    response_model=EmployeePaystubListResponse,
-    summary="Get my paystubs",
-    description="Get the current employee's paystubs for a given year.",
+    "/profile",
+    response_model=FullProfileResponse,
+    summary="Get my full profile",
+    description="Get the current employee's full profile including decrypted SIN.",
 )
-async def get_my_paystubs(
+async def get_my_profile(
     current_user: CurrentUser,
-    year: int = 2025,
-    limit: int = 20,
-) -> EmployeePaystubListResponse:
-    """Get paystubs for the current employee."""
-    employee = await get_employee_by_user_email(current_user)
+    company_id: str | None = None,
+) -> FullProfileResponse:
+    """Get the current employee's full profile with decrypted SIN.
+
+    Args:
+        company_id: Optional company ID to scope the request to a specific company.
+                   Required when employee has records in multiple companies.
+    """
+    from app.core.security import decrypt_sin
+
+    employee = await get_employee_by_user_email(current_user, company_id)
 
     if not employee:
         raise HTTPException(
@@ -231,70 +316,82 @@ async def get_my_paystubs(
 
     supabase = get_supabase_client()
 
-    # Filter by year at database level using date range
-    year_start = f"{year}-01-01"
-    year_end = f"{year + 1}-01-01"
-
-    # Query payroll records for this employee with approved runs only
-    result = (
-        supabase.table("payroll_records")
-        .select(
-            """
-            id,
-            total_gross,
-            total_deductions,
-            net_pay,
-            ytd_gross,
-            ytd_cpp,
-            ytd_ei,
-            ytd_federal_tax,
-            ytd_provincial_tax,
-            payroll_runs!inner (
-                pay_date,
-                period_start,
-                period_end,
-                status
-            )
-        """
+    # Get tax claims for current year
+    current_year = date.today().year
+    tax_claims: dict[str, Any] = {}
+    try:
+        tax_claims_result = (
+            supabase.table("employee_tax_claims")
+            .select("federal_additional_claims, provincial_additional_claims")
+            .eq("employee_id", employee["id"])
+            .eq("tax_year", current_year)
+            .maybe_single()
+            .execute()
         )
-        .eq("employee_id", employee["id"])
-        .eq("payroll_runs.status", "approved")
-        .gte("payroll_runs.pay_date", year_start)
-        .lt("payroll_runs.pay_date", year_end)
-        .order("payroll_runs.pay_date", desc=True)
-        .limit(limit)
-        .execute()
+        if tax_claims_result and tax_claims_result.data:
+            tax_claims = tax_claims_result.data
+    except Exception as e:
+        logger.warning(f"Failed to fetch tax claims: {e}")
+
+    # Decrypt SIN
+    sin_encrypted = employee.get("sin_encrypted") or ""
+    sin_decrypted = ""
+    if sin_encrypted:
+        try:
+            decrypted = decrypt_sin(sin_encrypted)
+            if decrypted:
+                # Format as XXX-XXX-XXX
+                clean_sin = decrypted.replace("-", "").replace(" ", "")
+                if len(clean_sin) == 9:
+                    sin_decrypted = f"{clean_sin[:3]}-{clean_sin[3:6]}-{clean_sin[6:]}"
+                else:
+                    sin_decrypted = decrypted
+            else:
+                # Decryption returned None/empty - show placeholder
+                sin_decrypted = "***-***-*** (unavailable)"
+                logger.warning(f"SIN decryption returned empty for employee {employee['id']}")
+        except Exception as e:
+            # Decryption failed - show placeholder
+            sin_decrypted = "***-***-*** (unavailable)"
+            logger.error(f"Failed to decrypt SIN for employee {employee['id']}: {e}")
+
+    # Mask bank account number
+    bank_account = employee.get("bank_account") or ""
+    masked_account = "****" + bank_account[-4:] if len(bank_account) >= 4 else "****"
+
+    # Build emergency contact if exists
+    emergency_contact = None
+    if employee.get("emergency_contact_name"):
+        emergency_contact = EmergencyContact(
+            name=employee.get("emergency_contact_name") or "",
+            relationship=employee.get("emergency_contact_relationship") or "",
+            phone=employee.get("emergency_contact_phone") or "",
+        )
+
+    return FullProfileResponse(
+        id=employee["id"],
+        firstName=employee.get("first_name") or "",
+        lastName=employee.get("last_name") or "",
+        email=employee.get("email") or "",
+        phone=employee.get("phone"),
+        address=EmployeeAddress(
+            street=employee.get("address_street") or "",
+            city=employee.get("address_city") or "",
+            province=employee.get("address_province") or "",
+            postalCode=employee.get("address_postal_code") or "",
+        ),
+        emergencyContact=emergency_contact,
+        sin=sin_decrypted,
+        federalAdditionalClaims=float(tax_claims.get("federal_additional_claims") or 0),
+        provincialAdditionalClaims=float(tax_claims.get("provincial_additional_claims") or 0),
+        bankName=employee.get("bank_name") or "",
+        transitNumber=employee.get("bank_transit") or "",
+        institutionNumber=employee.get("bank_institution") or "",
+        accountNumber=masked_account,
+        hireDate=employee.get("hire_date") or "",
+        jobTitle=employee.get("job_title"),
+        provinceOfEmployment=employee.get("province_of_employment") or "",
     )
-
-    paystubs: list[EmployeePaystub] = []
-    ytd_summary = PaystubYTD(grossEarnings=0, cppPaid=0, eiPaid=0, taxPaid=0)
-
-    for record in result.data or []:
-        run = record.get("payroll_runs", {})
-        paystubs.append(
-            EmployeePaystub(
-                id=record["id"],
-                payDate=run.get("pay_date", ""),
-                payPeriodStart=run.get("period_start", ""),
-                payPeriodEnd=run.get("period_end", ""),
-                grossPay=float(record.get("total_gross") or 0),
-                totalDeductions=float(record.get("total_deductions") or 0),
-                netPay=float(record.get("net_pay") or 0),
-            )
-        )
-
-    # Get YTD from the most recent record of the selected year
-    if paystubs and result.data:
-        latest_record = result.data[0]
-        ytd_summary = PaystubYTD(
-            grossEarnings=float(latest_record.get("ytd_gross") or 0),
-            cppPaid=float(latest_record.get("ytd_cpp") or 0),
-            eiPaid=float(latest_record.get("ytd_ei") or 0),
-            taxPaid=float(latest_record.get("ytd_federal_tax") or 0)
-            + float(latest_record.get("ytd_provincial_tax") or 0),
-        )
-
-    return EmployeePaystubListResponse(paystubs=paystubs, ytdSummary=ytd_summary)
 
 
 @router.get(
@@ -306,9 +403,14 @@ async def get_my_paystubs(
 async def get_paystub_detail(
     record_id: str,
     current_user: CurrentUser,
+    company_id: str | None = None,
 ) -> EmployeePaystubDetail:
-    """Get detailed paystub for a specific record."""
-    employee = await get_employee_by_user_email(current_user)
+    """Get detailed paystub for a specific record.
+
+    Args:
+        company_id: Optional company ID to scope the request to a specific company.
+    """
+    employee = await get_employee_by_user_email(current_user, company_id)
 
     if not employee:
         raise HTTPException(
@@ -456,9 +558,14 @@ async def get_paystub_detail(
 async def get_my_leave_balance(
     current_user: CurrentUser,
     year: int = 2025,
+    company_id: str | None = None,
 ) -> EmployeeLeaveBalanceResponse:
-    """Get detailed leave balance for the current employee."""
-    employee = await get_employee_by_user_email(current_user)
+    """Get detailed leave balance for the current employee.
+
+    Args:
+        company_id: Optional company ID to scope the request to a specific company.
+    """
+    employee = await get_employee_by_user_email(current_user, company_id)
 
     if not employee:
         raise HTTPException(
@@ -526,6 +633,7 @@ async def get_my_leave_balance(
         .select(
             """
             vacation_pay_paid,
+            vacation_hours_taken,
             sick_pay_paid,
             sick_hours_taken,
             payroll_runs!inner (
@@ -540,8 +648,14 @@ async def get_my_leave_balance(
         .in_("payroll_runs.status", ["approved", "paid"])
         .gte("payroll_runs.pay_date", year_start)
         .lte("payroll_runs.pay_date", year_end)
-        .order("payroll_runs.pay_date", desc=True)
         .execute()
+    )
+
+    # Sort records by pay_date descending (PostgREST doesn't support ordering by nested fields)
+    records_data = sorted(
+        records_result.data or [],
+        key=lambda r: r.get("payroll_runs", {}).get("pay_date", ""),
+        reverse=True,
     )
 
     # Calculate YTD used (in hours)
@@ -549,7 +663,7 @@ async def get_my_leave_balance(
     sick_ytd_used_hours = 0.0
     leave_history: list[LeaveHistoryEntry] = []
 
-    for record in records_result.data or []:
+    for record in records_data:
         run = record.get("payroll_runs", {})
         pay_date = run.get("pay_date", "")
 
@@ -635,47 +749,84 @@ class T4ListResponse(BaseModel):
     taxDocuments: list[TaxDocument]
 
 
-@router.get(
-    "/t4",
-    response_model=T4ListResponse,
-    summary="Get my T4 documents",
-    description="Get the current employee's T4 tax documents.",
-)
-async def get_my_t4_documents(current_user: CurrentUser) -> T4ListResponse:
-    """Get T4 documents for the current employee."""
-    employee = await get_employee_by_user_email(current_user)
+# =============================================================================
+# Profile Change Request Models
+# =============================================================================
 
-    if not employee:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No employee record found for email: {current_user.email}",
-        )
 
-    supabase = get_supabase_client()
+class ProfileChangeRequestResponse(BaseModel):
+    """Profile change request for employer review."""
 
-    # Query T4 slips for this employee
-    result = (
-        supabase.table("t4_slips")
-        .select("id, tax_year, pdf_generated_at, status")
-        .eq("employee_id", employee["id"])
-        .in_("status", ["generated", "filed", "amended"])
-        .order("tax_year", desc=True)
-        .execute()
-    )
+    id: str
+    employeeId: str
+    employeeName: str
+    changeType: str
+    status: str
+    currentValues: dict[str, Any]
+    requestedValues: dict[str, Any]
+    submittedAt: str
+    attachments: list[str] | None = None
+    reviewedAt: str | None = None
+    reviewedBy: str | None = None
+    rejectionReason: str | None = None
 
-    documents: list[TaxDocument] = []
-    for row in result.data or []:
-        if row.get("pdf_generated_at"):
-            documents.append(
-                TaxDocument(
-                    id=row["id"],
-                    type="T4",
-                    year=row["tax_year"],
-                    generatedAt=row["pdf_generated_at"],
-                )
-            )
 
-    return T4ListResponse(taxDocuments=documents)
+class ProfileChangeListResponse(BaseModel):
+    """List of pending profile change requests."""
+
+    items: list[ProfileChangeRequestResponse]
+    total: int
+
+
+class PersonalInfoUpdateRequest(BaseModel):
+    """Request to update personal information (auto-approved)."""
+
+    phone: str | None = None
+    addressStreet: str | None = None
+    addressCity: str | None = None
+    addressProvince: str | None = None
+    addressPostalCode: str | None = None
+    emergencyName: str | None = None
+    emergencyRelationship: str | None = None
+    emergencyPhone: str | None = None
+
+
+class PersonalInfoUpdateResponse(BaseModel):
+    """Response for personal info update."""
+
+    success: bool
+    message: str
+
+
+class TaxInfoChangeRequest(BaseModel):
+    """Request to change tax information (requires approval)."""
+
+    federalAdditionalClaims: float | None = None
+    provincialAdditionalClaims: float | None = None
+
+
+class PortalInviteRequest(BaseModel):
+    """Request to invite employee to portal."""
+
+    sendEmail: bool = True
+
+
+class PortalInviteResponse(BaseModel):
+    """Response for portal invitation."""
+
+    success: bool
+    message: str
+    portalStatus: str
+
+
+class ChangeRequestActionRequest(BaseModel):
+    """Request to approve or reject a change request."""
+
+    rejectionReason: str | None = None
+
+
+# NOTE: GET /t4 list endpoint removed - use direct Supabase query:
+# supabase.from('t4_slips').select('*').eq('employee_id', empId).in('status', ['generated', 'filed', 'amended'])
 
 
 @router.get(
@@ -691,13 +842,18 @@ async def get_my_t4_documents(current_user: CurrentUser) -> T4ListResponse:
 async def download_my_t4(
     tax_year: int,
     current_user: CurrentUser,
+    company_id: str | None = None,
 ) -> Any:
-    """Download T4 slip PDF for the current employee."""
+    """Download T4 slip PDF for the current employee.
+
+    Args:
+        company_id: Optional company ID to scope the request to a specific company.
+    """
     from fastapi.responses import Response
 
     from app.services.t4 import T4PDFGenerator, get_t4_storage
 
-    employee = await get_employee_by_user_email(current_user)
+    employee = await get_employee_by_user_email(current_user, company_id)
 
     if not employee:
         raise HTTPException(
@@ -768,3 +924,552 @@ async def download_my_t4(
             "Content-Disposition": f'attachment; filename="{filename}"',
         },
     )
+
+
+# =============================================================================
+# Employee Self-Service Endpoints
+# =============================================================================
+
+
+@router.put(
+    "/profile/personal",
+    response_model=PersonalInfoUpdateResponse,
+    summary="Update personal information",
+    description="Update employee's personal info (auto-approved, no employer review needed).",
+)
+async def update_personal_info(
+    request: PersonalInfoUpdateRequest,
+    current_user: CurrentUser,
+    company_id: str | None = None,
+) -> PersonalInfoUpdateResponse:
+    """Update employee's personal information directly.
+
+    Args:
+        company_id: Optional company ID to scope the request to a specific company.
+    """
+    employee = await get_employee_by_user_email(current_user, company_id)
+
+    if not employee:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No employee record found for email: {current_user.email}",
+        )
+
+    supabase = get_supabase_client()
+
+    # Build update data (only include non-None fields)
+    update_data: dict[str, Any] = {}
+
+    if request.phone is not None:
+        update_data["phone"] = request.phone
+    if request.addressStreet is not None:
+        update_data["address_street"] = request.addressStreet
+    if request.addressCity is not None:
+        update_data["address_city"] = request.addressCity
+    if request.addressProvince is not None:
+        update_data["address_province"] = request.addressProvince
+    if request.addressPostalCode is not None:
+        update_data["address_postal_code"] = request.addressPostalCode
+    if request.emergencyName is not None:
+        update_data["emergency_contact_name"] = request.emergencyName
+    if request.emergencyRelationship is not None:
+        update_data["emergency_contact_relationship"] = request.emergencyRelationship
+    if request.emergencyPhone is not None:
+        update_data["emergency_contact_phone"] = request.emergencyPhone
+
+    if not update_data:
+        return PersonalInfoUpdateResponse(
+            success=True,
+            message="No changes to update",
+        )
+
+    try:
+        supabase.table("employees").update(update_data).eq("id", employee["id"]).execute()
+        return PersonalInfoUpdateResponse(
+            success=True,
+            message="Personal information updated successfully",
+        )
+    except Exception as e:
+        logger.error(f"Failed to update personal info: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update personal information",
+        )
+
+
+@router.put(
+    "/profile/tax",
+    response_model=ProfileChangeRequestResponse,
+    summary="Submit tax info change request",
+    description="Submit a tax information change request (requires employer approval).",
+)
+async def submit_tax_change_request(
+    request: TaxInfoChangeRequest,
+    current_user: CurrentUser,
+    company_id: str | None = None,
+) -> ProfileChangeRequestResponse:
+    """Submit a tax info change request for employer approval.
+
+    Args:
+        company_id: Optional company ID to scope the request to a specific company.
+    """
+    employee = await get_employee_by_user_email(current_user, company_id)
+
+    if not employee:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No employee record found for email: {current_user.email}",
+        )
+
+    supabase = get_supabase_client()
+
+    # Get current tax claims for this year
+    current_year = date.today().year
+    tax_claims_result = (
+        supabase.table("employee_tax_claims")
+        .select("*")
+        .eq("employee_id", employee["id"])
+        .eq("tax_year", current_year)
+        .maybe_single()
+        .execute()
+    )
+
+    current_values = {
+        "federalAdditionalClaims": 0.0,
+        "provincialAdditionalClaims": 0.0,
+    }
+
+    if tax_claims_result.data:
+        current_values = {
+            "federalAdditionalClaims": float(
+                tax_claims_result.data.get("federal_additional_claims") or 0
+            ),
+            "provincialAdditionalClaims": float(
+                tax_claims_result.data.get("provincial_additional_claims") or 0
+            ),
+        }
+
+    requested_values = {
+        "federalAdditionalClaims": request.federalAdditionalClaims
+        if request.federalAdditionalClaims is not None
+        else current_values["federalAdditionalClaims"],
+        "provincialAdditionalClaims": request.provincialAdditionalClaims
+        if request.provincialAdditionalClaims is not None
+        else current_values["provincialAdditionalClaims"],
+    }
+
+    # Create change request
+    change_request = {
+        "employee_id": employee["id"],
+        "company_id": employee.get("company_id"),
+        "user_id": employee.get("user_id"),
+        "change_type": "tax_info",
+        "status": "pending",
+        "current_values": current_values,
+        "requested_values": requested_values,
+    }
+
+    try:
+        result = supabase.table("profile_change_requests").insert(change_request).execute()
+        created = result.data[0]
+
+        return ProfileChangeRequestResponse(
+            id=created["id"],
+            employeeId=employee["id"],
+            employeeName=f"{employee.get('first_name', '')} {employee.get('last_name', '')}",
+            changeType="tax_info",
+            status="pending",
+            currentValues=current_values,
+            requestedValues=requested_values,
+            submittedAt=created.get("submitted_at", ""),
+        )
+    except Exception as e:
+        logger.error(f"Failed to create change request: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to submit change request",
+        )
+
+
+# =============================================================================
+# Employer Management Endpoints
+# =============================================================================
+
+# Create a separate router for employer-side portal management
+employer_router = APIRouter(tags=["Employee Portal Management"])
+
+
+@employer_router.post(
+    "/employees/{employee_id}/portal/invite",
+    response_model=PortalInviteResponse,
+    summary="Invite employee to portal",
+    description="Send portal invitation to an employee.",
+)
+async def invite_to_portal(
+    employee_id: str,
+    request: PortalInviteRequest,
+    current_user: CurrentUser,
+) -> PortalInviteResponse:
+    """Invite an employee to access the employee portal."""
+    supabase = get_supabase_client()
+
+    # Verify employee belongs to current user and get company info
+    employee_result = (
+        supabase.table("employees")
+        .select("id, email, first_name, last_name, portal_status, user_id, company_id")
+        .eq("id", employee_id)
+        .eq("user_id", current_user.id)
+        .maybe_single()
+        .execute()
+    )
+
+    if not employee_result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Employee not found",
+        )
+
+    employee = employee_result.data
+
+    # Get company slug for portal URL
+    company_slug = "default"
+    company_id = employee.get("company_id")
+    if company_id:
+        company_result = (
+            supabase.table("companies")
+            .select("slug")
+            .eq("id", company_id)
+            .maybe_single()
+            .execute()
+        )
+        if company_result.data:
+            company_slug = company_result.data.get("slug") or "default"
+
+    # Check if already active
+    if employee.get("portal_status") == "active":
+        return PortalInviteResponse(
+            success=True,
+            message="Employee already has active portal access",
+            portalStatus="active",
+        )
+
+    # Create/invite Auth user if sendEmail is True
+    if request.sendEmail:
+        admin_client = get_supabase_admin_client()
+        if not admin_client:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Admin client not configured. Please set SUPABASE_SERVICE_ROLE_KEY.",
+            )
+
+        # Get frontend URL for redirect with company slug
+        config = get_config()
+        employee_portal_url = f"{config.frontend_url}/employee/{company_slug}/auth"
+
+        try:
+            # Try to invite new user by email - creates Auth user and sends invitation
+            admin_client.auth.admin.invite_user_by_email(
+                employee["email"],
+                options={"redirect_to": employee_portal_url},
+            )
+            logger.info(f"Auth user invited: {employee['email']} with redirect to {employee_portal_url}")
+        except Exception as invite_error:
+            # Check if user already exists (common case)
+            error_msg = str(invite_error).lower()
+            if "already" in error_msg or "exists" in error_msg or "registered" in error_msg:
+                logger.info(f"Auth user already exists for: {employee['email']}, sending custom invite email")
+                # User exists - send custom invite email via Resend (only login link, no OTP)
+                try:
+                    from app.services.email_service import get_email_service
+
+                    email_service = get_email_service()
+                    employee_name = f"{employee.get('first_name', '')} {employee.get('last_name', '')}".strip()
+                    await email_service.send_employee_portal_invite_email(
+                        to_email=employee["email"],
+                        employee_name=employee_name or "Employee",
+                        company_slug=company_slug,
+                    )
+                    logger.info(f"Custom invite email sent to: {employee['email']}")
+                except Exception as email_error:
+                    logger.error(f"Failed to send custom invite email: {email_error}")
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"Failed to send invitation email: {email_error}",
+                    )
+            else:
+                logger.error(f"Failed to invite auth user: {invite_error}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to send invitation email: {invite_error}",
+                )
+
+    # Update portal status
+    update_data = {
+        "portal_status": "invited",
+        "portal_invited_at": datetime.now().isoformat(),
+    }
+
+    try:
+        supabase.table("employees").update(update_data).eq("id", employee_id).execute()
+
+        message = "Portal invitation sent" if request.sendEmail else "Portal status updated to invited"
+
+        return PortalInviteResponse(
+            success=True,
+            message=message,
+            portalStatus="invited",
+        )
+    except Exception as e:
+        logger.error(f"Failed to update portal status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to invite employee to portal",
+        )
+
+
+@employer_router.get(
+    "/profile-changes",
+    response_model=ProfileChangeListResponse,
+    summary="Get pending profile changes",
+    description="Get all pending profile change requests for employer review.",
+)
+async def get_pending_profile_changes(
+    current_user: CurrentUser,
+    status: str = "pending",
+) -> ProfileChangeListResponse:
+    """Get pending profile change requests for employer review."""
+    supabase = get_supabase_client()
+
+    query = (
+        supabase.table("profile_change_requests")
+        .select(
+            """
+            *,
+            employees!inner (
+                first_name,
+                last_name
+            )
+        """
+        )
+        .eq("user_id", current_user.id)
+    )
+
+    if status:
+        query = query.eq("status", status)
+
+    result = query.order("submitted_at", desc=True).execute()
+
+    items: list[ProfileChangeRequestResponse] = []
+    for row in result.data or []:
+        emp = row.get("employees", {})
+        items.append(
+            ProfileChangeRequestResponse(
+                id=row["id"],
+                employeeId=row["employee_id"],
+                employeeName=f"{emp.get('first_name', '')} {emp.get('last_name', '')}",
+                changeType=row["change_type"],
+                status=row["status"],
+                currentValues=row.get("current_values") or {},
+                requestedValues=row.get("requested_values") or {},
+                submittedAt=row.get("submitted_at", ""),
+                attachments=row.get("attachments"),
+                reviewedAt=row.get("reviewed_at"),
+                reviewedBy=row.get("reviewed_by"),
+                rejectionReason=row.get("rejection_reason"),
+            )
+        )
+
+    return ProfileChangeListResponse(items=items, total=len(items))
+
+
+@employer_router.put(
+    "/profile-changes/{change_id}/approve",
+    response_model=ProfileChangeRequestResponse,
+    summary="Approve profile change",
+    description="Approve a profile change request and apply changes.",
+)
+async def approve_profile_change(
+    change_id: str,
+    current_user: CurrentUser,
+) -> ProfileChangeRequestResponse:
+    """Approve a profile change request and apply changes to employee record."""
+    supabase = get_supabase_client()
+
+    # Get the change request
+    result = (
+        supabase.table("profile_change_requests")
+        .select(
+            """
+            *,
+            employees!inner (
+                first_name,
+                last_name
+            )
+        """
+        )
+        .eq("id", change_id)
+        .eq("user_id", current_user.id)
+        .eq("status", "pending")
+        .maybe_single()
+        .execute()
+    )
+
+    if not result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Change request not found or already processed",
+        )
+
+    change_request = result.data
+    employee = change_request.get("employees", {})
+    requested_values = change_request.get("requested_values") or {}
+
+    try:
+        # Apply changes based on change type
+        if change_request["change_type"] == "tax_info":
+            # Update employee_tax_claims table
+            current_year = date.today().year
+
+            # Get employee's province for BPA lookup
+            employee_data = (
+                supabase.table("employees")
+                .select("province_of_employment")
+                .eq("id", change_request["employee_id"])
+                .single()
+                .execute()
+            )
+            province = employee_data.data.get("province_of_employment", "ON")
+
+            # Get BPA values from tax configuration
+            try:
+                federal_config = get_federal_config(current_year, None)
+                province_config = get_province_config(province, current_year, None)
+                federal_bpa = float(federal_config["bpaf"])
+                provincial_bpa = float(province_config["bpa"])
+            except Exception as bpa_error:
+                logger.warning(f"Failed to get BPA from tax config: {bpa_error}, using fallback")
+                # Fallback to default values if tax config not available
+                federal_bpa = 16129.0  # 2025 federal BPA
+                provincial_bpa = 12000.0  # Conservative default
+
+            tax_update = {
+                "federal_bpa": federal_bpa,
+                "provincial_bpa": provincial_bpa,
+                "federal_additional_claims": requested_values.get("federalAdditionalClaims", 0),
+                "provincial_additional_claims": requested_values.get(
+                    "provincialAdditionalClaims", 0
+                ),
+            }
+
+            # Upsert tax claims
+            supabase.table("employee_tax_claims").upsert(
+                {
+                    "employee_id": change_request["employee_id"],
+                    "company_id": change_request["company_id"],
+                    "user_id": current_user.id,
+                    "tax_year": current_year,
+                    **tax_update,
+                },
+                on_conflict="employee_id,tax_year",
+            ).execute()
+
+        # Mark change request as approved
+        supabase.table("profile_change_requests").update(
+            {
+                "status": "approved",
+                "reviewed_at": datetime.now().isoformat(),
+                "reviewed_by": current_user.id,
+            }
+        ).eq("id", change_id).execute()
+
+        return ProfileChangeRequestResponse(
+            id=change_request["id"],
+            employeeId=change_request["employee_id"],
+            employeeName=f"{employee.get('first_name', '')} {employee.get('last_name', '')}",
+            changeType=change_request["change_type"],
+            status="approved",
+            currentValues=change_request.get("current_values") or {},
+            requestedValues=requested_values,
+            submittedAt=change_request.get("submitted_at", ""),
+            reviewedAt=datetime.now().isoformat(),
+            reviewedBy=current_user.id,
+        )
+    except Exception as e:
+        logger.error(f"Failed to approve change request: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to approve change request",
+        )
+
+
+@employer_router.put(
+    "/profile-changes/{change_id}/reject",
+    response_model=ProfileChangeRequestResponse,
+    summary="Reject profile change",
+    description="Reject a profile change request with reason.",
+)
+async def reject_profile_change(
+    change_id: str,
+    request: ChangeRequestActionRequest,
+    current_user: CurrentUser,
+) -> ProfileChangeRequestResponse:
+    """Reject a profile change request."""
+    supabase = get_supabase_client()
+
+    # Get the change request
+    result = (
+        supabase.table("profile_change_requests")
+        .select(
+            """
+            *,
+            employees!inner (
+                first_name,
+                last_name
+            )
+        """
+        )
+        .eq("id", change_id)
+        .eq("user_id", current_user.id)
+        .eq("status", "pending")
+        .maybe_single()
+        .execute()
+    )
+
+    if not result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Change request not found or already processed",
+        )
+
+    change_request = result.data
+    employee = change_request.get("employees", {})
+
+    try:
+        supabase.table("profile_change_requests").update(
+            {
+                "status": "rejected",
+                "reviewed_at": datetime.now().isoformat(),
+                "reviewed_by": current_user.id,
+                "rejection_reason": request.rejectionReason,
+            }
+        ).eq("id", change_id).execute()
+
+        return ProfileChangeRequestResponse(
+            id=change_request["id"],
+            employeeId=change_request["employee_id"],
+            employeeName=f"{employee.get('first_name', '')} {employee.get('last_name', '')}",
+            changeType=change_request["change_type"],
+            status="rejected",
+            currentValues=change_request.get("current_values") or {},
+            requestedValues=change_request.get("requested_values") or {},
+            submittedAt=change_request.get("submitted_at", ""),
+            reviewedAt=datetime.now().isoformat(),
+            reviewedBy=current_user.id,
+            rejectionReason=request.rejectionReason,
+        )
+    except Exception as e:
+        logger.error(f"Failed to reject change request: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to reject change request",
+        )
