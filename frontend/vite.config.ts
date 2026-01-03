@@ -10,5 +10,16 @@ export default defineConfig({
 	resolve: {
 		// Preserve symlinks to ensure dependencies are resolved from payroll-frontend/node_modules
 		preserveSymlinks: true
+	},
+	test: {
+		include: ['src/**/*.{test,spec}.{js,ts}'],
+		environment: 'jsdom',
+		globals: true,
+		coverage: {
+			provider: 'v8',
+			reporter: ['text', 'json', 'html'],
+			include: ['src/lib/**/*.ts'],
+			exclude: ['src/lib/**/*.d.ts', 'src/lib/types/**']
+		}
 	}
 });
