@@ -7,40 +7,36 @@ Core lifecycle operations for payroll runs:
 - finalize_run
 - approve_run
 - send_paystubs
+
+This module serves as an orchestration layer, delegating to specialized modules:
+- input_preparation: Prepares calculation inputs
+- result_persister: Persists calculation results
+- paystub_orchestrator: Generates paystubs
+- vacation_manager: Manages vacation balances
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timedelta
-from decimal import Decimal
+from datetime import datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
 
-import httpx
-
-from app.models.payroll import PayFrequency, Province
-from app.services.payroll import (
-    EmployeePayrollInput,
-    PayrollEngine,
-    PaystubDataBuilder,
-    PaystubGenerator,
-)
+from app.services.payroll import PayrollEngine
 from app.services.payroll.paystub_storage import (
     PaystubStorage,
     PaystubStorageConfigError,
 )
-from app.services.payroll_run.benefits_calculator import BenefitsCalculator
 from app.services.payroll_run.constants import (
     calculate_next_period_end,
     calculate_pay_date,
     extract_year_from_date,
-    get_federal_bpa,
-    get_provincial_bpa,
 )
-from app.services.payroll_run.gross_calculator import GrossCalculator
 from app.services.payroll_run.holiday_pay_calculator import HolidayPayCalculator
-from app.services.payroll_run.model_builders import ModelBuilder
+from app.services.payroll_run.input_preparation import PayrollInputPreparer
+from app.services.payroll_run.paystub_orchestrator import PaystubOrchestrator
+from app.services.payroll_run.result_persister import PayrollResultPersister
+from app.services.payroll_run.vacation_manager import VacationManager
 from app.services.payroll_run.ytd_calculator import YtdCalculator
 from app.services.remittance import RemittancePeriodService
 
@@ -80,6 +76,17 @@ class PayrollRunOperations:
         self._get_run_records = get_run_records_func
         self._create_records_for_employees = create_records_func
 
+        # Initialize sub-modules
+        self.input_preparer = PayrollInputPreparer(
+            supabase=supabase,
+            user_id=user_id,
+            company_id=company_id,
+            ytd_calculator=ytd_calculator,
+            holiday_calculator=self.holiday_calculator,
+        )
+        self.result_persister = PayrollResultPersister(supabase)
+        self.vacation_manager = VacationManager(supabase)
+
     async def recalculate_run(self, run_id: UUID) -> dict[str, Any]:
         """Recalculate all records in a draft payroll run.
 
@@ -111,327 +118,40 @@ class PayrollRunOperations:
         if not records:
             raise ValueError("No records found for payroll run")
 
-        # Extract year from pay_date for YTD calculations
+        # Parse dates
         pay_date_str = run.get("pay_date", "")
         tax_year = extract_year_from_date(pay_date_str)
-
-        # Convert pay_date string to date object for tax edition selection
         pay_date_obj = datetime.strptime(pay_date_str, "%Y-%m-%d").date() if pay_date_str else None
 
-        # Parse period dates for holiday pay calculation
         period_start_str = run.get("period_start", "")
         period_end_str = run.get("period_end", "")
         period_start_obj = datetime.strptime(period_start_str, "%Y-%m-%d").date() if period_start_str else None
         period_end_obj = datetime.strptime(period_end_str, "%Y-%m-%d").date() if period_end_str else None
 
-        # Query statutory holidays in the pay period (for all provinces)
-        holidays_in_period: list[dict[str, Any]] = []
-        if period_start_obj and period_end_obj:
-            holidays_result = self.supabase.table("statutory_holidays").select(
-                "holiday_date, name, province"
-            ).gte(
-                "holiday_date", period_start_str
-            ).lte(
-                "holiday_date", period_end_str
-            ).eq(
-                "is_statutory", True
-            ).execute()
-            holidays_in_period = holidays_result.data or []
+        # 1. Prepare calculation inputs
+        calculation_inputs, record_map = await self.input_preparer.prepare_all_inputs(
+            run=run,
+            records=records,
+            run_id=str(run_id),
+            tax_year=tax_year,
+            pay_date=pay_date_obj,
+            period_start=period_start_obj,
+            period_end=period_end_obj,
+        )
 
-        # Get prior YTD data from completed payroll runs (excluding current run)
+        # 2. Calculate using PayrollEngine
+        engine = PayrollEngine(year=tax_year)
+        results = engine.calculate_batch(calculation_inputs)
+
+        # 3. Get prior YTD for persistence
         employee_ids = [record["employee_id"] for record in records]
         prior_ytd_data = self.ytd_calculator.get_prior_ytd_for_employees(
             employee_ids, str(run_id), year=tax_year
         )
 
-        # Build calculation inputs from input_data
-        calculation_inputs: list[EmployeePayrollInput] = []
-        record_map: dict[str, dict[str, Any]] = {}
-
-        for record in records:
-            employee = record["employees"]
-            input_data = record.get("input_data") or {}
-
-            # Determine pay frequency
-            pay_group = employee.get("pay_groups") or {}
-            pay_frequency_str = pay_group.get("pay_frequency") or employee.get(
-                "pay_frequency", "bi_weekly"
-            )
-            pay_frequency = PayFrequency(pay_frequency_str)
-
-            # Extract benefits from pay group
-            group_benefits = pay_group.get("group_benefits") or {}
-
-            # Calculate taxable benefits and employee deductions
-            taxable_benefits_pensionable = BenefitsCalculator.calculate_taxable_benefits(group_benefits)
-            benefits_deduction = BenefitsCalculator.calculate_benefits_deduction(group_benefits)
-
-            # Calculate gross pay from input_data
-            gross_regular, gross_overtime = GrossCalculator.calculate_gross_from_input(
-                employee, input_data, pay_frequency_str
-            )
-
-            # Calculate vacation pay for pay_as_you_go method
-            vacation_config = employee.get("vacation_config") or {}
-            payout_method = vacation_config.get("payout_method", "accrual")
-            vacation_pay_for_gross = Decimal("0")
-            vacation_hours_taken = Decimal("0")
-
-            if payout_method == "pay_as_you_go":
-                # Use vacation_rate from DB; default 0.04 only if missing (not if "0")
-                rate_val = vacation_config.get("vacation_rate")
-                vacation_rate = Decimal(str(rate_val)) if rate_val is not None else Decimal("0.04")
-                base_earnings = gross_regular + gross_overtime
-                vacation_pay_for_gross = base_earnings * vacation_rate
-            elif payout_method == "accrual":
-                # For accrual method: extract vacation hours from leaveEntries
-                leave_entries = input_data.get("leaveEntries") or []
-                for leave in leave_entries:
-                    if leave.get("type") == "vacation":
-                        vacation_hours_taken += Decimal(str(leave.get("hours", 0)))
-
-                # Calculate vacation pay from hours taken
-                if vacation_hours_taken > 0:
-                    hourly_rate = GrossCalculator.calculate_hourly_rate(employee)
-                    vacation_pay_for_gross = vacation_hours_taken * hourly_rate
-
-            # =========================================================================
-            # Sick Leave Processing
-            # - Extract sick hours from leaveEntries
-            # - Calculate paid vs unpaid based on employee.sick_balance
-            # - Salaried: deduct unpaid hours from gross_regular
-            # - Hourly: add paid hours to gross_regular
-            # =========================================================================
-            sick_hours_taken = Decimal("0")
-            paid_sick_hours = Decimal("0")
-            unpaid_sick_hours = Decimal("0")
-            sick_pay = Decimal("0")
-            unpaid_sick_deduction = Decimal("0")
-
-            leave_entries = input_data.get("leaveEntries") or []
-            for leave in leave_entries:
-                if leave.get("type") == "sick":
-                    sick_hours_taken += Decimal(str(leave.get("hours", 0)))
-
-            if sick_hours_taken > 0:
-                # sick_balance is stored in days, convert to hours (8 hours/day)
-                sick_balance_days = Decimal(str(employee.get("sick_balance", 0)))
-                sick_balance_hours = sick_balance_days * Decimal("8")
-                paid_sick_hours = min(sick_hours_taken, sick_balance_hours)
-                unpaid_sick_hours = max(Decimal("0"), sick_hours_taken - sick_balance_hours)
-
-                hourly_rate = GrossCalculator.calculate_hourly_rate(employee)
-                sick_pay = paid_sick_hours * hourly_rate
-
-                # For salaried employees: base salary already includes all hours,
-                # so we deduct unpaid sick hours
-                if employee.get("annual_salary") and not employee.get("hourly_rate"):
-                    unpaid_sick_deduction = unpaid_sick_hours * hourly_rate
-                    gross_regular -= unpaid_sick_deduction
-                    logger.info(
-                        "SICK LEAVE: Employee %s %s (salaried) - "
-                        "sick_hours=%s, balance_days=%s, balance_hours=%s, paid=%s, unpaid=%s, "
-                        "hourly_rate=%s, deduction=%s, new_gross=%s",
-                        employee.get('first_name'), employee.get('last_name'),
-                        sick_hours_taken, sick_balance_days, sick_balance_hours,
-                        paid_sick_hours, unpaid_sick_hours,
-                        hourly_rate, unpaid_sick_deduction, gross_regular
-                    )
-                # For hourly employees: add only paid sick hours (gross_calculator
-                # already excludes sick leave from automatic addition)
-                elif employee.get("hourly_rate"):
-                    gross_regular += sick_pay
-                    logger.info(
-                        "SICK LEAVE: Employee %s %s (hourly) - "
-                        "sick_hours=%s, balance_days=%s, balance_hours=%s, paid=%s, unpaid=%s, sick_pay=%s",
-                        employee.get('first_name'), employee.get('last_name'),
-                        sick_hours_taken, sick_balance_days, sick_balance_hours,
-                        paid_sick_hours, unpaid_sick_hours, sick_pay
-                    )
-
-            # Calculate additional earnings from input_data
-            holiday_pay = Decimal("0")
-            holiday_premium_pay = Decimal("0")
-            other_earnings = Decimal("0")
-
-            # Holiday pay calculation (Regular + Premium) using HolidayPayCalculator
-            province_code = employee["province_of_employment"]
-            if period_start_obj and period_end_obj:
-                # Filter holidays for this employee's province
-                employee_holidays = [
-                    h for h in holidays_in_period
-                    if h.get("province") == province_code
-                ]
-
-                holiday_result = self.holiday_calculator.calculate_holiday_pay(
-                    employee=employee,
-                    province=province_code,
-                    pay_frequency=pay_frequency_str,
-                    period_start=period_start_obj,
-                    period_end=period_end_obj,
-                    holidays_in_period=employee_holidays,
-                    holiday_work_entries=input_data.get("holidayWorkEntries") or [],
-                    current_period_gross=gross_regular + gross_overtime,
-                    current_run_id=str(run_id),
-                    holiday_pay_exempt=input_data.get("holidayPayExempt", False),
-                )
-                holiday_pay = holiday_result.regular_holiday_pay
-                holiday_premium_pay = holiday_result.premium_holiday_pay
-
-            # Adjustments
-            if input_data.get("adjustments"):
-                for adj in input_data["adjustments"]:
-                    amount = Decimal(str(adj.get("amount", 0)))
-                    if adj.get("type") == "deduction":
-                        other_earnings -= amount
-                    else:
-                        other_earnings += amount
-
-            # Calculate claim amounts (province_code already defined in holiday section)
-            federal_additional = Decimal(str(employee.get("federal_additional_claims", 0)))
-            federal_bpa = get_federal_bpa(tax_year, pay_date_obj)
-            federal_claim = federal_bpa + federal_additional
-
-            provincial_additional = Decimal(str(employee.get("provincial_additional_claims", 0)))
-            provincial_bpa = get_provincial_bpa(province_code, tax_year, pay_date_obj)
-            provincial_claim = provincial_bpa + provincial_additional
-
-            logger.info(
-                "PAYROLL DEBUG: Employee %s %s (province=%s): "
-                "federal_bpa=%s, additional=%s -> %s, "
-                "provincial_bpa=%s, additional=%s -> %s, gross=%s",
-                employee.get('first_name'), employee.get('last_name'), province_code,
-                federal_bpa, federal_additional, federal_claim,
-                provincial_bpa, provincial_additional, provincial_claim,
-                gross_regular + gross_overtime
-            )
-
-            # Get prior YTD for this employee
-            emp_prior_ytd = prior_ytd_data.get(record["employee_id"], {})
-
-            calc_input = EmployeePayrollInput(
-                employee_id=record["employee_id"],
-                province=Province(province_code),
-                pay_frequency=pay_frequency,
-                gross_regular=gross_regular,
-                gross_overtime=gross_overtime,
-                holiday_pay=holiday_pay,
-                holiday_premium_pay=holiday_premium_pay,
-                vacation_pay=vacation_pay_for_gross,
-                other_earnings=other_earnings,
-                federal_claim_amount=federal_claim,
-                provincial_claim_amount=provincial_claim,
-                is_cpp_exempt=employee.get("is_cpp_exempt", False),
-                is_ei_exempt=employee.get("is_ei_exempt", False),
-                cpp2_exempt=employee.get("cpp2_exempt", False),
-                taxable_benefits_pensionable=taxable_benefits_pensionable,
-                other_deductions=benefits_deduction,
-                pay_date=pay_date_obj,
-                ytd_gross=emp_prior_ytd.get("ytd_gross", Decimal("0")),
-                ytd_cpp_base=emp_prior_ytd.get("ytd_cpp", Decimal("0")),
-                ytd_cpp_additional=emp_prior_ytd.get("ytd_cpp_additional", Decimal("0")),
-                ytd_ei=emp_prior_ytd.get("ytd_ei", Decimal("0")),
-                ytd_federal_tax=emp_prior_ytd.get("ytd_federal_tax", Decimal("0")),
-                ytd_provincial_tax=emp_prior_ytd.get("ytd_provincial_tax", Decimal("0")),
-            )
-            calculation_inputs.append(calc_input)
-            record_map[record["employee_id"]] = {
-                **record,
-                "_vacation_hours_taken": vacation_hours_taken,
-                "_sick_hours_taken": sick_hours_taken,
-                "_paid_sick_hours": paid_sick_hours,
-                "_unpaid_sick_hours": unpaid_sick_hours,
-                "_sick_pay": sick_pay,
-            }
-
-        # Calculate using PayrollEngine
-        engine = PayrollEngine(year=tax_year)
-        results = engine.calculate_batch(calculation_inputs)
-
-        # Update each record with new calculation results
-        for result in results:
-            record = record_map[result.employee_id]
-            input_data = record.get("input_data") or {}
-            employee = record["employees"]
-            emp_prior_ytd = prior_ytd_data.get(result.employee_id, {})
-
-            # Calculate vacation accrued
-            vacation_config = employee.get("vacation_config") or {}
-            payout_method = vacation_config.get("payout_method", "accrual")
-            if payout_method == "accrual":
-                # Use vacation_rate from DB; default 0.04 only if missing (not if "0")
-                rate_val = vacation_config.get("vacation_rate")
-                vacation_rate = Decimal(str(rate_val)) if rate_val is not None else Decimal("0.04")
-                base_earnings = (
-                    result.gross_regular + result.gross_overtime +
-                    result.holiday_pay + result.other_earnings
-                )
-                vacation_accrued = base_earnings * vacation_rate
-            else:
-                vacation_accrued = Decimal("0")
-
-            # Get vacation hours taken from record_map
-            vacation_hours_taken = record.get("_vacation_hours_taken", Decimal("0"))
-
-            # Get sick leave data from record_map
-            sick_hours_taken = record.get("_sick_hours_taken", Decimal("0"))
-            sick_pay = record.get("_sick_pay", Decimal("0"))
-
-            self.supabase.table("payroll_records").update({
-                "gross_regular": float(result.gross_regular),
-                "gross_overtime": float(result.gross_overtime),
-                "holiday_pay": float(result.holiday_pay),
-                "holiday_premium_pay": float(result.holiday_premium_pay),
-                "vacation_pay_paid": float(result.vacation_pay),
-                "vacation_hours_taken": float(vacation_hours_taken),
-                "sick_hours_taken": float(sick_hours_taken),
-                "sick_pay_paid": float(sick_pay),
-                "other_earnings": float(result.other_earnings),
-                "cpp_employee": float(result.cpp_base),
-                "cpp_additional": float(result.cpp_additional),
-                "ei_employee": float(result.ei_employee),
-                "federal_tax": float(result.federal_tax),
-                "provincial_tax": float(result.provincial_tax),
-                "other_deductions": float(result.other_deductions),
-                "cpp_employer": float(result.cpp_employer),
-                "ei_employer": float(result.ei_employer),
-                "ytd_gross": float(result.new_ytd_gross),
-                "ytd_cpp": float(result.new_ytd_cpp),
-                "ytd_ei": float(result.new_ytd_ei),
-                "ytd_federal_tax": float(result.new_ytd_federal_tax),
-                "ytd_provincial_tax": float(result.new_ytd_provincial_tax),
-                "ytd_net_pay": float(
-                    emp_prior_ytd.get("ytd_net_pay", Decimal("0")) + result.net_pay
-                ),
-                "vacation_accrued": float(vacation_accrued),
-                "is_modified": False,
-                "regular_hours_worked": input_data.get("regularHours"),
-                "overtime_hours_worked": input_data.get("overtimeHours", 0),
-            }).eq("id", record["id"]).execute()
-
-        # Calculate and update run totals
-        total_gross = sum(float(r.total_gross) for r in results)
-        total_cpp_employee = sum(float(r.cpp_total) for r in results)
-        total_cpp_employer = sum(float(r.cpp_employer) for r in results)
-        total_ei_employee = sum(float(r.ei_employee) for r in results)
-        total_ei_employer = sum(float(r.ei_employer) for r in results)
-        total_federal_tax = sum(float(r.federal_tax) for r in results)
-        total_provincial_tax = sum(float(r.provincial_tax) for r in results)
-        total_net_pay = sum(float(r.net_pay) for r in results)
-        total_employer_cost = total_cpp_employer + total_ei_employer
-
-        self.supabase.table("payroll_runs").update({
-            "total_employees": len(results),
-            "total_gross": total_gross,
-            "total_cpp_employee": total_cpp_employee,
-            "total_cpp_employer": total_cpp_employer,
-            "total_ei_employee": total_ei_employee,
-            "total_ei_employer": total_ei_employer,
-            "total_federal_tax": total_federal_tax,
-            "total_provincial_tax": total_provincial_tax,
-            "total_net_pay": total_net_pay,
-            "total_employer_cost": total_employer_cost,
-        }).eq("id", str(run_id)).execute()
+        # 4. Persist results
+        self.result_persister.persist_results(results, record_map, prior_ytd_data)
+        self.result_persister.update_run_totals(str(run_id), results)
 
         return await self._get_run(run_id) or {}
 
@@ -498,6 +218,81 @@ class PayrollRunOperations:
             )
 
         # Get all records with employee, pay group, and company info
+        records = await self._get_records_with_full_info(run_id)
+        if not records:
+            raise ValueError("No records found for payroll run")
+
+        # 1. Validate vacation balances
+        balance_errors = self.vacation_manager.validate_balances(records)
+        if balance_errors:
+            error_msg = "Cannot approve: insufficient vacation balance. "
+            error_msg += "; ".join(balance_errors[:5])
+            if len(balance_errors) > 5:
+                error_msg += f" ... and {len(balance_errors) - 5} more"
+            raise ValueError(error_msg)
+
+        # 2. Generate paystubs
+        try:
+            paystub_storage = PaystubStorage()
+        except PaystubStorageConfigError as e:
+            raise ValueError(
+                f"Paystub storage is not configured. Cannot approve payroll run. "
+                f"Please configure DO Spaces environment variables. Error: {e}"
+            ) from e
+
+        paystub_orchestrator = PaystubOrchestrator(
+            supabase=self.supabase,
+            ytd_calculator=self.ytd_calculator,
+            paystub_storage=paystub_storage,
+        )
+
+        paystubs_generated, paystub_errors = await paystub_orchestrator.generate_all_paystubs(
+            run=run,
+            records=records,
+        )
+
+        if paystub_errors:
+            error_summary = f"Failed to generate {len(paystub_errors)} paystub(s). "
+            error_summary += "Cannot approve payroll run until all paystubs are generated. "
+            error_summary += f"Errors: {'; '.join(paystub_errors[:5])}"
+            if len(paystub_errors) > 5:
+                error_summary += f" ... and {len(paystub_errors) - 5} more"
+            raise ValueError(error_summary)
+
+        # 3. Update vacation balances
+        await self.vacation_manager.update_balances(records)
+
+        # 4. Update run status
+        update_data: dict[str, Any] = {
+            "status": "approved",
+            "approved_at": datetime.now().isoformat(),
+        }
+        if approved_by:
+            update_data["approved_by"] = approved_by
+
+        update_result = self.supabase.table("payroll_runs").update(
+            update_data
+        ).eq("id", str(run_id)).execute()
+
+        if not update_result.data or len(update_result.data) == 0:
+            raise ValueError("Failed to update payroll run status")
+
+        # 5. Update pay group next_period_end
+        self._update_pay_group_periods(records, run)
+
+        # 6. Auto-generate/aggregate remittance period
+        try:
+            self._update_remittance_period(update_result.data[0])
+        except Exception as e:
+            logger.error("Failed to update remittance period: %s", e)
+
+        return {
+            **update_result.data[0],
+            "paystubs_generated": paystubs_generated,
+        }
+
+    async def _get_records_with_full_info(self, run_id: UUID) -> list[dict[str, Any]]:
+        """Get payroll records with full employee, company, and pay group info."""
         records_result = self.supabase.table("payroll_records").select(
             """
             *,
@@ -526,142 +321,12 @@ class PayrollRunOperations:
             "user_id", self.user_id
         ).eq("company_id", self.company_id).execute()
 
-        records = records_result.data or []
-        if not records:
-            raise ValueError("No records found for payroll run")
+        return records_result.data or []
 
-        # Validate vacation balances for accrual method employees
-        balance_errors = self._validate_vacation_balances(records)
-        if balance_errors:
-            error_msg = "Cannot approve: insufficient vacation balance. "
-            error_msg += "; ".join(balance_errors[:5])
-            if len(balance_errors) > 5:
-                error_msg += f" ... and {len(balance_errors) - 5} more"
-            raise ValueError(error_msg)
-
-        # Build PayrollRun model
-        payroll_run = ModelBuilder.build_payroll_run(run)
-
-        # Pre-download company logo asynchronously (only once for all employees)
-        logo_bytes: bytes | None = None
-        first_company_data = records[0]["employees"].get("companies") if records else None
-        if first_company_data:
-            logo_url = first_company_data.get("logo_url")
-            if logo_url:
-                try:
-                    async with httpx.AsyncClient(timeout=10.0) as client:
-                        response = await client.get(logo_url)
-                        response.raise_for_status()
-                        logo_bytes = response.content
-                        logger.info("Downloaded company logo from %s (%d bytes)", logo_url, len(logo_bytes))
-                except Exception as e:
-                    logger.warning("Failed to download company logo from %s: %s", logo_url, e)
-
-        # Initialize services
-        paystub_builder = PaystubDataBuilder()
-        paystub_generator = PaystubGenerator()
-
-        try:
-            paystub_storage = PaystubStorage()
-        except PaystubStorageConfigError as e:
-            raise ValueError(
-                f"Paystub storage is not configured. Cannot approve payroll run. "
-                f"Please configure DO Spaces environment variables. Error: {e}"
-            ) from e
-
-        paystubs_generated = 0
-        paystub_errors: list[str] = []
-
-        for record_data in records:
-            try:
-                employee_data = record_data["employees"]
-                company_data = employee_data.get("companies")
-                pay_group_data = employee_data.get("pay_groups")
-
-                employee = ModelBuilder.build_employee(employee_data)
-                company = ModelBuilder.build_company(company_data) if company_data else None
-                pay_group = ModelBuilder.build_pay_group(pay_group_data) if pay_group_data else None
-                payroll_record = ModelBuilder.build_payroll_record(record_data)
-
-                if not company:
-                    logger.warning(
-                        f"Skipping paystub for record {record_data['id']}: no company data"
-                    )
-                    paystub_errors.append(f"Record {record_data['id']}: missing company data")
-                    continue
-
-                # Get prior YTD records
-                ytd_records = await self.ytd_calculator.get_ytd_records_for_employee(
-                    record_data["employee_id"],
-                    str(run_id),
-                    int(run["pay_date"][:4]),
-                )
-
-                masked_sin = "***-***-***"
-
-                paystub_data = paystub_builder.build(
-                    record=payroll_record,
-                    employee=employee,
-                    payroll_run=payroll_run,
-                    pay_group=pay_group,
-                    company=company,
-                    ytd_records=ytd_records,
-                    masked_sin=masked_sin,
-                    logo_bytes=logo_bytes,
-                )
-
-                pdf_bytes = paystub_generator.generate_paystub_bytes(paystub_data)
-
-                pay_date = date.fromisoformat(run["pay_date"])
-                storage_key = await paystub_storage.save_paystub(
-                    pdf_bytes=pdf_bytes,
-                    company_name=company.company_name,
-                    employee_id=record_data["employee_id"],
-                    pay_date=pay_date,
-                    record_id=record_data["id"],
-                )
-
-                self.supabase.table("payroll_records").update({
-                    "paystub_generated_at": datetime.now().isoformat(),
-                    "paystub_storage_key": storage_key,
-                }).eq("id", record_data["id"]).execute()
-
-                paystubs_generated += 1
-                logger.info(
-                    "Generated paystub for employee %s %s (record %s), size: %d bytes",
-                    employee.first_name, employee.last_name, record_data['id'], len(pdf_bytes)
-                )
-
-            except Exception as e:
-                logger.error("Failed to generate paystub for record %s: %s", record_data['id'], e)
-                paystub_errors.append(f"Record {record_data['id']}: {str(e)}")
-
-        if paystub_errors:
-            error_summary = f"Failed to generate {len(paystub_errors)} paystub(s). "
-            error_summary += "Cannot approve payroll run until all paystubs are generated. "
-            error_summary += f"Errors: {'; '.join(paystub_errors[:5])}"
-            if len(paystub_errors) > 5:
-                error_summary += f" ... and {len(paystub_errors) - 5} more"
-            raise ValueError(error_summary)
-
-        # Update vacation balance for accrual method employees (+accrued -paid)
-        await self._update_vacation_balances(records)
-
-        update_data: dict[str, Any] = {
-            "status": "approved",
-            "approved_at": datetime.now().isoformat(),
-        }
-        if approved_by:
-            update_data["approved_by"] = approved_by
-
-        update_result = self.supabase.table("payroll_runs").update(
-            update_data
-        ).eq("id", str(run_id)).execute()
-
-        if not update_result.data or len(update_result.data) == 0:
-            raise ValueError("Failed to update payroll run status")
-
-        # Update next_period_end for all affected pay groups
+    def _update_pay_group_periods(
+        self, records: list[dict[str, Any]], run: dict[str, Any]
+    ) -> None:
+        """Update next_period_end for all affected pay groups."""
         pay_group_updates: dict[str, str] = {}
         for record_data in records:
             pay_group_data = record_data["employees"].get("pay_groups")
@@ -678,25 +343,12 @@ class PayrollRunOperations:
             }).eq("id", pg_id).execute()
             logger.info("Updated pay_group %s next_period_end to %s", pg_id, next_period_end)
 
-        # Auto-generate/aggregate remittance period
-        try:
-            self._update_remittance_period(update_result.data[0])
-        except Exception as e:
-            # Log but don't fail the approval - remittance can be created manually
-            logger.error("Failed to update remittance period: %s", e)
-
-        return {
-            **update_result.data[0],
-            "paystubs_generated": paystubs_generated,
-        }
-
     def _update_remittance_period(self, run: dict[str, Any]) -> None:
         """Auto-generate or aggregate remittance period for approved run.
 
         Args:
             run: The approved payroll run data with totals
         """
-        # Get company remitter_type
         company_result = (
             self.supabase.table("companies")
             .select("remitter_type")
@@ -714,7 +366,6 @@ class PayrollRunOperations:
 
         remitter_type = company_result.data.get("remitter_type", "regular")
 
-        # Create service and process
         service = RemittancePeriodService(
             self.supabase, self.user_id, self.company_id
         )
@@ -807,7 +458,6 @@ class PayrollRunOperations:
         Returns:
             Dict with 'run', 'created' bool, and 'records_count'
         """
-        # Convert pay_date to period_end (assuming SK: pay_date = period_end + 6)
         pay_date_obj = datetime.strptime(pay_date, "%Y-%m-%d").date()
         period_end = pay_date_obj - timedelta(days=6)
         return await self.create_or_get_run_by_period_end(period_end.strftime("%Y-%m-%d"))
@@ -875,7 +525,7 @@ class PayrollRunOperations:
         else:  # bi_weekly
             period_start = period_end_obj - timedelta(days=13)
 
-        # Calculate pay_date from period_end (default: +6 days for SK)
+        # Calculate pay_date from period_end
         pay_date_obj = calculate_pay_date(period_end_obj, "SK")
 
         # Create the payroll run
@@ -940,73 +590,3 @@ class PayrollRunOperations:
             "created": True,
             "records_count": len(employees),
         }
-
-    async def _update_vacation_balances(self, records: list[dict[str, Any]]) -> None:
-        """Update employee vacation_balance: +accrued -paid.
-
-        Only processes employees with payout_method = "accrual".
-        Called during payroll run approval.
-
-        Args:
-            records: List of payroll records with employee data
-        """
-        for record in records:
-            employee_data = record.get("employees", {})
-            vacation_config = employee_data.get("vacation_config") or {}
-
-            # Only process accrual method employees
-            if vacation_config.get("payout_method") != "accrual":
-                continue
-
-            vacation_accrued = Decimal(str(record.get("vacation_accrued", 0)))
-            vacation_pay_paid = Decimal(str(record.get("vacation_pay_paid", 0)))
-
-            # Skip if no changes
-            if vacation_accrued == 0 and vacation_pay_paid == 0:
-                continue
-
-            current_balance = Decimal(str(employee_data.get("vacation_balance", 0)))
-            new_balance = max(current_balance + vacation_accrued - vacation_pay_paid, Decimal("0"))
-
-            self.supabase.table("employees").update({
-                "vacation_balance": float(new_balance)
-            }).eq("id", employee_data["id"]).execute()
-
-            logger.info(
-                "Updated vacation balance for employee %s %s: $%.2f -> $%.2f (accrued: $%.2f, paid: $%.2f)",
-                employee_data.get("first_name"),
-                employee_data.get("last_name"),
-                float(current_balance),
-                float(new_balance),
-                float(vacation_accrued),
-                float(vacation_pay_paid),
-            )
-
-    def _validate_vacation_balances(self, records: list[dict[str, Any]]) -> list[str]:
-        """Validate vacation balances are sufficient for all employees.
-
-        Returns:
-            List of error messages for employees with insufficient balance
-        """
-        errors: list[str] = []
-
-        for record in records:
-            employee_data = record.get("employees", {})
-            vacation_config = employee_data.get("vacation_config") or {}
-
-            # Only validate accrual method employees
-            if vacation_config.get("payout_method") != "accrual":
-                continue
-
-            vacation_pay_paid = Decimal(str(record.get("vacation_pay_paid", 0)))
-            if vacation_pay_paid <= 0:
-                continue
-
-            current_balance = Decimal(str(employee_data.get("vacation_balance", 0)))
-            if vacation_pay_paid > current_balance:
-                name = f"{employee_data.get('first_name')} {employee_data.get('last_name')}"
-                errors.append(
-                    f"{name}: balance ${current_balance:.2f}, requested ${vacation_pay_paid:.2f}"
-                )
-
-        return errors

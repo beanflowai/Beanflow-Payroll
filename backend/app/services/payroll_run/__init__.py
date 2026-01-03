@@ -22,8 +22,12 @@ from app.services.payroll_run.constants import (
 from app.services.payroll_run.employee_management import EmployeeManagement
 from app.services.payroll_run.gross_calculator import GrossCalculator
 from app.services.payroll_run.holiday_pay_calculator import HolidayPayCalculator
+from app.services.payroll_run.input_preparation import PayrollInputPreparer
 from app.services.payroll_run.model_builders import ModelBuilder
+from app.services.payroll_run.paystub_orchestrator import PaystubOrchestrator
+from app.services.payroll_run.result_persister import PayrollResultPersister
 from app.services.payroll_run.run_operations import PayrollRunOperations
+from app.services.payroll_run.vacation_manager import VacationManager
 from app.services.payroll_run.ytd_calculator import YtdCalculator
 
 __all__ = [
@@ -49,4 +53,9 @@ __all__ = [
     "YtdCalculator",
     "PayrollRunOperations",
     "EmployeeManagement",
+    # New modular classes (extracted from run_operations.py)
+    "PayrollInputPreparer",
+    "PayrollResultPersister",
+    "PaystubOrchestrator",
+    "VacationManager",
 ]
