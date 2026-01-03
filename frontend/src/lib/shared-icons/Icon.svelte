@@ -126,6 +126,7 @@
 		<div class="icon__error">?</div>
 	</div>
 {:else if IconComponent}
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 	<div
 		class={cssClasses}
 		style="width: {actualSize}px; height: {actualSize}px;"
@@ -182,11 +183,6 @@
 		font-size: 0.8em;
 	}
 
-	.icon__svg {
-		width: 100%;
-		height: 100%;
-	}
-
 	@keyframes pulse {
 		0%,
 		100% {
@@ -195,21 +191,6 @@
 		50% {
 			opacity: 0.5;
 		}
-	}
-
-	/* 变体特定样式 */
-	.icon--line .icon__svg {
-		stroke-width: 1.5;
-		fill: none;
-		stroke: currentColor;
-	}
-
-	.icon--filled .icon__svg {
-		fill: currentColor;
-	}
-
-	.icon--brand .icon__svg {
-		fill: currentColor;
 	}
 
 	/* 尺寸特定样式 */

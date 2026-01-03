@@ -155,6 +155,7 @@
 					type="button"
 					class="text-error-500 hover:text-error-700 cursor-pointer bg-transparent border-none"
 					onclick={() => (error = null)}
+					aria-label="Dismiss error"
 				>
 					<i class="fas fa-times"></i>
 				</button>

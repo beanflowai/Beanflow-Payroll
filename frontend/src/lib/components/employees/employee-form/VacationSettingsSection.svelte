@@ -162,7 +162,7 @@
 					</div>
 				{:else}
 					<div class="flex flex-col gap-2">
-						<label class="text-body-small font-medium text-surface-700">Current Balance</label>
+						<span class="text-body-small font-medium text-surface-700">Current Balance</span>
 						<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600">
 							{formatCurrency(employee?.vacationBalance ?? 0)}
 							<span class="text-auxiliary-text text-surface-400 ml-2">(managed by payroll)</span>

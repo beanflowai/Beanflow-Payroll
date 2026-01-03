@@ -134,12 +134,15 @@
 		tabindex="-1"
 	>
 		<!-- Modal -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<div
 			class="bg-white rounded-xl shadow-lg w-full max-w-lg max-h-[90vh] overflow-hidden"
 			onclick={(e) => e.stopPropagation()}
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="modal-title"
+			tabindex="-1"
 		>
 			<!-- Header -->
 			<div class="flex items-center justify-between px-6 py-4 border-b border-surface-100">
@@ -154,6 +157,7 @@
 					class="w-8 h-8 flex items-center justify-center bg-transparent border-none text-surface-500 hover:text-surface-700 hover:bg-surface-100 rounded-full cursor-pointer transition-colors"
 					onclick={handleClose}
 					disabled={validating || submitting}
+					aria-label="Close modal"
 				>
 					<i class="fas fa-times"></i>
 				</button>

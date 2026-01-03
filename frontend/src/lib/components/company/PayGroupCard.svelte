@@ -122,11 +122,11 @@
 	</div>
 
 	<div class="card-footer">
-		<button class="btn-view" onclick={handleCardClick}>
+		<button class="btn-view" onclick={handleCardClick} aria-label="View {payGroup.name} details">
 			<span>View Details</span>
 			<i class="fas fa-arrow-right"></i>
 		</button>
-		<button class="btn-delete" onclick={handleDeleteClick} title="Delete pay group">
+		<button class="btn-delete" onclick={handleDeleteClick} aria-label="Delete pay group">
 			<i class="fas fa-trash"></i>
 		</button>
 	</div>
@@ -274,15 +274,6 @@
 
 	.badge.enabled i {
 		color: var(--color-success-500);
-	}
-
-	.badge.exempt {
-		background: var(--color-warning-50);
-		color: var(--color-warning-700);
-	}
-
-	.badge.exempt i {
-		color: var(--color-warning-500);
 	}
 
 	.card-footer {

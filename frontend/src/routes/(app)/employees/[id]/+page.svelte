@@ -130,7 +130,7 @@
 	{:else if employee}
 		<!-- Header -->
 		<header class="page-header">
-			<button class="back-btn" onclick={handleBack}>
+			<button class="back-btn" onclick={handleBack} aria-label="Back to employees">
 				<i class="fas fa-arrow-left"></i>
 			</button>
 			<div class="header-content">
@@ -161,7 +161,7 @@
 			<div class="error-banner">
 				<i class="fas fa-exclamation-circle"></i>
 				<span>{error}</span>
-				<button class="error-dismiss" onclick={() => error = null}>
+				<button class="error-dismiss" onclick={() => error = null} aria-label="Dismiss error">
 					<i class="fas fa-times"></i>
 				</button>
 			</div>
@@ -197,9 +197,12 @@
 
 		<!-- Delete Confirmation Modal -->
 		{#if showDeleteConfirm}
-			<div class="modal-overlay" onclick={() => showDeleteConfirm = false}>
-				<div class="modal-content" onclick={(e) => e.stopPropagation()}>
-					<h3>Delete Employee?</h3>
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<!-- svelte-ignore a11y_interactive_supports_focus -->
+			<div class="modal-overlay" onclick={() => showDeleteConfirm = false} onkeydown={(e) => e.key === 'Escape' && (showDeleteConfirm = false)} role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div class="modal-content" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
+					<h3 id="delete-modal-title">Delete Employee?</h3>
 					<p>Are you sure you want to delete <strong>{getFullName(employee)}</strong>? This action cannot be undone.</p>
 					<div class="modal-actions">
 						<button class="btn-cancel" onclick={() => showDeleteConfirm = false} disabled={isDeleting}>

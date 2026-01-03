@@ -156,7 +156,7 @@
 		{/if}
 	</div>
 
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 	<div class="p-5" ondblclick={handleDoubleClick}>
 		<div class="flex items-start gap-2 py-3 px-4 bg-surface-50 rounded-md mb-4 text-body-content text-surface-600">
 			<i class="fas fa-info-circle text-primary-500 mt-0.5"></i>
@@ -316,7 +316,7 @@
 		<div class="bg-white rounded-xl w-full max-w-[500px] max-h-[90vh] overflow-y-auto shadow-md3-3" onclick={(e) => e.stopPropagation()}>
 			<div class="flex justify-between items-center py-4 px-5 border-b border-surface-100">
 				<h3 class="m-0 text-title-medium font-semibold text-surface-800">{editingDeductionIndex !== null ? 'Edit' : 'Add'} Deduction</h3>
-				<button class="w-8 h-8 flex items-center justify-center border-none bg-transparent text-surface-500 rounded-md cursor-pointer hover:bg-surface-100" onclick={closeModal}>
+				<button class="w-8 h-8 flex items-center justify-center border-none bg-transparent text-surface-500 rounded-md cursor-pointer hover:bg-surface-100" onclick={closeModal} aria-label="Close">
 					<i class="fas fa-times"></i>
 				</button>
 			</div>

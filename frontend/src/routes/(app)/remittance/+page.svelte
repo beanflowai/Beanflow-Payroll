@@ -194,6 +194,7 @@
 			<button
 				class="w-8 h-8 border-none bg-transparent text-surface-600 cursor-pointer rounded-md transition-[150ms] hover:bg-surface-100 hover:text-surface-800"
 				onclick={() => (selectedYear = selectedYear - 1)}
+				aria-label="Previous year"
 			>
 				<i class="fas fa-chevron-left"></i>
 			</button>
@@ -201,6 +202,7 @@
 			<button
 				class="w-8 h-8 border-none bg-transparent text-surface-600 cursor-pointer rounded-md transition-[150ms] hover:bg-surface-100 hover:text-surface-800"
 				onclick={() => (selectedYear = selectedYear + 1)}
+				aria-label="Next year"
 			>
 				<i class="fas fa-chevron-right"></i>
 			</button>

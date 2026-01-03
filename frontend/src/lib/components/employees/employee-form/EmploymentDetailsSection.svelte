@@ -241,13 +241,13 @@
 		</div>
 
 		<div class="flex flex-col gap-2 col-span-full">
-			<label for="tags" class="text-body-small font-medium text-surface-700">Tags</label>
+			<span class="text-body-small font-medium text-surface-700">Tags</span>
 			<div class="flex flex-col gap-2">
 				<div class="flex flex-wrap gap-2">
 					{#each tags as tag}
 						<span class="inline-flex items-center gap-1 py-1 px-3 bg-primary-100 text-primary-700 rounded-full text-body-small">
 							{tag}
-							<button type="button" class="flex items-center justify-center w-4 h-4 p-0 border-none bg-transparent text-primary-500 cursor-pointer rounded-full hover:bg-primary-200 hover:text-primary-700" onclick={() => removeTag(tag)}>
+							<button type="button" class="flex items-center justify-center w-4 h-4 p-0 border-none bg-transparent text-primary-500 cursor-pointer rounded-full hover:bg-primary-200 hover:text-primary-700" onclick={() => removeTag(tag)} aria-label="Remove tag {tag}">
 								<i class="fas fa-times text-xs"></i>
 							</button>
 						</span>

@@ -59,7 +59,7 @@
 		<div class="flex items-center gap-3 p-3 mb-4 bg-warning-50 border border-warning-200 rounded-lg text-warning-700 text-body-small">
 			<i class="fas fa-exclamation-triangle text-warning-500"></i>
 			<span>Province changed. Please review your additional TD1 claims for all years before saving.</span>
-			<button type="button" class="ml-auto bg-transparent border-none text-warning-500 cursor-pointer p-1 opacity-70 hover:opacity-100" onclick={onDismissWarning}>
+			<button type="button" class="ml-auto bg-transparent border-none text-warning-500 cursor-pointer p-1 opacity-70 hover:opacity-100" onclick={onDismissWarning} aria-label="Dismiss warning">
 				<i class="fas fa-times"></i>
 			</button>
 		</div>
@@ -102,7 +102,7 @@
 	<!-- Exemptions (unchanged, employee-level) -->
 	<div class="mt-6 pt-6 border-t border-surface-200">
 		<div class="flex flex-col gap-2">
-			<label class="text-body-small font-medium text-surface-700">Exemptions</label>
+			<span class="text-body-small font-medium text-surface-700">Exemptions</span>
 			<div class="flex gap-6 flex-wrap max-sm:flex-col max-sm:gap-3">
 				<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
 					<input

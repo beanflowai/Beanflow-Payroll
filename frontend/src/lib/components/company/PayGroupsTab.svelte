@@ -102,7 +102,7 @@
 		<div class="error-banner">
 			<i class="fas fa-exclamation-circle"></i>
 			<span>{error}</span>
-			<button class="error-dismiss" onclick={() => error = null}>
+			<button class="error-dismiss" onclick={() => error = null} aria-label="Dismiss error">
 				<i class="fas fa-times"></i>
 			</button>
 		</div>

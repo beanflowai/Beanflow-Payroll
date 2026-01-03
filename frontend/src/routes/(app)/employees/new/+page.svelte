@@ -39,7 +39,7 @@
 <div class="employee-new-page">
 	<!-- Header -->
 	<header class="page-header">
-		<button class="back-btn" onclick={handleBack}>
+		<button class="back-btn" onclick={handleBack} aria-label="Back to employees">
 			<i class="fas fa-arrow-left"></i>
 		</button>
 		<div class="header-content">

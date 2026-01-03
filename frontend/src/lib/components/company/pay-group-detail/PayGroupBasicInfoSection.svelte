@@ -159,7 +159,7 @@
 		{/if}
 	</div>
 
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 	<div class="section-content" ondblclick={handleDoubleClick}>
 		{#if isEditing}
 			<!-- Edit Mode -->
@@ -239,7 +239,7 @@
 
 				<!-- Tax Calculation Method -->
 				<div class="form-group tax-method-group">
-					<label class="form-label">Tax Calculation Method</label>
+					<span class="form-label">Tax Calculation Method</span>
 					<div class="tax-method-options">
 						{#each Object.entries(TAX_CALCULATION_METHOD_INFO) as [value, info]}
 							<label

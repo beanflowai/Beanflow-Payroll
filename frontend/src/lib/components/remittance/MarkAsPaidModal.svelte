@@ -42,8 +42,10 @@
 	}
 </script>
 
-<div class="modal-overlay" onclick={onClose} role="dialog" aria-modal="true">
-	<div class="modal" onclick={(e) => e.stopPropagation()}>
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<div class="modal-overlay" onclick={onClose} onkeydown={(e) => e.key === 'Escape' && onClose()} role="dialog" aria-modal="true" tabindex="0">
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="modal" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
 		<div class="modal-header">
 			<h2 class="modal-title">Record Remittance Payment</h2>
 			<button class="modal-close" onclick={onClose} aria-label="Close">

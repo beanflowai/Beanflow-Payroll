@@ -14,6 +14,7 @@
 	const tooltipId = `tooltip-${Math.random().toString(36).slice(2, 9)}`;
 </script>
 
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	class="tooltip-wrapper"
 	aria-describedby={isVisible && content ? tooltipId : undefined}

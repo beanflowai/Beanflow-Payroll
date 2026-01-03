@@ -39,6 +39,7 @@
 	</header>
 
 	<!-- Tab Navigation -->
+	<!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
 	<nav class="tab-navigation" role="tablist" aria-label="Company settings">
 		{#each tabs as tab (tab.id)}
 			<button

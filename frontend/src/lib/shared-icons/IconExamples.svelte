@@ -169,10 +169,12 @@
 			<div class="interaction-item">
 				<h3>链接中的图标</h3>
 				<div class="demo-row">
+					<!-- svelte-ignore a11y_invalid_attribute -->
 					<a href="#" class="link">
 						<Icon name={icon("arrow-left")} />
 						返回
 					</a>
+					<!-- svelte-ignore a11y_invalid_attribute -->
 					<a href="#" class="link">
 						查看详情
 						<Icon name="arrow-right" />

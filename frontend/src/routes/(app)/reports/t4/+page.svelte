@@ -208,6 +208,7 @@
 				<a
 					href="/reports"
 					class="text-surface-500 hover:text-surface-700 transition-colors"
+					aria-label="Back to reports"
 				>
 					<i class="fas fa-arrow-left"></i>
 				</a>

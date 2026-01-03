@@ -58,13 +58,14 @@
 	}
 </script>
 
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div
 	class="paystub-status {config.colorClass}"
 	class:clickable={status === 'failed' && onRetry}
 	onclick={handleClick}
 	onkeydown={(e) => e.key === 'Enter' && handleClick()}
 	role={status === 'failed' ? 'button' : undefined}
-	tabindex={status === 'failed' ? 0 : undefined}
+	tabindex={status === 'failed' ? 0 : -1}
 >
 	<div class="status-main">
 		<i class="fas {config.icon}"></i>

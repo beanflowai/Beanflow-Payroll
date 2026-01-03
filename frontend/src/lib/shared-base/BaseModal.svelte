@@ -101,12 +101,14 @@
 			role="presentation"
 			aria-hidden={!visible}
 		>
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
 			<div
 				class="modal-content modal-{size}"
 				onclick={handleContentClick}
 				role="dialog"
 				aria-modal="true"
 				aria-labelledby={title ? 'modal-title' : undefined}
+				tabindex="-1"
 			>
 				{#if title || showCloseButton}
 					<div class="modal-header">

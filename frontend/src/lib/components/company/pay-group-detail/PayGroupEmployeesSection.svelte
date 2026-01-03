@@ -174,6 +174,7 @@
 				<button
 					class="ml-auto bg-transparent border-none text-error-500 cursor-pointer"
 					onclick={() => (error = null)}
+					aria-label="Dismiss error"
 				>
 					<i class="fas fa-times"></i>
 				</button>

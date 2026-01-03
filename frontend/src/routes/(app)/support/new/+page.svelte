@@ -173,7 +173,7 @@
 			<div class="error-banner">
 				<i class="fas fa-exclamation-circle"></i>
 				<span>{error}</span>
-				<button type="button" class="close-btn" onclick={() => (error = null)}>
+				<button type="button" class="close-btn" onclick={() => (error = null)} aria-label="Dismiss error">
 					<i class="fas fa-times"></i>
 				</button>
 			</div>
@@ -198,7 +198,7 @@
 
 		<!-- Priority -->
 		<div class="form-group">
-			<label class="form-label">Priority</label>
+			<span class="form-label">Priority</span>
 			<div class="priority-options">
 				{#each priorityOptions as option}
 					<label class="priority-option" class:selected={priority === option.value}>
@@ -237,10 +237,10 @@
 
 		<!-- Attachments -->
 		<div class="form-group">
-			<label class="form-label">
+			<span class="form-label">
 				Attachments
 				<span class="optional">(optional, max 5 images)</span>
-			</label>
+			</span>
 			<div
 				class="drop-zone"
 				class:drag-over={dragOver}

@@ -710,7 +710,7 @@
 		<div class="flex items-center gap-3 p-4 bg-error-50 border border-error-200 rounded-lg text-error-700">
 			<i class="fas fa-exclamation-circle"></i>
 			<span class="flex-1">{submitError}</span>
-			<button type="button" class="bg-transparent border-none text-error-500 cursor-pointer p-1 opacity-70 hover:opacity-100" onclick={() => submitError = null}>
+			<button type="button" class="bg-transparent border-none text-error-500 cursor-pointer p-1 opacity-70 hover:opacity-100" onclick={() => submitError = null} aria-label="Dismiss error">
 				<i class="fas fa-times"></i>
 			</button>
 		</div>

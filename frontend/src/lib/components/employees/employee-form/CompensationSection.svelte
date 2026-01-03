@@ -24,7 +24,7 @@
 	<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">Compensation</h3>
 	<div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
 		<div class="flex flex-col gap-2 col-span-full">
-			<label class="text-body-small font-medium text-surface-700">Compensation Type *</label>
+			<span class="text-body-small font-medium text-surface-700">Compensation Type *</span>
 			<div class="flex gap-6 flex-wrap max-sm:flex-col max-sm:gap-3">
 				<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
 					<input

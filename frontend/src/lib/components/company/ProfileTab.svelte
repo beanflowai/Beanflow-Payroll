@@ -175,7 +175,7 @@
 		<div class="flex items-center gap-3 p-4 bg-error-50 border border-error-200 rounded-lg text-error-700">
 			<i class="fas fa-exclamation-circle text-xl"></i>
 			<span class="flex-1">{error}</span>
-			<button class="bg-transparent border-none text-error-500 cursor-pointer p-1 opacity-70 hover:opacity-100" onclick={() => error = null}>
+			<button class="bg-transparent border-none text-error-500 cursor-pointer p-1 opacity-70 hover:opacity-100" onclick={() => error = null} aria-label="Dismiss error">
 				<i class="fas fa-times"></i>
 			</button>
 		</div>
@@ -211,7 +211,7 @@
 			<div class="bg-white rounded-xl shadow-md3-1 p-6">
 				<!-- Company Logo -->
 				<div class="flex flex-col gap-3 mb-6 pb-6 border-b border-surface-100">
-					<label class="text-body-content font-medium text-surface-700">Company Logo</label>
+					<span class="text-body-content font-medium text-surface-700">Company Logo</span>
 					<div class="flex items-start gap-4">
 						<!-- Logo Preview -->
 						<div class="w-24 h-24 rounded-lg border-2 border-dashed border-surface-200 bg-surface-50 flex items-center justify-center overflow-hidden shrink-0">
@@ -416,28 +416,28 @@
 			<div class="bg-white rounded-xl shadow-md3-1 p-6">
 				<div class="flex items-center justify-between py-4 border-b border-surface-100">
 					<div class="flex-1">
-						<span class="block text-body-content font-medium text-surface-800 mb-1">Auto-calculate deductions</span>
+						<span id="auto-calc-label" class="block text-body-content font-medium text-surface-800 mb-1">Auto-calculate deductions</span>
 						<span class="text-auxiliary-text text-surface-600">
 							Automatically calculate CPP, EI, and income tax based on current CRA tables
 						</span>
 					</div>
-					<label class="relative inline-block w-12 h-7 shrink-0">
-						<input type="checkbox" class="opacity-0 w-0 h-0" bind:checked={autoCalculate} />
+					<span class="relative inline-block w-12 h-7 shrink-0">
+						<input type="checkbox" class="opacity-0 w-0 h-0" bind:checked={autoCalculate} aria-labelledby="auto-calc-label" />
 						<span class="absolute cursor-pointer inset-0 bg-surface-300 transition-[150ms] rounded-full before:absolute before:content-[''] before:h-5 before:w-5 before:left-1 before:bottom-1 before:bg-white before:transition-[150ms] before:rounded-full {autoCalculate ? 'bg-primary-500 before:translate-x-5' : ''}"></span>
-					</label>
+					</span>
 				</div>
 
 				<div class="flex items-center justify-between py-4">
 					<div class="flex-1">
-						<span class="block text-body-content font-medium text-surface-800 mb-1">Send paystub emails</span>
+						<span id="paystub-label" class="block text-body-content font-medium text-surface-800 mb-1">Send paystub emails</span>
 						<span class="text-auxiliary-text text-surface-600">
 							Automatically email digital paystubs to employees after each payroll run is approved
 						</span>
 					</div>
-					<label class="relative inline-block w-12 h-7 shrink-0">
-						<input type="checkbox" class="opacity-0 w-0 h-0" bind:checked={sendPaystubs} />
+					<span class="relative inline-block w-12 h-7 shrink-0">
+						<input type="checkbox" class="opacity-0 w-0 h-0" bind:checked={sendPaystubs} aria-labelledby="paystub-label" />
 						<span class="absolute cursor-pointer inset-0 bg-surface-300 transition-[150ms] rounded-full before:absolute before:content-[''] before:h-5 before:w-5 before:left-1 before:bottom-1 before:bg-white before:transition-[150ms] before:rounded-full {sendPaystubs ? 'bg-primary-500 before:translate-x-5' : ''}"></span>
-					</label>
+					</span>
 				</div>
 			</div>
 		</section>

@@ -49,6 +49,88 @@
 
 <svelte:window onclick={handleWindowClick} />
 
+<!-- Desktop Header -->
+<header class="header header-desktop">
+	<div class="header-left">
+		<span class="company-name">{companyName}</span>
+	</div>
+	<div class="header-right">
+		<div class="user-menu-container">
+			<button
+				type="button"
+				class="user-menu-trigger"
+				onclick={toggleUserMenu}
+				aria-expanded={userMenuOpen}
+				aria-haspopup="true"
+				aria-label="User menu"
+			>
+				<span class="user-avatar">
+					<i class="fa-solid fa-user"></i>
+				</span>
+				<span class="user-name">{userName}</span>
+				<i class="fa-solid fa-chevron-down" class:rotate={userMenuOpen}></i>
+			</button>
+			{#if userMenuOpen}
+				<div class="user-dropdown" role="menu">
+					<button type="button" class="dropdown-item" onclick={handleLogout} role="menuitem">
+						<i class="fa-solid fa-right-from-bracket"></i>
+						<span>Log out</span>
+					</button>
+				</div>
+			{/if}
+		</div>
+	</div>
+</header>
+
+<!-- Mobile Header -->
+<header class="header header-mobile">
+	<nav class="mobile-nav-content">
+		<div class="mobile-brand">
+			<div class="brand-logo">
+				<i class="fa-solid fa-seedling"></i>
+			</div>
+			<span class="brand-text">Beanflow</span>
+		</div>
+		<button
+			type="button"
+			class="mobile-menu-toggle"
+			onclick={toggleMobileMenu}
+			aria-expanded={mobileMenuOpen}
+			aria-label="Toggle menu"
+		>
+			<i class="fa-solid" class:fa-bars={!mobileMenuOpen} class:fa-xmark={mobileMenuOpen}></i>
+		</button>
+	</nav>
+	{#if mobileMenuOpen}
+		<div class="mobile-menu">
+			<div class="mobile-company-section">
+				<span class="mobile-company-name">{companyName}</span>
+				<span class="mobile-user-name">{userName}</span>
+			</div>
+			<div class="mobile-menu-divider"></div>
+			<div class="mobile-menu-section">
+				{#each navigationItems as item}
+					<a
+						href={item.href}
+						class="mobile-menu-item"
+						class:active={isActive(item.href)}
+					>
+						<i class="fa-solid {item.icon}"></i>
+						<span>{item.label}</span>
+					</a>
+				{/each}
+			</div>
+			<div class="mobile-menu-divider"></div>
+			<div class="mobile-menu-section">
+				<button type="button" class="mobile-menu-item logout" onclick={handleLogout}>
+					<i class="fa-solid fa-right-from-bracket"></i>
+					<span>Log out</span>
+				</button>
+			</div>
+		</div>
+	{/if}
+</header>
+
 <style>
 	.header {
 		background: rgba(255, 255, 255, 0.95);

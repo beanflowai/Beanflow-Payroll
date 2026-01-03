@@ -27,9 +27,10 @@
 	}
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-<div class="modal-overlay" onclick={handleOverlayClick}>
-	<div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="modal-overlay" onclick={handleOverlayClick} role="presentation">
+	<div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
 		<div class="modal-header">
 			<h2 id="modal-title" class="modal-title">Disconnect Bookkeeping</h2>
 			<button class="close-button" onclick={onClose} aria-label="Close">

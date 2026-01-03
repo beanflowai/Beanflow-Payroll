@@ -342,6 +342,7 @@
 				<span class="text-body-content font-semibold text-success-600">{formatCurrency(payGroup.totalNetPay)}</span>
 				<span class="text-caption text-surface-500">Net Pay</span>
 			</div>
+			<!-- svelte-ignore node_invalid_placement_ssr -->
 			{#if onAddEmployee}
 				<button
 					class="p-2 bg-primary-50 border border-primary-200 rounded-lg text-primary-600 cursor-pointer transition-all duration-150 hover:bg-primary-100 hover:border-primary-300"
@@ -454,6 +455,8 @@
 														</div>
 														<!-- Regular Hours input (only for hourly employees) -->
 														{#if record.compensationType === 'hourly'}
+															<!-- svelte-ignore a11y_no_static_element_interactions -->
+															<!-- svelte-ignore a11y_click_events_have_key_events -->
 															<div class="flex justify-between items-center gap-2 pl-4" onclick={(e) => e.stopPropagation()}>
 																<span class="text-body-small text-surface-500">Regular Hours</span>
 																<div class="flex items-center gap-1">
@@ -491,6 +494,8 @@
 															<span class="text-body-content text-surface-800">{formatCurrency(record.grossOvertime)}</span>
 														</div>
 														<!-- Overtime Hours input (for both hourly and salaried) -->
+														<!-- svelte-ignore a11y_no_static_element_interactions -->
+														<!-- svelte-ignore a11y_click_events_have_key_events -->
 														<div class="flex justify-between items-center gap-2 pl-4" onclick={(e) => e.stopPropagation()}>
 															<span class="text-body-small text-surface-500">Overtime Hours</span>
 															<div class="flex items-center gap-1">
@@ -514,6 +519,8 @@
 
 													<!-- Holiday Pay with Exempt toggle (only shown when pay period has holidays for this province) -->
 													{#if hasHolidayForEmployee(record)}
+														<!-- svelte-ignore a11y_no_static_element_interactions -->
+														<!-- svelte-ignore a11y_click_events_have_key_events -->
 														<div class="flex justify-between items-center" onclick={(e) => e.stopPropagation()}>
 															<div class="flex items-center gap-2">
 																<span class="text-body-content text-surface-600">Holiday Pay</span>
@@ -559,6 +566,8 @@
 													{#each getEarningsAdjustments(record) as adj, idx (adj.id)}
 														{@const adjIdx = getAdjustments(record).indexOf(adj)}
 														{@const typeInfo = ADJUSTMENT_TYPE_LABELS[adj.type]}
+														<!-- svelte-ignore a11y_no_static_element_interactions -->
+														<!-- svelte-ignore a11y_click_events_have_key_events -->
 														<div class="flex flex-col gap-1 py-2" onclick={(e) => e.stopPropagation()}>
 															<!-- Row 1: Type label + Delete -->
 															<div class="flex items-center justify-between">
@@ -599,6 +608,8 @@
 													{/each}
 
 													<!-- Add Earnings Button with Dropdown -->
+													<!-- svelte-ignore a11y_no_static_element_interactions -->
+													<!-- svelte-ignore a11y_click_events_have_key_events -->
 													<div class="relative" onclick={(e) => e.stopPropagation()}>
 														<button
 															class="w-full flex items-center justify-center gap-2 py-2 bg-surface-50 border border-dashed border-surface-300 rounded text-body-small text-surface-600 cursor-pointer transition-all duration-150 hover:bg-primary-50 hover:border-primary-300 hover:text-primary-600"
@@ -703,6 +714,8 @@
 														{@const adjIdx = getAdjustments(record).indexOf(adj)}
 														{@const deductionLabel = getDeductionLabel(adj)}
 														{@const taxType = getDeductionTaxType(adj)}
+														<!-- svelte-ignore a11y_no_static_element_interactions -->
+														<!-- svelte-ignore a11y_click_events_have_key_events -->
 														<div class="flex flex-col gap-1 py-2" onclick={(e) => e.stopPropagation()}>
 															<!-- Row 1: Deduction name + Tax type badge + Delete -->
 															<div class="flex items-center justify-between">
@@ -756,6 +769,8 @@
 													{/each}
 
 													<!-- Add Deduction Button with Dropdown -->
+													<!-- svelte-ignore a11y_no_static_element_interactions -->
+													<!-- svelte-ignore a11y_click_events_have_key_events -->
 													<div class="relative" onclick={(e) => e.stopPropagation()}>
 														<button
 															class="w-full flex items-center justify-center gap-2 py-2 bg-surface-50 border border-dashed border-surface-300 rounded text-body-small text-surface-600 cursor-pointer transition-all duration-150 hover:bg-primary-50 hover:border-primary-300 hover:text-primary-600"
@@ -821,6 +836,8 @@
 													{@const vacationDisabled = record.vacationPayoutMethod === 'accrual' && availableVacationDollars <= 0}
 													{@const insufficientBalance = hasInsufficientBalance(record)}
 													{@const availableSickHours = record.sickBalanceHours ?? 0}
+													<!-- svelte-ignore a11y_no_static_element_interactions -->
+													<!-- svelte-ignore a11y_click_events_have_key_events -->
 													<div class="flex flex-col gap-1" onclick={(e) => e.stopPropagation()}>
 														<div class="flex justify-between items-center gap-2">
 															<span class="text-body-content text-surface-600">Vacation Used</span>
@@ -864,6 +881,8 @@
 													{@const sickHours = getLeaveHours(record, 'sick')}
 													{@const paidSickHours = Math.min(sickHours, availableSickHours)}
 													{@const unpaidSickHours = Math.max(0, sickHours - availableSickHours)}
+													<!-- svelte-ignore a11y_no_static_element_interactions -->
+													<!-- svelte-ignore a11y_click_events_have_key_events -->
 													<div class="flex flex-col gap-1" onclick={(e) => e.stopPropagation()}>
 														<div class="flex justify-between items-center gap-2">
 															<span class="text-body-content text-surface-600">Sick Used</span>
@@ -955,6 +974,7 @@
 		margin: 0;
 	}
 	.amount-input {
+		appearance: textfield;
 		-moz-appearance: textfield;
 	}
 </style>

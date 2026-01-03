@@ -390,10 +390,23 @@
 
 <!-- Image Modal -->
 {#if selectedImage}
-	<div class="fixed inset-0 bg-black/90 flex items-center justify-center z-[1000] p-4" onclick={closeImage} role="dialog" aria-modal="true">
+	<div
+		class="fixed inset-0 bg-black/90 flex items-center justify-center z-[1000] p-4"
+		onclick={closeImage}
+		onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') closeImage(); }}
+		role="dialog"
+		aria-modal="true"
+		tabindex="-1"
+	>
 		<button class="absolute top-4 right-4 w-10 h-10 flex items-center justify-center bg-white/10 border-none rounded-full text-white text-xl cursor-pointer hover:bg-white/20 transition" onclick={closeImage} aria-label="Close">
 			<i class="fas fa-times"></i>
 		</button>
-		<img src={selectedImage} alt="Attachment" class="max-w-full max-h-[90vh] object-contain rounded-lg" onclick={(e) => e.stopPropagation()} />
+		<button
+			type="button"
+			class="bg-transparent border-none p-0 cursor-default"
+			onclick={(e) => e.stopPropagation()}
+		>
+			<img src={selectedImage} alt="Attachment" class="max-w-full max-h-[90vh] object-contain rounded-lg" />
+		</button>
 	</div>
 {/if}

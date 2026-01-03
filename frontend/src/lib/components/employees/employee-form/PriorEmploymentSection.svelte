@@ -77,7 +77,7 @@
 		<div class="flex flex-col gap-4">
 			<!-- Question 1: Has prior employment? -->
 			<div class="flex flex-col gap-2">
-				<label class="text-body-small font-medium text-surface-700">Has this employee worked for another employer this year?</label>
+				<span class="text-body-small font-medium text-surface-700">Has this employee worked for another employer this year?</span>
 				{#if canEditPriorYtd}
 					<div class="flex gap-6 flex-wrap max-sm:flex-col max-sm:gap-3">
 						<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
@@ -112,7 +112,7 @@
 			{#if hasPriorEmployment}
 				<!-- Question 2: Income level -->
 				<div class="flex flex-col gap-2">
-					<label class="text-body-small font-medium text-surface-700">Estimated annual income level?</label>
+					<span class="text-body-small font-medium text-surface-700">Estimated annual income level?</span>
 					{#if canEditPriorYtd}
 						<div class="flex gap-6 flex-wrap max-sm:flex-col max-sm:gap-3">
 							<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">

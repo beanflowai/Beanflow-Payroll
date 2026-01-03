@@ -172,14 +172,14 @@
 								<div class="flex flex-col gap-3 pl-6 border-l-2 border-primary-100">
 									<div class="grid grid-cols-2 gap-3 max-md:grid-cols-1">
 										<div class="flex flex-col gap-1">
-											<label class="text-auxiliary-text text-surface-500">Employee Deduction</label>
+											<span class="text-auxiliary-text text-surface-500">Employee Deduction</span>
 											<div class="flex items-stretch">
 												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
 												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editHealth.employeeDeduction} min="0" step="0.01" />
 											</div>
 										</div>
 										<div class="flex flex-col gap-1">
-											<label class="text-auxiliary-text text-surface-500">Employer Contribution</label>
+											<span class="text-auxiliary-text text-surface-500">Employer Contribution</span>
 											<div class="flex items-stretch">
 												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
 												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editHealth.employerContribution} min="0" step="0.01" />
@@ -207,14 +207,14 @@
 								<div class="flex flex-col gap-3 pl-6 border-l-2 border-primary-100">
 									<div class="grid grid-cols-2 gap-3 max-md:grid-cols-1">
 										<div class="flex flex-col gap-1">
-											<label class="text-auxiliary-text text-surface-500">Employee Deduction</label>
+											<span class="text-auxiliary-text text-surface-500">Employee Deduction</span>
 											<div class="flex items-stretch">
 												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
 												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editDental.employeeDeduction} min="0" step="0.01" />
 											</div>
 										</div>
 										<div class="flex flex-col gap-1">
-											<label class="text-auxiliary-text text-surface-500">Employer Contribution</label>
+											<span class="text-auxiliary-text text-surface-500">Employer Contribution</span>
 											<div class="flex items-stretch">
 												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
 												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editDental.employerContribution} min="0" step="0.01" />
@@ -242,14 +242,14 @@
 								<div class="flex flex-col gap-3 pl-6 border-l-2 border-primary-100">
 									<div class="grid grid-cols-2 gap-3 max-md:grid-cols-1">
 										<div class="flex flex-col gap-1">
-											<label class="text-auxiliary-text text-surface-500">Employee Deduction</label>
+											<span class="text-auxiliary-text text-surface-500">Employee Deduction</span>
 											<div class="flex items-stretch">
 												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
 												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editVision.employeeDeduction} min="0" step="0.01" />
 											</div>
 										</div>
 										<div class="flex flex-col gap-1">
-											<label class="text-auxiliary-text text-surface-500">Employer Contribution</label>
+											<span class="text-auxiliary-text text-surface-500">Employer Contribution</span>
 											<div class="flex items-stretch">
 												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
 												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editVision.employerContribution} min="0" step="0.01" />
@@ -277,14 +277,14 @@
 								<div class="flex flex-col gap-3 pl-6 border-l-2 border-primary-100">
 									<div class="grid grid-cols-2 gap-3 max-md:grid-cols-1">
 										<div class="flex flex-col gap-1">
-											<label class="text-auxiliary-text text-surface-500">Employee Deduction</label>
+											<span class="text-auxiliary-text text-surface-500">Employee Deduction</span>
 											<div class="flex items-stretch">
 												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
 												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editLifeInsurance.employeeDeduction} min="0" step="0.01" />
 											</div>
 										</div>
 										<div class="flex flex-col gap-1">
-											<label class="text-auxiliary-text text-surface-500">Employer Contribution</label>
+											<span class="text-auxiliary-text text-surface-500">Employer Contribution</span>
 											<div class="flex items-stretch">
 												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
 												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editLifeInsurance.employerContribution} min="0" step="0.01" />
@@ -293,14 +293,14 @@
 									</div>
 									<div class="grid grid-cols-2 gap-3 max-md:grid-cols-1">
 										<div class="flex flex-col gap-1">
-											<label class="text-auxiliary-text text-surface-500">Coverage Amount</label>
+											<span class="text-auxiliary-text text-surface-500">Coverage Amount</span>
 											<div class="flex items-stretch">
 												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
 												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editLifeInsurance.coverageAmount} min="0" step="1000" />
 											</div>
 										</div>
 										<div class="flex flex-col gap-1">
-											<label class="text-auxiliary-text text-surface-500">Coverage Multiplier</label>
+											<span class="text-auxiliary-text text-surface-500">Coverage Multiplier</span>
 											<select class="py-2 px-3 border border-surface-200 rounded-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editLifeInsurance.coverageMultiplier}>
 												<option value={undefined}>Fixed Amount</option>
 												<option value={1}>1x Salary</option>
@@ -330,14 +330,14 @@
 								<div class="flex flex-col gap-3 pl-6 border-l-2 border-primary-100">
 									<div class="grid grid-cols-2 gap-3 max-md:grid-cols-1">
 										<div class="flex flex-col gap-1">
-											<label class="text-auxiliary-text text-surface-500">Employee Deduction</label>
+											<span class="text-auxiliary-text text-surface-500">Employee Deduction</span>
 											<div class="flex items-stretch">
 												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
 												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editDisability.employeeDeduction} min="0" step="0.01" />
 											</div>
 										</div>
 										<div class="flex flex-col gap-1">
-											<label class="text-auxiliary-text text-surface-500">Employer Contribution</label>
+											<span class="text-auxiliary-text text-surface-500">Employer Contribution</span>
 											<div class="flex items-stretch">
 												<span class="flex items-center px-2 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">$</span>
 												<input type="number" class="flex-1 min-w-0 py-2 px-3 border border-surface-200 rounded-r-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" bind:value={editDisability.employerContribution} min="0" step="0.01" />
