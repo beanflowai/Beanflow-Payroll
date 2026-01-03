@@ -3,14 +3,24 @@
 	 * Employee Portal - Leave Balances Page
 	 * Shows vacation and sick leave balances with history
 	 */
+	import { onMount, getContext } from 'svelte';
 	import LeaveBalanceCard from '$lib/components/employee-portal/LeaveBalanceCard.svelte';
-	import { getMyLeaveBalance, type LeaveBalanceResponse } from '$lib/services/employeePortalService';
-	import type { EmployeeLeaveBalance, LeaveHistoryEntry } from '$lib/types/employee-portal';
+	import {
+		getMyLeaveBalance,
+		getAvailableYears,
+		type LeaveBalanceResponse
+	} from '$lib/services/employeePortalService';
+	import type { EmployeeLeaveBalance, LeaveHistoryEntry, PortalCompanyContext } from '$lib/types/employee-portal';
+	import { PORTAL_COMPANY_CONTEXT_KEY } from '$lib/types/employee-portal';
 	import { formatShortDate } from '$lib/utils/dateUtils';
+
+	// Get company context from layout
+	const portalContext = getContext<PortalCompanyContext>(PORTAL_COMPANY_CONTEXT_KEY);
+	const companyId = $derived(portalContext?.company?.id ?? null);
 
 	// State
 	let selectedYear = $state(new Date().getFullYear());
-	const availableYears = [2025, 2024, 2023];
+	let availableYears = $state<number[]>([new Date().getFullYear()]);
 
 	let leaveBalance = $state<EmployeeLeaveBalance>({
 		vacationHours: 0,
@@ -26,6 +36,11 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
+	// Load available years on mount
+	onMount(async () => {
+		availableYears = await getAvailableYears(companyId ?? undefined);
+	});
+
 	// Fetch leave balance when year changes
 	$effect(() => {
 		loadLeaveBalance(selectedYear);
@@ -36,7 +51,7 @@
 		error = null;
 
 		try {
-			const response = await getMyLeaveBalance(year);
+			const response = await getMyLeaveBalance(year, companyId ?? undefined);
 			leaveBalance = {
 				vacationHours: response.vacationHours,
 				vacationDollars: response.vacationDollars,
@@ -174,7 +189,7 @@
 				<div class="info-content">
 					<p class="info-title">About Your Leave</p>
 					<ul class="info-list">
-						<li>Vacation accrues at {leaveBalance.vacationAccrualRate}% of your regular earnings each pay period.</li>
+						<li>Vacation accrues at {leaveBalance.vacationAccrualRate.toFixed(2)}% of your regular earnings each pay period.</li>
 						<li>Unused sick leave does not carry over to the next year.</li>
 						<li>To request time off, please contact your manager or HR.</li>
 					</ul>

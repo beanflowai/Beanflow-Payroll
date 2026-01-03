@@ -3,14 +3,24 @@
 	 * Employee Portal - Paystubs List Page
 	 * Shows list of paystubs with year filter and YTD summary
 	 */
-	import { onMount } from 'svelte';
+	import { onMount, getContext } from 'svelte';
 	import PaystubCard from '$lib/components/employee-portal/PaystubCard.svelte';
-	import { getMyPaystubs, getMyT4Documents, downloadMyT4 } from '$lib/services/employeePortalService';
-	import type { PaystubSummary, PaystubYTD, TaxDocument } from '$lib/types/employee-portal';
+	import {
+		getMyPaystubs,
+		getMyT4Documents,
+		downloadMyT4,
+		getAvailableYears
+	} from '$lib/services/employeePortalService';
+	import type { PaystubSummary, PaystubYTD, TaxDocument, PortalCompanyContext } from '$lib/types/employee-portal';
+	import { PORTAL_COMPANY_CONTEXT_KEY } from '$lib/types/employee-portal';
+
+	// Get company context from layout
+	const portalContext = getContext<PortalCompanyContext>(PORTAL_COMPANY_CONTEXT_KEY);
+	const companyId = $derived(portalContext?.company?.id ?? null);
 
 	// State
 	let selectedYear = $state(new Date().getFullYear());
-	const availableYears = [2025, 2024, 2023];
+	let availableYears = $state<number[]>([new Date().getFullYear()]);
 
 	let paystubs = $state<PaystubSummary[]>([]);
 	let ytdSummary = $state<PaystubYTD>({
@@ -32,9 +42,13 @@
 		loadPaystubs(selectedYear);
 	});
 
-	// Load T4 documents on mount
+	// Load T4 documents and available years on mount
 	onMount(async () => {
-		await loadT4Documents();
+		const [, years] = await Promise.all([
+			loadT4Documents(),
+			getAvailableYears(companyId ?? undefined)
+		]);
+		availableYears = years;
 	});
 
 	async function loadPaystubs(year: number) {
@@ -42,7 +56,7 @@
 		error = null;
 
 		try {
-			const response = await getMyPaystubs(year);
+			const response = await getMyPaystubs(year, 20, companyId ?? undefined);
 			paystubs = response.paystubs;
 			ytdSummary = response.ytdSummary;
 		} catch (err) {
@@ -57,7 +71,7 @@
 	async function loadT4Documents() {
 		loadingT4s = true;
 		try {
-			const response = await getMyT4Documents();
+			const response = await getMyT4Documents(companyId ?? undefined);
 			taxDocuments = response.taxDocuments;
 		} catch (err) {
 			console.error('Failed to load T4 documents:', err);
@@ -91,7 +105,7 @@
 	async function handleT4Download(doc: TaxDocument) {
 		downloadingT4Year = doc.year;
 		try {
-			const result = await downloadMyT4(doc.year);
+			const result = await downloadMyT4(doc.year, companyId ?? undefined);
 			if (result.error) {
 				console.error('T4 download failed:', result.error);
 				// Could show a toast notification here
