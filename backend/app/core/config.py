@@ -44,6 +44,10 @@ class Config(BaseSettings):
     supabase_url: str = Field(..., validation_alias="SUPABASE_URL")
     supabase_key: str = Field(..., validation_alias="SUPABASE_KEY")
     supabase_jwt_secret: str = Field(..., validation_alias="SUPABASE_JWT_SECRET")
+    # Service role key for admin operations (inviting users, etc.)
+    supabase_service_role_key: str | None = Field(
+        default=None, validation_alias="SUPABASE_SERVICE_ROLE_KEY"
+    )
 
     # Encryption Key (for SIN encryption in Phase 1+)
     # Optional - only needed when storing employee SIN numbers
@@ -65,6 +69,13 @@ class Config(BaseSettings):
     do_spaces_root_prefix: str = Field(
         default="Beanflow-Payroll", validation_alias="DO_SPACES_ROOT_PREFIX"
     )
+
+    # Email Configuration (Resend)
+    resend_api_key: str | None = Field(default=None, validation_alias="RESEND_EMAIL_API_KEY")
+    email_from_address: str = Field(
+        default="noreply@email.beanflow.ai", validation_alias="EMAIL_FROM_ADDRESS"
+    )
+    email_from_name: str = Field(default="BeanFlow", validation_alias="EMAIL_FROM_NAME")
 
 
 # Singleton pattern for configuration

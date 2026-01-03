@@ -122,6 +122,9 @@ def create_app() -> FastAPI:
     app.include_router(payroll.router, prefix="/api/v1/payroll", tags=["Payroll"])
     app.include_router(employees.router, prefix="/api/v1/employees", tags=["Employees"])
     app.include_router(employee_portal.router, prefix="/api/v1", tags=["Employee Portal"])
+    app.include_router(
+        employee_portal.employer_router, prefix="/api/v1", tags=["Employee Portal Management"]
+    )
     app.include_router(remittance.router, prefix="/api/v1/remittance", tags=["Remittance"])
     app.include_router(t4.router, prefix="/api/v1/t4", tags=["T4 Year-End"])
 
