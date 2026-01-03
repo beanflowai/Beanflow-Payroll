@@ -47,7 +47,11 @@
 	</div>
 
 	<div class="paystub-actions">
-		<a href="/employee/paystubs/{paystub.id}" class="action-btn view-btn">View</a>
+		{#if onView}
+			<button class="action-btn view-btn" onclick={onView} aria-label="View paystub details">
+				View
+			</button>
+		{/if}
 		<button class="action-btn download-btn" onclick={onDownload} aria-label="Download paystub PDF">
 			<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
 				<path
