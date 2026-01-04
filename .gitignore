@@ -15,3 +15,6 @@ __pycache__/
 # Tools output (keep .gitkeep)
 backend/tools/tax_config_converter/output/*
 !backend/tools/tax_config_converter/output/.gitkeep
+
+# Deploy (contains certificates and sensitive configs)
+backend/deploy/
