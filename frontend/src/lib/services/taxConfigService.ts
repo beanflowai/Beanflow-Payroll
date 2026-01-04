@@ -108,16 +108,66 @@ export function clearBPACache(): void {
 
 /**
  * Get BPA defaults for a specific tax year.
- * Uses July 1 of the year to get the July edition BPA.
+ * Selects the appropriate edition based on current date:
+ * - Current year, Jan-Jun: January edition
+ * - Current year, Jul-Dec: July edition
+ * - Past years: July edition (final edition of that year)
  *
  * @param province - Province code
  * @param year - Tax year (e.g., 2026, 2025)
  * @returns BPA defaults for that year
  */
 export async function getBPADefaultsByYear(province: Province, year: number): Promise<BPADefaults> {
-	// Use July 1 of the year to get July edition BPA
-	const payDate = new Date(year, 6, 1);
+	const now = new Date();
+	const currentYear = now.getFullYear();
+	const currentMonth = now.getMonth(); // 0-indexed (0 = January)
+
+	let payDate: Date;
+	if (year === currentYear && currentMonth < 6) {
+		// Current year, Jan-Jun: use January edition
+		payDate = new Date(year, 0, 15);
+	} else {
+		// Current year Jul-Dec, or past years: use July edition
+		payDate = new Date(year, 6, 15);
+	}
+
 	return getBPADefaults(province, payDate);
+}
+
+/**
+ * BPA defaults for both editions (Jan and Jul) of a tax year.
+ */
+export interface BPADefaultsBothEditions {
+	year: number;
+	jan: BPADefaults;
+	jul: BPADefaults;
+}
+
+/**
+ * Get BPA defaults for both editions (Jan and Jul) of a tax year.
+ * Useful for displaying both periods in the UI.
+ *
+ * @param province - Province code
+ * @param year - Tax year (e.g., 2026, 2025)
+ * @returns BPA defaults for both editions
+ */
+export async function getBPADefaultsBothEditions(
+	province: Province,
+	year: number
+): Promise<BPADefaultsBothEditions> {
+	const janDate = new Date(year, 0, 15); // January 15
+	const julDate = new Date(year, 6, 15); // July 15
+
+	const [janDefaults, julDefaults] = await Promise.all([
+		getBPADefaults(province, janDate),
+		getBPADefaults(province, julDate)
+	]);
+
+	return {
+		year,
+		jan: janDefaults,
+		jul: julDefaults
+	};
 }
 
 // =============================================================================

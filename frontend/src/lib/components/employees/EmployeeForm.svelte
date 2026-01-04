@@ -19,9 +19,10 @@
 	} from '$lib/types/employee';
 	import {
 		getBPADefaults,
-		getBPADefaultsByYear,
+		getBPADefaultsBothEditions,
 		getContributionLimits,
 		type BPADefaults,
+		type BPADefaultsBothEditions,
 		type ContributionLimits
 	} from '$lib/services/taxConfigService';
 	import {
@@ -146,7 +147,7 @@
 	const previousTaxYear = currentTaxYearForClaims - 1;
 	let taxClaimsByYear = $state<Map<number, EmployeeTaxClaim>>(new Map());
 	let taxClaimsLoading = $state(false);
-	let bpaDefaultsByYear = $state<Map<number, BPADefaults>>(new Map());
+	let bpaDefaultsByYear = $state<Map<number, BPADefaultsBothEditions>>(new Map());
 	let currentYearExpanded = $state(true);
 	let previousYearExpanded = $state(false);
 
@@ -427,20 +428,27 @@
 			}
 
 			const years = [currentTaxYearForClaims, previousTaxYear];
+			const now = new Date();
+			const currentMonth = now.getMonth();
 			for (const year of years) {
 				if (!claimsMap.has(year)) {
 					const bpaForYear = bpaDefaultsByYear.get(year);
+					// Use current edition based on current date for current year, jul for past years
+					const edition =
+						bpaForYear && year === currentTaxYearForClaims && currentMonth < 6
+							? bpaForYear.jan
+							: bpaForYear?.jul;
 					claimsMap.set(year, {
 						id: '',
 						employeeId: employeeId,
 						companyId: '',
 						taxYear: year,
-						federalBpa: bpaForYear?.federalBPA ?? FEDERAL_BPA_2025,
+						federalBpa: edition?.federalBPA ?? FEDERAL_BPA_2025,
 						federalAdditionalClaims: 0,
-						federalTotalClaim: bpaForYear?.federalBPA ?? FEDERAL_BPA_2025,
-						provincialBpa: bpaForYear?.provincialBPA ?? PROVINCIAL_BPA_2025[province],
+						federalTotalClaim: edition?.federalBPA ?? FEDERAL_BPA_2025,
+						provincialBpa: edition?.provincialBPA ?? PROVINCIAL_BPA_2025[province],
 						provincialAdditionalClaims: 0,
-						provincialTotalClaim: bpaForYear?.provincialBPA ?? PROVINCIAL_BPA_2025[province],
+						provincialTotalClaim: edition?.provincialBPA ?? PROVINCIAL_BPA_2025[province],
 						createdAt: '',
 						updatedAt: ''
 					});
@@ -468,18 +476,27 @@
 		const previousBpa = bpaDefaultsByYear.get(previousTaxYear);
 		const newClaimsMap = new Map<number, EmployeeTaxClaim>();
 
+		// Use current edition based on current date for current year, jul for past years
+		const now = new Date();
+		const currentMonth = now.getMonth();
+		const currentEdition =
+			currentBpa && currentMonth < 6 ? currentBpa.jan : currentBpa?.jul;
+		const previousEdition = previousBpa?.jul; // Past year uses final edition
+
 		newClaimsMap.set(currentTaxYearForClaims, {
 			id: '',
 			employeeId: '',
 			companyId: '',
 			taxYear: currentTaxYearForClaims,
-			federalBpa: currentBpa?.federalBPA ?? FEDERAL_BPA_2025,
+			federalBpa: currentEdition?.federalBPA ?? FEDERAL_BPA_2025,
 			federalAdditionalClaims: federalAdditionalClaims,
-			federalTotalClaim: (currentBpa?.federalBPA ?? FEDERAL_BPA_2025) + federalAdditionalClaims,
-			provincialBpa: currentBpa?.provincialBPA ?? PROVINCIAL_BPA_2025[province],
+			federalTotalClaim:
+				(currentEdition?.federalBPA ?? FEDERAL_BPA_2025) + federalAdditionalClaims,
+			provincialBpa: currentEdition?.provincialBPA ?? PROVINCIAL_BPA_2025[province],
 			provincialAdditionalClaims: provincialAdditionalClaims,
 			provincialTotalClaim:
-				(currentBpa?.provincialBPA ?? PROVINCIAL_BPA_2025[province]) + provincialAdditionalClaims,
+				(currentEdition?.provincialBPA ?? PROVINCIAL_BPA_2025[province]) +
+				provincialAdditionalClaims,
 			createdAt: '',
 			updatedAt: ''
 		});
@@ -489,12 +506,12 @@
 			employeeId: '',
 			companyId: '',
 			taxYear: previousTaxYear,
-			federalBpa: previousBpa?.federalBPA ?? FEDERAL_BPA_2025,
+			federalBpa: previousEdition?.federalBPA ?? FEDERAL_BPA_2025,
 			federalAdditionalClaims: 0,
-			federalTotalClaim: previousBpa?.federalBPA ?? FEDERAL_BPA_2025,
-			provincialBpa: previousBpa?.provincialBPA ?? PROVINCIAL_BPA_2025[province],
+			federalTotalClaim: previousEdition?.federalBPA ?? FEDERAL_BPA_2025,
+			provincialBpa: previousEdition?.provincialBPA ?? PROVINCIAL_BPA_2025[province],
 			provincialAdditionalClaims: 0,
-			provincialTotalClaim: previousBpa?.provincialBPA ?? PROVINCIAL_BPA_2025[province],
+			provincialTotalClaim: previousEdition?.provincialBPA ?? PROVINCIAL_BPA_2025[province],
 			createdAt: '',
 			updatedAt: ''
 		});
@@ -505,11 +522,11 @@
 	async function loadBpaDefaultsForYears(prov: Province) {
 		try {
 			const [currentBpa, previousBpa] = await Promise.all([
-				getBPADefaultsByYear(prov, currentTaxYearForClaims),
-				getBPADefaultsByYear(prov, previousTaxYear)
+				getBPADefaultsBothEditions(prov, currentTaxYearForClaims),
+				getBPADefaultsBothEditions(prov, previousTaxYear)
 			]);
 
-			const bpaMap = new Map<number, BPADefaults>();
+			const bpaMap = new Map<number, BPADefaultsBothEditions>();
 			bpaMap.set(currentTaxYearForClaims, currentBpa);
 			bpaMap.set(previousTaxYear, previousBpa);
 			bpaDefaultsByYear = bpaMap;
@@ -520,7 +537,7 @@
 		}
 	}
 
-	function syncBpaToTaxClaims(bpaMap: Map<number, BPADefaults>) {
+	function syncBpaToTaxClaims(bpaMap: Map<number, BPADefaultsBothEditions>) {
 		if (taxClaimsByYear.size === 0) return;
 
 		const updatedClaims = new Map<number, EmployeeTaxClaim>();
@@ -528,12 +545,20 @@
 		for (const [year, claim] of taxClaimsByYear) {
 			const bpaForYear = bpaMap.get(year);
 			if (bpaForYear) {
+				// Preserve existing BPA values if they're already set
+				// Only use defaults for new claims (BPA is 0 or undefined)
+				const hasExistingBpa = claim.federalBpa > 0 || claim.provincialBpa > 0;
+
 				updatedClaims.set(year, {
 					...claim,
-					federalBpa: bpaForYear.federalBPA,
-					provincialBpa: bpaForYear.provincialBPA,
-					federalTotalClaim: bpaForYear.federalBPA + claim.federalAdditionalClaims,
-					provincialTotalClaim: bpaForYear.provincialBPA + claim.provincialAdditionalClaims
+					federalBpa: hasExistingBpa ? claim.federalBpa : bpaForYear.jul.federalBPA,
+					provincialBpa: hasExistingBpa ? claim.provincialBpa : bpaForYear.jul.provincialBPA,
+					federalTotalClaim: hasExistingBpa
+						? claim.federalTotalClaim
+						: bpaForYear.jul.federalBPA + claim.federalAdditionalClaims,
+					provincialTotalClaim: hasExistingBpa
+						? claim.provincialTotalClaim
+						: bpaForYear.jul.provincialBPA + claim.provincialAdditionalClaims
 				});
 			} else {
 				updatedClaims.set(year, claim);
@@ -547,22 +572,29 @@
 		const existingClaim = taxClaimsByYear.get(year);
 		const bpaForYear = bpaDefaultsByYear.get(year);
 
+		// Use current edition based on current date for current year, jul for past years
+		const now = new Date();
+		const currentMonth = now.getMonth();
+		const edition =
+			bpaForYear && year === currentTaxYearForClaims && currentMonth < 6
+				? bpaForYear.jan
+				: bpaForYear?.jul;
+
 		const updatedClaim: EmployeeTaxClaim = {
 			id: existingClaim?.id ?? '',
 			employeeId: existingClaim?.employeeId ?? employee?.id ?? '',
 			companyId: existingClaim?.companyId ?? '',
 			taxYear: year,
-			federalBpa: existingClaim?.federalBpa ?? bpaForYear?.federalBPA ?? FEDERAL_BPA_2025,
+			federalBpa: existingClaim?.federalBpa ?? edition?.federalBPA ?? FEDERAL_BPA_2025,
 			federalAdditionalClaims: fedAdditional,
 			federalTotalClaim:
-				(existingClaim?.federalBpa ?? bpaForYear?.federalBPA ?? FEDERAL_BPA_2025) + fedAdditional,
+				(existingClaim?.federalBpa ?? edition?.federalBPA ?? FEDERAL_BPA_2025) + fedAdditional,
 			provincialBpa:
-				existingClaim?.provincialBpa ?? bpaForYear?.provincialBPA ?? PROVINCIAL_BPA_2025[province],
+				existingClaim?.provincialBpa ?? edition?.provincialBPA ?? PROVINCIAL_BPA_2025[province],
 			provincialAdditionalClaims: provAdditional,
 			provincialTotalClaim:
-				(existingClaim?.provincialBpa ??
-					bpaForYear?.provincialBPA ??
-					PROVINCIAL_BPA_2025[province]) + provAdditional,
+				(existingClaim?.provincialBpa ?? edition?.provincialBPA ?? PROVINCIAL_BPA_2025[province]) +
+				provAdditional,
 			createdAt: existingClaim?.createdAt ?? '',
 			updatedAt: existingClaim?.updatedAt ?? ''
 		};

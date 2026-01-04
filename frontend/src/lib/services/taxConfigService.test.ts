@@ -18,6 +18,7 @@ import {
 	getProvincialBPAFromApi,
 	clearBPACache,
 	getBPADefaultsByYear,
+	getBPADefaultsBothEditions,
 	getContributionLimits,
 	clearContributionLimitsCache
 } from './taxConfigService';
@@ -252,25 +253,35 @@ describe('getBPADefaultsByYear', () => {
 		clearBPACache();
 	});
 
-	it('uses July 1 of the specified year', async () => {
+	it('uses January edition for current year in Jan-Jun', async () => {
+		// Mock current date to March 15, 2025
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2025-03-15'));
+
 		const mockResponse = {
-			year: 2026,
-			edition: 'jul' as const,
-			federalBPA: 16500,
-			provincialBPA: 13000,
+			year: 2025,
+			edition: 'jan' as const,
+			federalBPA: 15000,
+			provincialBPA: 12000,
 			province: 'ON'
 		};
 
 		mockApi.get.mockResolvedValue(mockResponse);
 
-		await getBPADefaultsByYear('ON', 2026);
+		await getBPADefaultsByYear('ON', 2025);
 
 		expect(mockApi.get).toHaveBeenCalledWith('/payroll/bpa-defaults/ON', {
-			pay_date: '2026-07-01'
+			pay_date: '2025-01-15'
 		});
+
+		vi.useRealTimers();
 	});
 
-	it('works with different years', async () => {
+	it('uses July edition for current year in Jul-Dec', async () => {
+		// Mock current date to September 15, 2025
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2025-09-15'));
+
 		const mockResponse = {
 			year: 2025,
 			edition: 'jul' as const,
@@ -281,11 +292,103 @@ describe('getBPADefaultsByYear', () => {
 
 		mockApi.get.mockResolvedValue(mockResponse);
 
-		await getBPADefaultsByYear('BC', 2025);
+		await getBPADefaultsByYear('ON', 2025);
+
+		expect(mockApi.get).toHaveBeenCalledWith('/payroll/bpa-defaults/ON', {
+			pay_date: '2025-07-15'
+		});
+
+		vi.useRealTimers();
+	});
+
+	it('always uses July edition for past years', async () => {
+		// Mock current date to March 15, 2025
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2025-03-15'));
+
+		const mockResponse = {
+			year: 2024,
+			edition: 'jul' as const,
+			federalBPA: 15000,
+			provincialBPA: 11500,
+			province: 'BC'
+		};
+
+		mockApi.get.mockResolvedValue(mockResponse);
+
+		await getBPADefaultsByYear('BC', 2024);
 
 		expect(mockApi.get).toHaveBeenCalledWith('/payroll/bpa-defaults/BC', {
-			pay_date: '2025-07-01'
+			pay_date: '2024-07-15'
 		});
+
+		vi.useRealTimers();
+	});
+});
+
+describe('getBPADefaultsBothEditions', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		clearBPACache();
+	});
+
+	it('fetches both January and July editions', async () => {
+		const mockJanResponse = {
+			year: 2025,
+			edition: 'jan' as const,
+			federalBPA: 15000,
+			provincialBPA: 12000,
+			province: 'ON'
+		};
+
+		const mockJulResponse = {
+			year: 2025,
+			edition: 'jul' as const,
+			federalBPA: 16129,
+			provincialBPA: 12747,
+			province: 'ON'
+		};
+
+		mockApi.get
+			.mockResolvedValueOnce(mockJanResponse)
+			.mockResolvedValueOnce(mockJulResponse);
+
+		const result = await getBPADefaultsBothEditions('ON', 2025);
+
+		expect(mockApi.get).toHaveBeenCalledTimes(2);
+		expect(mockApi.get).toHaveBeenNthCalledWith(1, '/payroll/bpa-defaults/ON', {
+			pay_date: '2025-01-15'
+		});
+		expect(mockApi.get).toHaveBeenNthCalledWith(2, '/payroll/bpa-defaults/ON', {
+			pay_date: '2025-07-15'
+		});
+
+		expect(result).toEqual({
+			year: 2025,
+			jan: mockJanResponse,
+			jul: mockJulResponse
+		});
+	});
+
+	it('handles API errors gracefully for one edition', async () => {
+		const mockJulResponse = {
+			year: 2025,
+			edition: 'jul' as const,
+			federalBPA: 16129,
+			provincialBPA: 12747,
+			province: 'ON'
+		};
+
+		// First call (Jan) fails, second (Jul) succeeds
+		mockApi.get.mockRejectedValueOnce(new Error('API error')).mockResolvedValueOnce(mockJulResponse);
+
+		// Should fall back to defaults for failed edition
+		const result = await getBPADefaultsBothEditions('ON', 2025);
+
+		expect(result.jan).toBeDefined();
+		expect(result.jul).toBeDefined();
+		expect(result.jan.year).toBe(new Date().getFullYear()); // Fallback uses current year
+		expect(result.jul).toEqual(mockJulResponse);
 	});
 });
 

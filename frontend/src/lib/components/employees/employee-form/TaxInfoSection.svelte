@@ -1,11 +1,11 @@
 <script lang="ts">
 	import type { Province, EmployeeTaxClaim } from '$lib/types/employee';
-	import type { BPADefaults } from '$lib/services/taxConfigService';
+	import type { BPADefaultsBothEditions } from '$lib/services/taxConfigService';
 	import TaxYearClaimsCard from '../TaxYearClaimsCard.svelte';
 
 	interface Props {
 		taxClaimsByYear: Map<number, EmployeeTaxClaim>;
-		bpaDefaultsByYear: Map<number, BPADefaults>;
+		bpaDefaultsByYear: Map<number, BPADefaultsBothEditions>;
 		province: Province;
 		isCppExempt: boolean;
 		isEiExempt: boolean;
