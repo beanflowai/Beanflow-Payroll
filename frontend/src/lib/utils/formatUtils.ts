@@ -2,23 +2,51 @@
  * Formatting utilities for currency, numbers, and other display values
  */
 
+// Cached formatter instances for better performance
+const currencyFormatter = new Intl.NumberFormat('en-CA', {
+	style: 'currency',
+	currency: 'CAD',
+	minimumFractionDigits: 2,
+	maximumFractionDigits: 2
+});
+
 /**
  * Format a number as Canadian currency (CAD)
- * @param amount - The amount to format
- * @param options - Optional Intl.NumberFormat options
- * @returns Formatted currency string (e.g., "$1,234.56")
+ * Handles null/undefined values gracefully
+ * @param amount - The amount to format (can be null/undefined)
+ * @param options - Optional configuration
+ * @returns Formatted currency string (e.g., "$1,234.56") or placeholder for null values
  */
 export function formatCurrency(
-	amount: number,
-	options?: Partial<Intl.NumberFormatOptions>
+	amount: number | null | undefined,
+	options?: {
+		placeholder?: string;
+		showSign?: boolean;
+		maximumFractionDigits?: number;
+	}
 ): string {
-	return new Intl.NumberFormat('en-CA', {
+	const { placeholder = '-', showSign = false, maximumFractionDigits = 2 } = options ?? {};
+
+	if (amount == null) return placeholder;
+
+	// Use cached formatter for default case, create new one only when needed
+	if (maximumFractionDigits === 2 && !showSign) {
+		return currencyFormatter.format(amount);
+	}
+
+	const formatted = new Intl.NumberFormat('en-CA', {
 		style: 'currency',
 		currency: 'CAD',
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2,
-		...options
-	}).format(amount);
+		minimumFractionDigits: maximumFractionDigits,
+		maximumFractionDigits
+	}).format(Math.abs(amount));
+
+	if (showSign) {
+		if (amount < 0) return `-${formatted}`;
+		if (amount > 0) return `+${formatted}`;
+	}
+
+	return amount < 0 ? `-${formatted}` : formatted;
 }
 
 /**

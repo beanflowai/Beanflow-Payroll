@@ -326,3 +326,35 @@ export function formatDateNoYear(dateStr: string): string {
 		day: 'numeric'
 	});
 }
+
+/**
+ * 通用日期格式化函数 - 支持 null 值处理
+ * 等同于 formatShortDate，但支持 null/undefined 输入
+ * @param dateStr - ISO 日期字符串 (YYYY-MM-DD) 或 null/undefined
+ * @param fallback - 当日期为空时返回的默认值 (默认 '-')
+ * @returns 格式化的日期字符串，如 "Dec 28, 2025" 或 fallback
+ */
+export function formatDate(dateStr: string | null | undefined, fallback = '-'): string {
+	if (!dateStr) return fallback;
+	return formatShortDate(dateStr);
+}
+
+/**
+ * 相对时间显示 - 用于显示 "刚刚", "5分钟前", "2小时前" 等
+ * @param dateStr - ISO 日期时间字符串
+ * @returns 相对时间字符串
+ */
+export function timeAgo(dateStr: string): string {
+	const date = new Date(dateStr);
+	const now = new Date();
+	const diffMs = now.getTime() - date.getTime();
+	const diffMins = Math.floor(diffMs / 60000);
+	const diffHours = Math.floor(diffMs / 3600000);
+	const diffDays = Math.floor(diffMs / 86400000);
+
+	if (diffMins < 1) return 'Just now';
+	if (diffMins < 60) return `${diffMins}m ago`;
+	if (diffHours < 24) return `${diffHours}h ago`;
+	if (diffDays < 7) return `${diffDays}d ago`;
+	return formatShortDate(dateStr.split('T')[0]);
+}
