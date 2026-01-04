@@ -106,7 +106,7 @@ class TestAllTaxConfig:
         assert isinstance(provinces, list)
         assert len(provinces) > 0
         # Should include major provinces
-        province_codes = [p if isinstance(p, str) else p.get("code", "") for p in provinces]
+        [p if isinstance(p, str) else p.get("code", "") for p in provinces]
         # The format might vary, so we check it's not empty
         assert len(provinces) >= 10  # Canada has 13 provinces/territories
 

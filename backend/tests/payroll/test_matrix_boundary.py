@@ -10,8 +10,6 @@ Phase 4 - Test Matrix Implementation - Boundary Conditions
 from datetime import date
 from decimal import Decimal
 
-import pytest
-
 from app.models.payroll import PayFrequency, Province
 from app.services.payroll.payroll_engine import EmployeePayrollInput, PayrollEngine
 

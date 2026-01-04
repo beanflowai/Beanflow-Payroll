@@ -9,17 +9,13 @@ Phase 4 - Test Matrix Implementation - Essential Scenarios
 
 from decimal import Decimal
 
-import pytest
-
 from app.models.payroll import PayFrequency, Province
-from app.services.payroll.payroll_engine import EmployeePayrollInput, PayrollEngine
+from app.services.payroll.payroll_engine import PayrollEngine
 
 from .conftest import (
     CPP_MAX_BASE,
     EI_MAX,
-    FEDERAL_BPA,
     INCOME_LEVELS,
-    PROVINCIAL_BPA,
     create_standard_input,
 )
 

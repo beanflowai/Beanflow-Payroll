@@ -7,7 +7,6 @@ and factory fixtures for creating test data.
 
 from __future__ import annotations
 
-from datetime import date
 from decimal import Decimal
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -16,7 +15,6 @@ from uuid import UUID, uuid4
 import pytest
 
 from app.services.payroll_run.run_operations import PayrollRunOperations
-
 
 # =============================================================================
 # Test Data Factories

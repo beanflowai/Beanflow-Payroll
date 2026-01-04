@@ -66,7 +66,7 @@ class TestPayrollEngineIntegration:
         assert result.provincial_tax > Decimal("0")
 
         # Net pay calculation
-        expected_net = (
+        (
             result.total_gross
             - result.cpp_total
             - result.ei_employee
