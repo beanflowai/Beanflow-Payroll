@@ -37,8 +37,6 @@
 	}
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="modal-overlay" onclick={handleOverlayClick} role="presentation">
 	<div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
 		<div class="modal-header">
@@ -49,9 +47,7 @@
 		</div>
 
 		<div class="modal-body">
-			<p class="description">
-				Select a BeanFlow Bookkeeping company to link with your payroll.
-			</p>
+			<p class="description">Select a BeanFlow Bookkeeping company to link with your payroll.</p>
 
 			<div class="form-group">
 				<label class="form-label" for="ledger-select">Select Company *</label>
@@ -89,9 +85,7 @@
 
 			<div class="info-box">
 				<i class="fas fa-info-circle"></i>
-				<span>
-					Only companies you have access to in BeanFlow Bookkeeping are shown here.
-				</span>
+				<span> Only companies you have access to in BeanFlow Bookkeeping are shown here. </span>
 			</div>
 		</div>
 

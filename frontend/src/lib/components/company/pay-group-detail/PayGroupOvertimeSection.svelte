@@ -155,9 +155,9 @@
 			<div class="info-note">
 				<i class="fas fa-balance-scale"></i>
 				<span>
-					<strong>Provincial Compliance:</strong> Bank time rules vary by province. In Ontario,
-					employees must agree in writing to bank overtime, and time must be taken within 3 months
-					unless a longer period is agreed upon.
+					<strong>Provincial Compliance:</strong> Bank time rules vary by province. In Ontario, employees
+					must agree in writing to bank overtime, and time must be taken within 3 months unless a longer
+					period is agreed upon.
 				</span>
 			</div>
 		{:else}

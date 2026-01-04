@@ -66,7 +66,10 @@
 	</div>
 
 	<div class="summary-card">
-		<div class="card-icon deductions" class:disabled={(payGroup.deductionsConfig?.customDeductions ?? []).length === 0}>
+		<div
+			class="card-icon deductions"
+			class:disabled={(payGroup.deductionsConfig?.customDeductions ?? []).length === 0}
+		>
 			<i class="fas fa-receipt"></i>
 		</div>
 		<div class="card-content">

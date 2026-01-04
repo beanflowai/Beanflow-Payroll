@@ -87,10 +87,14 @@
 </script>
 
 {#if isOpen}
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="modal-backdrop" onclick={handleBackdropClick} role="presentation">
-		<div class="modal" role="dialog" aria-modal="true" aria-labelledby="add-company-title" tabindex="-1">
+		<div
+			class="modal"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="add-company-title"
+			tabindex="-1"
+		>
 			<div class="modal-header">
 				<h2 id="add-company-title" class="modal-title">Add New Company</h2>
 				<button class="close-btn" onclick={handleClose} disabled={isSubmitting} aria-label="Close">
@@ -126,12 +130,7 @@
 						<label for="province" class="form-label">
 							Province <span class="required">*</span>
 						</label>
-						<select
-							id="province"
-							class="form-select"
-							bind:value={province}
-							disabled={isSubmitting}
-						>
+						<select id="province" class="form-select" bind:value={province} disabled={isSubmitting}>
 							{#each PROVINCES as p (p.code)}
 								<option value={p.code}>{p.name}</option>
 							{/each}
@@ -169,7 +168,12 @@
 				</div>
 
 				<div class="modal-footer">
-					<button type="button" class="btn btn-secondary" onclick={handleClose} disabled={isSubmitting}>
+					<button
+						type="button"
+						class="btn btn-secondary"
+						onclick={handleClose}
+						disabled={isSubmitting}
+					>
 						Cancel
 					</button>
 					<button type="submit" class="btn btn-primary" disabled={isSubmitting}>

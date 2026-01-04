@@ -1,6 +1,10 @@
 <script lang="ts">
 	// IntegrationTab - Bookkeeping integration (Tab 3)
-	import type { BookkeepingSyncStatus, AccountMapping, BookkeepingLedger } from '$lib/types/company';
+	import type {
+		BookkeepingSyncStatus,
+		AccountMapping,
+		BookkeepingLedger
+	} from '$lib/types/company';
 	import { DEFAULT_ACCOUNT_MAPPINGS } from '$lib/types/company';
 	import ConnectBookkeepingModal from './ConnectBookkeepingModal.svelte';
 	import DisconnectModal from './DisconnectModal.svelte';
@@ -61,7 +65,9 @@
 			</div>
 			<div class="section-info">
 				<h2 class="section-title">Bookkeeping Integration</h2>
-				<p class="section-description">Connect to BeanFlow Bookkeeping for automatic journal entries</p>
+				<p class="section-description">
+					Connect to BeanFlow Bookkeeping for automatic journal entries
+				</p>
 			</div>
 		</div>
 
@@ -121,7 +127,7 @@
 						<span></span>
 						<span>Account</span>
 					</div>
-					{#each accountMappings as mapping}
+					{#each accountMappings as mapping (mapping.payrollType)}
 						<div class="mapping-row">
 							<span class="mapping-type">{mapping.payrollType}</span>
 							<span class="mapping-arrow"><i class="fas fa-arrow-right"></i></span>
@@ -147,8 +153,8 @@
 				</div>
 
 				<p class="info-text centered">
-					Link to a BeanFlow Bookkeeping company to automatically
-					generate journal entries when you run payroll.
+					Link to a BeanFlow Bookkeeping company to automatically generate journal entries when you
+					run payroll.
 				</p>
 
 				<div class="divider"></div>
