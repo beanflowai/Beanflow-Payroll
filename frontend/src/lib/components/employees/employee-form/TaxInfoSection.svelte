@@ -49,17 +49,28 @@
 </script>
 
 <section class="bg-white rounded-xl p-6 shadow-md3-1">
-	<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">Tax Information (TD1)</h3>
+	<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">
+		Tax Information (TD1)
+	</h3>
 	<p class="text-body-small text-surface-500 m-0 mb-4 flex items-center gap-2">
 		<i class="fas fa-info-circle text-primary-500"></i>
 		Enter additional claims from TD1 forms (spouse, dependants, etc.) for each tax year.
 	</p>
 
 	{#if showProvinceChangeWarning}
-		<div class="flex items-center gap-3 p-3 mb-4 bg-warning-50 border border-warning-200 rounded-lg text-warning-700 text-body-small">
+		<div
+			class="flex items-center gap-3 p-3 mb-4 bg-warning-50 border border-warning-200 rounded-lg text-warning-700 text-body-small"
+		>
 			<i class="fas fa-exclamation-triangle text-warning-500"></i>
-			<span>Province changed. Please review your additional TD1 claims for all years before saving.</span>
-			<button type="button" class="ml-auto bg-transparent border-none text-warning-500 cursor-pointer p-1 opacity-70 hover:opacity-100" onclick={onDismissWarning} aria-label="Dismiss warning">
+			<span
+				>Province changed. Please review your additional TD1 claims for all years before saving.</span
+			>
+			<button
+				type="button"
+				class="ml-auto bg-transparent border-none text-warning-500 cursor-pointer p-1 opacity-70 hover:opacity-100"
+				onclick={onDismissWarning}
+				aria-label="Dismiss warning"
+			>
 				<i class="fas fa-times"></i>
 			</button>
 		</div>
@@ -127,7 +138,10 @@
 						onchange={(e) => onCpp2ExemptChange(e.currentTarget.checked)}
 					/>
 					<span>CPP2 Exempt</span>
-					<span class="text-surface-400 cursor-help" title="CPT30 form on file - exempt from additional CPP contributions">
+					<span
+						class="text-surface-400 cursor-help"
+						title="CPT30 form on file - exempt from additional CPP contributions"
+					>
 						<i class="fas fa-info-circle"></i>
 					</span>
 				</label>

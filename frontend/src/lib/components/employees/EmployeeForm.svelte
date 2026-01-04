@@ -1,15 +1,43 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import type { Employee, Province, VacationPayoutMethod, VacationRate, VacationRatePreset, EmployeeCreateInput, EmployeeUpdateInput, PayFrequency, EmploymentType, EmployeeTaxClaim } from '$lib/types/employee';
+	import type {
+		Employee,
+		Province,
+		VacationPayoutMethod,
+		VacationRate,
+		EmployeeCreateInput,
+		EmployeeUpdateInput,
+		PayFrequency,
+		EmploymentType,
+		EmployeeTaxClaim
+	} from '$lib/types/employee';
 	import {
 		FEDERAL_BPA_2025,
 		PROVINCIAL_BPA_2025,
 		calculateYearsOfService,
 		getVacationRatePreset
 	} from '$lib/types/employee';
-	import { getBPADefaults, getBPADefaultsByYear, getContributionLimits, type BPADefaults, type ContributionLimits } from '$lib/services/taxConfigService';
-	import { getVacationRates, getProvinceStandards, type VacationRatesConfig, type ProvinceStandards } from '$lib/services/configService';
-	import { createEmployee, updateEmployee, checkEmployeeHasPayrollRecords, getEmployeeTaxClaims, createEmployeeTaxClaimViaApi, updateEmployeeTaxClaimViaApi } from '$lib/services/employeeService';
+	import {
+		getBPADefaults,
+		getBPADefaultsByYear,
+		getContributionLimits,
+		type BPADefaults,
+		type ContributionLimits
+	} from '$lib/services/taxConfigService';
+	import {
+		getVacationRates,
+		getProvinceStandards,
+		type VacationRatesConfig,
+		type ProvinceStandards
+	} from '$lib/services/configService';
+	import {
+		createEmployee,
+		updateEmployee,
+		checkEmployeeHasPayrollRecords,
+		getEmployeeTaxClaims,
+		createEmployeeTaxClaimViaApi,
+		updateEmployeeTaxClaimViaApi
+	} from '$lib/services/employeeService';
 
 	// Import section components
 	import {
@@ -28,7 +56,7 @@
 		onCancel: () => void;
 	}
 
-	let { employee = null, mode, onSuccess, onCancel }: Props = $props();
+	let { employee = null, mode, onSuccess, onCancel: _onCancel }: Props = $props();
 
 	// ============================================
 	// INITIAL VALUES FROM PROPS
@@ -38,7 +66,8 @@
 	// The form captures a snapshot of the employee data for editing.
 	const initialValues = (() => {
 		const emp = employee;
-		const hasPrior = (emp?.initialYtdCpp ?? 0) > 0 ||
+		const hasPrior =
+			(emp?.initialYtdCpp ?? 0) > 0 ||
 			(emp?.initialYtdCpp2 ?? 0) > 0 ||
 			(emp?.initialYtdEi ?? 0) > 0;
 		const vacationPreset = getVacationRatePreset(emp?.vacationConfig?.vacationRate ?? '0.04');
@@ -75,12 +104,14 @@
 			initialYtdEi: emp?.initialYtdEi ?? 0,
 			initialYtdYear: emp?.initialYtdYear ?? null,
 			// Vacation
-			vacationPayoutMethod: (emp?.vacationConfig?.payoutMethod ?? 'accrual') as VacationPayoutMethod,
+			vacationPayoutMethod: (emp?.vacationConfig?.payoutMethod ??
+				'accrual') as VacationPayoutMethod,
 			vacationRatePreset: vacationPreset,
-			customVacationRate: vacationPreset === 'custom'
-				? Math.round(parseFloat(emp?.vacationConfig?.vacationRate ?? '0') * 10000) / 100
-				: 4,
-			vacationBalance: emp?.vacationBalance ?? 0,
+			customVacationRate:
+				vacationPreset === 'custom'
+					? Math.round(parseFloat(emp?.vacationConfig?.vacationRate ?? '0') * 10000) / 100
+					: 4,
+			vacationBalance: emp?.vacationBalance ?? 0
 		};
 	})();
 
@@ -121,7 +152,7 @@
 
 	// Legacy single-year state (for backward compatibility during transition)
 	let bpaDefaults = $state<BPADefaults | null>(null);
-	let bpaLoading = $state(false);
+	let _bpaLoading = $state(false);
 	const federalBPA = $derived(bpaDefaults?.federalBPA ?? FEDERAL_BPA_2025);
 	const provincialBPA = $derived(bpaDefaults?.provincialBPA ?? PROVINCIAL_BPA_2025[province]);
 	let federalAdditionalClaims = $state(initialValues.federalAdditionalClaims);
@@ -129,18 +160,20 @@
 	let bpaRequestVersion = $state(0);
 	let showProvinceChangeWarning = $state(false);
 	let originalProvince = $state<Province | null>(initialValues.province);
-	let provinceChanged = $derived(mode === 'edit' && originalProvince !== null && province !== originalProvince);
+	let provinceChanged = $derived(
+		mode === 'edit' && originalProvince !== null && province !== originalProvince
+	);
 	let isCppExempt = $state(initialValues.isCppExempt);
 	let isEiExempt = $state(initialValues.isEiExempt);
 	let cpp2Exempt = $state(initialValues.cpp2Exempt);
-	const federalClaimAmount = $derived(federalBPA + federalAdditionalClaims);
-	const provincialClaimAmount = $derived(provincialBPA + provincialAdditionalClaims);
+	const _federalClaimAmount = $derived(federalBPA + federalAdditionalClaims);
+	const _provincialClaimAmount = $derived(provincialBPA + provincialAdditionalClaims);
 
 	// Prior Employment
 	let contributionLimits = $state<ContributionLimits | null>(null);
-	let limitsLoading = $state(false);
-	const FALLBACK_MAX_CPP = 4034.10;
-	const FALLBACK_MAX_CPP2 = 396.00;
+	let _limitsLoading = $state(false);
+	const FALLBACK_MAX_CPP = 4034.1;
+	const FALLBACK_MAX_CPP2 = 396.0;
 	const FALLBACK_MAX_EI = 1077.48;
 	const HIGH_INCOME_THRESHOLD = 65000;
 	const maxCpp = $derived(contributionLimits?.cpp.maxBaseContribution ?? FALLBACK_MAX_CPP);
@@ -173,7 +206,7 @@
 	let provinceStandardsRequestVersion = 0;
 
 	// UI state
-	let isSubmitting = $state(false);
+	let _isSubmitting = $state(false);
 	let errors = $state<Record<string, string>>({});
 	let submitError = $state<string | null>(null);
 
@@ -230,16 +263,18 @@
 	$effect(() => {
 		const currentProvince = province;
 		if (currentProvince) {
-			bpaLoading = true;
+			_bpaLoading = true;
 			const requestVersion = untrack(() => ++bpaRequestVersion);
-			getBPADefaults(currentProvince).then(defaults => {
-				if (requestVersion !== bpaRequestVersion) return;
-				bpaDefaults = defaults;
-				bpaLoading = false;
-			}).catch(() => {
-				if (requestVersion !== bpaRequestVersion) return;
-				bpaLoading = false;
-			});
+			getBPADefaults(currentProvince)
+				.then((defaults) => {
+					if (requestVersion !== bpaRequestVersion) return;
+					bpaDefaults = defaults;
+					_bpaLoading = false;
+				})
+				.catch(() => {
+					if (requestVersion !== bpaRequestVersion) return;
+					_bpaLoading = false;
+				});
 		}
 	});
 
@@ -262,13 +297,15 @@
 
 	// Fetch contribution limits on component init
 	$effect(() => {
-		limitsLoading = true;
-		getContributionLimits().then(limits => {
-			contributionLimits = limits;
-			limitsLoading = false;
-		}).catch(() => {
-			limitsLoading = false;
-		});
+		_limitsLoading = true;
+		getContributionLimits()
+			.then((limits) => {
+				contributionLimits = limits;
+				_limitsLoading = false;
+			})
+			.catch(() => {
+				_limitsLoading = false;
+			});
 	});
 
 	// Auto-update hasPriorEmployment when hire date changes (only for new employees)
@@ -285,12 +322,14 @@
 	// Load vacation rates when province changes
 	$effect(() => {
 		const currentProvince = province;
-		getVacationRates(currentProvince).then(config => {
-			vacationRatesConfig = config;
-		}).catch(err => {
-			console.warn('Failed to load vacation rates config:', err);
-			vacationRatesConfig = null;
-		});
+		getVacationRates(currentProvince)
+			.then((config) => {
+				vacationRatesConfig = config;
+			})
+			.catch((err) => {
+				console.warn('Failed to load vacation rates config:', err);
+				vacationRatesConfig = null;
+			});
 	});
 
 	// Load province employment standards when province changes
@@ -298,22 +337,24 @@
 		const currentProvince = province;
 		provinceStandardsLoading = true;
 		const requestVersion = untrack(() => ++provinceStandardsRequestVersion);
-		getProvinceStandards(currentProvince).then(standards => {
-			if (requestVersion !== provinceStandardsRequestVersion) return;
-			provinceStandards = standards;
-			provinceStandardsLoading = false;
-		}).catch(err => {
-			if (requestVersion !== provinceStandardsRequestVersion) return;
-			console.warn('Failed to load province standards:', err);
-			provinceStandards = null;
-			provinceStandardsLoading = false;
-		});
+		getProvinceStandards(currentProvince)
+			.then((standards) => {
+				if (requestVersion !== provinceStandardsRequestVersion) return;
+				provinceStandards = standards;
+				provinceStandardsLoading = false;
+			})
+			.catch((err) => {
+				if (requestVersion !== provinceStandardsRequestVersion) return;
+				console.warn('Failed to load province standards:', err);
+				provinceStandards = null;
+				provinceStandardsLoading = false;
+			});
 	});
 
 	// Check if employee has payroll records (for edit mode)
 	$effect(() => {
 		if (mode === 'edit' && employee?.id) {
-			checkEmployeeHasPayrollRecords(employee.id).then(has => {
+			checkEmployeeHasPayrollRecords(employee.id).then((has) => {
 				hasPayrollRecords = has;
 			});
 		} else {
@@ -348,10 +389,12 @@
 			const resetPreset = getVacationRatePreset(employee.vacationConfig?.vacationRate ?? '0.04');
 			vacationRatePreset = resetPreset;
 			if (resetPreset === 'custom') {
-				customVacationRate = Math.round(parseFloat(employee.vacationConfig?.vacationRate ?? '0') * 10000) / 100;
+				customVacationRate =
+					Math.round(parseFloat(employee.vacationConfig?.vacationRate ?? '0') * 10000) / 100;
 			}
 			vacationBalance = employee.vacationBalance ?? 0;
-			hasPriorEmployment = (employee.initialYtdCpp ?? 0) > 0 ||
+			hasPriorEmployment =
+				(employee.initialYtdCpp ?? 0) > 0 ||
 				(employee.initialYtdCpp2 ?? 0) > 0 ||
 				(employee.initialYtdEi ?? 0) > 0;
 			incomeLevel = hasPriorEmployment ? 'high' : 'low';
@@ -435,7 +478,8 @@
 			federalTotalClaim: (currentBpa?.federalBPA ?? FEDERAL_BPA_2025) + federalAdditionalClaims,
 			provincialBpa: currentBpa?.provincialBPA ?? PROVINCIAL_BPA_2025[province],
 			provincialAdditionalClaims: provincialAdditionalClaims,
-			provincialTotalClaim: (currentBpa?.provincialBPA ?? PROVINCIAL_BPA_2025[province]) + provincialAdditionalClaims,
+			provincialTotalClaim:
+				(currentBpa?.provincialBPA ?? PROVINCIAL_BPA_2025[province]) + provincialAdditionalClaims,
 			createdAt: '',
 			updatedAt: ''
 		});
@@ -510,10 +554,15 @@
 			taxYear: year,
 			federalBpa: existingClaim?.federalBpa ?? bpaForYear?.federalBPA ?? FEDERAL_BPA_2025,
 			federalAdditionalClaims: fedAdditional,
-			federalTotalClaim: (existingClaim?.federalBpa ?? bpaForYear?.federalBPA ?? FEDERAL_BPA_2025) + fedAdditional,
-			provincialBpa: existingClaim?.provincialBpa ?? bpaForYear?.provincialBPA ?? PROVINCIAL_BPA_2025[province],
+			federalTotalClaim:
+				(existingClaim?.federalBpa ?? bpaForYear?.federalBPA ?? FEDERAL_BPA_2025) + fedAdditional,
+			provincialBpa:
+				existingClaim?.provincialBpa ?? bpaForYear?.provincialBPA ?? PROVINCIAL_BPA_2025[province],
 			provincialAdditionalClaims: provAdditional,
-			provincialTotalClaim: (existingClaim?.provincialBpa ?? bpaForYear?.provincialBPA ?? PROVINCIAL_BPA_2025[province]) + provAdditional,
+			provincialTotalClaim:
+				(existingClaim?.provincialBpa ??
+					bpaForYear?.provincialBPA ??
+					PROVINCIAL_BPA_2025[province]) + provAdditional,
 			createdAt: existingClaim?.createdAt ?? '',
 			updatedAt: existingClaim?.updatedAt ?? ''
 		};
@@ -574,7 +623,11 @@
 		if (provincialAdditionalClaims < 0) newErrors.provincialAdditionalClaims = 'Invalid amount';
 
 		if (vacationRatePreset === 'custom') {
-			if (customVacationRate === null || customVacationRate === undefined || isNaN(customVacationRate)) {
+			if (
+				customVacationRate === null ||
+				customVacationRate === undefined ||
+				isNaN(customVacationRate)
+			) {
 				newErrors.customVacationRate = 'Please enter a valid percentage';
 			} else if (customVacationRate < 0 || customVacationRate > 100) {
 				newErrors.customVacationRate = 'Rate must be between 0 and 100';
@@ -604,7 +657,7 @@
 	async function handleSubmit() {
 		if (!validate()) return;
 
-		isSubmitting = true;
+		_isSubmitting = true;
 		submitError = null;
 
 		if (mode === 'create') {
@@ -642,7 +695,7 @@
 			const result = await createEmployee(createInput);
 
 			if (result.error) {
-				isSubmitting = false;
+				_isSubmitting = false;
 				submitError = result.error;
 				return;
 			}
@@ -653,7 +706,7 @@
 				if (taxClaimError) {
 					console.warn('Tax claim save warning:', taxClaimError);
 				}
-				isSubmitting = false;
+				_isSubmitting = false;
 				onSuccess(result.data);
 			}
 		} else {
@@ -682,19 +735,26 @@
 					payout_method: vacationPayoutMethod,
 					vacation_rate: vacationRate
 				},
-				...(vacationPayoutMethod === 'accrual' && !hasPayrollRecords ? { vacation_balance: vacationBalance } : {}),
-				...(canEditPriorYtd ? {
-					initial_ytd_cpp: hasPriorEmployment && incomeLevel === 'high' ? initialYtdCpp : 0,
-					initial_ytd_cpp2: hasPriorEmployment && incomeLevel === 'high' ? initialYtdCpp2 : 0,
-					initial_ytd_ei: hasPriorEmployment && incomeLevel === 'high' ? initialYtdEi : 0,
-					initial_ytd_year: hasPriorEmployment && incomeLevel === 'high' ? (initialYtdYear ?? currentTaxYear) : null
-				} : {})
+				...(vacationPayoutMethod === 'accrual' && !hasPayrollRecords
+					? { vacation_balance: vacationBalance }
+					: {}),
+				...(canEditPriorYtd
+					? {
+							initial_ytd_cpp: hasPriorEmployment && incomeLevel === 'high' ? initialYtdCpp : 0,
+							initial_ytd_cpp2: hasPriorEmployment && incomeLevel === 'high' ? initialYtdCpp2 : 0,
+							initial_ytd_ei: hasPriorEmployment && incomeLevel === 'high' ? initialYtdEi : 0,
+							initial_ytd_year:
+								hasPriorEmployment && incomeLevel === 'high'
+									? (initialYtdYear ?? currentTaxYear)
+									: null
+						}
+					: {})
 			};
 
 			const result = await updateEmployee(employee.id, updateInput);
 
 			if (result.error) {
-				isSubmitting = false;
+				_isSubmitting = false;
 				submitError = result.error;
 				return;
 			}
@@ -704,7 +764,7 @@
 				if (taxClaimError) {
 					console.warn('Tax claim save warning:', taxClaimError);
 				}
-				isSubmitting = false;
+				_isSubmitting = false;
 				onSuccess(result.data);
 			}
 		}
@@ -749,12 +809,25 @@
 	}
 </script>
 
-<form class="employee-form flex flex-col gap-6" onsubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+<form
+	class="employee-form flex flex-col gap-6"
+	onsubmit={(e) => {
+		e.preventDefault();
+		handleSubmit();
+	}}
+>
 	{#if submitError}
-		<div class="flex items-center gap-3 p-4 bg-error-50 border border-error-200 rounded-lg text-error-700">
+		<div
+			class="flex items-center gap-3 p-4 bg-error-50 border border-error-200 rounded-lg text-error-700"
+		>
 			<i class="fas fa-exclamation-circle"></i>
 			<span class="flex-1">{submitError}</span>
-			<button type="button" class="bg-transparent border-none text-error-500 cursor-pointer p-1 opacity-70 hover:opacity-100" onclick={() => submitError = null} aria-label="Dismiss error">
+			<button
+				type="button"
+				class="bg-transparent border-none text-error-500 cursor-pointer p-1 opacity-70 hover:opacity-100"
+				onclick={() => (submitError = null)}
+				aria-label="Dismiss error"
+			>
 				<i class="fas fa-times"></i>
 			</button>
 		</div>
@@ -771,13 +844,13 @@
 		{mode}
 		{employee}
 		{errors}
-		onFirstNameChange={(v) => firstName = v}
-		onLastNameChange={(v) => lastName = v}
-		onSinChange={(v) => sin = v}
-		onEmailChange={(v) => email = v}
-		onAddressStreetChange={(v) => addressStreet = v}
-		onAddressCityChange={(v) => addressCity = v}
-		onAddressPostalCodeChange={(v) => addressPostalCode = v}
+		onFirstNameChange={(v) => (firstName = v)}
+		onLastNameChange={(v) => (lastName = v)}
+		onSinChange={(v) => (sin = v)}
+		onEmailChange={(v) => (email = v)}
+		onAddressStreetChange={(v) => (addressStreet = v)}
+		onAddressCityChange={(v) => (addressCity = v)}
+		onAddressPostalCodeChange={(v) => (addressPostalCode = v)}
 	/>
 
 	<EmploymentDetailsSection
@@ -792,11 +865,11 @@
 		{yearsOfService}
 		{errors}
 		onProvinceChange={handleProvinceChange}
-		onPayFrequencyChange={(v) => payFrequency = v}
-		onEmploymentTypeChange={(v) => employmentType = v}
-		onHireDateChange={(v) => hireDate = v}
-		onOccupationChange={(v) => occupation = v}
-		onTagsChange={(v) => tags = v}
+		onPayFrequencyChange={(v) => (payFrequency = v)}
+		onEmploymentTypeChange={(v) => (employmentType = v)}
+		onHireDateChange={(v) => (hireDate = v)}
+		onOccupationChange={(v) => (occupation = v)}
+		onTagsChange={(v) => (tags = v)}
 	/>
 
 	<CompensationSection
@@ -804,9 +877,9 @@
 		{annualSalary}
 		{hourlyRate}
 		{errors}
-		onCompensationTypeChange={(v) => compensationType = v}
-		onAnnualSalaryChange={(v) => annualSalary = v}
-		onHourlyRateChange={(v) => hourlyRate = v}
+		onCompensationTypeChange={(v) => (compensationType = v)}
+		onAnnualSalaryChange={(v) => (annualSalary = v)}
+		onHourlyRateChange={(v) => (hourlyRate = v)}
 	/>
 
 	<TaxInfoSection
@@ -823,12 +896,12 @@
 		{currentYearExpanded}
 		{previousYearExpanded}
 		onClaimUpdate={handleClaimUpdate}
-		onCppExemptChange={(v) => isCppExempt = v}
-		onEiExemptChange={(v) => isEiExempt = v}
-		onCpp2ExemptChange={(v) => cpp2Exempt = v}
-		onDismissWarning={() => showProvinceChangeWarning = false}
-		onToggleCurrentYearExpand={() => currentYearExpanded = !currentYearExpanded}
-		onTogglePreviousYearExpand={() => previousYearExpanded = !previousYearExpanded}
+		onCppExemptChange={(v) => (isCppExempt = v)}
+		onEiExemptChange={(v) => (isEiExempt = v)}
+		onCpp2ExemptChange={(v) => (cpp2Exempt = v)}
+		onDismissWarning={() => (showProvinceChangeWarning = false)}
+		onToggleCurrentYearExpand={() => (currentYearExpanded = !currentYearExpanded)}
+		onTogglePreviousYearExpand={() => (previousYearExpanded = !previousYearExpanded)}
 	/>
 
 	<PriorEmploymentSection
@@ -845,11 +918,11 @@
 		{maxEi}
 		highIncomeThreshold={HIGH_INCOME_THRESHOLD}
 		{errors}
-		onHasPriorEmploymentChange={(v) => hasPriorEmployment = v}
-		onIncomeLevelChange={(v) => incomeLevel = v}
-		onInitialYtdCppChange={(v) => initialYtdCpp = v}
-		onInitialYtdCpp2Change={(v) => initialYtdCpp2 = v}
-		onInitialYtdEiChange={(v) => initialYtdEi = v}
+		onHasPriorEmploymentChange={(v) => (hasPriorEmployment = v)}
+		onIncomeLevelChange={(v) => (incomeLevel = v)}
+		onInitialYtdCppChange={(v) => (initialYtdCpp = v)}
+		onInitialYtdCpp2Change={(v) => (initialYtdCpp2 = v)}
+		onInitialYtdEiChange={(v) => (initialYtdEi = v)}
 	/>
 
 	<VacationSettingsSection
@@ -862,15 +935,12 @@
 		{mode}
 		{employee}
 		{errors}
-		onVacationRatePresetChange={(v) => vacationRatePreset = v}
-		onCustomVacationRateChange={(v) => customVacationRate = v}
-		onVacationPayoutMethodChange={(v) => vacationPayoutMethod = v}
-		onVacationBalanceChange={(v) => vacationBalance = v}
+		onVacationRatePresetChange={(v) => (vacationRatePreset = v)}
+		onCustomVacationRateChange={(v) => (customVacationRate = v)}
+		onVacationPayoutMethodChange={(v) => (vacationPayoutMethod = v)}
+		onVacationBalanceChange={(v) => (vacationBalance = v)}
 	/>
 
 	<!-- Form Actions - Hidden, controlled by parent page -->
 	<input type="submit" hidden />
 </form>
-
-<!-- Expose submit function to parent -->
-<svelte:options accessors={true} />

@@ -43,14 +43,20 @@
 </script>
 
 <section class="bg-white rounded-xl p-6 shadow-md3-1">
-	<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">Personal Information</h3>
+	<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">
+		Personal Information
+	</h3>
 	<div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
 		<div class="flex flex-col gap-2">
-			<label for="firstName" class="text-body-small font-medium text-surface-700">First Name *</label>
+			<label for="firstName" class="text-body-small font-medium text-surface-700"
+				>First Name *</label
+			>
 			<input
 				id="firstName"
 				type="text"
-				class="p-3 border rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10 {errors.firstName ? 'border-error-500' : 'border-surface-300'}"
+				class="p-3 border rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10 {errors.firstName
+					? 'border-error-500'
+					: 'border-surface-300'}"
 				value={firstName}
 				oninput={(e) => onFirstNameChange(e.currentTarget.value)}
 			/>
@@ -64,7 +70,9 @@
 			<input
 				id="lastName"
 				type="text"
-				class="p-3 border rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10 {errors.lastName ? 'border-error-500' : 'border-surface-300'}"
+				class="p-3 border rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10 {errors.lastName
+					? 'border-error-500'
+					: 'border-surface-300'}"
 				value={lastName}
 				oninput={(e) => onLastNameChange(e.currentTarget.value)}
 			/>
@@ -74,12 +82,16 @@
 		</div>
 
 		<div class="flex flex-col gap-2">
-			<label for="sin" class="text-body-small font-medium text-surface-700">SIN {mode === 'create' ? '*' : ''}</label>
+			<label for="sin" class="text-body-small font-medium text-surface-700"
+				>SIN {mode === 'create' ? '*' : ''}</label
+			>
 			{#if mode === 'create'}
 				<input
 					id="sin"
 					type="text"
-					class="p-3 border rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10 {errors.sin ? 'border-error-500' : 'border-surface-300'}"
+					class="p-3 border rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10 {errors.sin
+						? 'border-error-500'
+						: 'border-surface-300'}"
 					value={sin}
 					oninput={(e) => onSinChange(e.currentTarget.value)}
 					placeholder="123-456-789"
@@ -97,7 +109,9 @@
 					readonly
 					disabled
 				/>
-				<span class="text-auxiliary-text text-surface-500">SIN cannot be changed after creation</span>
+				<span class="text-auxiliary-text text-surface-500"
+					>SIN cannot be changed after creation</span
+				>
 			{/if}
 		</div>
 
@@ -106,7 +120,9 @@
 			<input
 				id="email"
 				type="email"
-				class="p-3 border rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10 {errors.email ? 'border-error-500' : 'border-surface-300'}"
+				class="p-3 border rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10 {errors.email
+					? 'border-error-500'
+					: 'border-surface-300'}"
 				value={email}
 				oninput={(e) => onEmailChange(e.currentTarget.value)}
 				placeholder="employee@company.com"
@@ -118,7 +134,9 @@
 
 		<!-- Address Fields -->
 		<div class="flex flex-col gap-2 col-span-full">
-			<label for="addressStreet" class="text-body-small font-medium text-surface-700">Street Address</label>
+			<label for="addressStreet" class="text-body-small font-medium text-surface-700"
+				>Street Address</label
+			>
 			<input
 				id="addressStreet"
 				type="text"
@@ -142,7 +160,9 @@
 		</div>
 
 		<div class="flex flex-col gap-2">
-			<label for="addressPostalCode" class="text-body-small font-medium text-surface-700">Postal Code</label>
+			<label for="addressPostalCode" class="text-body-small font-medium text-surface-700"
+				>Postal Code</label
+			>
 			<input
 				id="addressPostalCode"
 				type="text"

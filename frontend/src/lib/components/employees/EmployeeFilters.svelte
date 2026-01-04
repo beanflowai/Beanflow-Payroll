@@ -19,14 +19,27 @@
 	interface Props {
 		filters: EmployeeFilters;
 		statusCounts: EmployeeStatusCounts;
-		payGroups?: PayGroup[];  // Available pay groups for filtering
+		payGroups?: PayGroup[]; // Available pay groups for filtering
 		onFiltersChange: (filters: EmployeeFilters) => void;
 	}
 
 	let { filters, statusCounts, payGroups = [], onFiltersChange }: Props = $props();
 
 	// Province options
-	const provinces: Province[] = ['AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'SK', 'YT'];
+	const provinces: Province[] = [
+		'AB',
+		'BC',
+		'MB',
+		'NB',
+		'NL',
+		'NS',
+		'NT',
+		'NU',
+		'ON',
+		'PE',
+		'SK',
+		'YT'
+	];
 
 	// Pay frequency options
 	const payFrequencies: PayFrequency[] = ['weekly', 'bi_weekly', 'semi_monthly', 'monthly'];
@@ -66,7 +79,11 @@
 	}
 
 	// Status options for tabs
-	const statusOptions: { value: EmployeeStatus | 'all'; label: string; countKey: keyof EmployeeStatusCounts }[] = [
+	const statusOptions: {
+		value: EmployeeStatus | 'all';
+		label: string;
+		countKey: keyof EmployeeStatusCounts;
+	}[] = [
 		{ value: 'all', label: 'All', countKey: 'total' },
 		{ value: 'draft', label: 'Draft', countKey: 'draft' },
 		{ value: 'active', label: 'Active', countKey: 'active' },
@@ -78,7 +95,7 @@
 	<!-- Row 1: Status Tabs + Search -->
 	<div class="filter-row-1">
 		<div class="status-tabs">
-			{#each statusOptions as option}
+			{#each statusOptions as option (option.value)}
 				<button
 					class="status-tab"
 					class:active={filters.status === option.value}
@@ -111,7 +128,7 @@
 					onchange={(e) => updateFilter('province', e.currentTarget.value as Province | 'all')}
 				>
 					<option value="all">All Provinces</option>
-					{#each provinces as province}
+					{#each provinces as province (province)}
 						<option value={province}>{PROVINCE_LABELS[province]}</option>
 					{/each}
 				</select>
@@ -123,10 +140,11 @@
 				<select
 					id="pay-freq-filter"
 					value={filters.payFrequency}
-					onchange={(e) => updateFilter('payFrequency', e.currentTarget.value as PayFrequency | 'all')}
+					onchange={(e) =>
+						updateFilter('payFrequency', e.currentTarget.value as PayFrequency | 'all')}
 				>
 					<option value="all">All Frequencies</option>
-					{#each payFrequencies as freq}
+					{#each payFrequencies as freq (freq)}
 						<option value={freq}>{PAY_FREQUENCY_LABELS[freq]}</option>
 					{/each}
 				</select>
@@ -138,10 +156,11 @@
 				<select
 					id="emp-type-filter"
 					value={filters.employmentType}
-					onchange={(e) => updateFilter('employmentType', e.currentTarget.value as EmploymentType | 'all')}
+					onchange={(e) =>
+						updateFilter('employmentType', e.currentTarget.value as EmploymentType | 'all')}
 				>
 					<option value="all">All Types</option>
-					{#each employmentTypes as empType}
+					{#each employmentTypes as empType (empType)}
 						<option value={empType}>{EMPLOYMENT_TYPE_LABELS[empType]}</option>
 					{/each}
 				</select>
@@ -153,9 +172,10 @@
 				<select
 					id="comp-type-filter"
 					value={filters.compensationType}
-					onchange={(e) => updateFilter('compensationType', e.currentTarget.value as CompensationType | 'all')}
+					onchange={(e) =>
+						updateFilter('compensationType', e.currentTarget.value as CompensationType | 'all')}
 				>
-					{#each compensationTypes as compType}
+					{#each compensationTypes as compType (compType.value)}
 						<option value={compType.value}>{compType.label}</option>
 					{/each}
 				</select>
@@ -172,7 +192,7 @@
 					>
 						<option value="all">All Pay Groups</option>
 						<option value="unassigned">Unassigned</option>
-						{#each payGroups as pg}
+						{#each payGroups as pg (pg.id)}
 							<option value={pg.id}>{pg.name}</option>
 						{/each}
 					</select>

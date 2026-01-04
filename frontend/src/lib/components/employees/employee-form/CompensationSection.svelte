@@ -21,7 +21,9 @@
 </script>
 
 <section class="bg-white rounded-xl p-6 shadow-md3-1">
-	<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">Compensation</h3>
+	<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">
+		Compensation
+	</h3>
 	<div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
 		<div class="flex flex-col gap-2 col-span-full">
 			<span class="text-body-small font-medium text-surface-700">Compensation Type *</span>
@@ -51,8 +53,12 @@
 
 		{#if compensationType === 'salaried'}
 			<div class="flex flex-col gap-2">
-				<label for="annualSalary" class="text-body-small font-medium text-surface-700">Annual Salary *</label>
-				<div class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10">
+				<label for="annualSalary" class="text-body-small font-medium text-surface-700"
+					>Annual Salary *</label
+				>
+				<div
+					class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10"
+				>
 					<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
 					<input
 						id="annualSalary"
@@ -70,8 +76,12 @@
 			</div>
 		{:else}
 			<div class="flex flex-col gap-2">
-				<label for="hourlyRate" class="text-body-small font-medium text-surface-700">Hourly Rate *</label>
-				<div class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10">
+				<label for="hourlyRate" class="text-body-small font-medium text-surface-700"
+					>Hourly Rate *</label
+				>
+				<div
+					class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10"
+				>
 					<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
 					<input
 						id="hourlyRate"
