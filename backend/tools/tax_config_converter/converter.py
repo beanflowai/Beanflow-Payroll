@@ -9,11 +9,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-# Text truncation limits for GLM API prompts
-CPP_EI_TEXT_LIMIT = 20000
-FEDERAL_TEXT_LIMIT = 30000
-PROVINCES_TEXT_LIMIT = 50000
-
 from .extractors.base_parser import BaseLLMParser
 from .extractors.gemini_parser import GeminiParser
 from .extractors.glm_parser import GLMParser
@@ -24,6 +19,11 @@ from .prompts.federal_prompt import create_federal_prompt
 from .prompts.province_single_prompt import create_single_province_prompt
 from .prompts.provinces_prompt import create_provinces_prompt
 from .validators.schema_validator import SchemaValidator, ValidationResult
+
+# Text truncation limits for GLM API prompts
+CPP_EI_TEXT_LIMIT = 20000
+FEDERAL_TEXT_LIMIT = 30000
+PROVINCES_TEXT_LIMIT = 50000
 
 # Supported LLM providers
 LLM_PROVIDERS = {
