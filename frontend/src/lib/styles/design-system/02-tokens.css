@@ -116,6 +116,18 @@
 	--color-error-800: #c62828;
 	--color-error-900: #b71c1c;
 
+	/* Info Colors - Blue/Cyan for informational states */
+	--color-info-50: #f0f9ff;
+	--color-info-100: #e0f2fe;
+	--color-info-200: #bae6fd;
+	--color-info-300: #7dd3fc;
+	--color-info-400: #38bdf8;
+	--color-info-500: #0ea5e9; /* Main info color */
+	--color-info-600: #0284c7;
+	--color-info-700: #0369a1;
+	--color-info-800: #075985;
+	--color-info-900: #0c4a6e;
+
 	/* Canadian Theme Colors */
 	--color-canadian-red: #ff0000;
 	--color-canadian-maple: #d2691e;
