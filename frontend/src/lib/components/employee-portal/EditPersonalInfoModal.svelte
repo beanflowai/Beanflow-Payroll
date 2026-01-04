@@ -27,7 +27,7 @@
 			postalCode: data.address.postalCode,
 			emergencyName: data.emergencyContact.name,
 			emergencyRelationship: data.emergencyContact.relationship,
-			emergencyPhone: data.emergencyContact.phone,
+			emergencyPhone: data.emergencyContact.phone
 		};
 	})();
 
@@ -76,7 +76,13 @@
 </script>
 
 <BaseModal {visible} {onclose} size="medium" title="Edit Personal Information">
-	<form class="edit-form" onsubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+	<form
+		class="edit-form"
+		onsubmit={(e) => {
+			e.preventDefault();
+			handleSubmit();
+		}}
+	>
 		{#if error}
 			<div class="error-banner">{error}</div>
 		{/if}
@@ -116,7 +122,7 @@
 			<div class="form-group flex-1">
 				<label for="province" class="form-label">Province</label>
 				<select id="province" class="form-select" bind:value={province}>
-					{#each CANADIAN_PROVINCES as prov}
+					{#each CANADIAN_PROVINCES as prov (prov.code)}
 						<option value={prov.code}>{prov.name}</option>
 					{/each}
 				</select>
@@ -153,7 +159,7 @@
 			<div class="form-group flex-1">
 				<label for="emergencyRelationship" class="form-label">Relationship</label>
 				<select id="emergencyRelationship" class="form-select" bind:value={emergencyRelationship}>
-					{#each RELATIONSHIP_OPTIONS as rel}
+					{#each RELATIONSHIP_OPTIONS as rel (rel)}
 						<option value={rel}>{rel}</option>
 					{/each}
 				</select>
@@ -196,10 +202,10 @@
 
 	.error-banner {
 		padding: var(--spacing-3) var(--spacing-4);
-		background: var(--color-danger-50);
-		border: 1px solid var(--color-danger-200);
+		background: var(--color-error-50);
+		border: 1px solid var(--color-error-200);
 		border-radius: var(--radius-md);
-		color: var(--color-danger-700);
+		color: var(--color-error-700);
 		font-size: var(--font-size-auxiliary-text);
 	}
 

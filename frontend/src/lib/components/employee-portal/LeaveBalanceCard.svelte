@@ -2,6 +2,7 @@
 	/**
 	 * LeaveBalanceCard - Display leave balance with circular progress
 	 */
+	import { formatCurrency } from '$lib/utils/formatUtils';
 
 	interface Props {
 		type: 'vacation' | 'sick';
@@ -18,7 +19,7 @@
 	let {
 		type,
 		hoursRemaining,
-		hoursTotal,
+		hoursTotal: _hoursTotal,
 		dollarsValue,
 		accrualRate,
 		ytdAccrued,
@@ -28,7 +29,7 @@
 	}: Props = $props();
 
 	const title = $derived(type === 'vacation' ? 'Vacation' : 'Sick Leave');
-	const icon = $derived(type === 'vacation' ? 'vacation' : 'sick');
+	const _icon = $derived(type === 'vacation' ? 'vacation' : 'sick');
 
 	// Calculate percentage for progress ring
 	const percentage = $derived(() => {
@@ -45,13 +46,6 @@
 	const radius = 45;
 	const circumference = 2 * Math.PI * radius;
 	const strokeDashoffset = $derived(circumference - (percentage() / 100) * circumference);
-
-	function formatMoney(amount: number): string {
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD'
-		}).format(amount);
-	}
 </script>
 
 <div class="leave-card" class:vacation={type === 'vacation'} class:sick={type === 'sick'}>
@@ -87,7 +81,7 @@
 			<div class="progress-text">
 				<span class="hours-value">{hoursRemaining}h</span>
 				{#if dollarsValue}
-					<span class="dollars-value">{formatMoney(dollarsValue)}</span>
+					<span class="dollars-value">{formatCurrency(dollarsValue)}</span>
 				{:else}
 					<span class="hours-label">remaining</span>
 				{/if}

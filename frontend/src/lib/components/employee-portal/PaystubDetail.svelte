@@ -4,20 +4,14 @@
 	 */
 	import type { PaystubDetail } from '$lib/types/employee-portal';
 	import { formatShortDate } from '$lib/utils/dateUtils';
+	import { formatCurrency } from '$lib/utils/formatUtils';
 
 	interface Props {
 		paystub: PaystubDetail;
 		onDownload?: () => void;
 	}
 
-	let { paystub, onDownload }: Props = $props();
-
-	function formatMoney(amount: number): string {
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD'
-		}).format(amount);
-	}
+	let { paystub, onDownload: _onDownload }: Props = $props();
 </script>
 
 <div class="paystub-detail">
@@ -42,7 +36,9 @@
 			</div>
 			<div class="period-info">
 				<span class="label">Period:</span>
-				<span class="value">{formatShortDate(paystub.payPeriodStart)} - {formatShortDate(paystub.payPeriodEnd)}</span>
+				<span class="value"
+					>{formatShortDate(paystub.payPeriodStart)} - {formatShortDate(paystub.payPeriodEnd)}</span
+				>
 			</div>
 		</div>
 
@@ -53,19 +49,19 @@
 			<div class="column">
 				<h3 class="column-title">EARNINGS</h3>
 				<div class="column-divider"></div>
-				{#each paystub.earnings as earning}
+				{#each paystub.earnings as earning (earning.type)}
 					<div class="line-item">
 						<span class="item-label">
 							{earning.type}
 							{#if earning.hours}({earning.hours}h){/if}
 						</span>
-						<span class="item-amount">{formatMoney(earning.amount)}</span>
+						<span class="item-amount">{formatCurrency(earning.amount)}</span>
 					</div>
 				{/each}
 				<div class="column-divider"></div>
 				<div class="line-item total">
 					<span class="item-label">GROSS TOTAL</span>
-					<span class="item-amount">{formatMoney(paystub.grossPay)}</span>
+					<span class="item-amount">{formatCurrency(paystub.grossPay)}</span>
 				</div>
 			</div>
 
@@ -73,16 +69,16 @@
 			<div class="column">
 				<h3 class="column-title">DEDUCTIONS</h3>
 				<div class="column-divider"></div>
-				{#each paystub.deductions as deduction}
+				{#each paystub.deductions as deduction (deduction.type)}
 					<div class="line-item">
 						<span class="item-label">{deduction.type}</span>
-						<span class="item-amount">{formatMoney(deduction.amount)}</span>
+						<span class="item-amount">{formatCurrency(deduction.amount)}</span>
 					</div>
 				{/each}
 				<div class="column-divider"></div>
 				<div class="line-item total">
 					<span class="item-label">TOTAL DEDUCTIONS</span>
-					<span class="item-amount">{formatMoney(paystub.totalDeductions)}</span>
+					<span class="item-amount">{formatCurrency(paystub.totalDeductions)}</span>
 				</div>
 			</div>
 		</div>
@@ -91,7 +87,7 @@
 
 		<div class="net-pay-section">
 			<span class="net-pay-label">NET PAY:</span>
-			<span class="net-pay-amount">{formatMoney(paystub.netPay)}</span>
+			<span class="net-pay-amount">{formatCurrency(paystub.netPay)}</span>
 		</div>
 
 		<div class="document-divider"></div>
@@ -101,19 +97,19 @@
 			<div class="ytd-grid">
 				<div class="ytd-item">
 					<span class="ytd-label">Gross:</span>
-					<span class="ytd-value">{formatMoney(paystub.ytd.grossEarnings)}</span>
+					<span class="ytd-value">{formatCurrency(paystub.ytd.grossEarnings)}</span>
 				</div>
 				<div class="ytd-item">
 					<span class="ytd-label">CPP:</span>
-					<span class="ytd-value">{formatMoney(paystub.ytd.cppPaid)}</span>
+					<span class="ytd-value">{formatCurrency(paystub.ytd.cppPaid)}</span>
 				</div>
 				<div class="ytd-item">
 					<span class="ytd-label">EI:</span>
-					<span class="ytd-value">{formatMoney(paystub.ytd.eiPaid)}</span>
+					<span class="ytd-value">{formatCurrency(paystub.ytd.eiPaid)}</span>
 				</div>
 				<div class="ytd-item">
 					<span class="ytd-label">Tax:</span>
-					<span class="ytd-value">{formatMoney(paystub.ytd.taxPaid)}</span>
+					<span class="ytd-value">{formatCurrency(paystub.ytd.taxPaid)}</span>
 				</div>
 			</div>
 		</div>
@@ -125,12 +121,15 @@
 				<div class="ytd-grid">
 					<div class="ytd-item">
 						<span class="ytd-label">Sick Leave:</span>
-						<span class="ytd-value highlight">{(paystub.sickBalanceHours / 8).toFixed(1)} days</span>
+						<span class="ytd-value highlight">{(paystub.sickBalanceHours / 8).toFixed(1)} days</span
+						>
 					</div>
 					{#if paystub.sickHoursTaken && paystub.sickHoursTaken > 0}
 						<div class="ytd-item">
 							<span class="ytd-label">Used This Period:</span>
-							<span class="ytd-value">{paystub.sickHoursTaken}h ({formatMoney(paystub.sickPayPaid ?? 0)})</span>
+							<span class="ytd-value"
+								>{paystub.sickHoursTaken}h ({formatCurrency(paystub.sickPayPaid ?? 0)})</span
+							>
 						</div>
 					{/if}
 				</div>

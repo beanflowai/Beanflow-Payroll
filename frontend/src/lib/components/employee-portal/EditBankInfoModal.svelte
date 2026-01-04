@@ -27,7 +27,7 @@
 		return {
 			bankName: data.bankName,
 			transitNumber: data.transitNumber,
-			institutionNumber: data.institutionNumber,
+			institutionNumber: data.institutionNumber
 		};
 	})();
 
@@ -101,7 +101,13 @@
 </script>
 
 <BaseModal {visible} {onclose} size="medium" title="Edit Bank Information">
-	<form class="edit-form" onsubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+	<form
+		class="edit-form"
+		onsubmit={(e) => {
+			e.preventDefault();
+			handleSubmit();
+		}}
+	>
 		<!-- Warning Banner -->
 		<div class="warning-banner">
 			<svg class="warning-icon" viewBox="0 0 20 20" fill="currentColor">
@@ -111,14 +117,17 @@
 					clip-rule="evenodd"
 				/>
 			</svg>
-			<span>Changes to bank information will be reviewed by your employer before taking effect. Your next pay will use the new account once approved.</span>
+			<span
+				>Changes to bank information will be reviewed by your employer before taking effect. Your
+				next pay will use the new account once approved.</span
+			>
 		</div>
 
 		<!-- Bank Name -->
 		<div class="form-group">
 			<label for="bankName" class="form-label">Bank Name</label>
 			<select id="bankName" class="form-select" bind:value={bankName}>
-				{#each CANADIAN_BANKS as bank}
+				{#each CANADIAN_BANKS as bank (bank.name)}
 					<option value={bank.name}>{bank.name}</option>
 				{/each}
 			</select>
@@ -194,7 +203,13 @@
 			>
 				{#if voidChequeFile}
 					<div class="file-preview">
-						<svg class="file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<svg
+							class="file-icon"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
 							<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
 							<polyline points="14,2 14,8 20,8" />
 						</svg>
@@ -211,7 +226,13 @@
 					</div>
 				{:else}
 					<div class="upload-prompt">
-						<svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<svg
+							class="upload-icon"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
 							<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
 							<polyline points="17,8 12,3 7,8" />
 							<line x1="12" y1="3" x2="12" y2="15" />

@@ -15,7 +15,7 @@
 	interface NavItem {
 		id: string;
 		label: string;
-		path: string;  // Relative path after /employee/{slug}
+		path: string; // Relative path after /employee/{slug}
 		icon: 'home' | 'paystubs' | 'profile' | 'settings';
 	}
 
@@ -42,7 +42,7 @@
 </script>
 
 <nav class="portal-nav">
-	{#each navItems as item}
+	{#each navItems as item (item.id)}
 		<a
 			href={getHref(item.path)}
 			class="nav-item"

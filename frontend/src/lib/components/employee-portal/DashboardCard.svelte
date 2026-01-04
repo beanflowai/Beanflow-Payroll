@@ -16,20 +16,17 @@
 		children?: Snippet;
 	}
 
-	let {
-		icon,
-		label,
-		value,
-		subValue,
-		actionLabel,
-		actionHref,
-		onAction,
-		children
-	}: Props = $props();
+	let { icon, label, value, subValue, actionLabel, actionHref, onAction, children }: Props =
+		$props();
 </script>
 
 <div class="dashboard-card">
-	<div class="card-icon" class:money={icon === 'money'} class:vacation={icon === 'vacation'} class:sick={icon === 'sick'}>
+	<div
+		class="card-icon"
+		class:money={icon === 'money'}
+		class:vacation={icon === 'vacation'}
+		class:sick={icon === 'sick'}
+	>
 		{#if icon === 'money'}
 			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 				<line x1="12" y1="1" x2="12" y2="23" />
