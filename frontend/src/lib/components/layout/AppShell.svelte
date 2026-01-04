@@ -26,7 +26,9 @@
 
 <div class="app-shell">
 	<!-- Mobile Header (only visible on mobile) -->
-	<Header {userName} {companyName} {onLogout} />
+	<div class="mobile-header-wrapper">
+		<Header {userName} {companyName} {onLogout} />
+	</div>
 
 	<div class="app-layout" class:sidebar-collapsed={sidebarCollapsed}>
 		<!-- Left Sidebar (hidden on mobile) -->
@@ -53,6 +55,10 @@
 		background: var(--color-surface-50);
 	}
 
+	.mobile-header-wrapper {
+		display: none;
+	}
+
 	.app-layout {
 		display: flex;
 		min-height: 100vh;
@@ -77,6 +83,10 @@
 
 	/* Responsive */
 	@media (max-width: 1024px) {
+		.mobile-header-wrapper {
+			display: block;
+		}
+
 		.desktop-header {
 			display: none;
 		}

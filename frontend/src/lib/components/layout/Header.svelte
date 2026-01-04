@@ -50,30 +50,38 @@
 <svelte:window onclick={handleWindowClick} />
 
 <!-- Desktop Header -->
-<header class="header header-desktop">
-	<div class="header-left">
-		<span class="company-name">{companyName}</span>
+<header class="flex items-center justify-between h-16 px-6 bg-white/95 backdrop-blur-sm border-b border-surface-200">
+	<div class="flex items-center">
+		<span class="text-title-medium font-semibold text-surface-800">{companyName}</span>
 	</div>
-	<div class="header-right">
-		<div class="user-menu-container">
+	<div class="flex items-center gap-4">
+		<div class="user-menu-container relative">
 			<button
 				type="button"
-				class="user-menu-trigger"
+				class="flex items-center gap-2 py-2 px-3 bg-transparent border-none rounded-lg cursor-pointer transition-fast hover:bg-surface-100"
 				onclick={toggleUserMenu}
 				aria-expanded={userMenuOpen}
 				aria-haspopup="true"
 				aria-label="User menu"
 			>
-				<span class="user-avatar">
+				<span class="w-8 h-8 rounded-full bg-gradient-to-br from-primary-600 to-secondary-600 flex items-center justify-center text-white text-sm">
 					<i class="fa-solid fa-user"></i>
 				</span>
-				<span class="user-name">{userName}</span>
-				<i class="fa-solid fa-chevron-down" class:rotate={userMenuOpen}></i>
+				<span class="text-body-content font-medium text-surface-700">{userName}</span>
+				<i
+					class="fa-solid fa-chevron-down text-[10px] text-surface-500 transition-transform duration-150"
+					class:rotate-180={userMenuOpen}
+				></i>
 			</button>
 			{#if userMenuOpen}
-				<div class="user-dropdown" role="menu">
-					<button type="button" class="dropdown-item" onclick={handleLogout} role="menuitem">
-						<i class="fa-solid fa-right-from-bracket"></i>
+				<div class="absolute top-full right-0 mt-2 min-w-[180px] bg-white border border-surface-200 rounded-lg shadow-md3-2 overflow-hidden z-[100]" role="menu">
+					<button
+						type="button"
+						class="flex items-center gap-3 w-full py-3 px-4 bg-transparent border-none no-underline text-body-content text-surface-700 cursor-pointer transition-fast hover:bg-surface-100 hover:text-primary-600"
+						onclick={handleLogout}
+						role="menuitem"
+					>
+						<i class="fa-solid fa-right-from-bracket w-4 text-center"></i>
 						<span>Log out</span>
 					</button>
 				</div>
@@ -83,17 +91,17 @@
 </header>
 
 <!-- Mobile Header -->
-<header class="header header-mobile">
-	<nav class="mobile-nav-content">
-		<div class="mobile-brand">
-			<div class="brand-logo">
+<header class="hidden fixed top-0 left-0 right-0 z-[1000] bg-white/95 backdrop-blur-sm border-b border-surface-200">
+	<nav class="flex items-center justify-between py-3 px-4">
+		<div class="flex items-center gap-2">
+			<div class="w-8 h-8 bg-gradient-to-br from-primary-600 to-secondary-600 rounded-lg flex items-center justify-center text-white text-sm">
 				<i class="fa-solid fa-seedling"></i>
 			</div>
-			<span class="brand-text">Beanflow</span>
+			<span class="text-title-medium font-semibold text-surface-800">Beanflow</span>
 		</div>
 		<button
 			type="button"
-			class="mobile-menu-toggle"
+			class="mobile-menu-toggle bg-transparent border-none text-xl text-surface-700 cursor-pointer p-2 rounded-md transition-fast hover:bg-surface-100 hover:text-primary-600"
 			onclick={toggleMobileMenu}
 			aria-expanded={mobileMenuOpen}
 			aria-label="Toggle menu"
@@ -102,28 +110,32 @@
 		</button>
 	</nav>
 	{#if mobileMenuOpen}
-		<div class="mobile-menu">
-			<div class="mobile-company-section">
-				<span class="mobile-company-name">{companyName}</span>
-				<span class="mobile-user-name">{userName}</span>
+		<div class="absolute top-full left-0 right-0 bg-white border-t border-surface-200 shadow-md3-2 max-h-[calc(100vh-64px)] overflow-y-auto">
+			<div class="p-4 flex flex-col gap-1">
+				<span class="text-body-content font-semibold text-surface-800">{companyName}</span>
+				<span class="text-auxiliary-text text-surface-600">{userName}</span>
 			</div>
-			<div class="mobile-menu-divider"></div>
-			<div class="mobile-menu-section">
+			<div class="h-px bg-surface-200"></div>
+			<div class="p-2">
 				{#each navigationItems as item}
 					<a
 						href={item.href}
-						class="mobile-menu-item"
+						class="flex items-center gap-3 w-full py-3 px-4 rounded-md bg-transparent border-none no-underline text-body-content text-surface-700 cursor-pointer transition-fast hover:bg-gradient-to-br hover:from-primary-50 hover:to-secondary-50 hover:text-primary-600"
 						class:active={isActive(item.href)}
 					>
-						<i class="fa-solid {item.icon}"></i>
+						<i class="fa-solid {item.icon} w-5 text-center"></i>
 						<span>{item.label}</span>
 					</a>
 				{/each}
 			</div>
-			<div class="mobile-menu-divider"></div>
-			<div class="mobile-menu-section">
-				<button type="button" class="mobile-menu-item logout" onclick={handleLogout}>
-					<i class="fa-solid fa-right-from-bracket"></i>
+			<div class="h-px bg-surface-200"></div>
+			<div class="p-2">
+				<button
+					type="button"
+					class="flex items-center gap-3 w-full py-3 px-4 rounded-md bg-transparent border-none no-underline text-body-content text-error-600 cursor-pointer transition-fast hover:bg-error-50 hover:text-error-700"
+					onclick={handleLogout}
+				>
+					<i class="fa-solid fa-right-from-bracket w-5 text-center"></i>
 					<span>Log out</span>
 				</button>
 			</div>
@@ -132,273 +144,13 @@
 </header>
 
 <style>
-	.header {
-		background: rgba(255, 255, 255, 0.95);
-		backdrop-filter: blur(10px);
-		border-bottom: 1px solid var(--color-surface-200);
-	}
-
-	/* Desktop Header */
-	.header-desktop {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		height: 64px;
-		padding: 0 var(--spacing-6);
-	}
-
-	.header-left {
-		display: flex;
-		align-items: center;
-	}
-
-	.company-name {
-		font-size: var(--font-size-title-medium);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-	}
-
-	.header-right {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-4);
-	}
-
-	/* User Menu */
-	.user-menu-container {
-		position: relative;
-	}
-
-	.user-menu-trigger {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-2) var(--spacing-3);
-		background: transparent;
-		border: none;
-		border-radius: var(--radius-lg);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.user-menu-trigger:hover {
-		background: var(--color-surface-100);
-	}
-
-	.user-avatar {
-		width: 32px;
-		height: 32px;
-		border-radius: var(--radius-full);
-		background: var(--gradient-primary);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: white;
-		font-size: 14px;
-	}
-
-	.user-name {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-700);
-	}
-
-	.user-menu-trigger i.fa-chevron-down {
-		font-size: 10px;
-		color: var(--color-surface-500);
-		transition: transform var(--transition-fast);
-	}
-
-	.user-menu-trigger i.rotate {
-		transform: rotate(180deg);
-	}
-
-	.user-dropdown {
-		position: absolute;
-		top: 100%;
-		right: 0;
-		margin-top: var(--spacing-2);
-		min-width: 180px;
-		background: white;
-		border: 1px solid var(--color-surface-200);
-		border-radius: var(--radius-lg);
-		box-shadow: var(--shadow-md3-2);
-		overflow: hidden;
-		z-index: 100;
-	}
-
-	.dropdown-item {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-		width: 100%;
-		padding: var(--spacing-3) var(--spacing-4);
-		background: none;
-		border: none;
-		text-decoration: none;
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-700);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.dropdown-item:hover {
-		background: var(--color-surface-100);
-		color: var(--color-primary-600);
-	}
-
-	.dropdown-item i {
-		width: 16px;
-		text-align: center;
-	}
-
-	/* Mobile Header */
-	.header-mobile {
-		display: none;
-		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
-		z-index: 1000;
-		background: rgba(255, 255, 255, 0.95);
-		backdrop-filter: blur(10px);
-		border-bottom: 1px solid var(--color-surface-200);
-	}
-
-	.mobile-nav-content {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--spacing-3) var(--spacing-4);
-	}
-
-	.mobile-brand {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-	}
-
-	.brand-logo {
-		width: 32px;
-		height: 32px;
-		background: var(--gradient-primary);
-		border-radius: var(--radius-lg);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: white;
-		font-size: 14px;
-	}
-
-	.brand-text {
-		font-size: var(--font-size-title-medium);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-	}
-
-	.mobile-menu-toggle {
-		background: none;
-		border: none;
-		font-size: var(--font-size-title-large);
-		color: var(--color-surface-700);
-		cursor: pointer;
-		padding: var(--spacing-2);
-		border-radius: var(--radius-md);
-		transition: var(--transition-fast);
-	}
-
-	.mobile-menu-toggle:hover {
-		background: var(--color-surface-100);
-		color: var(--color-primary-600);
-	}
-
-	.mobile-menu {
-		position: absolute;
-		top: 100%;
-		left: 0;
-		right: 0;
-		background: white;
-		border-top: 1px solid var(--color-surface-200);
-		box-shadow: var(--shadow-md3-2);
-		max-height: calc(100vh - 64px);
-		overflow-y: auto;
-	}
-
-	.mobile-company-section {
-		padding: var(--spacing-4);
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-1);
-	}
-
-	.mobile-company-name {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-	}
-
-	.mobile-user-name {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-600);
-	}
-
-	.mobile-menu-divider {
-		height: 1px;
-		background: var(--color-surface-200);
-	}
-
-	.mobile-menu-section {
-		padding: var(--spacing-2);
-	}
-
-	.mobile-menu-item {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-		width: 100%;
-		padding: var(--spacing-3) var(--spacing-4);
-		border-radius: var(--radius-md);
-		background: none;
-		border: none;
-		text-decoration: none;
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-700);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.mobile-menu-item:hover {
-		background: linear-gradient(135deg, var(--color-primary-50), var(--color-secondary-50));
-		color: var(--color-primary-600);
-	}
-
-	.mobile-menu-item.active {
+	/* Active state for mobile menu items - requires gradient background */
+	.active {
 		background: var(--gradient-primary);
 		color: white;
 	}
-
-	.mobile-menu-item.logout {
-		color: var(--color-error-600);
-	}
-
-	.mobile-menu-item.logout:hover {
-		background: var(--color-error-50);
-		color: var(--color-error-700);
-	}
-
-	.mobile-menu-item i {
-		width: 20px;
-		text-align: center;
-	}
-
-	/* Responsive */
-	@media (max-width: 1024px) {
-		.header-desktop {
-			display: none;
-		}
-
-		.header-mobile {
-			display: block;
-		}
+	.active:hover {
+		background: var(--gradient-primary);
+		color: white;
 	}
 </style>
