@@ -12,7 +12,10 @@
 	import PortalHeader from '$lib/components/employee-portal/PortalHeader.svelte';
 	import PortalSidebar from '$lib/components/employee-portal/PortalSidebar.svelte';
 	import PortalNav from '$lib/components/employee-portal/PortalNav.svelte';
-	import { PORTAL_COMPANY_CONTEXT_KEY, type PortalCompanyContext } from '$lib/types/employee-portal';
+	import {
+		PORTAL_COMPANY_CONTEXT_KEY,
+		type PortalCompanyContext
+	} from '$lib/types/employee-portal';
 
 	interface Props {
 		children: Snippet;
@@ -21,14 +24,21 @@
 	let { children }: Props = $props();
 
 	// Company info from slug
-	let companyInfo = $state<{ id: string; companyName: string; slug: string; logoUrl?: string } | null>(null);
+	let companyInfo = $state<{
+		id: string;
+		companyName: string;
+		slug: string;
+		logoUrl?: string;
+	} | null>(null);
 	let companyLoading = $state(true);
 	let companyError = $state<string | null>(null);
 
 	// Auth state
 	let user = $state<User | null>(null);
 	let isLoading = $state(true);
-	let employeeData = $state<{ firstName: string; lastName: string; employeeId: string } | null>(null);
+	let employeeData = $state<{ firstName: string; lastName: string; employeeId: string } | null>(
+		null
+	);
 	let authSubscription: Subscription | null = null;
 
 	// Get slug from URL (always defined in [slug] route, fallback for type safety)
@@ -39,7 +49,7 @@
 
 	// Employee name from auth or fallback
 	const employeeName = $derived(
-		employeeData ? `${employeeData.firstName} ${employeeData.lastName}` : user?.email ?? ''
+		employeeData ? `${employeeData.firstName} ${employeeData.lastName}` : (user?.email ?? '')
 	);
 
 	// Company name from loaded company info
@@ -47,9 +57,15 @@
 
 	// Provide company context to child components
 	setContext<PortalCompanyContext>(PORTAL_COMPANY_CONTEXT_KEY, {
-		get company() { return companyInfo; },
-		get slug() { return slug ?? ''; },
-		get employeeId() { return employeeData?.employeeId ?? null; }
+		get company() {
+			return companyInfo;
+		},
+		get slug() {
+			return slug ?? '';
+		},
+		get employeeId() {
+			return employeeData?.employeeId ?? null;
+		}
 	});
 
 	onMount(async () => {
@@ -57,7 +73,9 @@
 		await loadCompanyInfo();
 
 		// Check initial auth state
-		const { data: { session } } = await supabase.auth.getSession();
+		const {
+			data: { session }
+		} = await supabase.auth.getSession();
 		user = session?.user ?? null;
 		if (user && companyInfo) {
 			await fetchEmployeeData(user.email!, companyInfo.id);
@@ -168,14 +186,22 @@
 		<!-- Company not found -->
 		<div class="error-container">
 			<div class="error-card">
-				<svg class="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<svg
+					class="error-icon"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+				>
 					<circle cx="12" cy="12" r="10" />
 					<line x1="12" y1="8" x2="12" y2="12" />
 					<line x1="12" y1="16" x2="12.01" y2="16" />
 				</svg>
 				<h1 class="error-title">Portal Not Found</h1>
 				<p class="error-message">{companyError}</p>
-				<p class="error-hint">Please check the URL or contact your employer for the correct portal link.</p>
+				<p class="error-hint">
+					Please check the URL or contact your employer for the correct portal link.
+				</p>
 			</div>
 		</div>
 	{:else if isAuthPage}
@@ -295,11 +321,5 @@
 		font-size: var(--font-size-auxiliary-text);
 		color: var(--color-surface-500);
 		margin: 0;
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
 	}
 </style>

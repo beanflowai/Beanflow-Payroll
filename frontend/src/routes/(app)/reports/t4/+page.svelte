@@ -2,6 +2,7 @@
 	import { T4_STATUS_INFO, getAvailableTaxYears } from '$lib/types/t4';
 	import type { T4SlipSummary, T4SummaryData } from '$lib/types/t4';
 	import { formatShortDate } from '$lib/utils/dateUtils';
+	import { formatCurrency } from '$lib/utils/formatUtils';
 	import { companyState } from '$lib/stores/company.svelte';
 	import {
 		listT4Slips,
@@ -13,6 +14,7 @@
 		downloadT4Xml
 	} from '$lib/services/t4Service';
 	import T4SubmissionModal from '$lib/components/t4/T4SubmissionModal.svelte';
+	import { TableSkeleton, AlertBanner } from '$lib/components/shared';
 
 	// State
 	let selectedYear = $state(new Date().getFullYear() - 1); // Default to previous year for T4
@@ -40,15 +42,6 @@
 	// Computed: check if we have generated slips
 	let hasSlips = $derived(slips.length > 0);
 	let generatedCount = $derived(slips.filter((s) => s.status !== 'draft').length);
-
-	// Format currency
-	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD',
-			minimumFractionDigits: 2
-		}).format(amount);
-	}
 
 	// Load data
 	async function loadData(companyId: string, year: number) {
@@ -229,7 +222,7 @@
 				bind:value={selectedYear}
 				class="px-4 py-2 bg-white border border-surface-200 rounded-lg text-body-content text-surface-800 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
 			>
-				{#each taxYears as year}
+				{#each taxYears as year (year)}
 					<option value={year}>{year}</option>
 				{/each}
 			</select>
@@ -237,20 +230,15 @@
 	</header>
 
 	{#if loading}
-		<div class="flex justify-center items-center py-12">
-			<i class="fas fa-spinner fa-spin text-2xl text-surface-400"></i>
-		</div>
+		<TableSkeleton rows={5} columns={4} />
 	{:else if error}
-		<div class="bg-error-50 text-error-700 p-4 rounded-lg mb-6">
-			<i class="fas fa-exclamation-circle mr-2"></i>
-			{error}
-			<button
-				class="ml-4 text-error-600 underline hover:no-underline"
-				onclick={() => (error = null)}
-			>
-				Dismiss
-			</button>
-		</div>
+		<AlertBanner
+			type="error"
+			title="Error"
+			message={error}
+			dismissible
+			onDismiss={() => (error = null)}
+		/>
 	{/if}
 
 	{#if !loading}
@@ -258,9 +246,7 @@
 		<div class="bg-white rounded-xl shadow-md3-2 p-6 mb-6">
 			<div class="flex justify-between items-start mb-4 max-md:flex-col max-md:gap-4">
 				<div>
-					<h2 class="text-title-medium font-semibold text-surface-800 m-0 mb-1">
-						T4 Slips
-					</h2>
+					<h2 class="text-title-medium font-semibold text-surface-800 m-0 mb-1">T4 Slips</h2>
 					<p class="text-body-content text-surface-500 m-0">
 						{#if hasSlips}
 							{slips.length} employee(s) • {generatedCount} generated
@@ -404,9 +390,7 @@
 		<div class="bg-white rounded-xl shadow-md3-2 p-6">
 			<div class="flex justify-between items-start mb-4 max-md:flex-col max-md:gap-4">
 				<div>
-					<h2 class="text-title-medium font-semibold text-surface-800 m-0 mb-1">
-						T4 Summary
-					</h2>
+					<h2 class="text-title-medium font-semibold text-surface-800 m-0 mb-1">T4 Summary</h2>
 					<p class="text-body-content text-surface-500 m-0">
 						{#if summary}
 							Generated {summary.generatedAt ? formatShortDate(summary.generatedAt) : 'N/A'}
@@ -495,7 +479,9 @@
 					<div class="bg-surface-50 rounded-lg p-4">
 						<span class="block text-auxiliary-text text-surface-500 mb-1">Status</span>
 						<span
-							class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-auxiliary-text font-medium {T4_STATUS_INFO[summary.status].colorClass}"
+							class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-auxiliary-text font-medium {T4_STATUS_INFO[
+								summary.status
+							].colorClass}"
 						>
 							<i class="fas fa-{T4_STATUS_INFO[summary.status].icon}"></i>
 							{T4_STATUS_INFO[summary.status].label}

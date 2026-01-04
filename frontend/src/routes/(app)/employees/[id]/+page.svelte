@@ -5,6 +5,7 @@
 	import type { Employee } from '$lib/types/employee';
 	import { getEmployee, deleteEmployee } from '$lib/services/employeeService';
 	import EmployeeForm from '$lib/components/employees/EmployeeForm.svelte';
+	import { Skeleton, AlertBanner } from '$lib/components/shared';
 
 	// Get employee ID from route params
 	const employeeId = $derived($page.params.id);
@@ -112,21 +113,24 @@
 <div class="employee-detail-page">
 	{#if isLoading}
 		<!-- Loading State -->
-		<div class="loading-container">
-			<div class="loading-spinner"></div>
-			<p>Loading employee...</p>
+		<div class="loading-skeleton">
+			<div class="header-skeleton">
+				<Skeleton variant="circular" width="40px" height="40px" />
+				<div class="header-text-skeleton">
+					<Skeleton variant="text" width="200px" height="28px" />
+					<Skeleton variant="text" width="150px" height="18px" />
+				</div>
+			</div>
+			<Skeleton variant="rounded" height="400px" />
 		</div>
 	{:else if error && !employee}
 		<!-- Error State -->
-		<div class="error-state">
-			<i class="fas fa-exclamation-triangle"></i>
-			<h2>Error</h2>
-			<p>{error}</p>
-			<button class="btn-primary" onclick={handleBack}>
+		<AlertBanner type="error" title="Error" message={error}>
+			<button class="btn-primary mt-3" onclick={handleBack}>
 				<i class="fas fa-arrow-left"></i>
 				Back to Employees
 			</button>
-		</div>
+		</AlertBanner>
 	{:else if employee}
 		<!-- Header -->
 		<header class="page-header">
@@ -148,7 +152,11 @@
 			</div>
 			<div class="header-actions">
 				{#if employee.status === 'draft'}
-					<button class="btn-delete" onclick={() => showDeleteConfirm = true} disabled={isDeleting}>
+					<button
+						class="btn-delete"
+						onclick={() => (showDeleteConfirm = true)}
+						disabled={isDeleting}
+					>
 						<i class="fas fa-trash-alt"></i>
 						Delete
 					</button>
@@ -158,31 +166,24 @@
 
 		<!-- Error Banner -->
 		{#if error}
-			<div class="error-banner">
-				<i class="fas fa-exclamation-circle"></i>
-				<span>{error}</span>
-				<button class="error-dismiss" onclick={() => error = null} aria-label="Dismiss error">
-					<i class="fas fa-times"></i>
-				</button>
-			</div>
+			<AlertBanner
+				type="error"
+				title="Error"
+				message={error}
+				dismissible={true}
+				onDismiss={() => (error = null)}
+			/>
 		{/if}
 
 		<!-- Form -->
 		<div class="form-container">
-			<EmployeeForm
-				{employee}
-				mode="edit"
-				onSuccess={handleSuccess}
-				onCancel={handleCancel}
-			/>
+			<EmployeeForm {employee} mode="edit" onSuccess={handleSuccess} onCancel={handleCancel} />
 		</div>
 
 		<!-- Bottom Action Bar -->
 		<div class="action-bar">
 			<div class="action-bar-content">
-				<button class="btn-cancel" onclick={handleCancel} disabled={isSaving}>
-					Cancel
-				</button>
+				<button class="btn-cancel" onclick={handleCancel} disabled={isSaving}> Cancel </button>
 				<button class="btn-save" onclick={handleSave} disabled={isSaving}>
 					{#if isSaving}
 						<i class="fas fa-spinner fa-spin"></i>
@@ -199,13 +200,31 @@
 		{#if showDeleteConfirm}
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<!-- svelte-ignore a11y_interactive_supports_focus -->
-			<div class="modal-overlay" onclick={() => showDeleteConfirm = false} onkeydown={(e) => e.key === 'Escape' && (showDeleteConfirm = false)} role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
+			<div
+				class="modal-overlay"
+				onclick={() => (showDeleteConfirm = false)}
+				onkeydown={(e) => e.key === 'Escape' && (showDeleteConfirm = false)}
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="delete-modal-title"
+			>
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="modal-content" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
+				<div
+					class="modal-content"
+					onclick={(e) => e.stopPropagation()}
+					onkeydown={(e) => e.stopPropagation()}
+				>
 					<h3 id="delete-modal-title">Delete Employee?</h3>
-					<p>Are you sure you want to delete <strong>{getFullName(employee)}</strong>? This action cannot be undone.</p>
+					<p>
+						Are you sure you want to delete <strong>{getFullName(employee)}</strong>? This action
+						cannot be undone.
+					</p>
 					<div class="modal-actions">
-						<button class="btn-cancel" onclick={() => showDeleteConfirm = false} disabled={isDeleting}>
+						<button
+							class="btn-cancel"
+							onclick={() => (showDeleteConfirm = false)}
+							disabled={isDeleting}
+						>
 							Cancel
 						</button>
 						<button class="btn-danger" onclick={handleDelete} disabled={isDeleting}>
@@ -332,40 +351,6 @@
 		cursor: not-allowed;
 	}
 
-	/* Error Banner */
-	.error-banner {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-		padding: var(--spacing-4);
-		background: var(--color-error-50, #fef2f2);
-		border: 1px solid var(--color-error-200, #fecaca);
-		border-radius: var(--radius-lg);
-		color: var(--color-error-700, #b91c1c);
-		margin-bottom: var(--spacing-4);
-	}
-
-	.error-banner i:first-child {
-		font-size: 1.25rem;
-	}
-
-	.error-banner span {
-		flex: 1;
-	}
-
-	.error-dismiss {
-		background: none;
-		border: none;
-		color: var(--color-error-500, #ef4444);
-		cursor: pointer;
-		padding: var(--spacing-1);
-		opacity: 0.7;
-	}
-
-	.error-dismiss:hover {
-		opacity: 1;
-	}
-
 	/* Form Container */
 	.form-container {
 		display: flex;
@@ -441,62 +426,23 @@
 		cursor: not-allowed;
 	}
 
-	/* Loading State */
-	.loading-container {
+	/* Loading Skeleton */
+	.loading-skeleton {
 		display: flex;
 		flex-direction: column;
+		gap: var(--spacing-6);
+	}
+
+	.header-skeleton {
+		display: flex;
 		align-items: center;
-		justify-content: center;
-		min-height: 400px;
 		gap: var(--spacing-4);
 	}
 
-	.loading-spinner {
-		width: 40px;
-		height: 40px;
-		border: 3px solid var(--color-surface-200);
-		border-top-color: var(--color-primary-500);
-		border-radius: 50%;
-		animation: spin 1s linear infinite;
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
-
-	.loading-container p {
-		color: var(--color-surface-500);
-		margin: 0;
-	}
-
-	/* Error State */
-	.error-state {
+	.header-text-skeleton {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		min-height: 400px;
-		text-align: center;
-		gap: var(--spacing-4);
-	}
-
-	.error-state i {
-		font-size: 48px;
-		color: var(--color-surface-400);
-	}
-
-	.error-state h2 {
-		font-size: var(--font-size-title-large);
-		color: var(--color-surface-800);
-		margin: 0;
-	}
-
-	.error-state p {
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-600);
-		margin: 0;
+		gap: var(--spacing-2);
 	}
 
 	.btn-primary {

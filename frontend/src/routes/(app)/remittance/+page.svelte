@@ -1,14 +1,13 @@
 <script lang="ts">
 	import { REMITTER_TYPE_INFO } from '$lib/types/company';
 	import type { RemitterType } from '$lib/types/company';
-	import {
-		REMITTANCE_STATUS_INFO,
-		PAYMENT_METHOD_INFO
-	} from '$lib/types/remittance';
+	import { REMITTANCE_STATUS_INFO, PAYMENT_METHOD_INFO } from '$lib/types/remittance';
 	import type { RemittancePeriod, RemittanceSummary, PaymentMethod } from '$lib/types/remittance';
 	import MarkAsPaidModal from '$lib/components/remittance/MarkAsPaidModal.svelte';
-	import { formatShortDate } from '$lib/utils/dateUtils';
+	import { formatDate } from '$lib/utils/dateUtils';
+	import { formatCurrency } from '$lib/utils/formatUtils';
 	import { companyState } from '$lib/stores/company.svelte';
+	import { TableSkeleton, AlertBanner } from '$lib/components/shared';
 	import {
 		listRemittancePeriods,
 		getRemittanceSummary,
@@ -25,7 +24,9 @@
 
 	// Get upcoming remittance (first pending)
 	let upcomingRemittance = $derived(
-		remittances.find((r) => r.status === 'pending' || r.status === 'due_soon' || r.status === 'overdue') || null
+		remittances.find(
+			(r) => r.status === 'pending' || r.status === 'due_soon' || r.status === 'overdue'
+		) || null
 	);
 
 	// Current company derived from store
@@ -80,24 +81,9 @@
 		return Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 	}
 
-	// Format currency
-	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD',
-			minimumFractionDigits: 2
-		}).format(amount);
-	}
-
-	// Format date
-	function formatDate(dateStr: string): string {
-		return formatShortDate(dateStr);
-	}
-
 	// Modal state
 	let showMarkAsPaidModal = $state(false);
 	let selectedRemittance = $state<RemittancePeriod | null>(null);
-	let submitting = $state(false);
 
 	function openMarkAsPaidModal(remittance: RemittancePeriod) {
 		selectedRemittance = remittance;
@@ -116,7 +102,6 @@
 	}) {
 		if (!selectedRemittance || !currentCompany) return;
 
-		submitting = true;
 		try {
 			const result = await recordPayment(selectedRemittance.id, {
 				paid_date: data.paymentDate,
@@ -134,8 +119,6 @@
 			closeModal();
 		} catch (err) {
 			alert('Failed to record payment: ' + (err instanceof Error ? err.message : 'Unknown error'));
-		} finally {
-			submitting = false;
 		}
 	}
 
@@ -188,7 +171,9 @@
 	<header class="flex justify-between items-start mb-6 max-md:flex-col max-md:gap-4">
 		<div>
 			<h1 class="text-headline-minimum font-semibold text-surface-800 m-0 mb-1">CRA Remittance</h1>
-			<p class="text-body-content text-surface-600 m-0">Track and manage your payroll deduction remittances</p>
+			<p class="text-body-content text-surface-600 m-0">
+				Track and manage your payroll deduction remittances
+			</p>
 		</div>
 		<div class="flex items-center gap-2 bg-white rounded-lg p-2 shadow-md3-1">
 			<button
@@ -198,7 +183,9 @@
 			>
 				<i class="fas fa-chevron-left"></i>
 			</button>
-			<span class="text-title-medium font-semibold text-surface-800 min-w-[60px] text-center">{selectedYear}</span>
+			<span class="text-title-medium font-semibold text-surface-800 min-w-[60px] text-center"
+				>{selectedYear}</span
+			>
 			<button
 				class="w-8 h-8 border-none bg-transparent text-surface-600 cursor-pointer rounded-md transition-[150ms] hover:bg-surface-100 hover:text-surface-800"
 				onclick={() => (selectedYear = selectedYear + 1)}
@@ -210,7 +197,9 @@
 	</header>
 
 	<!-- Remitter Type Badge -->
-	<div class="inline-flex items-center gap-2 px-4 py-2 bg-secondary-100 text-secondary-700 rounded-full text-auxiliary-text font-medium mb-6">
+	<div
+		class="inline-flex items-center gap-2 px-4 py-2 bg-secondary-100 text-secondary-700 rounded-full text-auxiliary-text font-medium mb-6"
+	>
 		<i class="fas fa-landmark"></i>
 		<span>{REMITTER_TYPE_INFO[remitterType].label}</span>
 		<span class="text-secondary-300">|</span>
@@ -218,14 +207,9 @@
 	</div>
 
 	{#if loading}
-		<div class="flex justify-center items-center py-12">
-			<i class="fas fa-spinner fa-spin text-2xl text-surface-400"></i>
-		</div>
+		<TableSkeleton rows={5} columns={5} />
 	{:else if error}
-		<div class="bg-error-50 text-error-700 p-4 rounded-lg mb-6">
-			<i class="fas fa-exclamation-circle mr-2"></i>
-			{error}
-		</div>
+		<AlertBanner type="error" title="Failed to load remittances" message={error} />
 	{:else}
 		<!-- Upcoming Remittance Card -->
 		{#if upcomingRemittance}
@@ -240,7 +224,13 @@
 						? 'border-l-warning-500'
 						: 'border-l-primary-500'}"
 			>
-				<div class="flex items-center gap-2 text-auxiliary-text font-semibold uppercase tracking-wider mb-4 {isOverdue ? 'text-error-600' : isDueSoon ? 'text-warning-600' : 'text-primary-600'}">
+				<div
+					class="flex items-center gap-2 text-auxiliary-text font-semibold uppercase tracking-wider mb-4 {isOverdue
+						? 'text-error-600'
+						: isDueSoon
+							? 'text-warning-600'
+							: 'text-primary-600'}"
+				>
 					{#if isOverdue}
 						<i class="fas fa-exclamation-circle"></i>
 						<span>REMITTANCE OVERDUE</span>
@@ -260,36 +250,60 @@
 					</div>
 					<div class="flex gap-2 text-body-content">
 						<span class="text-surface-500">Due Date:</span>
-						<span class="text-surface-800 font-medium">{formatDate(upcomingRemittance.dueDate)}</span>
+						<span class="text-surface-800 font-medium"
+							>{formatDate(upcomingRemittance.dueDate)}</span
+						>
 					</div>
 
 					<div class="text-center py-6 rounded-lg {isOverdue ? 'bg-error-100' : 'bg-surface-50'}">
-						<span class="block text-headline-minimum font-bold text-surface-900">{formatCurrency(upcomingRemittance.totalAmount)}</span>
+						<span class="block text-headline-minimum font-bold text-surface-900"
+							>{formatCurrency(upcomingRemittance.totalAmount)}</span
+						>
 						<span class="text-auxiliary-text text-surface-600">Total Amount Due</span>
 					</div>
 
 					<div class="grid grid-cols-3 gap-4 max-md:grid-cols-1">
 						<div class="text-center p-3 bg-surface-50 rounded-md">
 							<span class="block text-auxiliary-text text-surface-500 mb-1">CPP</span>
-							<span class="block text-title-medium font-semibold text-surface-800">{formatCurrency(upcomingRemittance.cppEmployee + upcomingRemittance.cppEmployer)}</span>
+							<span class="block text-title-medium font-semibold text-surface-800"
+								>{formatCurrency(
+									upcomingRemittance.cppEmployee + upcomingRemittance.cppEmployer
+								)}</span
+							>
 							<span class="text-auxiliary-text text-surface-500">Emp + Empr</span>
 						</div>
 						<div class="text-center p-3 bg-surface-50 rounded-md">
 							<span class="block text-auxiliary-text text-surface-500 mb-1">EI</span>
-							<span class="block text-title-medium font-semibold text-surface-800">{formatCurrency(upcomingRemittance.eiEmployee + upcomingRemittance.eiEmployer)}</span>
+							<span class="block text-title-medium font-semibold text-surface-800"
+								>{formatCurrency(
+									upcomingRemittance.eiEmployee + upcomingRemittance.eiEmployer
+								)}</span
+							>
 							<span class="text-auxiliary-text text-surface-500">Emp + Empr</span>
 						</div>
 						<div class="text-center p-3 bg-surface-50 rounded-md">
 							<span class="block text-auxiliary-text text-surface-500 mb-1">Income Tax</span>
-							<span class="block text-title-medium font-semibold text-surface-800">{formatCurrency(upcomingRemittance.federalTax + upcomingRemittance.provincialTax)}</span>
+							<span class="block text-title-medium font-semibold text-surface-800"
+								>{formatCurrency(
+									upcomingRemittance.federalTax + upcomingRemittance.provincialTax
+								)}</span
+							>
 							<span class="text-auxiliary-text text-surface-500">Fed + Prov</span>
 						</div>
 					</div>
 
-					<div class="flex items-center justify-center gap-2 text-body-content {isOverdue ? 'text-error-600' : isDueSoon ? 'text-warning-600' : 'text-surface-600'}">
+					<div
+						class="flex items-center justify-center gap-2 text-body-content {isOverdue
+							? 'text-error-600'
+							: isDueSoon
+								? 'text-warning-600'
+								: 'text-surface-600'}"
+					>
 						{#if isOverdue}
 							<i class="fas fa-exclamation-circle"></i>
-							<span>{Math.abs(daysUntil)} days overdue - Pay immediately to avoid additional penalties</span>
+							<span
+								>{Math.abs(daysUntil)} days overdue - Pay immediately to avoid additional penalties</span
+							>
 						{:else}
 							<i class="fas fa-clock"></i>
 							<span>{daysUntil} days until due</span>
@@ -332,23 +346,35 @@
 			<div class="grid grid-cols-4 gap-4 mb-6 max-md:grid-cols-2 max-sm:grid-cols-1">
 				<div class="bg-white rounded-lg shadow-md3-1 p-4 flex flex-col gap-1">
 					<span class="text-auxiliary-text text-surface-500">YTD Remitted</span>
-					<span class="text-title-large font-semibold text-surface-800">{formatCurrency(summary.ytdRemitted)}</span>
+					<span class="text-title-large font-semibold text-surface-800"
+						>{formatCurrency(summary.ytdRemitted)}</span
+					>
 					<span class="text-auxiliary-text text-surface-500">Total paid this year</span>
 				</div>
 				<div class="bg-white rounded-lg shadow-md3-1 p-4 flex flex-col gap-1">
 					<span class="text-auxiliary-text text-surface-500">Remittances</span>
-					<span class="text-title-large font-semibold text-surface-800">{summary.completedRemittances} of {summary.totalRemittances}</span>
+					<span class="text-title-large font-semibold text-surface-800"
+						>{summary.completedRemittances} of {summary.totalRemittances}</span
+					>
 					<span class="text-auxiliary-text text-surface-500">Completed this year</span>
 				</div>
 				<div class="bg-white rounded-lg shadow-md3-1 p-4 flex flex-col gap-1">
 					<span class="text-auxiliary-text text-surface-500">On-Time Rate</span>
-					<span class="text-title-large font-semibold text-success-600">{(summary.onTimeRate * 100).toFixed(0)}%</span>
-					<span class="text-auxiliary-text text-surface-500">{summary.onTimeRate === 1 ? 'No late payments' : 'Some late payments'}</span>
+					<span class="text-title-large font-semibold text-success-600"
+						>{(summary.onTimeRate * 100).toFixed(0)}%</span
+					>
+					<span class="text-auxiliary-text text-surface-500"
+						>{summary.onTimeRate === 1 ? 'No late payments' : 'Some late payments'}</span
+					>
 				</div>
 				<div class="bg-white rounded-lg shadow-md3-1 p-4 flex flex-col gap-1">
 					<span class="text-auxiliary-text text-surface-500">Pending</span>
-					<span class="text-title-large font-semibold text-surface-800">{formatCurrency(summary.pendingAmount)}</span>
-					<span class="text-auxiliary-text text-surface-500">{summary.pendingCount} pending remittance(s)</span>
+					<span class="text-title-large font-semibold text-surface-800"
+						>{formatCurrency(summary.pendingAmount)}</span
+					>
+					<span class="text-auxiliary-text text-surface-500"
+						>{summary.pendingCount} pending remittance(s)</span
+					>
 				</div>
 			</div>
 		{/if}
@@ -357,7 +383,9 @@
 		<div class="bg-white rounded-xl shadow-md3-1 overflow-hidden">
 			<div class="flex justify-between items-center px-6 py-4 border-b border-surface-100">
 				<h2 class="text-title-medium font-semibold text-surface-800 m-0">Remittance History</h2>
-				<button class="inline-flex items-center gap-2 px-3 py-2 bg-transparent border-none text-primary-600 text-body-content font-medium cursor-pointer rounded-md transition-[150ms] hover:bg-primary-50">
+				<button
+					class="inline-flex items-center gap-2 px-3 py-2 bg-transparent border-none text-primary-600 text-body-content font-medium cursor-pointer rounded-md transition-[150ms] hover:bg-primary-50"
+				>
 					<i class="fas fa-download"></i>
 					<span>Export</span>
 				</button>
@@ -373,42 +401,88 @@
 					<table class="w-full border-collapse">
 						<thead>
 							<tr>
-								<th class="px-4 py-3 text-left text-body-content bg-surface-50 text-surface-600 font-medium border-b border-surface-100">Period</th>
-								<th class="px-4 py-3 text-left text-body-content bg-surface-50 text-surface-600 font-medium border-b border-surface-100">Due Date</th>
-								<th class="px-4 py-3 text-right text-body-content bg-surface-50 text-surface-600 font-medium border-b border-surface-100">Amount</th>
-								<th class="px-4 py-3 text-left text-body-content bg-surface-50 text-surface-600 font-medium border-b border-surface-100">Paid</th>
-								<th class="px-4 py-3 text-left text-body-content bg-surface-50 text-surface-600 font-medium border-b border-surface-100">Status</th>
-								<th class="px-4 py-3 text-center text-body-content bg-surface-50 text-surface-600 font-medium border-b border-surface-100">Actions</th>
+								<th
+									class="px-4 py-3 text-left text-body-content bg-surface-50 text-surface-600 font-medium border-b border-surface-100"
+									>Period</th
+								>
+								<th
+									class="px-4 py-3 text-left text-body-content bg-surface-50 text-surface-600 font-medium border-b border-surface-100"
+									>Due Date</th
+								>
+								<th
+									class="px-4 py-3 text-right text-body-content bg-surface-50 text-surface-600 font-medium border-b border-surface-100"
+									>Amount</th
+								>
+								<th
+									class="px-4 py-3 text-left text-body-content bg-surface-50 text-surface-600 font-medium border-b border-surface-100"
+									>Paid</th
+								>
+								<th
+									class="px-4 py-3 text-left text-body-content bg-surface-50 text-surface-600 font-medium border-b border-surface-100"
+									>Status</th
+								>
+								<th
+									class="px-4 py-3 text-center text-body-content bg-surface-50 text-surface-600 font-medium border-b border-surface-100"
+									>Actions</th
+								>
 							</tr>
 						</thead>
 						<tbody>
 							{#each remittances as remittance (remittance.id)}
 								{@const statusInfo = REMITTANCE_STATUS_INFO[remittance.status]}
 								<tr
-									class="cursor-pointer transition-[150ms] hover:bg-surface-50 {expandedRowId === remittance.id ? 'bg-primary-50' : ''}"
+									class="cursor-pointer transition-[150ms] hover:bg-surface-50 {expandedRowId ===
+									remittance.id
+										? 'bg-primary-50'
+										: ''}"
 									onclick={() => toggleRowExpansion(remittance.id)}
 								>
-									<td class="px-4 py-3 text-left text-body-content border-b border-surface-100 text-surface-800">
+									<td
+										class="px-4 py-3 text-left text-body-content border-b border-surface-100 text-surface-800"
+									>
 										<div class="flex items-center gap-2">
-											<i class="fas fa-chevron-right text-xs text-surface-400 transition-[150ms] {expandedRowId === remittance.id ? 'rotate-90' : ''}"></i>
+											<i
+												class="fas fa-chevron-right text-xs text-surface-400 transition-[150ms] {expandedRowId ===
+												remittance.id
+													? 'rotate-90'
+													: ''}"
+											></i>
 											{remittance.periodLabel}
 										</div>
 									</td>
-									<td class="px-4 py-3 text-left text-body-content border-b border-surface-100 text-surface-800">{formatDate(remittance.dueDate)}</td>
-									<td class="px-4 py-3 text-right text-body-content border-b border-surface-100 text-surface-800 font-medium">{formatCurrency(remittance.totalAmount)}</td>
-									<td class="px-4 py-3 text-left text-body-content border-b border-surface-100 text-surface-800">{remittance.paidDate ? formatDate(remittance.paidDate) : '-'}</td>
-									<td class="px-4 py-3 text-left text-body-content border-b border-surface-100 text-surface-800">
-										<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-auxiliary-text font-medium {statusInfo.colorClass}">
+									<td
+										class="px-4 py-3 text-left text-body-content border-b border-surface-100 text-surface-800"
+										>{formatDate(remittance.dueDate)}</td
+									>
+									<td
+										class="px-4 py-3 text-right text-body-content border-b border-surface-100 text-surface-800 font-medium"
+										>{formatCurrency(remittance.totalAmount)}</td
+									>
+									<td
+										class="px-4 py-3 text-left text-body-content border-b border-surface-100 text-surface-800"
+										>{remittance.paidDate ? formatDate(remittance.paidDate) : '-'}</td
+									>
+									<td
+										class="px-4 py-3 text-left text-body-content border-b border-surface-100 text-surface-800"
+									>
+										<span
+											class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-auxiliary-text font-medium {statusInfo.colorClass}"
+										>
 											<i class="fas fa-{statusInfo.icon}"></i>
 											{statusInfo.label}
 										</span>
 									</td>
-									<td class="px-4 py-3 text-center text-body-content border-b border-surface-100 text-surface-800">
+									<td
+										class="px-4 py-3 text-center text-body-content border-b border-surface-100 text-surface-800"
+									>
 										<div class="flex items-center justify-center gap-1">
 											<button
 												class="w-8 h-8 border-none bg-transparent text-surface-500 cursor-pointer rounded-md transition-[150ms] hover:bg-surface-100 hover:text-surface-700 disabled:opacity-50 disabled:cursor-not-allowed"
 												title="Download PD7A"
-												onclick={(e) => { e.stopPropagation(); handleDownloadPD7A(remittance); }}
+												onclick={(e) => {
+													e.stopPropagation();
+													handleDownloadPD7A(remittance);
+												}}
 												disabled={downloadingPdfId === remittance.id}
 											>
 												{#if downloadingPdfId === remittance.id}
@@ -421,7 +495,10 @@
 												<button
 													class="w-8 h-8 border-none bg-transparent text-success-500 cursor-pointer rounded-md transition-[150ms] hover:bg-success-50 hover:text-success-700"
 													title="Mark as Paid"
-													onclick={(e) => { e.stopPropagation(); openMarkAsPaidModal(remittance); }}
+													onclick={(e) => {
+														e.stopPropagation();
+														openMarkAsPaidModal(remittance);
+													}}
 												>
 													<i class="fas fa-check"></i>
 												</button>
@@ -435,58 +512,122 @@
 										<td colspan="6" class="p-0 bg-surface-50">
 											<div class="p-6 flex flex-col gap-6">
 												<div class="bg-white rounded-lg p-4">
-													<h4 class="text-body-content font-semibold text-surface-800 m-0 mb-3">Period Details</h4>
+													<h4 class="text-body-content font-semibold text-surface-800 m-0 mb-3">
+														Period Details
+													</h4>
 													<div class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
 														<div class="flex flex-col gap-1">
 															<span class="text-auxiliary-text text-surface-500">Period</span>
-															<span class="text-body-content text-surface-800">{formatDate(remittance.periodStart)} - {formatDate(remittance.periodEnd)}</span>
+															<span class="text-body-content text-surface-800"
+																>{formatDate(remittance.periodStart)} - {formatDate(
+																	remittance.periodEnd
+																)}</span
+															>
 														</div>
 														<div class="flex flex-col gap-1">
 															<span class="text-auxiliary-text text-surface-500">Due Date</span>
-															<span class="text-body-content text-surface-800">{formatDate(remittance.dueDate)}</span>
+															<span class="text-body-content text-surface-800"
+																>{formatDate(remittance.dueDate)}</span
+															>
 														</div>
 														<div class="flex flex-col gap-1">
 															<span class="text-auxiliary-text text-surface-500">Payroll Runs</span>
-															<span class="text-body-content text-surface-800">{remittance.payrollRunIds.length} runs included</span>
+															<span class="text-body-content text-surface-800"
+																>{remittance.payrollRunIds.length} runs included</span
+															>
 														</div>
 													</div>
 												</div>
 
 												<div class="bg-white rounded-lg p-4">
-													<h4 class="text-body-content font-semibold text-surface-800 m-0 mb-3">Deduction Breakdown</h4>
+													<h4 class="text-body-content font-semibold text-surface-800 m-0 mb-3">
+														Deduction Breakdown
+													</h4>
 													<table class="w-full border-collapse">
 														<thead>
 															<tr>
-																<th class="px-3 py-2 text-left text-body-content bg-surface-50 text-surface-600 font-medium">Category</th>
-																<th class="px-3 py-2 text-right text-body-content bg-surface-50 text-surface-600 font-medium">Employee</th>
-																<th class="px-3 py-2 text-right text-body-content bg-surface-50 text-surface-600 font-medium">Employer</th>
+																<th
+																	class="px-3 py-2 text-left text-body-content bg-surface-50 text-surface-600 font-medium"
+																	>Category</th
+																>
+																<th
+																	class="px-3 py-2 text-right text-body-content bg-surface-50 text-surface-600 font-medium"
+																	>Employee</th
+																>
+																<th
+																	class="px-3 py-2 text-right text-body-content bg-surface-50 text-surface-600 font-medium"
+																	>Employer</th
+																>
 															</tr>
 														</thead>
 														<tbody>
 															<tr>
-																<td class="px-3 py-2 text-body-content border-b border-surface-100">CPP Contributions</td>
-																<td class="px-3 py-2 text-right text-body-content border-b border-surface-100">{formatCurrency(remittance.cppEmployee)}</td>
-																<td class="px-3 py-2 text-right text-body-content border-b border-surface-100">{formatCurrency(remittance.cppEmployer)}</td>
+																<td class="px-3 py-2 text-body-content border-b border-surface-100"
+																	>CPP Contributions</td
+																>
+																<td
+																	class="px-3 py-2 text-right text-body-content border-b border-surface-100"
+																	>{formatCurrency(remittance.cppEmployee)}</td
+																>
+																<td
+																	class="px-3 py-2 text-right text-body-content border-b border-surface-100"
+																	>{formatCurrency(remittance.cppEmployer)}</td
+																>
 															</tr>
 															<tr>
-																<td class="px-3 py-2 text-body-content border-b border-surface-100">EI Premiums</td>
-																<td class="px-3 py-2 text-right text-body-content border-b border-surface-100">{formatCurrency(remittance.eiEmployee)}</td>
-																<td class="px-3 py-2 text-right text-body-content border-b border-surface-100">{formatCurrency(remittance.eiEmployer)}</td>
+																<td class="px-3 py-2 text-body-content border-b border-surface-100"
+																	>EI Premiums</td
+																>
+																<td
+																	class="px-3 py-2 text-right text-body-content border-b border-surface-100"
+																	>{formatCurrency(remittance.eiEmployee)}</td
+																>
+																<td
+																	class="px-3 py-2 text-right text-body-content border-b border-surface-100"
+																	>{formatCurrency(remittance.eiEmployer)}</td
+																>
 															</tr>
 															<tr>
-																<td class="px-3 py-2 text-body-content border-b border-surface-100">Federal Income Tax</td>
-																<td class="px-3 py-2 text-right text-body-content border-b border-surface-100">{formatCurrency(remittance.federalTax)}</td>
-																<td class="px-3 py-2 text-right text-body-content border-b border-surface-100">-</td>
+																<td class="px-3 py-2 text-body-content border-b border-surface-100"
+																	>Federal Income Tax</td
+																>
+																<td
+																	class="px-3 py-2 text-right text-body-content border-b border-surface-100"
+																	>{formatCurrency(remittance.federalTax)}</td
+																>
+																<td
+																	class="px-3 py-2 text-right text-body-content border-b border-surface-100"
+																	>-</td
+																>
 															</tr>
 															<tr>
-																<td class="px-3 py-2 text-body-content border-b border-surface-100">Provincial Income Tax</td>
-																<td class="px-3 py-2 text-right text-body-content border-b border-surface-100">{formatCurrency(remittance.provincialTax)}</td>
-																<td class="px-3 py-2 text-right text-body-content border-b border-surface-100">-</td>
+																<td class="px-3 py-2 text-body-content border-b border-surface-100"
+																	>Provincial Income Tax</td
+																>
+																<td
+																	class="px-3 py-2 text-right text-body-content border-b border-surface-100"
+																	>{formatCurrency(remittance.provincialTax)}</td
+																>
+																<td
+																	class="px-3 py-2 text-right text-body-content border-b border-surface-100"
+																	>-</td
+																>
 															</tr>
 															<tr class="font-semibold bg-surface-50">
 																<td class="px-3 py-2 text-body-content">TOTAL</td>
-																<td class="px-3 py-2 text-right text-body-content">{formatCurrency(remittance.cppEmployee + remittance.eiEmployee + remittance.federalTax + remittance.provincialTax)}</td>
-																<td class="px-3 py-2 text-right text-body-content">{formatCurrency(remittance.cppEmployer + remittance.eiEmployer)}</td>
+																<td class="px-3 py-2 text-right text-body-content"
+																	>{formatCurrency(
+																		remittance.cppEmployee +
+																			remittance.eiEmployee +
+																			remittance.federalTax +
+																			remittance.provincialTax
+																	)}</td
+																>
+																<td class="px-3 py-2 text-right text-body-content"
+																	>{formatCurrency(
+																		remittance.cppEmployer + remittance.eiEmployer
+																	)}</td
+																>
 															</tr>
 														</tbody>
 													</table>
@@ -494,7 +635,9 @@
 
 												{#if remittance.paidDate}
 													<div class="bg-white rounded-lg p-4">
-														<h4 class="text-body-content font-semibold text-surface-800 m-0 mb-3">Payment Information</h4>
+														<h4 class="text-body-content font-semibold text-surface-800 m-0 mb-3">
+															Payment Information
+														</h4>
 														<div class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
 															<div class="flex flex-col gap-1">
 																<span class="text-auxiliary-text text-surface-500">Status</span>
@@ -503,17 +646,31 @@
 																</span>
 															</div>
 															<div class="flex flex-col gap-1">
-																<span class="text-auxiliary-text text-surface-500">Payment Date</span>
-																<span class="text-body-content text-surface-800">{formatDate(remittance.paidDate)}</span>
+																<span class="text-auxiliary-text text-surface-500"
+																	>Payment Date</span
+																>
+																<span class="text-body-content text-surface-800"
+																	>{formatDate(remittance.paidDate)}</span
+																>
 															</div>
 															<div class="flex flex-col gap-1">
-																<span class="text-auxiliary-text text-surface-500">Payment Method</span>
-																<span class="text-body-content text-surface-800">{remittance.paymentMethod ? PAYMENT_METHOD_INFO[remittance.paymentMethod].label : '-'}</span>
+																<span class="text-auxiliary-text text-surface-500"
+																	>Payment Method</span
+																>
+																<span class="text-body-content text-surface-800"
+																	>{remittance.paymentMethod
+																		? PAYMENT_METHOD_INFO[remittance.paymentMethod].label
+																		: '-'}</span
+																>
 															</div>
 															{#if remittance.confirmationNumber}
 																<div class="flex flex-col gap-1">
-																	<span class="text-auxiliary-text text-surface-500">Confirmation #</span>
-																	<span class="text-body-content text-surface-800">{remittance.confirmationNumber}</span>
+																	<span class="text-auxiliary-text text-surface-500"
+																		>Confirmation #</span
+																	>
+																	<span class="text-body-content text-surface-800"
+																		>{remittance.confirmationNumber}</span
+																	>
 																</div>
 															{/if}
 														</div>

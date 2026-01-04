@@ -7,6 +7,8 @@
 		type Ticket,
 		type TicketStatus
 	} from '$lib/types/ticket';
+	import { TableSkeleton, AlertBanner, EmptyState } from '$lib/components/shared';
+	import { timeAgo } from '$lib/utils/dateUtils';
 
 	// State
 	let tickets = $state<Ticket[]>([]);
@@ -68,35 +70,9 @@
 	// Reload on filter change
 	$effect(() => {
 		// This effect depends on selectedStatus
-		selectedStatus;
+		void selectedStatus;
 		loadTickets();
 	});
-
-	// Format date
-	function formatDate(dateStr: string): string {
-		const date = new Date(dateStr);
-		return date.toLocaleDateString('en-CA', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric'
-		});
-	}
-
-	// Time ago helper
-	function timeAgo(dateStr: string): string {
-		const date = new Date(dateStr);
-		const now = new Date();
-		const diffMs = now.getTime() - date.getTime();
-		const diffMins = Math.floor(diffMs / 60000);
-		const diffHours = Math.floor(diffMs / 3600000);
-		const diffDays = Math.floor(diffMs / 86400000);
-
-		if (diffMins < 1) return 'Just now';
-		if (diffMins < 60) return `${diffMins}m ago`;
-		if (diffHours < 24) return `${diffHours}h ago`;
-		if (diffDays < 7) return `${diffDays}d ago`;
-		return formatDate(dateStr);
-	}
 </script>
 
 <div class="page-container">
@@ -173,7 +149,7 @@
 		<div class="filter-group">
 			<label for="status-filter">Status:</label>
 			<select id="status-filter" bind:value={selectedStatus} class="filter-select">
-				{#each statusOptions as option}
+				{#each statusOptions as option (option.value)}
 					<option value={option.value}>{option.label}</option>
 				{/each}
 			</select>
@@ -185,40 +161,24 @@
 
 	<!-- Content -->
 	{#if loading}
-		<div class="loading-state">
-			<i class="fas fa-spinner fa-spin"></i>
-			<span>Loading tickets...</span>
-		</div>
+		<TableSkeleton rows={5} columns={4} />
 	{:else if error}
-		<div class="error-state">
-			<i class="fas fa-exclamation-circle"></i>
-			<p>{error}</p>
-			<button class="btn-secondary" onclick={loadTickets}>Try Again</button>
-		</div>
+		<AlertBanner type="error" title="Failed to load tickets" message={error}>
+			<button class="btn-secondary mt-2" onclick={loadTickets}>Try Again</button>
+		</AlertBanner>
 	{:else if tickets.length === 0}
-		<div class="empty-state">
-			<div class="empty-icon">
-				<i class="fas fa-ticket-alt"></i>
-			</div>
-			<h2>No tickets found</h2>
-			<p>
-				{#if selectedStatus === 'all'}
-					{#if isAdmin}
-						No support tickets have been submitted yet.
-					{:else}
-						You haven't submitted any support tickets yet.
-					{/if}
-				{:else}
-					No tickets with status "{TICKET_STATUS_INFO[selectedStatus].label}".
-				{/if}
-			</p>
-			{#if !isAdmin}
-				<button class="btn-primary" onclick={() => goto('/support/new')}>
-					<i class="fas fa-plus"></i>
-					Create Your First Ticket
-				</button>
-			{/if}
-		</div>
+		<EmptyState
+			icon="fa-ticket-alt"
+			title="No tickets found"
+			description={selectedStatus === 'all'
+				? isAdmin
+					? 'No support tickets have been submitted yet.'
+					: "You haven't submitted any support tickets yet."
+				: `No tickets with status "${TICKET_STATUS_INFO[selectedStatus].label}".`}
+			actionLabel={!isAdmin ? 'Create Your First Ticket' : undefined}
+			onAction={!isAdmin ? () => goto('/support/new') : undefined}
+			variant="card"
+		/>
 	{:else}
 		<div class="tickets-list">
 			{#each tickets as ticket (ticket.id)}
@@ -448,74 +408,6 @@
 		color: var(--color-surface-500);
 	}
 
-	/* States */
-	.loading-state,
-	.error-state,
-	.empty-state {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: var(--spacing-12);
-		text-align: center;
-		background: white;
-		border-radius: var(--radius-xl);
-		border: 1px solid var(--color-surface-200);
-	}
-
-	.loading-state {
-		gap: var(--spacing-3);
-		color: var(--color-surface-500);
-	}
-
-	.loading-state i {
-		font-size: 24px;
-		color: var(--color-primary-500);
-	}
-
-	.error-state {
-		gap: var(--spacing-3);
-	}
-
-	.error-state i {
-		font-size: 32px;
-		color: var(--color-error-500);
-	}
-
-	.error-state p {
-		color: var(--color-surface-600);
-	}
-
-	.empty-state {
-		gap: var(--spacing-4);
-	}
-
-	.empty-icon {
-		width: 64px;
-		height: 64px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		background: var(--color-primary-50);
-		border-radius: var(--radius-full);
-	}
-
-	.empty-icon i {
-		font-size: 28px;
-		color: var(--color-primary-500);
-	}
-
-	.empty-state h2 {
-		font-size: var(--font-size-title-large);
-		color: var(--color-surface-800);
-		margin: 0;
-	}
-
-	.empty-state p {
-		color: var(--color-surface-600);
-		margin: 0;
-	}
-
 	/* Tickets List */
 	.tickets-list {
 		display: flex;
@@ -578,6 +470,7 @@
 		margin: 0 0 var(--spacing-3) 0;
 		display: -webkit-box;
 		-webkit-line-clamp: 2;
+		line-clamp: 2;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
 	}

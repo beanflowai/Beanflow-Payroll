@@ -96,10 +96,7 @@
 	</AppShell>
 
 	<!-- Add Company Modal -->
-	<AddCompanyModal
-		isOpen={showAddCompanyModal}
-		onClose={handleCloseAddCompanyModal}
-	/>
+	<AddCompanyModal isOpen={showAddCompanyModal} onClose={handleCloseAddCompanyModal} />
 {/if}
 
 <style>
@@ -123,12 +120,6 @@
 		border-radius: 50%;
 		animation: spin 0.8s linear infinite;
 		margin: 0 auto var(--spacing-4);
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
 	}
 
 	.loading-text {

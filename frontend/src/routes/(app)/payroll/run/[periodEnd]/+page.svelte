@@ -37,11 +37,9 @@
 		getPaystubDownloadUrl,
 		sendPaystubs
 	} from '$lib/services/payroll';
-	import {
-		getUnassignedEmployees,
-		assignEmployeesToPayGroup
-	} from '$lib/services/employeeService';
+	import { getUnassignedEmployees, assignEmployeesToPayGroup } from '$lib/services/employeeService';
 	import { formatFullDate } from '$lib/utils/dateUtils';
+	// formatCurrency available if needed for payroll display
 
 	// ===========================================
 	// Route Params
@@ -123,11 +121,9 @@
 	// ===========================================
 	// Computed
 	// ===========================================
-	const allRecords = $derived(
-		payrollRun ? payrollRun.payGroups.flatMap((pg) => pg.records) : []
-	);
+	const _allRecords = $derived(payrollRun ? payrollRun.payGroups.flatMap((pg) => pg.records) : []);
 
-	const isApprovedOrPaid = $derived(
+	const _isApprovedOrPaid = $derived(
 		payrollRun?.status === 'approved' || payrollRun?.status === 'paid'
 	);
 
@@ -158,16 +154,6 @@
 				}
 			: null
 	);
-
-	// ===========================================
-	// Helpers
-	// ===========================================
-	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD'
-		}).format(amount);
-	}
 
 	// ===========================================
 	// Actions
@@ -350,7 +336,11 @@
 	async function handleDeleteDraft() {
 		if (!payrollRun) return;
 
-		if (!confirm('Are you sure you want to delete this draft payroll run? This action cannot be undone.')) {
+		if (
+			!confirm(
+				'Are you sure you want to delete this draft payroll run? This action cannot be undone.'
+			)
+		) {
 			return;
 		}
 
@@ -502,7 +492,9 @@
 			{#snippet actions()}
 				{@const run = payrollRun!}
 				<StatusBadge status={PAYROLL_STATUS_LABELS[run.status]} variant="pill" />
-				<button class="flex items-center gap-2 py-3 px-5 bg-white text-surface-700 border border-surface-200 rounded-lg text-body-content font-medium cursor-pointer transition-all duration-150 hover:bg-surface-50 hover:border-surface-300">
+				<button
+					class="flex items-center gap-2 py-3 px-5 bg-white text-surface-700 border border-surface-200 rounded-lg text-body-content font-medium cursor-pointer transition-all duration-150 hover:bg-surface-50 hover:border-surface-300"
+				>
 					<i class="fas fa-file-csv"></i>
 					<span>Export CSV</span>
 				</button>
@@ -588,7 +580,7 @@
 
 <!-- Add Employees Panel -->
 {#if selectedPayGroupId && payrollRun}
-	{@const payGroupData = payrollRun.payGroups.find(pg => pg.payGroupId === selectedPayGroupId)}
+	{@const payGroupData = payrollRun.payGroups.find((pg) => pg.payGroupId === selectedPayGroupId)}
 	{#if payGroupData}
 		<AddEmployeesPanel
 			isOpen={showAddEmployeesModal}

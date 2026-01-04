@@ -5,14 +5,16 @@
 	 */
 	import { onMount, getContext } from 'svelte';
 	import LeaveBalanceCard from '$lib/components/employee-portal/LeaveBalanceCard.svelte';
-	import {
-		getMyLeaveBalance,
-		getAvailableYears,
-		type LeaveBalanceResponse
-	} from '$lib/services/employeePortalService';
-	import type { EmployeeLeaveBalance, LeaveHistoryEntry, PortalCompanyContext } from '$lib/types/employee-portal';
+	import { getMyLeaveBalance, getAvailableYears } from '$lib/services/employeePortalService';
+	import type {
+		EmployeeLeaveBalance,
+		LeaveHistoryEntry,
+		PortalCompanyContext
+	} from '$lib/types/employee-portal';
 	import { PORTAL_COMPANY_CONTEXT_KEY } from '$lib/types/employee-portal';
-	import { formatShortDate } from '$lib/utils/dateUtils';
+	import { formatDate } from '$lib/utils/dateUtils';
+	import { formatCurrency } from '$lib/utils/formatUtils';
+	import { Skeleton, AlertBanner, EmptyState } from '$lib/components/shared';
 
 	// Get company context from layout
 	const portalContext = getContext<PortalCompanyContext>(PORTAL_COMPANY_CONTEXT_KEY);
@@ -71,22 +73,11 @@
 		}
 	}
 
-	function formatDate(dateStr: string): string {
-		return formatShortDate(dateStr);
-	}
-
 	function formatDateRange(start: string, end?: string): string {
 		if (end) {
 			return `${formatDate(start)} - ${formatDate(end)}`;
 		}
 		return formatDate(start);
-	}
-
-	function formatMoney(amount: number): string {
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD'
-		}).format(amount);
 	}
 </script>
 
@@ -95,7 +86,7 @@
 		<h1 class="page-title">Leave Balances</h1>
 		<div class="year-selector">
 			<select bind:value={selectedYear} class="year-select">
-				{#each availableYears as year}
+				{#each availableYears as year (year)}
 					<option value={year}>{year}</option>
 				{/each}
 			</select>
@@ -104,15 +95,20 @@
 
 	<!-- Loading State -->
 	{#if loading}
-		<div class="loading-state">
-			<div class="spinner"></div>
-			<p>Loading leave balances...</p>
+		<div class="loading-skeleton">
+			<div class="balance-cards-skeleton">
+				<Skeleton variant="rounded" height="200px" />
+				<Skeleton variant="rounded" height="200px" />
+			</div>
+			<Skeleton variant="rounded" height="300px" />
 		</div>
 	{:else if error}
 		<!-- Error State -->
-		<div class="error-state">
-			<p>{error}</p>
-		</div>
+		<AlertBanner type="error" title="Unable to load leave balances" message={error}>
+			<button class="retry-btn mt-2" onclick={() => loadLeaveBalance(selectedYear)}
+				>Try Again</button
+			>
+		</AlertBanner>
 	{:else}
 		<!-- Balance Cards -->
 		<section class="balance-section">
@@ -138,9 +134,12 @@
 		<section class="history-section">
 			<h2 class="section-title">Leave History ({selectedYear})</h2>
 			{#if leaveHistory.length === 0}
-				<div class="empty-state">
-					<p>No leave usage recorded for {selectedYear}.</p>
-				</div>
+				<EmptyState
+					icon="fa-calendar-xmark"
+					title="No leave history"
+					description={`No leave usage recorded for ${selectedYear}.`}
+					variant="card"
+				/>
 			{:else}
 				<div class="history-table-container">
 					<table class="history-table">
@@ -153,11 +152,15 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each leaveHistory as entry}
+							{#each leaveHistory as entry (`${entry.date}-${entry.type}`)}
 								<tr>
 									<td class="date-cell">{formatDateRange(entry.date, entry.endDate)}</td>
 									<td>
-										<span class="type-badge" class:vacation={entry.type === 'vacation'} class:sick={entry.type === 'sick'}>
+										<span
+											class="type-badge"
+											class:vacation={entry.type === 'vacation'}
+											class:sick={entry.type === 'sick'}
+										>
 											{entry.type === 'vacation' ? 'Vacation' : 'Sick'}
 										</span>
 									</td>
@@ -165,7 +168,9 @@
 									<td class="balance-cell">
 										{entry.balanceAfterHours.toFixed(1)}h
 										{#if entry.balanceAfterDollars}
-											<span class="balance-dollars">({formatMoney(entry.balanceAfterDollars)})</span>
+											<span class="balance-dollars"
+												>({formatCurrency(entry.balanceAfterDollars)})</span
+											>
 										{/if}
 									</td>
 								</tr>
@@ -189,7 +194,10 @@
 				<div class="info-content">
 					<p class="info-title">About Your Leave</p>
 					<ul class="info-list">
-						<li>Vacation accrues at {leaveBalance.vacationAccrualRate.toFixed(2)}% of your regular earnings each pay period.</li>
+						<li>
+							Vacation accrues at {leaveBalance.vacationAccrualRate.toFixed(2)}% of your regular
+							earnings each pay period.
+						</li>
 						<li>Unused sick leave does not carry over to the next year.</li>
 						<li>To request time off, please contact your manager or HR.</li>
 					</ul>
@@ -239,47 +247,32 @@
 		box-shadow: 0 0 0 2px var(--color-primary-100);
 	}
 
-	.loading-state {
+	/* Loading Skeleton */
+	.loading-skeleton {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: var(--spacing-12);
-		color: var(--color-surface-600);
+		gap: var(--spacing-6);
 	}
 
-	.spinner {
-		width: 32px;
-		height: 32px;
-		border: 3px solid var(--color-surface-200);
-		border-top-color: var(--color-primary-500);
-		border-radius: 50%;
-		animation: spin 1s linear infinite;
-		margin-bottom: var(--spacing-4);
+	.balance-cards-skeleton {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+		gap: var(--spacing-4);
 	}
 
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
+	.retry-btn {
+		padding: var(--spacing-2) var(--spacing-4);
+		background: var(--color-error-500);
+		color: white;
+		border: none;
+		border-radius: var(--radius-md);
+		font-weight: var(--font-weight-medium);
+		cursor: pointer;
+		transition: background var(--transition-fast);
 	}
 
-	.error-state {
-		padding: var(--spacing-8);
-		text-align: center;
-		background: var(--color-error-50);
-		border: 1px solid var(--color-error-200);
-		border-radius: var(--radius-lg);
-		color: var(--color-error-700);
-	}
-
-	.empty-state {
-		padding: var(--spacing-8);
-		text-align: center;
-		background: var(--color-surface-50);
-		border: 1px solid var(--color-surface-200);
-		border-radius: var(--radius-lg);
-		color: var(--color-surface-600);
+	.retry-btn:hover {
+		background: var(--color-error-600);
 	}
 
 	.balance-section {

@@ -11,8 +11,16 @@
 		downloadMyT4,
 		getAvailableYears
 	} from '$lib/services/employeePortalService';
-	import type { PaystubSummary, PaystubYTD, TaxDocument, PortalCompanyContext } from '$lib/types/employee-portal';
+	import type {
+		PaystubSummary,
+		PaystubYTD,
+		TaxDocument,
+		PortalCompanyContext
+	} from '$lib/types/employee-portal';
 	import { PORTAL_COMPANY_CONTEXT_KEY } from '$lib/types/employee-portal';
+	import { Skeleton, AlertBanner, EmptyState } from '$lib/components/shared';
+	import { formatCurrency } from '$lib/utils/formatUtils';
+	import { formatDate } from '$lib/utils/dateUtils';
 
 	// Get company context from layout
 	const portalContext = getContext<PortalCompanyContext>(PORTAL_COMPANY_CONTEXT_KEY);
@@ -82,24 +90,8 @@
 		}
 	}
 
-	function formatMoney(amount: number): string {
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD'
-		}).format(amount);
-	}
-
-	function formatDate(dateStr: string): string {
-		return new Date(dateStr).toLocaleDateString('en-CA', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric'
-		});
-	}
-
-	function handleDownload(paystubId: string) {
-		// TODO: Implement download
-		console.log('Download paystub:', paystubId);
+	function handleDownload(_paystubId: string) {
+		// Paystub PDF download - pending backend implementation
 	}
 
 	async function handleT4Download(doc: TaxDocument) {
@@ -121,7 +113,7 @@
 		<h1 class="page-title">Paystubs</h1>
 		<div class="year-selector">
 			<select bind:value={selectedYear} class="year-select">
-				{#each availableYears as year}
+				{#each availableYears as year (year)}
 					<option value={year}>{year}</option>
 				{/each}
 			</select>
@@ -130,21 +122,22 @@
 
 	<!-- Loading State -->
 	{#if loading}
-		<div class="loading-state">
-			<div class="spinner"></div>
-			<p>Loading paystubs...</p>
+		<div class="skeleton-grid">
+			{#each Array(4) as _unused, idx (idx)}
+				<Skeleton variant="rounded" height="120px" />
+			{/each}
 		</div>
 	{:else if error}
-		<!-- Error State -->
-		<div class="error-state">
-			<p>{error}</p>
-			<button class="retry-btn" onclick={() => loadPaystubs(selectedYear)}>Try Again</button>
-		</div>
+		<AlertBanner type="error" title="Failed to load paystubs" message={error}>
+			<button class="retry-btn mt-2" onclick={() => loadPaystubs(selectedYear)}>Try Again</button>
+		</AlertBanner>
 	{:else if paystubs.length === 0}
-		<!-- Empty State -->
-		<div class="empty-state">
-			<p>No paystubs found for {selectedYear}.</p>
-		</div>
+		<EmptyState
+			icon="fa-file-invoice-dollar"
+			title="No paystubs found"
+			description={`No paystubs found for ${selectedYear}.`}
+			variant="card"
+		/>
 	{:else}
 		<!-- Paystub List -->
 		<section class="paystubs-list">
@@ -160,19 +153,19 @@
 				<div class="ytd-grid">
 					<div class="ytd-item">
 						<span class="ytd-label">Gross Earnings</span>
-						<span class="ytd-value">{formatMoney(ytdSummary.grossEarnings)}</span>
+						<span class="ytd-value">{formatCurrency(ytdSummary.grossEarnings)}</span>
 					</div>
 					<div class="ytd-item">
 						<span class="ytd-label">CPP Paid</span>
-						<span class="ytd-value">{formatMoney(ytdSummary.cppPaid)}</span>
+						<span class="ytd-value">{formatCurrency(ytdSummary.cppPaid)}</span>
 					</div>
 					<div class="ytd-item">
 						<span class="ytd-label">EI Paid</span>
-						<span class="ytd-value">{formatMoney(ytdSummary.eiPaid)}</span>
+						<span class="ytd-value">{formatCurrency(ytdSummary.eiPaid)}</span>
 					</div>
 					<div class="ytd-item">
 						<span class="ytd-label">Tax Paid</span>
-						<span class="ytd-value">{formatMoney(ytdSummary.taxPaid)}</span>
+						<span class="ytd-value">{formatCurrency(ytdSummary.taxPaid)}</span>
 					</div>
 				</div>
 			</div>
@@ -268,43 +261,13 @@
 		border-color: var(--color-primary-500);
 	}
 
-	/* Loading State */
-	.loading-state {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: var(--spacing-12);
-		color: var(--color-surface-600);
-	}
-
-	.spinner {
-		width: 32px;
-		height: 32px;
-		border: 3px solid var(--color-surface-200);
-		border-top-color: var(--color-primary-500);
-		border-radius: 50%;
-		animation: spin 1s linear infinite;
-		margin-bottom: var(--spacing-4);
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
-
-	/* Error State */
-	.error-state {
-		text-align: center;
-		padding: var(--spacing-8);
-		background: var(--color-error-50);
-		border-radius: var(--radius-lg);
-		color: var(--color-error-700);
+	/* Skeleton Grid */
+	.skeleton-grid {
+		display: grid;
+		gap: var(--spacing-4);
 	}
 
 	.retry-btn {
-		margin-top: var(--spacing-4);
 		padding: var(--spacing-2) var(--spacing-4);
 		background: var(--color-error-500);
 		color: white;
@@ -315,15 +278,6 @@
 
 	.retry-btn:hover {
 		background: var(--color-error-600);
-	}
-
-	/* Empty State */
-	.empty-state {
-		text-align: center;
-		padding: var(--spacing-12);
-		color: var(--color-surface-600);
-		background: var(--color-surface-50);
-		border-radius: var(--radius-lg);
 	}
 
 	.paystubs-list {
