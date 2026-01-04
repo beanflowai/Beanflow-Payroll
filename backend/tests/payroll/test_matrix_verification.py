@@ -9,8 +9,6 @@ Phase 4 - Test Matrix Implementation - Deduction Calculation Verification
 
 from decimal import Decimal
 
-import pytest
-
 from app.models.payroll import PayFrequency, Province
 from app.services.payroll.payroll_engine import PayrollEngine
 

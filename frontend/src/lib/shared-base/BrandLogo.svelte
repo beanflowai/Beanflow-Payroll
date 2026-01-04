@@ -19,7 +19,9 @@
 			sizeClasses[size],
 			variant === 'transparent' ? 'bf-brand-logo-transparent' : 'bf-brand-logo-solid',
 			className
-		].filter(Boolean).join(' ')
+		]
+			.filter(Boolean)
+			.join(' ')
 	);
 </script>
 

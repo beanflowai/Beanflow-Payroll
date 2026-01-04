@@ -7,21 +7,41 @@ export type { PortalStatus } from './employee-portal';
 
 // 12 provinces/territories supported (Quebec excluded - separate system required)
 export type Province =
-	| 'AB' | 'BC' | 'MB' | 'NB' | 'NL' | 'NS'
-	| 'NT' | 'NU' | 'ON' | 'PE' | 'SK' | 'YT';
+	| 'AB'
+	| 'BC'
+	| 'MB'
+	| 'NB'
+	| 'NL'
+	| 'NS'
+	| 'NT'
+	| 'NU'
+	| 'ON'
+	| 'PE'
+	| 'SK'
+	| 'YT';
 
 export const PROVINCE_LABELS: Record<Province, string> = {
-	AB: 'Alberta', BC: 'British Columbia', MB: 'Manitoba',
-	NB: 'New Brunswick', NL: 'Newfoundland', NS: 'Nova Scotia',
-	NT: 'NW Territories', NU: 'Nunavut', ON: 'Ontario',
-	PE: 'PEI', SK: 'Saskatchewan', YT: 'Yukon'
+	AB: 'Alberta',
+	BC: 'British Columbia',
+	MB: 'Manitoba',
+	NB: 'New Brunswick',
+	NL: 'Newfoundland',
+	NS: 'Nova Scotia',
+	NT: 'NW Territories',
+	NU: 'Nunavut',
+	ON: 'Ontario',
+	PE: 'PEI',
+	SK: 'Saskatchewan',
+	YT: 'Yukon'
 };
 
 export type PayFrequency = 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly';
 
 export const PAY_FREQUENCY_LABELS: Record<PayFrequency, string> = {
-	weekly: 'Weekly', bi_weekly: 'Bi-weekly',
-	semi_monthly: 'Semi-monthly', monthly: 'Monthly'
+	weekly: 'Weekly',
+	bi_weekly: 'Bi-weekly',
+	semi_monthly: 'Semi-monthly',
+	monthly: 'Monthly'
 };
 
 // Pay periods per year
@@ -60,7 +80,7 @@ export const VACATION_RATE_LABELS: Record<VacationRatePreset, string> = {
 	'0.04': '4% (< 5 years)',
 	'0.06': '6% (5+ years)',
 	'0.08': '8% (Federal 10+)',
-	'custom': 'Custom Rate'
+	custom: 'Custom Rate'
 };
 
 // Note: Provincial minimum vacation rates are managed in backend config files
@@ -105,7 +125,7 @@ export interface Employee {
 	lastName: string;
 	sin: string; // For UI display (masked or full)
 	email?: string;
-	provinceOfEmployment: Province;  // Determines provincial tax & holiday rules
+	provinceOfEmployment: Province; // Determines provincial tax & holiday rules
 	payFrequency: PayFrequency;
 	employmentType: EmploymentType;
 	status: EmployeeStatus;
@@ -126,15 +146,15 @@ export interface Employee {
 	isEiExempt: boolean;
 	cpp2Exempt: boolean;
 	vacationConfig: VacationConfig;
-	vacationBalance: number;  // Read-only, updated by payroll system
-	sickBalance: number;  // Read-only, updated by payroll system
-	tags: string[];  // Employee categorization tags
-	payGroupId?: string | null;  // Pay group assignment
+	vacationBalance: number; // Read-only, updated by payroll system
+	sickBalance: number; // Read-only, updated by payroll system
+	tags: string[]; // Employee categorization tags
+	payGroupId?: string | null; // Pay group assignment
 	// Initial YTD for transferred employees (CPP/EI only - tax handled by Cumulative Averaging)
 	initialYtdCpp: number;
 	initialYtdCpp2: number;
 	initialYtdEi: number;
-	initialYtdYear: number | null;  // Tax year these values apply to
+	initialYtdYear: number | null; // Tax year these values apply to
 	// Portal access fields
 	portalStatus: 'not_set' | 'invited' | 'active' | 'disabled';
 	portalInvitedAt?: string | null;
@@ -161,7 +181,7 @@ export interface EmployeeFilters {
 	payFrequency: PayFrequency | 'all';
 	employmentType: EmploymentType | 'all';
 	compensationType: CompensationType | 'all';
-	payGroupId: string | 'all';  // Filter by pay group assignment
+	payGroupId: string | 'all'; // Filter by pay group assignment
 	searchQuery: string;
 }
 
@@ -197,14 +217,34 @@ export const FEDERAL_BPA_2025 = 16129;
 // Provincial BPA - January Edition (T4127 120th Edition, for Jan-Jun payrolls)
 // SK and PE have different BPA in January vs July
 export const PROVINCIAL_BPA_2025_JAN: Record<Province, number> = {
-	AB: 22323, BC: 12932, MB: 15591, NB: 13396, NL: 11067, NS: 11744,
-	NT: 17842, NU: 19274, ON: 12747, PE: 14250, SK: 18991, YT: 16129
+	AB: 22323,
+	BC: 12932,
+	MB: 15591,
+	NB: 13396,
+	NL: 11067,
+	NS: 11744,
+	NT: 17842,
+	NU: 19274,
+	ON: 12747,
+	PE: 14250,
+	SK: 18991,
+	YT: 16129
 };
 
 // Provincial BPA - July Edition (T4127 121st Edition, for Jul-Dec payrolls)
 export const PROVINCIAL_BPA_2025_JUL: Record<Province, number> = {
-	AB: 22323, BC: 12932, MB: 15591, NB: 13396, NL: 11067, NS: 11744,
-	NT: 17842, NU: 19274, ON: 12747, PE: 15050, SK: 19991, YT: 16129
+	AB: 22323,
+	BC: 12932,
+	MB: 15591,
+	NB: 13396,
+	NL: 11067,
+	NS: 11744,
+	NT: 17842,
+	NU: 19274,
+	ON: 12747,
+	PE: 15050,
+	SK: 19991,
+	YT: 16129
 };
 
 // Default export (July edition for backward compatibility)
@@ -289,11 +329,11 @@ export interface EmployeeTaxClaim {
 	companyId: string;
 	taxYear: number;
 	// Federal TD1
-	federalBpa: number;           // Read-only, from config
+	federalBpa: number; // Read-only, from config
 	federalAdditionalClaims: number;
-	federalTotalClaim: number;    // Computed: bpa + additional
+	federalTotalClaim: number; // Computed: bpa + additional
 	// Provincial TD1
-	provincialBpa: number;        // Read-only, from config
+	provincialBpa: number; // Read-only, from config
 	provincialAdditionalClaims: number;
 	provincialTotalClaim: number; // Computed: bpa + additional
 	// Metadata
@@ -312,10 +352,10 @@ export interface DbEmployeeTaxClaim {
 	tax_year: number;
 	federal_bpa: number;
 	federal_additional_claims: number;
-	federal_total_claim?: number;  // Computed field
+	federal_total_claim?: number; // Computed field
 	provincial_bpa: number;
 	provincial_additional_claims: number;
-	provincial_total_claim?: number;  // Computed field
+	provincial_total_claim?: number; // Computed field
 	created_at: string;
 	updated_at: string;
 }
@@ -384,7 +424,7 @@ export interface DbEmployee {
 	termination_date: string | null;
 	vacation_config: {
 		payout_method: VacationPayoutMethod;
-		vacation_rate: string | null;  // null handled as '0.04' default; "0" = none
+		vacation_rate: string | null; // null handled as '0.04' default; "0" = none
 	};
 	vacation_balance: number;
 	sick_balance: number;
@@ -431,7 +471,7 @@ export interface EmployeeCreateInput {
 	termination_date?: string | null;
 	vacation_config?: {
 		payout_method: VacationPayoutMethod;
-		vacation_rate: string | null;  // null = use default; "0" = none
+		vacation_rate: string | null; // null = use default; "0" = none
 	};
 	vacation_balance?: number;
 	// Initial YTD for transferred employees

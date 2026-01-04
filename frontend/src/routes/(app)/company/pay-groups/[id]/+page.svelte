@@ -3,7 +3,12 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import type { PayGroup } from '$lib/types/pay-group';
-	import { getPayGroup, updatePayGroup, deletePayGroup, type PayGroupUpdateInput } from '$lib/services/payGroupService';
+	import {
+		getPayGroup,
+		updatePayGroup,
+		deletePayGroup,
+		type PayGroupUpdateInput
+	} from '$lib/services/payGroupService';
 	import PayGroupDetailHeader from '$lib/components/company/pay-group-detail/PayGroupDetailHeader.svelte';
 	import PayGroupSummaryCards from '$lib/components/company/pay-group-detail/PayGroupSummaryCards.svelte';
 	import PayGroupBasicInfoSection from '$lib/components/company/pay-group-detail/PayGroupBasicInfoSection.svelte';
@@ -12,6 +17,7 @@
 	import PayGroupBenefitsSection from '$lib/components/company/pay-group-detail/PayGroupBenefitsSection.svelte';
 	import PayGroupDeductionsSection from '$lib/components/company/pay-group-detail/PayGroupDeductionsSection.svelte';
 	import { companyState } from '$lib/stores/company.svelte';
+	import { Skeleton, AlertBanner } from '$lib/components/shared';
 
 	// Get pay group ID from route
 	const payGroupId = $derived($page.params.id);
@@ -20,7 +26,7 @@
 	let payGroup = $state<PayGroup | null>(null);
 	let isLoading = $state(true);
 	let isSaving = $state(false);
-	let isDeleting = $state(false);
+	let _isDeleting = $state(false);
 	let error = $state<string | null>(null);
 
 	// Load pay group when company changes or ID changes
@@ -62,7 +68,7 @@
 		if (!payGroup) return;
 		if (!confirm(`Delete "${payGroup.name}"? This action cannot be undone.`)) return;
 
-		isDeleting = true;
+		_isDeleting = true;
 		try {
 			const result = await deletePayGroup(payGroup.id);
 			if (result.error) {
@@ -73,7 +79,7 @@
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to delete pay group';
 		} finally {
-			isDeleting = false;
+			_isDeleting = false;
 		}
 	}
 
@@ -122,46 +128,46 @@
 
 <div class="pay-group-detail-page">
 	{#if isLoading}
-		<div class="loading-state">
-			<i class="fas fa-spinner fa-spin"></i>
-			<span>Loading pay group...</span>
+		<div class="loading-skeleton">
+			<div class="header-skeleton">
+				<Skeleton variant="text" width="200px" height="32px" />
+				<Skeleton variant="text" width="100px" height="24px" />
+			</div>
+			<div class="cards-skeleton">
+				<Skeleton variant="rounded" height="100px" />
+				<Skeleton variant="rounded" height="100px" />
+				<Skeleton variant="rounded" height="100px" />
+				<Skeleton variant="rounded" height="100px" />
+			</div>
+			<Skeleton variant="rounded" height="200px" />
+			<Skeleton variant="rounded" height="150px" />
 		</div>
-	{:else if error}
-		<div class="error-state">
-			<i class="fas fa-exclamation-triangle"></i>
-			<h2>Error</h2>
-			<p>{error}</p>
-			<button class="btn-primary" onclick={handleBack}>
+	{:else if error && !payGroup}
+		<AlertBanner type="error" title="Error" message={error}>
+			<button class="btn-primary mt-3" onclick={handleBack}>
 				<i class="fas fa-arrow-left"></i>
 				Back to Pay Groups
 			</button>
-		</div>
+		</AlertBanner>
 	{:else if payGroup}
 		<!-- Save/Delete Error Banner -->
 		{#if error && !isLoading}
-			<div class="error-banner">
-				<i class="fas fa-exclamation-circle"></i>
-				<span>{error}</span>
-				<button class="error-dismiss" onclick={() => error = null} aria-label="Dismiss error">
-					<i class="fas fa-times"></i>
-				</button>
-			</div>
+			<AlertBanner
+				type="error"
+				title="Operation Failed"
+				message={error}
+				dismissible={true}
+				onDismiss={() => (error = null)}
+			/>
 		{/if}
 
 		<!-- Saving Indicator -->
 		{#if isSaving}
-			<div class="saving-indicator">
-				<i class="fas fa-spinner fa-spin"></i>
-				<span>Saving changes...</span>
-			</div>
+			<AlertBanner type="info" title="Saving changes..." />
 		{/if}
 
 		<!-- Header -->
-		<PayGroupDetailHeader
-			{payGroup}
-			onBack={handleBack}
-			onDelete={handleDelete}
-		/>
+		<PayGroupDetailHeader {payGroup} onBack={handleBack} onDelete={handleDelete} />
 
 		<!-- Summary Cards -->
 		<div class="summary-cards-wrapper">
@@ -170,30 +176,15 @@
 
 		<!-- Sections -->
 		<div class="sections">
-			<PayGroupBasicInfoSection
-				{payGroup}
-				onUpdate={handleUpdate}
-			/>
+			<PayGroupBasicInfoSection {payGroup} onUpdate={handleUpdate} />
 
-			<PayGroupOvertimeSection
-				{payGroup}
-				onUpdate={handleUpdate}
-			/>
+			<PayGroupOvertimeSection {payGroup} onUpdate={handleUpdate} />
 
-			<PayGroupWcbSection
-				{payGroup}
-				onUpdate={handleUpdate}
-			/>
+			<PayGroupWcbSection {payGroup} onUpdate={handleUpdate} />
 
-			<PayGroupBenefitsSection
-				{payGroup}
-				onUpdate={handleUpdate}
-			/>
+			<PayGroupBenefitsSection {payGroup} onUpdate={handleUpdate} />
 
-			<PayGroupDeductionsSection
-				{payGroup}
-				onUpdate={handleUpdate}
-			/>
+			<PayGroupDeductionsSection {payGroup} onUpdate={handleUpdate} />
 		</div>
 	{/if}
 </div>
@@ -205,42 +196,23 @@
 		padding: var(--spacing-6);
 	}
 
-	.loading-state,
-	.error-state {
+	/* Loading Skeleton */
+	.loading-skeleton {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		min-height: 400px;
-		text-align: center;
+		gap: var(--spacing-6);
+	}
+
+	.header-skeleton {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-2);
+	}
+
+	.cards-skeleton {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 		gap: var(--spacing-4);
-	}
-
-	.loading-state i {
-		font-size: 32px;
-		color: var(--color-primary-500);
-	}
-
-	.loading-state span {
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-600);
-	}
-
-	.error-state i {
-		font-size: 48px;
-		color: var(--color-error-500);
-	}
-
-	.error-state h2 {
-		font-size: var(--font-size-title-large);
-		color: var(--color-surface-800);
-		margin: 0;
-	}
-
-	.error-state p {
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-600);
-		margin: 0;
 	}
 
 	.summary-cards-wrapper {
@@ -271,54 +243,6 @@
 
 	.btn-primary:hover {
 		opacity: 0.9;
-	}
-
-	/* Error Banner */
-	.error-banner {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-		padding: var(--spacing-4);
-		background: var(--color-error-50, #fef2f2);
-		border: 1px solid var(--color-error-200, #fecaca);
-		border-radius: var(--radius-lg);
-		color: var(--color-error-700, #b91c1c);
-		margin-bottom: var(--spacing-4);
-	}
-
-	.error-banner i:first-child {
-		font-size: 1.25rem;
-	}
-
-	.error-banner span {
-		flex: 1;
-	}
-
-	.error-dismiss {
-		background: none;
-		border: none;
-		color: var(--color-error-500, #ef4444);
-		cursor: pointer;
-		padding: var(--spacing-1);
-		opacity: 0.7;
-	}
-
-	.error-dismiss:hover {
-		opacity: 1;
-	}
-
-	/* Saving Indicator */
-	.saving-indicator {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-3) var(--spacing-4);
-		background: var(--color-primary-50);
-		border: 1px solid var(--color-primary-200);
-		border-radius: var(--radius-lg);
-		color: var(--color-primary-700);
-		font-size: var(--font-size-body-content);
-		margin-bottom: var(--spacing-4);
 	}
 
 	@media (max-width: 768px) {

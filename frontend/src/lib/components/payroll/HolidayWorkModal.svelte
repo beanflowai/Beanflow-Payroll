@@ -131,7 +131,10 @@
 		return excluded;
 	}
 
-	function getFilteredEmployees(holidayDate: string, rowId: string): { id: string; name: string }[] {
+	function getFilteredEmployees(
+		holidayDate: string,
+		rowId: string
+	): { id: string; name: string }[] {
 		const excludedIds = getExcludedIds(holidayDate, rowId);
 		const searchText = searchTexts.get(rowId) || '';
 
@@ -221,7 +224,13 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <div class="modal-overlay" onclick={onClose} role="presentation">
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div class="modal" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" tabindex="-1">
+	<div
+		class="modal"
+		onclick={(e) => e.stopPropagation()}
+		role="dialog"
+		aria-modal="true"
+		tabindex="-1"
+	>
 		<div class="modal-header">
 			<h2>Holiday Hours - {formatDateRange(periodStart, periodEnd)}</h2>
 			<button class="close-btn" onclick={onClose} aria-label="Close modal">
@@ -230,7 +239,7 @@
 		</div>
 
 		<div class="modal-content">
-			{#each holidays as holiday}
+			{#each holidays as holiday (holiday.date)}
 				{@const rows = holidayWorkState.get(holiday.date) || []}
 				<div class="holiday-section">
 					<div class="holiday-info">
@@ -241,8 +250,9 @@
 						</div>
 					</div>
 					<p class="holiday-note">
-						Regular employees receive holiday pay automatically.
-						Record hours for employees who <strong>worked</strong> on this holiday:
+						Regular employees receive holiday pay automatically. Record hours for employees who <strong
+							>worked</strong
+						> on this holiday:
 					</p>
 
 					{#if rows.length > 0}
@@ -277,8 +287,7 @@
 
 												{#if isDropdownOpen}
 													<ul class="combobox-dropdown">
-														{#each filteredEmployees as emp}
-															<!-- svelte-ignore a11y_click_events_have_key_events -->
+														{#each filteredEmployees as emp (emp.id)}
 															<li
 																class="combobox-option"
 																onmousedown={() => selectEmployee(holiday.date, row.rowId, emp)}
@@ -308,7 +317,8 @@
 												step="0.5"
 												value={row.hoursWorked || ''}
 												disabled={!row.employeeId}
-												oninput={(e) => handleHoursChange(holiday.date, row.rowId, e.currentTarget.value)}
+												oninput={(e) =>
+													handleHoursChange(holiday.date, row.rowId, e.currentTarget.value)}
 											/>
 										</td>
 										<td class="col-actions">

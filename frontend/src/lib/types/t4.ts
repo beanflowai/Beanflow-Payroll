@@ -12,28 +12,29 @@ export type T4Status = 'draft' | 'generated' | 'amended' | 'filed';
 /**
  * T4 status display information
  */
-export const T4_STATUS_INFO: Record<T4Status, { label: string; icon: string; colorClass: string }> = {
-	draft: {
-		label: 'Draft',
-		icon: 'edit',
-		colorClass: 'bg-surface-100 text-surface-600'
-	},
-	generated: {
-		label: 'Generated',
-		icon: 'check-circle',
-		colorClass: 'bg-success-100 text-success-700'
-	},
-	amended: {
-		label: 'Amended',
-		icon: 'edit',
-		colorClass: 'bg-warning-100 text-warning-700'
-	},
-	filed: {
-		label: 'Filed',
-		icon: 'paper-plane',
-		colorClass: 'bg-primary-100 text-primary-700'
-	}
-};
+export const T4_STATUS_INFO: Record<T4Status, { label: string; icon: string; colorClass: string }> =
+	{
+		draft: {
+			label: 'Draft',
+			icon: 'edit',
+			colorClass: 'bg-surface-100 text-surface-600'
+		},
+		generated: {
+			label: 'Generated',
+			icon: 'check-circle',
+			colorClass: 'bg-success-100 text-success-700'
+		},
+		amended: {
+			label: 'Amended',
+			icon: 'edit',
+			colorClass: 'bg-warning-100 text-warning-700'
+		},
+		filed: {
+			label: 'Filed',
+			icon: 'paper-plane',
+			colorClass: 'bg-primary-100 text-primary-700'
+		}
+	};
 
 /**
  * Summary view of a T4 slip for listing

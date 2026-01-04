@@ -7,7 +7,11 @@
 		getFileValidationError,
 		formatFileSize
 	} from '$lib/services/ticketService';
-	import { TICKET_PRIORITY_INFO, type TicketPriority, type PendingAttachment } from '$lib/types/ticket';
+	import {
+		TICKET_PRIORITY_INFO,
+		type TicketPriority,
+		type PendingAttachment
+	} from '$lib/types/ticket';
 
 	// Form state
 	let title = $state('');
@@ -168,12 +172,23 @@
 	</div>
 
 	<!-- Form -->
-	<form class="ticket-form" onsubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+	<form
+		class="ticket-form"
+		onsubmit={(e) => {
+			e.preventDefault();
+			handleSubmit();
+		}}
+	>
 		{#if error}
 			<div class="error-banner">
 				<i class="fas fa-exclamation-circle"></i>
 				<span>{error}</span>
-				<button type="button" class="close-btn" onclick={() => (error = null)} aria-label="Dismiss error">
+				<button
+					type="button"
+					class="close-btn"
+					onclick={() => (error = null)}
+					aria-label="Dismiss error"
+				>
 					<i class="fas fa-times"></i>
 				</button>
 			</div>
@@ -200,14 +215,9 @@
 		<div class="form-group">
 			<span class="form-label">Priority</span>
 			<div class="priority-options">
-				{#each priorityOptions as option}
+				{#each priorityOptions as option (option.value)}
 					<label class="priority-option" class:selected={priority === option.value}>
-						<input
-							type="radio"
-							name="priority"
-							value={option.value}
-							bind:group={priority}
-						/>
+						<input type="radio" name="priority" value={option.value} bind:group={priority} />
 						<span class="priority-badge {TICKET_PRIORITY_INFO[option.value].colorClass}">
 							<i class="fas {TICKET_PRIORITY_INFO[option.value].icon}"></i>
 							{option.label}
@@ -267,7 +277,7 @@
 
 			{#if pendingAttachments.length > 0}
 				<div class="attachments-preview">
-					{#each pendingAttachments as attachment, index}
+					{#each pendingAttachments as attachment, index (index)}
 						<div class="attachment-item" class:has-error={attachment.error}>
 							{#if attachment.preview && !attachment.error}
 								<img src={attachment.preview} alt={attachment.file.name} class="attachment-thumb" />

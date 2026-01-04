@@ -62,6 +62,8 @@ async def calculate_single(
         result = engine.calculate(input_data)
         return result_to_response(result, include_details=True)
 
+    except HTTPException:
+        raise
     except ValueError as e:
         logger.error(f"Calculation error: {e}")
         raise HTTPException(

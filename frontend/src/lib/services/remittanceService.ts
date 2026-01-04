@@ -97,8 +97,18 @@ function formatPeriodLabel(
 	const start = new Date(periodStart);
 	const end = new Date(periodEnd);
 	const monthNames = [
-		'January', 'February', 'March', 'April', 'May', 'June',
-		'July', 'August', 'September', 'October', 'November', 'December'
+		'January',
+		'February',
+		'March',
+		'April',
+		'May',
+		'June',
+		'July',
+		'August',
+		'September',
+		'October',
+		'November',
+		'December'
 	];
 
 	switch (remitterType) {
@@ -200,9 +210,7 @@ export async function listRemittancePeriods(
 
 		// Year filter
 		if (year) {
-			query = query
-				.gte('period_start', `${year}-01-01`)
-				.lte('period_end', `${year}-12-31`);
+			query = query.gte('period_start', `${year}-01-01`).lte('period_end', `${year}-12-31`);
 		}
 
 		// Status filter
@@ -280,11 +288,7 @@ export async function createRemittancePeriod(
 			payroll_run_ids: input.payroll_run_ids ?? []
 		};
 
-		const { data, error } = await supabase
-			.from(TABLE_NAME)
-			.insert(record)
-			.select()
-			.single();
+		const { data, error } = await supabase.from(TABLE_NAME).insert(record).select().single();
 
 		if (error) {
 			console.error('Failed to create remittance period:', error);
@@ -357,9 +361,7 @@ export async function recordPayment(
 /**
  * Delete a remittance period
  */
-export async function deleteRemittancePeriod(
-	periodId: string
-): Promise<{ error: string | null }> {
+export async function deleteRemittancePeriod(periodId: string): Promise<{ error: string | null }> {
 	try {
 		const userId = getCurrentUserId();
 
@@ -402,18 +404,16 @@ export async function getRemittanceSummary(
 		const paidStatuses: RemittanceStatus[] = ['paid', 'paid_late'];
 		const pendingStatuses: RemittanceStatus[] = ['pending', 'due_soon', 'overdue'];
 
-		const paidPeriods = periods.filter(p => paidStatuses.includes(p.status));
-		const pendingPeriods = periods.filter(p => pendingStatuses.includes(p.status));
-		const onTimePeriods = periods.filter(p => p.status === 'paid');
+		const paidPeriods = periods.filter((p) => paidStatuses.includes(p.status));
+		const pendingPeriods = periods.filter((p) => pendingStatuses.includes(p.status));
+		const onTimePeriods = periods.filter((p) => p.status === 'paid');
 
 		const summary: RemittanceSummary = {
 			year,
 			ytdRemitted: paidPeriods.reduce((sum, p) => sum + p.totalAmount, 0),
 			totalRemittances: periods.length,
 			completedRemittances: paidPeriods.length,
-			onTimeRate: paidPeriods.length > 0
-				? onTimePeriods.length / paidPeriods.length
-				: 1.0,
+			onTimeRate: paidPeriods.length > 0 ? onTimePeriods.length / paidPeriods.length : 1.0,
 			pendingAmount: pendingPeriods.reduce((sum, p) => sum + p.totalAmount, 0),
 			pendingCount: pendingPeriods.length
 		};
@@ -441,7 +441,9 @@ export async function downloadPD7A(
 	periodId: string
 ): Promise<{ error: string | null }> {
 	try {
-		const { data: { session } } = await supabase.auth.getSession();
+		const {
+			data: { session }
+		} = await supabase.auth.getSession();
 		if (!session?.access_token) {
 			return { error: 'Not authenticated' };
 		}

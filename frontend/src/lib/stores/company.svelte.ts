@@ -6,7 +6,11 @@
 import { browser } from '$app/environment';
 import { goto } from '$app/navigation';
 import type { CompanyProfile } from '$lib/types/company';
-import { listCompanies, createCompany, type CompanyCreateInput } from '$lib/services/companyService';
+import {
+	listCompanies,
+	createCompany,
+	type CompanyCreateInput
+} from '$lib/services/companyService';
 
 const STORAGE_KEY = 'beanflow_current_company_id';
 
@@ -90,7 +94,9 @@ export async function switchCompany(companyId: string): Promise<void> {
 /**
  * Add a new company and switch to it
  */
-export async function addCompany(input: CompanyCreateInput): Promise<{ success: boolean; error?: string }> {
+export async function addCompany(
+	input: CompanyCreateInput
+): Promise<{ success: boolean; error?: string }> {
 	if (!browser) return { success: false, error: 'Not in browser' };
 
 	_isLoading = true;

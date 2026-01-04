@@ -485,7 +485,7 @@ class TestLargeDeductions:
         assert result.union_dues == Decimal("100.00")
 
         # Net pay should reflect all deductions
-        total_deductions = (
+        (
             result.cpp_total
             + result.ei_employee
             + result.federal_tax

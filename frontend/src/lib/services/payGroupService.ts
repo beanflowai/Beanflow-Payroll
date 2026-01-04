@@ -181,9 +181,7 @@ export async function listPayGroups(
 			query = query.eq('employment_type', employment_type);
 		}
 
-		const { data, error, count } = await query
-			.order('name')
-			.range(offset, offset + limit - 1);
+		const { data, error, count } = await query.order('name').range(offset, offset + limit - 1);
 
 		if (error) {
 			console.error('Failed to list pay groups:', error);
@@ -219,7 +217,9 @@ export async function listPayGroupsWithCounts(
 			return { data: [], error: error.message };
 		}
 
-		const payGroups: PayGroupWithCount[] = (data as (DbPayGroup & { employee_count: number; company_name: string })[]).map((db) => ({
+		const payGroups: PayGroupWithCount[] = (
+			data as (DbPayGroup & { employee_count: number; company_name: string })[]
+		).map((db) => ({
 			...dbPayGroupToUi(db),
 			employeeCount: db.employee_count ?? 0,
 			companyName: db.company_name
@@ -293,8 +293,19 @@ export async function createPayGroup(
 				health: { enabled: false, employeeDeduction: 0, employerContribution: 0, isTaxable: false },
 				dental: { enabled: false, employeeDeduction: 0, employerContribution: 0, isTaxable: false },
 				vision: { enabled: false, employeeDeduction: 0, employerContribution: 0, isTaxable: false },
-				lifeInsurance: { enabled: false, employeeDeduction: 0, employerContribution: 0, isTaxable: false, coverageAmount: 0 },
-				disability: { enabled: false, employeeDeduction: 0, employerContribution: 0, isTaxable: false }
+				lifeInsurance: {
+					enabled: false,
+					employeeDeduction: 0,
+					employerContribution: 0,
+					isTaxable: false,
+					coverageAmount: 0
+				},
+				disability: {
+					enabled: false,
+					employeeDeduction: 0,
+					employerContribution: 0,
+					isTaxable: false
+				}
 			},
 			earnings_config: input.earnings_config ?? DEFAULT_EARNINGS_CONFIG,
 			taxable_benefits_config: input.taxable_benefits_config ?? DEFAULT_TAXABLE_BENEFITS_CONFIG,
@@ -341,8 +352,7 @@ export async function updatePayGroup(
 		if (input.overtime_policy !== undefined) updateData.overtime_policy = input.overtime_policy;
 		if (input.wcb_config !== undefined) updateData.wcb_config = input.wcb_config;
 		if (input.group_benefits !== undefined) updateData.group_benefits = input.group_benefits;
-		if (input.earnings_config !== undefined)
-			updateData.earnings_config = input.earnings_config;
+		if (input.earnings_config !== undefined) updateData.earnings_config = input.earnings_config;
 		if (input.taxable_benefits_config !== undefined)
 			updateData.taxable_benefits_config = input.taxable_benefits_config;
 		if (input.deductions_config !== undefined)

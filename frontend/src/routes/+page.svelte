@@ -67,12 +67,6 @@
 		margin: 0 auto var(--spacing-4);
 	}
 
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
-
 	.loading-text {
 		font-size: var(--font-size-body-content);
 		color: var(--color-surface-600);

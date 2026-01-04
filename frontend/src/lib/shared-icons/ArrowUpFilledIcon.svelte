@@ -6,9 +6,9 @@
 	}
 
 	let {
-		size = 18,
-		color = 'currentColor',
-		class: className = ''
+		size: _size = 18,
+		color: _color = 'currentColor',
+		class: _className = ''
 	}: ArrowUpFilledIconProps = $props();
 </script>
 

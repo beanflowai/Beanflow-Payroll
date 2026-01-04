@@ -9,7 +9,10 @@
 	onMount(async () => {
 		try {
 			// Supabase automatically handles the OAuth callback tokens in the URL
-			const { data: { session }, error } = await supabase.auth.getSession();
+			const {
+				data: { session },
+				error
+			} = await supabase.auth.getSession();
 
 			if (error) {
 				status = 'error';
@@ -54,39 +57,34 @@
 		justify-content: center;
 		align-items: center;
 		min-height: 100vh;
-		background-color: var(--color-bg-secondary, #f5f5f5);
+		background-color: var(--color-surface-50);
 	}
 
-	.loading, .error {
+	.loading,
+	.error {
 		text-align: center;
-		padding: 2rem;
+		padding: var(--spacing-6);
 		background: white;
-		border-radius: 8px;
-		box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+		border-radius: var(--radius-xl);
+		box-shadow: var(--shadow-md3-2);
 	}
 
 	.spinner {
 		width: 40px;
 		height: 40px;
-		margin: 0 auto 1rem;
-		border: 3px solid #e0e0e0;
-		border-top-color: #4285f4;
+		margin: 0 auto var(--spacing-4);
+		border: 3px solid var(--color-surface-200);
+		border-top-color: var(--color-primary-500);
 		border-radius: 50%;
-		animation: spin 1s linear infinite;
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
+		animation: spin 0.8s linear infinite;
 	}
 
 	.error {
-		color: #d32f2f;
+		color: var(--color-error-600);
 	}
 
 	p {
-		margin: 0.5rem 0;
-		color: #666;
+		margin: var(--spacing-2) 0;
+		color: var(--color-surface-600);
 	}
 </style>

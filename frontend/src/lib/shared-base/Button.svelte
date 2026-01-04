@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
+
 	interface ButtonProps {
 		variant?: 'fill' | 'border' | 'text' | 'success';
 		size?: 'small' | 'medium' | 'large';
@@ -7,7 +9,7 @@
 		type?: 'button' | 'submit' | 'reset';
 		href?: string;
 		onclick?: (event: MouseEvent) => void;
-		children?: any;
+		children?: Snippet;
 		class?: string;
 		ariaLabel?: string;
 	}

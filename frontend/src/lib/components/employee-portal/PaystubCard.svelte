@@ -4,6 +4,7 @@
 	 */
 	import type { PaystubSummary } from '$lib/types/employee-portal';
 	import { formatLongDate, formatDateNoYear } from '$lib/utils/dateUtils';
+	import { formatCurrency } from '$lib/utils/formatUtils';
 
 	interface Props {
 		paystub: PaystubSummary;
@@ -12,20 +13,15 @@
 	}
 
 	let { paystub, onView, onDownload }: Props = $props();
-
-	function formatMoney(amount: number): string {
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD'
-		}).format(amount);
-	}
 </script>
 
 <div class="paystub-card">
 	<div class="paystub-header">
 		<div class="paystub-date">{formatLongDate(paystub.payDate)}</div>
 		<div class="paystub-period">
-			Pay Period: {formatDateNoYear(paystub.payPeriodStart)} - {formatDateNoYear(paystub.payPeriodEnd)}
+			Pay Period: {formatDateNoYear(paystub.payPeriodStart)} - {formatDateNoYear(
+				paystub.payPeriodEnd
+			)}
 		</div>
 	</div>
 
@@ -34,15 +30,15 @@
 	<div class="paystub-amounts">
 		<div class="amount-item">
 			<span class="amount-label">Gross:</span>
-			<span class="amount-value">{formatMoney(paystub.grossPay)}</span>
+			<span class="amount-value">{formatCurrency(paystub.grossPay)}</span>
 		</div>
 		<div class="amount-item">
 			<span class="amount-label">Deductions:</span>
-			<span class="amount-value deduction">{formatMoney(paystub.totalDeductions)}</span>
+			<span class="amount-value deduction">{formatCurrency(paystub.totalDeductions)}</span>
 		</div>
 		<div class="amount-item net">
 			<span class="amount-label">Net:</span>
-			<span class="amount-value">{formatMoney(paystub.netPay)}</span>
+			<span class="amount-value">{formatCurrency(paystub.netPay)}</span>
 		</div>
 	</div>
 

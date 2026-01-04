@@ -11,19 +11,22 @@ const mockGetCurrentUserId = vi.fn();
 
 vi.mock('$lib/api/client', () => ({
 	api: {
-		get get() { return mockApiGet; },
-		get post() { return mockApiPost; }
+		get get() {
+			return mockApiGet;
+		},
+		get post() {
+			return mockApiPost;
+		}
 	}
 }));
 
 vi.mock('./helpers', () => ({
-	get getCurrentUserId() { return mockGetCurrentUserId; }
+	get getCurrentUserId() {
+		return mockGetCurrentUserId;
+	}
 }));
 
-import {
-	getPaystubDownloadUrl,
-	sendPaystubs
-} from './run-paystubs';
+import { getPaystubDownloadUrl, sendPaystubs } from './run-paystubs';
 
 describe('Payroll Run Paystubs', () => {
 	beforeEach(() => {

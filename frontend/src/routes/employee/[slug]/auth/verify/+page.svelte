@@ -10,7 +10,10 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { supabase } from '$lib/api/supabase';
-	import { PORTAL_COMPANY_CONTEXT_KEY, type PortalCompanyContext } from '$lib/types/employee-portal';
+	import {
+		PORTAL_COMPANY_CONTEXT_KEY,
+		type PortalCompanyContext
+	} from '$lib/types/employee-portal';
 
 	const portalContext = getContext<PortalCompanyContext>(PORTAL_COMPANY_CONTEXT_KEY);
 	const slug = $derived($page.params.slug);
@@ -120,7 +123,9 @@
 
 		// Listen for auth state change - use setTimeout to avoid Supabase deadlock
 		// See: https://github.com/supabase/gotrue-js/issues/762
-		const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+		const {
+			data: { subscription }
+		} = supabase.auth.onAuthStateChange((event, session) => {
 			if (event === 'SIGNED_IN' && session) {
 				subscription.unsubscribe();
 				// setTimeout breaks the synchronous chain to avoid deadlock
@@ -223,7 +228,7 @@
 		<div class="otp-container">
 			<span class="otp-label">Verification Code</span>
 			<div class="otp-inputs">
-				{#each otpDigits as digit, index}
+				{#each otpDigits as digit, index (index)}
 					<input
 						bind:this={inputRefs[index]}
 						type="text"
@@ -245,7 +250,11 @@
 			<p class="error-message">{error}</p>
 		{/if}
 
-		<button class="verify-btn" onclick={handleVerify} disabled={isVerifying || otpDigits.some((d) => !d)}>
+		<button
+			class="verify-btn"
+			onclick={handleVerify}
+			disabled={isVerifying || otpDigits.some((d) => !d)}
+		>
 			{#if isVerifying}
 				<span class="spinner"></span>
 				Verifying...
@@ -406,12 +415,6 @@
 		border-top-color: white;
 		border-radius: 50%;
 		animation: spin 0.8s linear infinite;
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
 	}
 
 	.expires-note {

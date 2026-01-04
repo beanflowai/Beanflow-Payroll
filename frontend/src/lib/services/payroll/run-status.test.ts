@@ -12,19 +12,27 @@ const mockGetCurrentCompanyId = vi.fn();
 
 vi.mock('$lib/api/supabase', () => ({
 	supabase: {
-		get from() { return mockSupabaseFrom; }
+		get from() {
+			return mockSupabaseFrom;
+		}
 	}
 }));
 
 vi.mock('$lib/api/client', () => ({
 	api: {
-		get post() { return mockApiPost; }
+		get post() {
+			return mockApiPost;
+		}
 	}
 }));
 
 vi.mock('./helpers', () => ({
-	get getCurrentUserId() { return mockGetCurrentUserId; },
-	get getCurrentCompanyId() { return mockGetCurrentCompanyId; }
+	get getCurrentUserId() {
+		return mockGetCurrentUserId;
+	},
+	get getCurrentCompanyId() {
+		return mockGetCurrentCompanyId;
+	}
 }));
 
 import {
@@ -36,14 +44,23 @@ import {
 } from './run-status';
 
 // Helper to create mock Supabase query chain
-function createMockSupabaseQuery(options: {
-	data?: unknown;
-	error?: { message: string } | null;
-}) {
+function createMockSupabaseQuery(options: { data?: unknown; error?: { message: string } | null }) {
 	const { data = null, error = null } = options;
 	const mockChain: Record<string, unknown> = {};
-	const chainMethods = ['select', 'eq', 'neq', 'in', 'not', 'gte', 'lte', 'order', 'update', 'insert', 'delete'];
-	chainMethods.forEach(method => {
+	const chainMethods = [
+		'select',
+		'eq',
+		'neq',
+		'in',
+		'not',
+		'gte',
+		'lte',
+		'order',
+		'update',
+		'insert',
+		'delete'
+	];
+	chainMethods.forEach((method) => {
 		mockChain[method] = vi.fn(() => mockChain);
 	});
 	mockChain.single = vi.fn(() => Promise.resolve({ data, error }));
@@ -137,10 +154,12 @@ describe('Payroll Run Status', () => {
 				data: null,
 				error: { message: 'Update failed' }
 			});
-			mockQuery.single = vi.fn(() => Promise.resolve({
-				data: null,
-				error: { message: 'Update failed' }
-			}));
+			mockQuery.single = vi.fn(() =>
+				Promise.resolve({
+					data: null,
+					error: { message: 'Update failed' }
+				})
+			);
 
 			mockSupabaseFrom.mockReturnValue(mockQuery);
 
@@ -195,10 +214,12 @@ describe('Payroll Run Status', () => {
 				data: { ...mockDbPayrollRun, status: 'approved' },
 				error: null
 			});
-			mockQuery.maybeSingle = vi.fn(() => Promise.resolve({
-				data: { ...mockDbPayrollRun, status: 'approved' },
-				error: null
-			}));
+			mockQuery.maybeSingle = vi.fn(() =>
+				Promise.resolve({
+					data: { ...mockDbPayrollRun, status: 'approved' },
+					error: null
+				})
+			);
 
 			const getMockQuery = createMockSupabaseQuery({
 				data: [{ ...mockDbPayrollRun, status: 'approved' }],

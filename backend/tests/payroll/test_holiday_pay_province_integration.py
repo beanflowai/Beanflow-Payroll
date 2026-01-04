@@ -9,7 +9,7 @@ Tests:
 - SK premium pay for worked holidays
 """
 
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 from unittest.mock import MagicMock
 

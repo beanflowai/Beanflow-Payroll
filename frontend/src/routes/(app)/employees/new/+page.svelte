@@ -61,9 +61,7 @@
 	<!-- Bottom Action Bar -->
 	<div class="action-bar">
 		<div class="action-bar-content">
-			<button class="btn-cancel" onclick={handleCancel} disabled={isSaving}>
-				Cancel
-			</button>
+			<button class="btn-cancel" onclick={handleCancel} disabled={isSaving}> Cancel </button>
 			<button class="btn-save" onclick={handleSave} disabled={isSaving}>
 				{#if isSaving}
 					<i class="fas fa-spinner fa-spin"></i>

@@ -60,7 +60,7 @@ export async function queryHolidaysForPeriod(
 			return [];
 		}
 
-		return (holidayData ?? []).map(h => ({
+		return (holidayData ?? []).map((h) => ({
 			date: h.holiday_date,
 			name: h.name,
 			province: h.province
@@ -107,7 +107,11 @@ async function buildPayrollRunWithGroups(
 			payGroupMap.set(payGroupId, {
 				payGroupId,
 				payGroupName,
-				payFrequency: (payGroup?.pay_frequency ?? 'bi_weekly') as 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly',
+				payFrequency: (payGroup?.pay_frequency ?? 'bi_weekly') as
+					| 'weekly'
+					| 'bi_weekly'
+					| 'semi_monthly'
+					| 'monthly',
 				employmentType: (payGroup?.employment_type ?? 'full_time') as 'full_time' | 'part_time',
 				periodStart: runData.period_start,
 				periodEnd: runData.period_end,
@@ -117,10 +121,16 @@ async function buildPayrollRunWithGroups(
 				totalNetPay: uiRecord.netPay,
 				totalEmployerCost: uiRecord.totalEmployerCost,
 				records: [uiRecord],
-				earningsConfig: (payGroup?.earnings_config as EarningsConfig | undefined) ?? DEFAULT_EARNINGS_CONFIG,
-				taxableBenefitsConfig: (payGroup?.taxable_benefits_config as TaxableBenefitsConfig | undefined) ?? DEFAULT_TAXABLE_BENEFITS_CONFIG,
-				deductionsConfig: (payGroup?.deductions_config as DeductionsConfig | undefined) ?? DEFAULT_DEDUCTIONS_CONFIG,
-				groupBenefits: (payGroup?.group_benefits as GroupBenefits | undefined) ?? DEFAULT_GROUP_BENEFITS
+				earningsConfig:
+					(payGroup?.earnings_config as EarningsConfig | undefined) ?? DEFAULT_EARNINGS_CONFIG,
+				taxableBenefitsConfig:
+					(payGroup?.taxable_benefits_config as TaxableBenefitsConfig | undefined) ??
+					DEFAULT_TAXABLE_BENEFITS_CONFIG,
+				deductionsConfig:
+					(payGroup?.deductions_config as DeductionsConfig | undefined) ??
+					DEFAULT_DEDUCTIONS_CONFIG,
+				groupBenefits:
+					(payGroup?.group_benefits as GroupBenefits | undefined) ?? DEFAULT_GROUP_BENEFITS
 			});
 		}
 	}
@@ -172,7 +182,13 @@ async function buildPayrollRunWithGroups(
 		// New: totalPayrollCost = totalGross + totalEmployerCost
 		totalPayrollCost: totalGross + totalEmployerCost,
 		// New: totalRemittance = all CPP/EI (employee + employer) + taxes
-		totalRemittance: totalCppEmployee + totalCppEmployer + totalEiEmployee + totalEiEmployer + totalFederalTax + totalProvincialTax,
+		totalRemittance:
+			totalCppEmployee +
+			totalCppEmployer +
+			totalEiEmployee +
+			totalEiEmployer +
+			totalFederalTax +
+			totalProvincialTax,
 		holidays
 	};
 }
@@ -216,7 +232,8 @@ export async function getPayrollRunByPayDate(
 		// Get payroll records with employee and pay group info
 		const { data: recordsData, error: recordsError } = await supabase
 			.from('payroll_records')
-			.select(`
+			.select(
+				`
 				*,
 				employees!inner (
 					id,
@@ -240,7 +257,8 @@ export async function getPayrollRunByPayDate(
 						group_benefits
 					)
 				)
-			`)
+			`
+			)
 			.eq('payroll_run_id', runData.id);
 
 		if (recordsError) {
@@ -295,7 +313,8 @@ export async function getPayrollRunByPeriodEnd(
 		// Get payroll records with employee and pay group info
 		const { data: recordsData, error: recordsError } = await supabase
 			.from('payroll_records')
-			.select(`
+			.select(
+				`
 				*,
 				employees!inner (
 					id,
@@ -319,7 +338,8 @@ export async function getPayrollRunByPeriodEnd(
 						group_benefits
 					)
 				)
-			`)
+			`
+			)
 			.eq('payroll_run_id', runData.id);
 
 		if (recordsError) {
@@ -421,7 +441,7 @@ export async function listPayrollRuns(
 		if (error) throw error;
 
 		// Convert snake_case DB fields to camelCase PayrollRunWithGroups
-		const runs: PayrollRunWithGroups[] = (data || []).map(run => {
+		const runs: PayrollRunWithGroups[] = (data || []).map((run) => {
 			const totalGross = run.total_gross ?? 0;
 			const totalNetPay = run.total_net_pay ?? 0;
 			const totalEmployerCost = run.total_employer_cost ?? 0;

@@ -28,8 +28,6 @@
 	}
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="modal-overlay" onclick={handleOverlayClick} role="presentation">
 	<div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
 		<div class="modal-header">
@@ -59,9 +57,7 @@
 						<li>Ensure no employees are assigned to this group</li>
 						<li>Employees in this group will need to be reassigned first</li>
 					</ul>
-					<p>
-						This action cannot be undone.
-					</p>
+					<p>This action cannot be undone.</p>
 				</div>
 			</div>
 		</div>

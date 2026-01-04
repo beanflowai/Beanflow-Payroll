@@ -8,7 +8,6 @@ import { supabase } from '$lib/api/supabase';
 import type {
 	T4SlipListResponse,
 	T4SlipSummary,
-	T4GenerationRequest,
 	T4GenerationResponse,
 	T4SummaryData,
 	T4SummaryResponse,

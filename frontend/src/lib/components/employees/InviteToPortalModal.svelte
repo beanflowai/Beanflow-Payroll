@@ -17,6 +17,7 @@
 	let { visible = $bindable(), employees, onclose, onInvite }: Props = $props();
 
 	// Track selected employees for bulk invite
+	// eslint-disable-next-line svelte/prefer-writable-derived -- Need mutable state synced from props
 	let selectedIds = $state<Set<string>>(new Set());
 
 	// Sync selectedIds when employees prop changes
@@ -63,9 +64,7 @@
 
 		try {
 			// Send invitations to all selected employees
-			const results = await Promise.allSettled(
-				ids.map((id) => inviteToPortal(id, true))
-			);
+			const results = await Promise.allSettled(ids.map((id) => inviteToPortal(id, true)));
 
 			// Track successes and failures
 			results.forEach((result, index) => {
@@ -115,7 +114,9 @@
 			<!-- Single Employee Mode -->
 			<div class="single-employee-info">
 				<p class="invite-description">
-					Send a portal invitation to <strong>{singleEmployee.firstName} {singleEmployee.lastName}</strong>?
+					Send a portal invitation to <strong
+						>{singleEmployee.firstName} {singleEmployee.lastName}</strong
+					>?
 				</p>
 				<p class="invite-email">
 					An email will be sent to: <strong>{singleEmployee.email}</strong>
@@ -132,14 +133,15 @@
 						onchange={toggleAll}
 					/>
 					<span class="select-label">
-						Select All ({employees.filter((e) => e.portalStatus === 'not_set').length} without portal access)
+						Select All ({employees.filter((e) => e.portalStatus === 'not_set').length} without portal
+						access)
 					</span>
 				</label>
 
 				<div class="employee-list-divider"></div>
 
 				<div class="employee-list">
-					{#each employees as employee}
+					{#each employees as employee (employee.id)}
 						<label class="employee-option">
 							<input
 								type="checkbox"
@@ -166,9 +168,8 @@
 				<div class="preview-body">
 					<p>Hi [First Name],</p>
 					<p>
-						You've been invited to access your employee portal.
-						Click the link below to view your payroll information,
-						update your personal details, and download paystubs.
+						You've been invited to access your employee portal. Click the link below to view your
+						payroll information, update your personal details, and download paystubs.
 					</p>
 					<div class="preview-button">[Access Portal Button]</div>
 					<p class="preview-note">This link will expire in 7 days.</p>
@@ -208,10 +209,10 @@
 
 	.error-banner {
 		padding: var(--spacing-3) var(--spacing-4);
-		background: var(--color-danger-50);
-		border: 1px solid var(--color-danger-200);
+		background: var(--color-error-50);
+		border: 1px solid var(--color-error-200);
 		border-radius: var(--radius-md);
-		color: var(--color-danger-700);
+		color: var(--color-error-700);
 		font-size: var(--font-size-auxiliary-text);
 	}
 

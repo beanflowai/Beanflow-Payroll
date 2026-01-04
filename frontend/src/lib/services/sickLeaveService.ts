@@ -128,7 +128,7 @@ export async function getProvincesWithPaidSickLeave(
 function normalizeSickLeaveBalance(data: Record<string, unknown>): SickLeaveBalance {
 	return {
 		employeeId: (data.employeeId ?? data.employee_id) as string,
-		year: (data.year) as number,
+		year: data.year as number,
 		paidDaysEntitled: (data.paidDaysEntitled ?? data.paid_days_entitled ?? 0) as number,
 		unpaidDaysEntitled: (data.unpaidDaysEntitled ?? data.unpaid_days_entitled ?? 0) as number,
 		paidDaysUsed: (data.paidDaysUsed ?? data.paid_days_used ?? 0) as number,

@@ -11,8 +11,18 @@ import type { Province } from '$lib/types/employee';
 // Fallback BPA values (2025 July edition) - used if API fails
 const FALLBACK_FEDERAL_BPA = 16129;
 const FALLBACK_PROVINCIAL_BPA: Record<Province, number> = {
-	AB: 22323, BC: 12932, MB: 15591, NB: 13396, NL: 11067, NS: 11744,
-	NT: 17842, NU: 19274, ON: 12747, PE: 15050, SK: 19991, YT: 16129
+	AB: 22323,
+	BC: 12932,
+	MB: 15591,
+	NB: 13396,
+	NL: 11067,
+	NS: 11744,
+	NT: 17842,
+	NU: 19274,
+	ON: 12747,
+	PE: 15050,
+	SK: 19991,
+	YT: 16129
 };
 
 export interface BPADefaults {
@@ -34,10 +44,7 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache
  * @param payDate - Optional pay date for edition selection
  * @returns BPA defaults from API or fallback values
  */
-export async function getBPADefaults(
-	province: Province,
-	payDate?: Date
-): Promise<BPADefaults> {
+export async function getBPADefaults(province: Province, payDate?: Date): Promise<BPADefaults> {
 	const cacheKey = `${province}-${payDate?.toISOString().split('T')[0] ?? 'default'}`;
 
 	// Check cache
@@ -86,10 +93,7 @@ export async function getFederalBPA(payDate?: Date): Promise<number> {
  * Get provincial BPA only.
  * Convenience wrapper that extracts just the provincial BPA.
  */
-export async function getProvincialBPAFromApi(
-	province: Province,
-	payDate?: Date
-): Promise<number> {
+export async function getProvincialBPAFromApi(province: Province, payDate?: Date): Promise<number> {
 	const defaults = await getBPADefaults(province, payDate);
 	return defaults.provincialBPA;
 }
@@ -104,19 +108,66 @@ export function clearBPACache(): void {
 
 /**
  * Get BPA defaults for a specific tax year.
- * Uses July 1 of the year to get the July edition BPA.
+ * Selects the appropriate edition based on current date:
+ * - Current year, Jan-Jun: January edition
+ * - Current year, Jul-Dec: July edition
+ * - Past years: July edition (final edition of that year)
  *
  * @param province - Province code
  * @param year - Tax year (e.g., 2026, 2025)
  * @returns BPA defaults for that year
  */
-export async function getBPADefaultsByYear(
+export async function getBPADefaultsByYear(province: Province, year: number): Promise<BPADefaults> {
+	const now = new Date();
+	const currentYear = now.getFullYear();
+	const currentMonth = now.getMonth(); // 0-indexed (0 = January)
+
+	let payDate: Date;
+	if (year === currentYear && currentMonth < 6) {
+		// Current year, Jan-Jun: use January edition
+		payDate = new Date(year, 0, 15);
+	} else {
+		// Current year Jul-Dec, or past years: use July edition
+		payDate = new Date(year, 6, 15);
+	}
+
+	return getBPADefaults(province, payDate);
+}
+
+/**
+ * BPA defaults for both editions (Jan and Jul) of a tax year.
+ */
+export interface BPADefaultsBothEditions {
+	year: number;
+	jan: BPADefaults;
+	jul: BPADefaults;
+}
+
+/**
+ * Get BPA defaults for both editions (Jan and Jul) of a tax year.
+ * Useful for displaying both periods in the UI.
+ *
+ * @param province - Province code
+ * @param year - Tax year (e.g., 2026, 2025)
+ * @returns BPA defaults for both editions
+ */
+export async function getBPADefaultsBothEditions(
 	province: Province,
 	year: number
-): Promise<BPADefaults> {
-	// Use July 1 of the year to get July edition BPA
-	const payDate = new Date(year, 6, 1);
-	return getBPADefaults(province, payDate);
+): Promise<BPADefaultsBothEditions> {
+	const janDate = new Date(year, 0, 15); // January 15
+	const julDate = new Date(year, 6, 15); // July 15
+
+	const [janDefaults, julDefaults] = await Promise.all([
+		getBPADefaults(province, janDate),
+		getBPADefaults(province, julDate)
+	]);
+
+	return {
+		year,
+		jan: janDefaults,
+		jul: julDefaults
+	};
 }
 
 // =============================================================================
@@ -126,11 +177,11 @@ export async function getBPADefaultsByYear(
 export interface ContributionLimits {
 	year: number;
 	cpp: {
-		maxBaseContribution: number;       // 2025: $4,034.10 = (YMPE $71,300 - exemption $3,500) × 5.95%
+		maxBaseContribution: number; // 2025: $4,034.10 = (YMPE $71,300 - exemption $3,500) × 5.95%
 		maxAdditionalContribution: number; // 2025: $396.00 (CPP2 on earnings above YMPE)
 	};
 	ei: {
-		maxEmployeePremium: number;        // 2025: $1,077.48 = MIE $65,700 × 1.64%
+		maxEmployeePremium: number; // 2025: $1,077.48 = MIE $65,700 × 1.64%
 	};
 }
 
@@ -139,8 +190,8 @@ export interface ContributionLimits {
 const FALLBACK_CONTRIBUTION_LIMITS: ContributionLimits = {
 	year: 2025,
 	cpp: {
-		maxBaseContribution: 4034.10,   // Employee CPP max: (YMPE - exemption) × rate
-		maxAdditionalContribution: 396.00
+		maxBaseContribution: 4034.1, // Employee CPP max: (YMPE - exemption) × rate
+		maxAdditionalContribution: 396.0
 	},
 	ei: {
 		maxEmployeePremium: 1077.48

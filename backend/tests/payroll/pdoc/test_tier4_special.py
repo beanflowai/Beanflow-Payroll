@@ -256,8 +256,8 @@ class TestTier4DataIntegrity:
 
         rrsp_cases = [c for c in cases if c.category == "rrsp"]
         union_cases = [c for c in cases if c.category == "union_dues"]
-        exempt_cases = [c for c in cases if c.category == "exemptions"]
-        benefits_cases = [c for c in cases if c.category == "taxable_benefits"]
+        [c for c in cases if c.category == "exemptions"]
+        [c for c in cases if c.category == "taxable_benefits"]
 
         assert len(rrsp_cases) >= 1, f"Expected at least 1 RRSP case, got {len(rrsp_cases)}"
         assert len(union_cases) >= 1, f"Expected at least 1 union dues case, got {len(union_cases)}"

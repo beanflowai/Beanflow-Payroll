@@ -656,7 +656,9 @@ export const DEFAULT_DEDUCTIONS_CONFIG: DeductionsConfig = {
 /**
  * Create a new PayGroup with default values
  */
-export function createDefaultPayGroup(companyId: string): Omit<PayGroup, 'id' | 'createdAt' | 'updatedAt'> {
+export function createDefaultPayGroup(
+	companyId: string
+): Omit<PayGroup, 'id' | 'createdAt' | 'updatedAt'> {
 	return {
 		companyId,
 		name: '',
@@ -782,10 +784,7 @@ export function getDefaultPeriodStartDay(frequency: PayFrequency): PeriodStartDa
 /**
  * Format pay group leave status for display
  */
-export function formatLeaveStatus(
-	leaveEnabled: boolean,
-	employmentType: EmploymentType
-): string {
+export function formatLeaveStatus(leaveEnabled: boolean, employmentType: EmploymentType): string {
 	if (!leaveEnabled) {
 		return 'Disabled';
 	}
@@ -819,16 +818,17 @@ export const BANK_TIME_EXPIRY_LABELS: Record<BankTimeExpiryMonths, string> = {
 /**
  * Deduction type display labels
  */
-export const DEDUCTION_TYPE_LABELS: Record<DeductionType, { label: string; description: string }> = {
-	pre_tax: {
-		label: 'Pre-tax',
-		description: 'Deducted before tax calculation, reduces taxable income'
-	},
-	post_tax: {
-		label: 'Post-tax',
-		description: 'Deducted after tax calculation, from net pay'
-	}
-};
+export const DEDUCTION_TYPE_LABELS: Record<DeductionType, { label: string; description: string }> =
+	{
+		pre_tax: {
+			label: 'Pre-tax',
+			description: 'Deducted before tax calculation, reduces taxable income'
+		},
+		post_tax: {
+			label: 'Post-tax',
+			description: 'Deducted after tax calculation, from net pay'
+		}
+	};
 
 /**
  * Benefit type labels for display

@@ -281,14 +281,22 @@ class HolidayPayCalculator:
         """
         hire_date_str = employee.get("hire_date")
         if not hire_date_str:
-            # If no hire date, assume eligible (edge case)
-            return True
+            # hire_date is required field; missing indicates data issue
+            logger.warning(
+                "Employee %s missing hire_date, marking ineligible for holiday pay",
+                employee.get("id"),
+            )
+            return False
 
         try:
             hire_date = date.fromisoformat(hire_date_str)
         except (ValueError, TypeError):
-            logger.warning("Invalid hire date: %s", hire_date_str)
-            return True
+            logger.warning(
+                "Employee %s has invalid hire_date: %s, marking ineligible",
+                employee.get("id"),
+                hire_date_str,
+            )
+            return False
 
         # Check minimum employment days
         days_employed = (holiday_date - hire_date).days
@@ -318,7 +326,7 @@ class HolidayPayCalculator:
         """
         hire_date_str = employee.get("hire_date")
         if not hire_date_str:
-            return "unknown"
+            return "missing hire date"
 
         try:
             hire_date = date.fromisoformat(hire_date_str)

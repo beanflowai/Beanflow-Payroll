@@ -54,7 +54,7 @@ async def get_user_company_id(
         )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Company not found or access denied.",
+            detail="Company not found or access denied.",
         )
 
     # Fallback: return the first (oldest) company for the user

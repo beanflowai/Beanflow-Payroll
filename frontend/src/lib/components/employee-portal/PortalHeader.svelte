@@ -10,8 +10,11 @@
 		onSignOut?: () => void;
 	}
 
-	let { companyName = 'Acme Corporation', employeeName = 'Sarah Johnson', onSignOut }: Props =
-		$props();
+	let {
+		companyName = 'Acme Corporation',
+		employeeName = 'Sarah Johnson',
+		onSignOut
+	}: Props = $props();
 
 	function handleSignOut() {
 		onSignOut?.();

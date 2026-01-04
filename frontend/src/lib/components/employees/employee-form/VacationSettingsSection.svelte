@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Employee, VacationPayoutMethod } from '$lib/types/employee';
 	import type { VacationRatesConfig } from '$lib/services/configService';
+	import { formatCurrency } from '$lib/utils/formatUtils';
 
 	interface Props {
 		vacationRatePreset: string;
@@ -59,13 +60,9 @@
 		return options;
 	});
 
-	// Format currency for display
-	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD',
-			maximumFractionDigits: 0
-		}).format(amount);
+	// Format currency with no decimals for cleaner display
+	function formatCurrencyNoDecimals(amount: number): string {
+		return formatCurrency(amount, { maximumFractionDigits: 0 });
 	}
 
 	// Derived: Can edit vacation balance
@@ -73,18 +70,22 @@
 </script>
 
 <section class="bg-white rounded-xl p-6 shadow-md3-1">
-	<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">Vacation Settings</h3>
+	<h3 class="text-body-content font-semibold text-surface-700 m-0 mb-4 uppercase tracking-wide">
+		Vacation Settings
+	</h3>
 	<div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
 		<div class="flex flex-col gap-2">
-			<label for="vacationRate" class="text-body-small font-medium text-surface-700">Vacation Rate</label>
+			<label for="vacationRate" class="text-body-small font-medium text-surface-700"
+				>Vacation Rate</label
+			>
 			<select
 				id="vacationRate"
 				class="p-3 border border-surface-300 rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10"
 				value={vacationRatePreset}
 				onchange={(e) => onVacationRatePresetChange(e.currentTarget.value)}
 			>
-				{#each vacationRateOptions() as { value, label }}
-					<option value={value}>{label}</option>
+				{#each vacationRateOptions() as { value, label } (value)}
+					<option {value}>{label}</option>
 				{/each}
 			</select>
 			{#if vacationRatesConfig && vacationRatePreset !== '0' && vacationRatePreset !== 'custom'}
@@ -92,7 +93,9 @@
 				{#if parseFloat(vacationRatePreset) < parseFloat(minimumRate)}
 					<span class="text-auxiliary-text text-warning-600 flex items-center gap-1">
 						<i class="fas fa-exclamation-triangle"></i>
-						Provincial minimum for {vacationRatesConfig.name} is {(parseFloat(minimumRate) * 100).toFixed(2).replace(/\.?0+$/, '')}%
+						Provincial minimum for {vacationRatesConfig.name} is {(parseFloat(minimumRate) * 100)
+							.toFixed(2)
+							.replace(/\.?0+$/, '')}%
 					</span>
 				{/if}
 			{/if}
@@ -100,8 +103,14 @@
 
 		{#if vacationRatePreset === 'custom'}
 			<div class="flex flex-col gap-2">
-				<label for="customVacationRate" class="text-body-small font-medium text-surface-700">Custom Rate (%) *</label>
-				<div class="flex items-center border rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10 {errors.customVacationRate ? 'border-error-500' : 'border-surface-300'}">
+				<label for="customVacationRate" class="text-body-small font-medium text-surface-700"
+					>Custom Rate (%) *</label
+				>
+				<div
+					class="flex items-center border rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10 {errors.customVacationRate
+						? 'border-error-500'
+						: 'border-surface-300'}"
+				>
 					<input
 						id="customVacationRate"
 						type="number"
@@ -119,19 +128,24 @@
 				{#if errors.customVacationRate}
 					<span class="text-auxiliary-text text-error-600">{errors.customVacationRate}</span>
 				{:else}
-					<span class="text-auxiliary-text text-surface-500">Enter any percentage (e.g., 5.77 for Saskatchewan 3+ weeks)</span>
+					<span class="text-auxiliary-text text-surface-500"
+						>Enter any percentage (e.g., 5.77 for Saskatchewan 3+ weeks)</span
+					>
 				{/if}
 			</div>
 		{/if}
 
 		{#if vacationRatePreset !== '0'}
 			<div class="flex flex-col gap-2">
-				<label for="vacationMethod" class="text-body-small font-medium text-surface-700">Payout Method</label>
+				<label for="vacationMethod" class="text-body-small font-medium text-surface-700"
+					>Payout Method</label
+				>
 				<select
 					id="vacationMethod"
 					class="p-3 border border-surface-300 rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10"
 					value={vacationPayoutMethod}
-					onchange={(e) => onVacationPayoutMethodChange(e.currentTarget.value as VacationPayoutMethod)}
+					onchange={(e) =>
+						onVacationPayoutMethodChange(e.currentTarget.value as VacationPayoutMethod)}
 				>
 					<option value="accrual">Accrual (pay when vacation taken)</option>
 					<option value="pay_as_you_go">Pay as you go (add to each paycheck)</option>
@@ -144,7 +158,9 @@
 						<label for="vacationBalance" class="text-body-small font-medium text-surface-700">
 							{mode === 'create' ? 'Initial Vacation Balance' : 'Vacation Balance'}
 						</label>
-						<div class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10">
+						<div
+							class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10"
+						>
 							<span class="p-3 bg-surface-100 text-surface-500 text-body-content">$</span>
 							<input
 								id="vacationBalance"
@@ -157,14 +173,16 @@
 							/>
 						</div>
 						<span class="text-auxiliary-text text-surface-500">
-							{mode === 'create' ? 'Opening balance for vacation pay accrual' : 'Editable until first payroll is processed'}
+							{mode === 'create'
+								? 'Opening balance for vacation pay accrual'
+								: 'Editable until first payroll is processed'}
 						</span>
 					</div>
 				{:else}
 					<div class="flex flex-col gap-2">
 						<span class="text-body-small font-medium text-surface-700">Current Balance</span>
 						<div class="p-3 bg-surface-100 rounded-md text-body-content text-surface-600">
-							{formatCurrency(employee?.vacationBalance ?? 0)}
+							{formatCurrencyNoDecimals(employee?.vacationBalance ?? 0)}
 							<span class="text-auxiliary-text text-surface-400 ml-2">(managed by payroll)</span>
 						</div>
 					</div>

@@ -222,8 +222,8 @@ class TestTier3DataIntegrity:
 
         cpp2_cases = [c for c in cases if c.category == "cpp2"]
         ei_boundary_cases = [c for c in cases if c.category == "ei_boundary"]
-        ytd_cases = [c for c in cases if c.category == "ytd_max"]
-        k2_cases = [c for c in cases if c.category == "k2_periods"]
+        [c for c in cases if c.category == "ytd_max"]
+        [c for c in cases if c.category == "k2_periods"]
 
         assert len(cpp2_cases) >= 2, f"Expected at least 2 CPP2 boundary cases, got {len(cpp2_cases)}"
         assert len(ei_boundary_cases) >= 1, f"Expected at least 1 EI boundary case, got {len(ei_boundary_cases)}"

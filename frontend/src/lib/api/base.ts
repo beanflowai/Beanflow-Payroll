@@ -20,9 +20,9 @@ export interface APIResponse<T> {
 
 export class APIRequestError extends Error {
 	status: number;
-	detail?: any;
+	detail?: unknown;
 
-	constructor(message: string, status: number, detail?: any) {
+	constructor(message: string, status: number, detail?: unknown) {
 		super(message);
 		this.name = 'APIRequestError';
 		this.status = status;
@@ -31,14 +31,16 @@ export class APIRequestError extends Error {
 }
 
 export class BaseAPI {
-	protected async processResponse<T>(response: Response, url: string): Promise<T> {
+	protected async processResponse<T>(response: Response, _url: string): Promise<T> {
 		if (!response.ok) {
 			let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-			let errorData: any = null;
+			let errorData: Record<string, unknown> | null = null;
 			try {
 				errorData = await response.json();
-				const detail = (errorData as APIError).error || errorData?.detail?.userMessage;
-				errorMessage = detail || errorMessage;
+				const apiError = errorData as Record<string, unknown>;
+				const detail =
+					apiError?.error || (apiError?.detail as Record<string, unknown>)?.userMessage;
+				errorMessage = (detail as string) || errorMessage;
 			} catch {
 				// Ignore JSON parse errors
 			}
@@ -91,12 +93,20 @@ export class BaseAPI {
 		return await this.processResponse<T>(response, url);
 	}
 
-	protected async get<T>(endpoint: string, params?: Record<string, any>): Promise<T> {
-		const queryString = params ? '?' + new URLSearchParams(params).toString() : '';
+	protected async get<T>(
+		endpoint: string,
+		params?: Record<string, string | number | boolean>
+	): Promise<T> {
+		const queryString = params
+			? '?' +
+				new URLSearchParams(
+					Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)]))
+				).toString()
+			: '';
 		return this.request<T>(`${endpoint}${queryString}`, { method: 'GET' });
 	}
 
-	protected async post<T>(endpoint: string, body?: any): Promise<T> {
+	protected async post<T>(endpoint: string, body?: unknown): Promise<T> {
 		return this.request<T>(endpoint, {
 			method: 'POST',
 			body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined

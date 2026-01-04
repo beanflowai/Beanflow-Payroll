@@ -8,6 +8,8 @@ Tests:
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 
@@ -328,3 +330,176 @@ class TestCalculateBatch:
         assert response.status_code == 200
         data = response.json()
         assert data["summary"]["total_employees"] == 10
+
+
+class TestCalculateSingleErrorHandling:
+    """Tests for error handling in single employee calculation (lines 57, 65-76)."""
+
+    def test_calculate_single_returns_422_on_validation_errors(
+        self, client: TestClient, sample_calculation_request: dict
+    ):
+        """Return 422 when input validation fails (line 57)."""
+        request = sample_calculation_request.copy()
+        request["gross_regular"] = "-100.00"  # Invalid negative value
+
+        response = client.post(
+            "/api/v1/payroll/calculate",
+            json=request,
+        )
+
+        assert response.status_code == 422
+        assert "errors" in response.json()["detail"]
+
+    def test_calculate_single_returns_400_on_value_error(
+        self, client: TestClient, sample_calculation_request: dict
+    ):
+        """Return 400 when ValueError occurs during calculation (lines 67-72)."""
+        request = sample_calculation_request.copy()
+
+        # Mock result_to_response to raise ValueError
+        with patch(
+            "app.api.v1.payroll.calculation.result_to_response",
+            side_effect=ValueError("Test calculation error"),
+        ):
+            response = client.post(
+                "/api/v1/payroll/calculate",
+                json=request,
+            )
+
+        assert response.status_code == 400
+        assert "Test calculation error" in response.json()["detail"]
+
+    def test_calculate_single_returns_500_on_unexpected_error(
+        self, client: TestClient, sample_calculation_request: dict
+    ):
+        """Return 500 when unexpected exception occurs (lines 73-75)."""
+        request = sample_calculation_request.copy()
+
+        # Mock engine.calculate to raise generic Exception
+        with patch(
+            "app.services.payroll.PayrollEngine.calculate",
+            side_effect=RuntimeError("Unexpected system error"),
+        ):
+            response = client.post(
+                "/api/v1/payroll/calculate",
+                json=request,
+            )
+
+        assert response.status_code == 500
+        assert "Internal error during payroll calculation" in response.json()["detail"]
+
+
+class TestCalculateBatchErrorHandling:
+    """Tests for error handling in batch calculation (lines 112, 115, 144-151)."""
+
+    def test_calculate_batch_collects_all_validation_errors(
+        self, client: TestClient, sample_calculation_request: dict
+    ):
+        """Collect validation errors from all employees (lines 112, 115)."""
+        emp1 = sample_calculation_request.copy()
+        emp1["employee_id"] = "emp-001"
+        emp1["gross_regular"] = "-100"  # Invalid - fails PayrollEngine validation
+
+        emp2 = sample_calculation_request.copy()
+        emp2["employee_id"] = "emp-002"
+        emp2["gross_regular"] = "-200"  # Invalid - fails PayrollEngine validation
+
+        emp3 = sample_calculation_request.copy()
+        emp3["employee_id"] = "emp-003"
+        emp3["gross_regular"] = "-300"  # Invalid - fails PayrollEngine validation
+
+        request = {
+            "employees": [emp1, emp2, emp3],
+            "include_details": False,
+        }
+
+        response = client.post(
+            "/api/v1/payroll/calculate/batch",
+            json=request,
+        )
+
+        assert response.status_code == 422
+        detail = response.json()["detail"]
+        assert "validation_errors" in detail
+        assert len(detail["validation_errors"]) == 3
+
+    def test_calculate_batch_reraises_http_exception(
+        self, client: TestClient
+    ):
+        """Test that HTTPException is re-raised (line 144-145)."""
+        # Empty employee list triggers HTTPException at line 95-99
+        request = {
+            "employees": [],
+            "include_details": False,
+        }
+
+        response = client.post(
+            "/api/v1/payroll/calculate/batch",
+            json=request,
+        )
+
+        # Should return 422 for empty list
+        assert response.status_code == 422
+        assert "At least one employee" in response.json()["detail"]
+
+    def test_calculate_batch_returns_500_on_unexpected_error(
+        self, client: TestClient, sample_calculation_request: dict
+    ):
+        """Return 500 when unexpected exception occurs in batch (lines 148-150)."""
+        request = {
+            "employees": [sample_calculation_request],
+            "include_details": False,
+        }
+
+        # Mock engine.calculate_batch to raise generic Exception
+        with patch(
+            "app.services.payroll.PayrollEngine.calculate_batch",
+            side_effect=RuntimeError("Unexpected batch error"),
+        ):
+            response = client.post(
+                "/api/v1/payroll/calculate/batch",
+                json=request,
+            )
+
+        assert response.status_code == 500
+        assert "Internal error during batch payroll calculation" in response.json()["detail"]
+
+
+class TestCalculateEdgeCases:
+    """Tests for edge cases and error scenarios."""
+
+    def test_calculate_single_with_zero_gross(
+        self, client: TestClient, sample_calculation_request: dict
+    ):
+        """Handle zero gross pay edge case."""
+        request = sample_calculation_request.copy()
+        request["gross_regular"] = "0.00"
+        request["gross_overtime"] = "0.00"
+
+        response = client.post(
+            "/api/v1/payroll/calculate",
+            json=request,
+        )
+
+        # Should calculate with zero amounts
+        assert response.status_code == 200
+        data = response.json()
+        assert float(data["total_gross"]) == 0
+
+    def test_calculate_single_missing_employee_id(
+        self, client: TestClient
+    ):
+        """Reject request missing employee_id."""
+        request = {
+            "province": "ON",
+            "pay_frequency": "bi-weekly",
+            "gross_regular": "2500.00",
+            # Missing employee_id
+        }
+
+        response = client.post(
+            "/api/v1/payroll/calculate",
+            json=request,
+        )
+
+        assert response.status_code == 422

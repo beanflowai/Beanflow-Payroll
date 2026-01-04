@@ -1,10 +1,10 @@
 <script lang="ts">
 	import type { PayrollRun, PayrollRecord } from '$lib/types/payroll';
-	import { LEAVE_TYPE_LABELS } from '$lib/types/payroll';
 	import { Avatar } from '$lib/components/shared';
 	import PayrollRecordExpandedRow from './PayrollRecordExpandedRow.svelte';
 	import PaystubStatusBadge from './PaystubStatusBadge.svelte';
 	import LeaveTypeBadge from './LeaveTypeBadge.svelte';
+	import { formatCurrency } from '$lib/utils/formatUtils';
 
 	interface Props {
 		payrollRun: PayrollRun;
@@ -16,18 +16,34 @@
 		onLeaveClick?: (record: PayrollRecord) => void;
 	}
 
-	let { payrollRun, payrollRecords, expandedRecordId, onToggleExpand, onDownloadPaystub, onResendPaystub, onLeaveClick }: Props = $props();
+	let {
+		payrollRun,
+		payrollRecords,
+		expandedRecordId,
+		onToggleExpand,
+		onDownloadPaystub,
+		onResendPaystub,
+		onLeaveClick
+	}: Props = $props();
 
 	// Helper to get leave summary for a record
-	function getLeaveDisplay(record: PayrollRecord): { hasLeave: boolean; display: string; entries: { type: 'vacation' | 'sick'; hours: number }[] } {
+	function getLeaveDisplay(record: PayrollRecord): {
+		hasLeave: boolean;
+		display: string;
+		entries: { type: 'vacation' | 'sick'; hours: number }[];
+	} {
 		const entries = record.leaveEntries || [];
 		if (entries.length === 0) {
 			return { hasLeave: false, display: '-', entries: [] };
 		}
 
 		// Group by leave type
-		const vacationHours = entries.filter(e => e.leaveType === 'vacation').reduce((sum, e) => sum + e.hours, 0);
-		const sickHours = entries.filter(e => e.leaveType === 'sick').reduce((sum, e) => sum + e.hours, 0);
+		const vacationHours = entries
+			.filter((e) => e.leaveType === 'vacation')
+			.reduce((sum, e) => sum + e.hours, 0);
+		const sickHours = entries
+			.filter((e) => e.leaveType === 'sick')
+			.reduce((sum, e) => sum + e.hours, 0);
 
 		const parts: { type: 'vacation' | 'sick'; hours: number }[] = [];
 		if (vacationHours > 0) parts.push({ type: 'vacation', hours: vacationHours });
@@ -69,16 +85,11 @@
 		onResendPaystub?.(record);
 	}
 
-	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD',
-			minimumFractionDigits: 2
-		}).format(amount);
-	}
-
 	const otherDeductionsTotal = $derived(
-		payrollRecords.reduce((sum, r) => sum + r.rrsp + r.unionDues + r.garnishments + r.otherDeductions, 0)
+		payrollRecords.reduce(
+			(sum, r) => sum + r.rrsp + r.unionDues + r.garnishments + r.otherDeductions,
+			0
+		)
 	);
 </script>
 
@@ -132,10 +143,16 @@
 							</div>
 						</td>
 						<td class="col-amount">{formatCurrency(record.totalGross)}</td>
-						<td class="col-leave" onclick={(e) => { e.stopPropagation(); onLeaveClick?.(record); }}>
+						<td
+							class="col-leave"
+							onclick={(e) => {
+								e.stopPropagation();
+								onLeaveClick?.(record);
+							}}
+						>
 							{#if leaveInfo.hasLeave}
 								<div class="leave-badges">
-									{#each leaveInfo.entries as entry}
+									{#each leaveInfo.entries as entry (entry.type)}
 										<LeaveTypeBadge type={entry.type} hours={entry.hours} compact />
 									{/each}
 								</div>
@@ -148,7 +165,9 @@
 						<td class="col-amount">{formatCurrency(record.federalTax)}</td>
 						<td class="col-amount">{formatCurrency(record.provincialTax)}</td>
 						<td class="col-amount">
-							{formatCurrency(record.rrsp + record.unionDues + record.garnishments + record.otherDeductions)}
+							{formatCurrency(
+								record.rrsp + record.unionDues + record.garnishments + record.otherDeductions
+							)}
 						</td>
 						<td class="col-amount net-pay">{formatCurrency(record.netPay)}</td>
 						{#if showPaystubColumn}
@@ -200,9 +219,13 @@
 					<td class="col-amount"><strong>{formatCurrency(payrollRun.totalCppEmployee)}</strong></td>
 					<td class="col-amount"><strong>{formatCurrency(payrollRun.totalEiEmployee)}</strong></td>
 					<td class="col-amount"><strong>{formatCurrency(payrollRun.totalFederalTax)}</strong></td>
-					<td class="col-amount"><strong>{formatCurrency(payrollRun.totalProvincialTax)}</strong></td>
+					<td class="col-amount"
+						><strong>{formatCurrency(payrollRun.totalProvincialTax)}</strong></td
+					>
 					<td class="col-amount"><strong>{formatCurrency(otherDeductionsTotal)}</strong></td>
-					<td class="col-amount net-pay"><strong>{formatCurrency(payrollRun.totalNetPay)}</strong></td>
+					<td class="col-amount net-pay"
+						><strong>{formatCurrency(payrollRun.totalNetPay)}</strong></td
+					>
 					{#if showPaystubColumn}
 						<td></td>
 						<td></td>

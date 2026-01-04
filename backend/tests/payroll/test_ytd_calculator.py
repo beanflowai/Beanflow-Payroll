@@ -8,6 +8,12 @@ import pytest
 from app.services.payroll_run.ytd_calculator import YtdCalculator
 
 
+# Valid UUIDs for testing
+TEST_EMPLOYEE_ID = "12345678-1234-5678-1234-567812345678"
+TEST_RUN_ID = "87654321-4321-8765-4321-876543218765"
+TEST_RECORD_ID = "11111111-1111-1111-1111-111111111111"
+
+
 class TestYtdCalculatorInitialYtd:
     """Test YTD calculation including initial_ytd_* values from transferred employees"""
 
@@ -469,3 +475,192 @@ class TestYtdCalculatorInitialYtd:
 
         # Should return empty dict since year is NULL
         assert "emp-1" not in result
+
+
+class TestYtdCalculatorGetYtdRecords:
+    """Tests for get_ytd_records_for_employee method"""
+
+    @pytest.fixture
+    def mock_supabase(self):
+        """Create a mock Supabase client"""
+        return MagicMock()
+
+    @pytest.fixture
+    def calculator(self, mock_supabase):
+        """Create YtdCalculator instance with mock Supabase"""
+        return YtdCalculator(
+            supabase=mock_supabase,
+            user_id="test-user",
+            company_id="test-company"
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_ytd_records_for_employee(self, calculator, mock_supabase):
+        """Test get_ytd_records_for_employee returns PayrollRecord models"""
+        mock_supabase.table.return_value.select.return_value.eq.return_value.in_.return_value.gte.return_value.lte.return_value.neq.return_value.execute.return_value = MagicMock(
+            data=[
+                {
+                    "id": TEST_RECORD_ID,
+                    "employee_id": TEST_EMPLOYEE_ID,
+                    "payroll_run_id": TEST_RUN_ID,
+                    "gross_regular": "2000.00",
+                    "gross_overtime": "0",
+                    "holiday_pay": "0",
+                    "holiday_premium_pay": "0",
+                    "vacation_pay_paid": "0",
+                    "other_earnings": "0",
+                    "total_gross": "2000.00",
+                    "cpp_employee": "115.00",
+                    "cpp_additional": "0",
+                    "cpp_employer": "115.00",
+                    "ei_employee": "32.80",
+                    "ei_employer": "45.92",
+                    "federal_tax": "200.00",
+                    "provincial_tax": "100.00",
+                    "net_pay": "1552.20",
+                    "payroll_runs": {
+                        "id": TEST_RUN_ID,
+                        "pay_date": "2025-06-15",
+                        "status": "paid"
+                    }
+                }
+            ]
+        )
+
+        result = await calculator.get_ytd_records_for_employee(
+            employee_id=TEST_EMPLOYEE_ID,
+            current_run_id="run-123",
+            year=2025
+        )
+
+        assert len(result) == 1
+        assert str(result[0].employee_id) == TEST_EMPLOYEE_ID
+        assert result[0].total_gross == Decimal("2000.00")
+
+    @pytest.mark.asyncio
+    async def test_get_ytd_records_for_employee_empty(self, calculator, mock_supabase):
+        """Test get_ytd_records_for_employee returns empty list when no records"""
+        mock_supabase.table.return_value.select.return_value.eq.return_value.in_.return_value.gte.return_value.lte.return_value.neq.return_value.execute.return_value = MagicMock(
+            data=[]
+        )
+
+        result = await calculator.get_ytd_records_for_employee(
+            employee_id=TEST_EMPLOYEE_ID,
+            current_run_id="run-123",
+            year=2025
+        )
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_get_ytd_records_for_employee_excludes_current_run(self, calculator, mock_supabase):
+        """Test get_ytd_records_for_employee excludes current run"""
+        mock_supabase.table.return_value.select.return_value.eq.return_value.in_.return_value.gte.return_value.lte.return_value.neq.return_value.execute.return_value = MagicMock(
+            data=[
+                {
+                    "id": TEST_RECORD_ID,
+                    "employee_id": TEST_EMPLOYEE_ID,
+                    "payroll_run_id": TEST_RUN_ID,
+                    "total_gross": "2000.00",
+                    "cpp_employee": "115.00",
+                    "cpp_additional": "0",
+                    "cpp_employer": "115.00",
+                    "ei_employee": "32.80",
+                    "ei_employer": "45.92",
+                    "federal_tax": "200.00",
+                    "provincial_tax": "100.00",
+                    "net_pay": "1552.20",
+                    "gross_regular": "2000.00",
+                    "gross_overtime": "0",
+                    "holiday_pay": "0",
+                    "holiday_premium_pay": "0",
+                    "vacation_pay_paid": "0",
+                    "other_earnings": "0",
+                    "payroll_runs": {
+                        "id": TEST_RUN_ID,
+                        "pay_date": "2025-06-15",
+                        "status": "paid"
+                    }
+                }
+            ]
+        )
+
+        result = await calculator.get_ytd_records_for_employee(
+            employee_id=TEST_EMPLOYEE_ID,
+            current_run_id="run-current",
+            year=2025
+        )
+
+        # Should return the previous run record
+        assert len(result) == 1
+        assert str(result[0].payroll_run_id) == TEST_RUN_ID
+
+
+class TestYtdCalculatorEdgeCases:
+    """Tests for edge cases in YTD calculation"""
+
+    @pytest.fixture
+    def mock_supabase(self):
+        """Create a mock Supabase client"""
+        return MagicMock()
+
+    @pytest.fixture
+    def calculator(self, mock_supabase):
+        """Create YtdCalculator instance with mock Supabase"""
+        return YtdCalculator(
+            supabase=mock_supabase,
+            user_id="test-user",
+            company_id="test-company"
+        )
+
+    def test_get_prior_ytd_skips_unknown_employee_records(self, calculator, mock_supabase):
+        """Test get_prior_ytd_for_employees skips records for unknown employees"""
+        # Setup mock for employees table (initial YTD)
+        def mock_table(table_name):
+            if table_name == "employees":
+                mock_result = MagicMock()
+                mock_result.select.return_value.eq.return_value.eq.return_value.in_.return_value.execute.return_value = MagicMock(
+                    data=[]
+                )
+                return mock_result
+            elif table_name == "payroll_records":
+                # Return a record for an employee not in the initial list
+                mock_result = MagicMock()
+                mock_result.select.return_value.eq.return_value.eq.return_value.in_.return_value.in_.return_value.gte.return_value.lte.return_value.neq.return_value.execute.return_value = MagicMock(
+                    data=[
+                        {
+                            "employee_id": "emp-unknown",  # Not in requested list
+                            "gross_regular": "2000.00",
+                            "gross_overtime": "0",
+                            "holiday_pay": "0",
+                            "holiday_premium_pay": "0",
+                            "vacation_pay_paid": "0",
+                            "other_earnings": "0",
+                            "cpp_employee": "115.00",
+                            "cpp_additional": "0",
+                            "ei_employee": "32.80",
+                            "federal_tax": "200.00",
+                            "provincial_tax": "100.00",
+                            "net_pay": "1552.20",
+                            "payroll_runs": {
+                                "id": "run-1",
+                                "pay_date": "2025-06-15",
+                                "status": "paid"
+                            }
+                        }
+                    ]
+                )
+                return mock_result
+            return MagicMock()
+
+        mock_supabase.table.side_effect = mock_table
+
+        result = calculator.get_prior_ytd_for_employees(
+            employee_ids=["emp-1"],  # Only request emp-1
+            current_run_id="run-123",
+            year=2025
+        )
+
+        # Should only return data for emp-1 (empty in this case)
+        assert "emp-1" in result
+        assert "emp-unknown" not in result

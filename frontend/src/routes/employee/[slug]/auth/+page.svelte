@@ -7,7 +7,10 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { supabase } from '$lib/api/supabase';
-	import { PORTAL_COMPANY_CONTEXT_KEY, type PortalCompanyContext } from '$lib/types/employee-portal';
+	import {
+		PORTAL_COMPANY_CONTEXT_KEY,
+		type PortalCompanyContext
+	} from '$lib/types/employee-portal';
 
 	const portalContext = getContext<PortalCompanyContext>(PORTAL_COMPANY_CONTEXT_KEY);
 	const slug = $derived($page.params.slug);
@@ -248,12 +251,6 @@
 		border-top-color: white;
 		border-radius: 50%;
 		animation: spin 0.8s linear infinite;
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
 	}
 
 	.auth-note {

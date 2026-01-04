@@ -1,6 +1,12 @@
 <script lang="ts">
 	// PayGroupDeductionsSection - Custom Deductions table with add/edit/delete
-	import type { PayGroup, CustomDeduction, DeductionType, CalculationType, DeductionCategory } from '$lib/types/pay-group';
+	import type {
+		PayGroup,
+		CustomDeduction,
+		DeductionType,
+		CalculationType
+	} from '$lib/types/pay-group';
+	import { formatCurrency } from '$lib/utils/formatUtils';
 
 	interface Props {
 		payGroup: PayGroup;
@@ -111,16 +117,6 @@
 		editingDeductionIndex = null;
 	}
 
-	// Format currency
-	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD',
-			minimumFractionDigits: 0,
-			maximumFractionDigits: 2
-		}).format(amount);
-	}
-
 	// Format deduction tax treatment
 	function formatTaxTreatment(taxTreatment: DeductionType): string {
 		return taxTreatment === 'pre_tax' ? 'Pre-Tax' : 'Post-Tax';
@@ -132,33 +128,44 @@
 	}
 
 	// Modal validation
-	const isModalValid = $derived(
-		modalDeduction.name.trim().length > 0 && modalDeduction.amount > 0
-	);
+	const isModalValid = $derived(modalDeduction.name.trim().length > 0 && modalDeduction.amount > 0);
 </script>
 
 <section class="bg-white rounded-xl shadow-md3-1 overflow-hidden">
-	<div class="flex justify-between items-center py-4 px-5 bg-surface-50 border-b border-surface-100 max-md:flex-col max-md:gap-3 max-md:items-start">
+	<div
+		class="flex justify-between items-center py-4 px-5 bg-surface-50 border-b border-surface-100 max-md:flex-col max-md:gap-3 max-md:items-start"
+	>
 		<h2 class="flex items-center gap-2 text-title-medium font-semibold text-surface-800 m-0">
 			<i class="fas fa-receipt text-info-500"></i>
 			Custom Deductions
 		</h2>
 		{#if isEditing}
 			<div class="flex gap-2 max-md:w-full">
-				<button class="inline-flex items-center gap-2 py-2 px-4 rounded-md text-auxiliary-text font-medium cursor-pointer transition-[150ms] bg-transparent text-surface-600 border border-surface-200 hover:bg-surface-100 max-md:flex-1" onclick={cancelEdit}>Cancel</button>
-				<button class="inline-flex items-center gap-2 py-2 px-4 rounded-md text-auxiliary-text font-medium cursor-pointer transition-[150ms] bg-primary-500 text-white border-none hover:bg-primary-600 max-md:flex-1" onclick={saveChanges}>Save</button>
+				<button
+					class="inline-flex items-center gap-2 py-2 px-4 rounded-md text-auxiliary-text font-medium cursor-pointer transition-[150ms] bg-transparent text-surface-600 border border-surface-200 hover:bg-surface-100 max-md:flex-1"
+					onclick={cancelEdit}>Cancel</button
+				>
+				<button
+					class="inline-flex items-center gap-2 py-2 px-4 rounded-md text-auxiliary-text font-medium cursor-pointer transition-[150ms] bg-primary-500 text-white border-none hover:bg-primary-600 max-md:flex-1"
+					onclick={saveChanges}>Save</button
+				>
 			</div>
 		{:else}
-			<button class="inline-flex items-center gap-2 py-2 px-4 rounded-md text-auxiliary-text font-medium cursor-pointer transition-[150ms] bg-transparent text-primary-600 border border-primary-200 hover:bg-primary-50 hover:border-primary-300" onclick={enterEditMode}>
+			<button
+				class="inline-flex items-center gap-2 py-2 px-4 rounded-md text-auxiliary-text font-medium cursor-pointer transition-[150ms] bg-transparent text-primary-600 border border-primary-200 hover:bg-primary-50 hover:border-primary-300"
+				onclick={enterEditMode}
+			>
 				<i class="fas fa-pen"></i>
 				Edit
 			</button>
 		{/if}
 	</div>
 
-	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="p-5" ondblclick={handleDoubleClick}>
-		<div class="flex items-start gap-2 py-3 px-4 bg-surface-50 rounded-md mb-4 text-body-content text-surface-600">
+		<div
+			class="flex items-start gap-2 py-3 px-4 bg-surface-50 rounded-md mb-4 text-body-content text-surface-600"
+		>
 			<i class="fas fa-info-circle text-primary-500 mt-0.5"></i>
 			<span>
 				Define custom deductions that can be applied to employees in this pay group. These can
@@ -172,7 +179,9 @@
 			<div class="flex flex-col gap-4">
 				{#if editDeductions.length > 0}
 					<div class="border border-surface-200 rounded-lg overflow-hidden">
-						<div class="grid grid-cols-[2fr_1fr_1fr_1fr_80px_100px] gap-3 py-3 px-4 bg-surface-100 text-auxiliary-text font-semibold text-surface-600 uppercase max-md:hidden">
+						<div
+							class="grid grid-cols-[2fr_1fr_1fr_1fr_80px_100px] gap-3 py-3 px-4 bg-surface-100 text-auxiliary-text font-semibold text-surface-600 uppercase max-md:hidden"
+						>
 							<span>Name</span>
 							<span>Type</span>
 							<span>Amount</span>
@@ -180,16 +189,26 @@
 							<span>Default</span>
 							<span>Actions</span>
 						</div>
-						{#each editDeductions as deduction, index}
-							<div class="grid grid-cols-[2fr_1fr_1fr_1fr_80px_100px] gap-3 py-3 px-4 border-t border-surface-100 items-center hover:bg-surface-50 max-md:grid-cols-1 max-md:gap-2 max-md:p-4">
-								<span class="max-md:before:content-[attr(data-label)] max-md:before:font-medium max-md:before:text-surface-500 max-md:before:mr-2">
+						{#each editDeductions as deduction, index (index)}
+							<div
+								class="grid grid-cols-[2fr_1fr_1fr_1fr_80px_100px] gap-3 py-3 px-4 border-t border-surface-100 items-center hover:bg-surface-50 max-md:grid-cols-1 max-md:gap-2 max-md:p-4"
+							>
+								<span
+									class="max-md:before:content-[attr(data-label)] max-md:before:font-medium max-md:before:text-surface-500 max-md:before:mr-2"
+								>
 									<span class="font-medium text-surface-800 block">{deduction.name}</span>
 									{#if deduction.description}
-										<span class="text-auxiliary-text text-surface-500">{deduction.description}</span>
+										<span class="text-auxiliary-text text-surface-500">{deduction.description}</span
+										>
 									{/if}
 								</span>
 								<span>
-									<span class="inline-block py-1 px-2 rounded-full text-auxiliary-text {deduction.taxTreatment === 'pre_tax' ? 'bg-primary-50 text-primary-700' : 'bg-surface-100 text-surface-600'}">
+									<span
+										class="inline-block py-1 px-2 rounded-full text-auxiliary-text {deduction.taxTreatment ===
+										'pre_tax'
+											? 'bg-primary-50 text-primary-700'
+											: 'bg-surface-100 text-surface-600'}"
+									>
 										{formatTaxTreatment(deduction.taxTreatment)}
 									</span>
 								</span>
@@ -216,10 +235,18 @@
 									{/if}
 								</span>
 								<span class="flex gap-1">
-									<button class="w-8 h-8 flex items-center justify-center border-none bg-transparent text-surface-500 rounded-md cursor-pointer transition-[150ms] hover:bg-surface-100 hover:text-primary-600" onclick={() => openEditModal(index)} title="Edit">
+									<button
+										class="w-8 h-8 flex items-center justify-center border-none bg-transparent text-surface-500 rounded-md cursor-pointer transition-[150ms] hover:bg-surface-100 hover:text-primary-600"
+										onclick={() => openEditModal(index)}
+										title="Edit"
+									>
 										<i class="fas fa-pen"></i>
 									</button>
-									<button class="w-8 h-8 flex items-center justify-center border-none bg-transparent text-surface-500 rounded-md cursor-pointer transition-[150ms] hover:bg-error-50 hover:text-error-600" onclick={() => deleteDeduction(index)} title="Delete">
+									<button
+										class="w-8 h-8 flex items-center justify-center border-none bg-transparent text-surface-500 rounded-md cursor-pointer transition-[150ms] hover:bg-error-50 hover:text-error-600"
+										onclick={() => deleteDeduction(index)}
+										title="Delete"
+									>
 										<i class="fas fa-trash"></i>
 									</button>
 								</span>
@@ -228,12 +255,15 @@
 					</div>
 				{:else}
 					<div class="text-center py-8 px-4 text-surface-500">
-						<i class="fas fa-receipt text-[32px] mb-3 text-surface-300"></i>
+						<i class="fas fa-receipt text-headline-medium mb-3 text-surface-300"></i>
 						<p class="text-body-content m-0 mb-2">No custom deductions defined</p>
 					</div>
 				{/if}
 
-				<button class="inline-flex items-center gap-2 py-3 px-4 bg-primary-50 text-primary-600 border border-dashed border-primary-300 rounded-md text-body-content font-medium cursor-pointer transition-[150ms] hover:bg-primary-100 hover:border-solid" onclick={openAddModal}>
+				<button
+					class="inline-flex items-center gap-2 py-3 px-4 bg-primary-50 text-primary-600 border border-dashed border-primary-300 rounded-md text-body-content font-medium cursor-pointer transition-[150ms] hover:bg-primary-100 hover:border-solid"
+					onclick={openAddModal}
+				>
 					<i class="fas fa-plus"></i>
 					Add Deduction
 				</button>
@@ -243,16 +273,25 @@
 			<div class="cursor-pointer" title="Double-click to edit">
 				{#if (payGroup.deductionsConfig?.customDeductions ?? []).length > 0}
 					<div class="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-						{#each payGroup.deductionsConfig?.customDeductions ?? [] as deduction}
+						{#each payGroup.deductionsConfig?.customDeductions ?? [] as deduction (deduction.name)}
 							<div class="p-4 bg-surface-50 rounded-lg border border-surface-100">
 								<div class="flex justify-between items-start mb-2">
-									<span class="text-body-content font-semibold text-surface-800">{deduction.name}</span>
-									<span class="inline-block py-1 px-2 rounded-full text-auxiliary-text {deduction.taxTreatment === 'pre_tax' ? 'bg-primary-50 text-primary-700' : 'bg-surface-100 text-surface-600'}">
+									<span class="text-body-content font-semibold text-surface-800"
+										>{deduction.name}</span
+									>
+									<span
+										class="inline-block py-1 px-2 rounded-full text-auxiliary-text {deduction.taxTreatment ===
+										'pre_tax'
+											? 'bg-primary-50 text-primary-700'
+											: 'bg-surface-100 text-surface-600'}"
+									>
 										{formatTaxTreatment(deduction.taxTreatment)}
 									</span>
 								</div>
 								{#if deduction.description}
-									<p class="text-auxiliary-text text-surface-500 m-0 mb-3">{deduction.description}</p>
+									<p class="text-auxiliary-text text-surface-500 m-0 mb-3">
+										{deduction.description}
+									</p>
 								{/if}
 								<div class="flex flex-col gap-2">
 									<div class="flex justify-between items-center">
@@ -260,7 +299,9 @@
 										<span class="text-body-content font-medium text-surface-800">
 											{formatCalculation(deduction.calculationType, deduction.amount)}
 											{#if deduction.calculationType === 'percentage'}
-												<span class="text-auxiliary-text text-surface-500 font-normal">of gross pay</span>
+												<span class="text-auxiliary-text text-surface-500 font-normal"
+													>of gross pay</span
+												>
 											{/if}
 										</span>
 									</div>
@@ -290,8 +331,10 @@
 					</div>
 				{:else}
 					<div class="text-center py-8 px-4 text-surface-500">
-						<i class="fas fa-receipt text-[32px] mb-3 text-surface-300"></i>
-						<p class="text-body-content m-0 mb-2">No custom deductions defined for this pay group</p>
+						<i class="fas fa-receipt text-headline-medium mb-3 text-surface-300"></i>
+						<p class="text-body-content m-0 mb-2">
+							No custom deductions defined for this pay group
+						</p>
 						<span class="text-auxiliary-text">
 							Custom deductions can include RRSP contributions, parking fees, charitable donations,
 							and more.
@@ -300,7 +343,9 @@
 				{/if}
 			</div>
 
-			<p class="flex items-center gap-2 mt-4 pt-4 border-t border-dashed border-surface-200 text-auxiliary-text text-surface-400 m-0">
+			<p
+				class="flex items-center gap-2 mt-4 pt-4 border-t border-dashed border-surface-200 text-auxiliary-text text-surface-400 m-0"
+			>
 				<i class="fas fa-mouse-pointer"></i>
 				Double-click anywhere to edit
 			</p>
@@ -312,18 +357,32 @@
 {#if showDeductionModal}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000]" onclick={closeModal}>
-		<div class="bg-white rounded-xl w-full max-w-[500px] max-h-[90vh] overflow-y-auto shadow-md3-3" onclick={(e) => e.stopPropagation()}>
+	<div
+		class="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000]"
+		onclick={closeModal}
+	>
+		<div
+			class="bg-white rounded-xl w-full max-w-[500px] max-h-[90vh] overflow-y-auto shadow-md3-3"
+			onclick={(e) => e.stopPropagation()}
+		>
 			<div class="flex justify-between items-center py-4 px-5 border-b border-surface-100">
-				<h3 class="m-0 text-title-medium font-semibold text-surface-800">{editingDeductionIndex !== null ? 'Edit' : 'Add'} Deduction</h3>
-				<button class="w-8 h-8 flex items-center justify-center border-none bg-transparent text-surface-500 rounded-md cursor-pointer hover:bg-surface-100" onclick={closeModal} aria-label="Close">
+				<h3 class="m-0 text-title-medium font-semibold text-surface-800">
+					{editingDeductionIndex !== null ? 'Edit' : 'Add'} Deduction
+				</h3>
+				<button
+					class="w-8 h-8 flex items-center justify-center border-none bg-transparent text-surface-500 rounded-md cursor-pointer hover:bg-surface-100"
+					onclick={closeModal}
+					aria-label="Close"
+				>
 					<i class="fas fa-times"></i>
 				</button>
 			</div>
 
 			<div class="p-5 flex flex-col gap-4">
 				<div class="flex flex-col gap-1">
-					<label for="deduction-name" class="text-auxiliary-text font-medium text-surface-600">Name *</label>
+					<label for="deduction-name" class="text-auxiliary-text font-medium text-surface-600"
+						>Name *</label
+					>
 					<input
 						type="text"
 						id="deduction-name"
@@ -334,7 +393,10 @@
 				</div>
 
 				<div class="flex flex-col gap-1">
-					<label for="deduction-description" class="text-auxiliary-text font-medium text-surface-600">Description</label>
+					<label
+						for="deduction-description"
+						class="text-auxiliary-text font-medium text-surface-600">Description</label
+					>
 					<input
 						type="text"
 						id="deduction-description"
@@ -346,8 +408,14 @@
 
 				<div class="grid grid-cols-2 gap-4 max-md:grid-cols-1">
 					<div class="flex flex-col gap-1">
-						<label for="deduction-type" class="text-auxiliary-text font-medium text-surface-600">Tax Treatment</label>
-						<select id="deduction-type" class="p-3 border border-surface-200 rounded-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-[3px] focus:ring-primary-100" bind:value={modalDeduction.taxTreatment}>
+						<label for="deduction-type" class="text-auxiliary-text font-medium text-surface-600"
+							>Tax Treatment</label
+						>
+						<select
+							id="deduction-type"
+							class="p-3 border border-surface-200 rounded-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-[3px] focus:ring-primary-100"
+							bind:value={modalDeduction.taxTreatment}
+						>
 							<option value="pre_tax">Pre-Tax</option>
 							<option value="post_tax">Post-Tax</option>
 						</select>
@@ -359,8 +427,14 @@
 					</div>
 
 					<div class="flex flex-col gap-1">
-						<label for="calc-type" class="text-auxiliary-text font-medium text-surface-600">Calculation Type</label>
-						<select id="calc-type" class="p-3 border border-surface-200 rounded-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-[3px] focus:ring-primary-100" bind:value={modalDeduction.calculationType}>
+						<label for="calc-type" class="text-auxiliary-text font-medium text-surface-600"
+							>Calculation Type</label
+						>
+						<select
+							id="calc-type"
+							class="p-3 border border-surface-200 rounded-md text-body-content text-surface-800 bg-white focus:outline-none focus:border-primary-400 focus:ring-[3px] focus:ring-primary-100"
+							bind:value={modalDeduction.calculationType}
+						>
 							<option value="fixed">Fixed Amount</option>
 							<option value="percentage">Percentage of Gross</option>
 						</select>
@@ -375,7 +449,9 @@
 						{/if}
 					</label>
 					<div class="flex items-stretch">
-						<span class="flex items-center px-3 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">
+						<span
+							class="flex items-center px-3 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500"
+						>
 							{modalDeduction.calculationType === 'percentage' ? '%' : '$'}
 						</span>
 						<input
@@ -391,16 +467,24 @@
 
 				<div class="flex flex-col gap-1">
 					<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
-						<input type="checkbox" class="w-[18px] h-[18px] accent-primary-500" bind:checked={modalDeduction.isEmployerContribution} />
+						<input
+							type="checkbox"
+							class="w-[18px] h-[18px] accent-primary-500"
+							bind:checked={modalDeduction.isEmployerContribution}
+						/>
 						<span>Employer contributes to this deduction</span>
 					</label>
 				</div>
 
 				{#if modalDeduction.isEmployerContribution}
 					<div class="flex flex-col gap-1 ml-6 pl-4 border-l-2 border-primary-100">
-						<label for="employer-amount" class="text-auxiliary-text font-medium text-surface-600">Employer Contribution Amount</label>
+						<label for="employer-amount" class="text-auxiliary-text font-medium text-surface-600"
+							>Employer Contribution Amount</label
+						>
 						<div class="flex items-stretch">
-							<span class="flex items-center px-3 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500">
+							<span
+								class="flex items-center px-3 bg-surface-100 border border-surface-200 border-r-0 rounded-l-md text-body-content text-surface-500"
+							>
 								{modalDeduction.calculationType === 'percentage' ? '%' : '$'}
 							</span>
 							<input
@@ -417,7 +501,11 @@
 
 				<div class="flex flex-col gap-1">
 					<label class="flex items-center gap-2 text-body-content text-surface-700 cursor-pointer">
-						<input type="checkbox" class="w-[18px] h-[18px] accent-primary-500" bind:checked={modalDeduction.isDefaultEnabled} />
+						<input
+							type="checkbox"
+							class="w-[18px] h-[18px] accent-primary-500"
+							bind:checked={modalDeduction.isDefaultEnabled}
+						/>
 						<span>Enabled by default for new employees</span>
 					</label>
 					<p class="text-auxiliary-text text-surface-500 mt-1 m-0">
@@ -429,8 +517,15 @@
 			</div>
 
 			<div class="flex justify-end gap-3 py-4 px-5 border-t border-surface-100">
-				<button class="inline-flex items-center gap-2 py-2 px-4 rounded-md text-auxiliary-text font-medium cursor-pointer transition-[150ms] bg-transparent text-surface-600 border border-surface-200 hover:bg-surface-100" onclick={closeModal}>Cancel</button>
-				<button class="inline-flex items-center gap-2 py-3 px-5 bg-primary-500 text-white border-none rounded-md text-body-content font-medium cursor-pointer transition-[150ms] hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed" onclick={saveDeduction} disabled={!isModalValid}>
+				<button
+					class="inline-flex items-center gap-2 py-2 px-4 rounded-md text-auxiliary-text font-medium cursor-pointer transition-[150ms] bg-transparent text-surface-600 border border-surface-200 hover:bg-surface-100"
+					onclick={closeModal}>Cancel</button
+				>
+				<button
+					class="inline-flex items-center gap-2 py-3 px-5 bg-primary-500 text-white border-none rounded-md text-body-content font-medium cursor-pointer transition-[150ms] hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
+					onclick={saveDeduction}
+					disabled={!isModalValid}
+				>
 					{editingDeductionIndex !== null ? 'Save Changes' : 'Add Deduction'}
 				</button>
 			</div>

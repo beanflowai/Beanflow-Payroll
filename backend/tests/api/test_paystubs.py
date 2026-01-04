@@ -135,6 +135,41 @@ class TestGetPaystubDownloadUrl:
             assert response.status_code == 503
             assert "not configured" in response.json()["detail"]
 
+    def test_get_paystub_url_unexpected_error(
+        self,
+        client: TestClient,
+        mock_supabase_with_company,
+        mock_payroll_run_service,
+        sample_payroll_record: dict,
+    ):
+        """Return 500 on unexpected error (lines 130-132)."""
+        record_id = str(uuid4())
+        record_with_paystub = sample_payroll_record.copy()
+        record_with_paystub["id"] = record_id
+        record_with_paystub["paystub_storage_key"] = "some-key.pdf"
+        mock_payroll_run_service.get_record.return_value = record_with_paystub
+
+        # Mock generate_presigned_url_async to raise generic Exception
+        mock_storage = MagicMock()
+        mock_storage.generate_presigned_url_async = AsyncMock(
+            side_effect=RuntimeError("Unexpected storage error")
+        )
+
+        with patch(
+            "app.api.v1.payroll._helpers.get_supabase_client",
+            return_value=mock_supabase_with_company,
+        ), patch(
+            "app.api.v1.payroll.paystubs.get_payroll_run_service",
+            return_value=mock_payroll_run_service,
+        ), patch(
+            "app.api.v1.payroll.paystubs.get_paystub_storage",
+            return_value=mock_storage,
+        ):
+            response = client.get(f"/api/v1/payroll/records/{record_id}/paystub-url")
+
+            assert response.status_code == 500
+            assert "Internal error getting paystub URL" in response.json()["detail"]
+
     def test_get_paystub_url_unauthorized(self, unauthenticated_client: TestClient):
         """Reject unauthenticated requests."""
         record_id = str(uuid4())
@@ -259,3 +294,28 @@ class TestSendPaystubs:
         )
 
         assert response.status_code == 401
+
+    def test_send_paystubs_unexpected_error(
+        self,
+        client: TestClient,
+        mock_supabase_with_company,
+        mock_payroll_run_service,
+    ):
+        """Return 500 on unexpected error (lines 65-67)."""
+        run_id = str(uuid4())
+        # Mock send_paystubs to raise a non-ValueError exception
+        mock_payroll_run_service.send_paystubs.side_effect = RuntimeError(
+            "Unexpected system error"
+        )
+
+        with patch(
+            "app.api.v1.payroll._helpers.get_supabase_client",
+            return_value=mock_supabase_with_company,
+        ), patch(
+            "app.api.v1.payroll.paystubs.get_payroll_run_service",
+            return_value=mock_payroll_run_service,
+        ):
+            response = client.post(f"/api/v1/payroll/runs/{run_id}/send-paystubs")
+
+            assert response.status_code == 500
+            assert "Internal error sending paystubs" in response.json()["detail"]

@@ -9,8 +9,10 @@
 		getCompensationHistory,
 		getCurrentCompensation
 	} from '$lib/services/compensationService';
-	import { formatShortDate, getCurrentDate } from '$lib/utils/dateUtils';
+	import { formatShortDate } from '$lib/utils/dateUtils';
+	import { formatCurrency } from '$lib/utils/formatUtils';
 	import CompensationAdjustModal from '$lib/components/employees/CompensationAdjustModal.svelte';
+	import { Skeleton, AlertBanner, EmptyState } from '$lib/components/shared';
 
 	// Get employee ID from route params
 	const employeeId = $derived($page.params.id);
@@ -83,16 +85,6 @@
 		goto('/employees');
 	}
 
-	// Format currency
-	function formatCurrency(amount: number | null | undefined): string {
-		if (amount == null) return '-';
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD',
-			maximumFractionDigits: 2
-		}).format(amount);
-	}
-
 	// Format compensation display
 	function formatCompensation(comp: CompensationHistory): string {
 		if (comp.compensationType === 'hourly' && comp.hourlyRate != null) {
@@ -123,29 +115,32 @@
 
 <svelte:head>
 	<title>
-		{employee ? `${getFullName(employee)} - Compensation` : 'Compensation History'} - BeanFlow
-		Payroll
+		{employee ? `${getFullName(employee)} - Compensation` : 'Compensation History'} - BeanFlow Payroll
 	</title>
 </svelte:head>
 
 <div class="compensation-page">
 	{#if isLoading}
 		<!-- Loading State -->
-		<div class="loading-container">
-			<div class="loading-spinner"></div>
-			<p>Loading compensation history...</p>
+		<div class="loading-skeleton">
+			<div class="header-skeleton">
+				<Skeleton variant="circular" width="40px" height="40px" />
+				<div class="header-text-skeleton">
+					<Skeleton variant="text" width="200px" height="28px" />
+					<Skeleton variant="text" width="150px" height="18px" />
+				</div>
+			</div>
+			<Skeleton variant="rounded" height="200px" />
+			<Skeleton variant="rounded" height="300px" />
 		</div>
 	{:else if error && !employee}
 		<!-- Error State -->
-		<div class="error-state">
-			<i class="fas fa-exclamation-triangle"></i>
-			<h2>Error</h2>
-			<p>{error}</p>
-			<button class="btn-primary" onclick={handleBack}>
+		<AlertBanner type="error" title="Error" message={error}>
+			<button class="btn-primary mt-3" onclick={handleBack}>
 				<i class="fas fa-arrow-left"></i>
 				Back to Employees
 			</button>
-		</div>
+		</AlertBanner>
 	{:else if employee}
 		<!-- Header -->
 		<header class="page-header">
@@ -160,13 +155,13 @@
 
 		<!-- Error Banner -->
 		{#if error}
-			<div class="error-banner">
-				<i class="fas fa-exclamation-circle"></i>
-				<span>{error}</span>
-				<button class="error-dismiss" onclick={() => (error = null)} aria-label="Dismiss error">
-					<i class="fas fa-times"></i>
-				</button>
-			</div>
+			<AlertBanner
+				type="error"
+				title="Error"
+				message={error}
+				dismissible={true}
+				onDismiss={() => (error = null)}
+			/>
 		{/if}
 
 		<!-- Current Compensation Card -->
@@ -189,9 +184,7 @@
 					</div>
 					<div class="detail-row highlight">
 						<span class="detail-label">
-							{currentCompensation.compensationType === 'hourly'
-								? 'Hourly Rate'
-								: 'Annual Salary'}
+							{currentCompensation.compensationType === 'hourly' ? 'Hourly Rate' : 'Annual Salary'}
 						</span>
 						<span class="detail-value amount">
 							{formatCompensation(currentCompensation)}
@@ -257,10 +250,12 @@
 					</table>
 				</div>
 			{:else}
-				<div class="empty-history">
-					<i class="fas fa-history"></i>
-					<p>No compensation history available.</p>
-				</div>
+				<EmptyState
+					icon="fa-history"
+					title="No history"
+					description="No compensation history available."
+					variant="card"
+				/>
 			{/if}
 		</section>
 	{/if}
@@ -270,7 +265,7 @@
 {#if showAdjustModal && employee}
 	<CompensationAdjustModal
 		{employee}
-		currentCompensation={currentCompensation}
+		{currentCompensation}
 		onClose={() => (showAdjustModal = false)}
 		onSuccess={handleAdjustSuccess}
 	/>
@@ -326,40 +321,6 @@
 		font-size: var(--font-size-body-content);
 		color: var(--color-surface-500);
 		margin: var(--spacing-1) 0 0;
-	}
-
-	/* Error Banner */
-	.error-banner {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-		padding: var(--spacing-4);
-		background: var(--color-error-50, #fef2f2);
-		border: 1px solid var(--color-error-200, #fecaca);
-		border-radius: var(--radius-lg);
-		color: var(--color-error-700, #b91c1c);
-		margin-bottom: var(--spacing-4);
-	}
-
-	.error-banner i:first-child {
-		font-size: 1.25rem;
-	}
-
-	.error-banner span {
-		flex: 1;
-	}
-
-	.error-dismiss {
-		background: none;
-		border: none;
-		color: var(--color-error-500, #ef4444);
-		cursor: pointer;
-		padding: var(--spacing-1);
-		opacity: 0.7;
-	}
-
-	.error-dismiss:hover {
-		opacity: 1;
 	}
 
 	/* Current Compensation Card */
@@ -525,78 +486,23 @@
 		border-radius: var(--radius-full);
 	}
 
-	.empty-history {
-		text-align: center;
-		padding: var(--spacing-8);
-		color: var(--color-surface-400);
-	}
-
-	.empty-history i {
-		font-size: 48px;
-		margin-bottom: var(--spacing-4);
-	}
-
-	.empty-history p {
-		margin: 0;
-		font-size: var(--font-size-body-content);
-	}
-
-	/* Loading State */
-	.loading-container {
+	/* Loading Skeleton */
+	.loading-skeleton {
 		display: flex;
 		flex-direction: column;
+		gap: var(--spacing-6);
+	}
+
+	.header-skeleton {
+		display: flex;
 		align-items: center;
-		justify-content: center;
-		min-height: 400px;
 		gap: var(--spacing-4);
 	}
 
-	.loading-spinner {
-		width: 40px;
-		height: 40px;
-		border: 3px solid var(--color-surface-200);
-		border-top-color: var(--color-primary-500);
-		border-radius: 50%;
-		animation: spin 1s linear infinite;
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
-
-	.loading-container p {
-		color: var(--color-surface-500);
-		margin: 0;
-	}
-
-	/* Error State */
-	.error-state {
+	.header-text-skeleton {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		min-height: 400px;
-		text-align: center;
-		gap: var(--spacing-4);
-	}
-
-	.error-state i {
-		font-size: 48px;
-		color: var(--color-surface-400);
-	}
-
-	.error-state h2 {
-		font-size: var(--font-size-title-large);
-		color: var(--color-surface-800);
-		margin: 0;
-	}
-
-	.error-state p {
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-600);
-		margin: 0;
+		gap: var(--spacing-2);
 	}
 
 	.btn-primary {

@@ -6,11 +6,13 @@
 		EMPLOYMENT_TYPE_LABELS,
 		COLUMN_GROUP_LABELS,
 		EMPLOYEE_STATUS_LABELS,
+		PAY_PERIODS_PER_YEAR,
 		formatVacationRate
 	} from '$lib/types/employee';
 	import { Avatar } from '$lib/components/shared';
 	import { PortalStatusBadge } from '$lib/components/employees';
-	import { formatShortDate } from '$lib/utils/dateUtils';
+	import { formatDate } from '$lib/utils/dateUtils';
+	import { formatCurrency } from '$lib/utils/formatUtils';
 
 	interface Props {
 		employees: Employee[];
@@ -72,42 +74,24 @@
 	}
 
 	// Helpers
-	function formatCurrency(amount: number | null | undefined): string {
-		if (amount == null) return '-';
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD',
-			maximumFractionDigits: 0
-		}).format(amount);
+	function formatCurrencyNoDecimals(amount: number | null | undefined): string {
+		return formatCurrency(amount, { maximumFractionDigits: 0 });
 	}
 
 	function formatCompensation(emp: Employee): string {
 		if (emp.hourlyRate) return `$${emp.hourlyRate.toFixed(2)}/hr`;
-		if (emp.annualSalary) return `${formatCurrency(emp.annualSalary)}/yr`;
+		if (emp.annualSalary) return `${formatCurrencyNoDecimals(emp.annualSalary)}/yr`;
 		return '-';
-	}
-
-	function formatDate(dateStr: string | null | undefined): string {
-		if (!dateStr) return '-';
-		return formatShortDate(dateStr);
 	}
 
 	function getFullName(emp: Employee): string {
 		return `${emp.firstName} ${emp.lastName}`;
 	}
 
-	// Pay periods per year based on frequency
-	const PAY_PERIODS_MAP: Record<string, number> = {
-		weekly: 52,
-		bi_weekly: 26,
-		semi_monthly: 24,
-		monthly: 12
-	};
-
 	function getPerPeriodAmount(emp: Employee): string {
 		if (!emp.annualSalary) return '-';
-		const periods = PAY_PERIODS_MAP[emp.payFrequency] || 26;
-		return formatCurrency(emp.annualSalary / periods);
+		const periods = PAY_PERIODS_PER_YEAR[emp.payFrequency] || 26;
+		return formatCurrencyNoDecimals(emp.annualSalary / periods);
 	}
 
 	function handleRowClick(e: MouseEvent, empId: string) {
@@ -124,7 +108,7 @@
 
 <!-- Column Group Tabs -->
 <div class="column-group-tabs">
-	{#each Object.entries(COLUMN_GROUP_LABELS) as [key, label]}
+	{#each Object.entries(COLUMN_GROUP_LABELS) as [key, label] (key)}
 		<button
 			class="column-tab"
 			class:active={activeColumnGroup === key}
@@ -154,7 +138,10 @@
 					<th class="col-frequency">
 						<span class="header-with-tooltip">
 							Pay Freq
-							<span class="tooltip-trigger" title="Pay Frequency determines how often the employee is paid: Weekly (52/yr), Bi-weekly (26/yr), Semi-monthly (24/yr), or Monthly (12/yr).">
+							<span
+								class="tooltip-trigger"
+								title="Pay Frequency determines how often the employee is paid: Weekly (52/yr), Bi-weekly (26/yr), Semi-monthly (24/yr), or Monthly (12/yr)."
+							>
 								<i class="fas fa-info-circle"></i>
 							</span>
 						</span>
@@ -162,7 +149,10 @@
 					<th class="col-portal">
 						<span class="header-with-tooltip">
 							Portal
-							<span class="tooltip-trigger" title="Employee Self-Service Portal access status. Employees can view paystubs, update personal info, and download T4s.">
+							<span
+								class="tooltip-trigger"
+								title="Employee Self-Service Portal access status. Employees can view paystubs, update personal info, and download T4s."
+							>
 								<i class="fas fa-info-circle"></i>
 							</span>
 						</span>
@@ -172,7 +162,10 @@
 					<th class="col-province">
 						<span class="header-with-tooltip">
 							Province
-							<span class="tooltip-trigger" title="Province of Employment determines provincial tax rates. Use the province where the employee primarily works.">
+							<span
+								class="tooltip-trigger"
+								title="Province of Employment determines provincial tax rates. Use the province where the employee primarily works."
+							>
 								<i class="fas fa-info-circle"></i>
 							</span>
 						</span>
@@ -180,7 +173,10 @@
 					<th class="col-frequency">
 						<span class="header-with-tooltip">
 							Pay Freq
-							<span class="tooltip-trigger" title="Pay Frequency determines how often the employee is paid: Weekly (52/yr), Bi-weekly (26/yr), Semi-monthly (24/yr), or Monthly (12/yr).">
+							<span
+								class="tooltip-trigger"
+								title="Pay Frequency determines how often the employee is paid: Weekly (52/yr), Bi-weekly (26/yr), Semi-monthly (24/yr), or Monthly (12/yr)."
+							>
 								<i class="fas fa-info-circle"></i>
 							</span>
 						</span>
@@ -192,7 +188,10 @@
 					<th class="col-period">
 						<span class="header-with-tooltip">
 							Per Period
-							<span class="tooltip-trigger" title="Gross pay per pay period, calculated as Annual Salary ÷ Pay Periods (Weekly=52, Bi-weekly=26, Semi-monthly=24, Monthly=12)">
+							<span
+								class="tooltip-trigger"
+								title="Gross pay per pay period, calculated as Annual Salary ÷ Pay Periods (Weekly=52, Bi-weekly=26, Semi-monthly=24, Monthly=12)"
+							>
 								<i class="fas fa-info-circle"></i>
 							</span>
 						</span>
@@ -200,7 +199,10 @@
 					<th class="col-vacation">
 						<span class="header-with-tooltip">
 							Vacation Rate
-							<span class="tooltip-trigger" title="Percentage of gross pay accrued as vacation pay. Common rates: 4% (2 weeks), 6% (3 weeks), 8% (4 weeks).">
+							<span
+								class="tooltip-trigger"
+								title="Percentage of gross pay accrued as vacation pay. Common rates: 4% (2 weeks), 6% (3 weeks), 8% (4 weeks)."
+							>
 								<i class="fas fa-info-circle"></i>
 							</span>
 						</span>
@@ -208,7 +210,10 @@
 					<th class="col-balance">
 						<span class="header-with-tooltip">
 							Vac Balance
-							<span class="tooltip-trigger" title="Accumulated vacation pay balance. Updated automatically through payroll.">
+							<span
+								class="tooltip-trigger"
+								title="Accumulated vacation pay balance. Updated automatically through payroll."
+							>
 								<i class="fas fa-info-circle"></i>
 							</span>
 						</span>
@@ -217,7 +222,10 @@
 					<th class="col-claim">
 						<span class="header-with-tooltip">
 							Fed Claim
-							<span class="tooltip-trigger" title="Federal Basic Personal Amount from TD1 form. Reduces federal tax withheld. 2025 default: $16,129.">
+							<span
+								class="tooltip-trigger"
+								title="Federal Basic Personal Amount from TD1 form. Reduces federal tax withheld. 2025 default: $16,129."
+							>
 								<i class="fas fa-info-circle"></i>
 							</span>
 						</span>
@@ -225,7 +233,10 @@
 					<th class="col-claim">
 						<span class="header-with-tooltip">
 							Prov Claim
-							<span class="tooltip-trigger" title="Provincial Basic Personal Amount from TD1 provincial form. Varies by province.">
+							<span
+								class="tooltip-trigger"
+								title="Provincial Basic Personal Amount from TD1 provincial form. Varies by province."
+							>
 								<i class="fas fa-info-circle"></i>
 							</span>
 						</span>
@@ -292,58 +303,52 @@
 					{:else if activeColumnGroup === 'compensation'}
 						<td class="col-salary money">{formatCompensation(emp)}</td>
 						<td class="col-period money">{getPerPeriodAmount(emp)}</td>
-						<td class="col-vacation">{emp.vacationConfig?.vacationRate ? formatVacationRate(emp.vacationConfig.vacationRate) : 'Min.'}</td>
-						<td class="col-balance money">{formatCurrency(emp.vacationBalance)}</td>
+						<td class="col-vacation"
+							>{emp.vacationConfig?.vacationRate
+								? formatVacationRate(emp.vacationConfig.vacationRate)
+								: 'Min.'}</td
+						>
+						<td class="col-balance money">{formatCurrencyNoDecimals(emp.vacationBalance)}</td>
 					{:else if activeColumnGroup === 'tax'}
-						<td class="col-claim money">{formatCurrency(emp.federalAdditionalClaims)}</td>
-						<td class="col-claim money">{formatCurrency(emp.provincialAdditionalClaims)}</td>
+						<td class="col-claim money">{formatCurrencyNoDecimals(emp.federalAdditionalClaims)}</td>
+						<td class="col-claim money"
+							>{formatCurrencyNoDecimals(emp.provincialAdditionalClaims)}</td
+						>
 						<td class="col-exempt">
-							<span class="exempt-value" class:yes={emp.isCppExempt}>{emp.isCppExempt ? 'Yes' : 'No'}</span>
+							<span class="exempt-value" class:yes={emp.isCppExempt}
+								>{emp.isCppExempt ? 'Yes' : 'No'}</span
+							>
 						</td>
 						<td class="col-exempt">
-							<span class="exempt-value" class:yes={emp.isEiExempt}>{emp.isEiExempt ? 'Yes' : 'No'}</span>
+							<span class="exempt-value" class:yes={emp.isEiExempt}
+								>{emp.isEiExempt ? 'Yes' : 'No'}</span
+							>
 						</td>
 					{/if}
 
 					<td class="col-actions">
 						<div class="action-menu-container">
-							<button
-								class="action-btn"
-								title="Actions"
-								onclick={(e) => toggleMenu(e, emp.id)}
-							>
+							<button class="action-btn" title="Actions" onclick={(e) => toggleMenu(e, emp.id)}>
 								<i class="fas fa-ellipsis-v"></i>
 							</button>
 							{#if openMenuId === emp.id}
 								<div class="action-menu">
-									<button
-										class="menu-item"
-										onclick={(e) => handleMenuAction(e, 'view', emp)}
-									>
+									<button class="menu-item" onclick={(e) => handleMenuAction(e, 'view', emp)}>
 										<i class="fas fa-eye"></i>
 										View Details
 									</button>
-									<button
-										class="menu-item"
-										onclick={(e) => handleMenuAction(e, 'edit', emp)}
-									>
+									<button class="menu-item" onclick={(e) => handleMenuAction(e, 'edit', emp)}>
 										<i class="fas fa-edit"></i>
 										Edit
 									</button>
 									<div class="menu-divider"></div>
 									{#if emp.portalStatus === 'not_set'}
-										<button
-											class="menu-item"
-											onclick={(e) => handleMenuAction(e, 'invite', emp)}
-										>
+										<button class="menu-item" onclick={(e) => handleMenuAction(e, 'invite', emp)}>
 											<i class="fas fa-envelope"></i>
 											Invite to Portal
 										</button>
 									{:else if emp.portalStatus === 'invited'}
-										<button
-											class="menu-item"
-											onclick={(e) => handleMenuAction(e, 'resend', emp)}
-										>
+										<button class="menu-item" onclick={(e) => handleMenuAction(e, 'resend', emp)}>
 											<i class="fas fa-redo"></i>
 											Resend Invitation
 										</button>

@@ -77,7 +77,7 @@ class TestEligibilityCheck:
         assert result is True
 
     def test_no_hire_date(self, holiday_calculator):
-        """Employee without hire_date should be assumed eligible."""
+        """Employee without hire_date should be marked ineligible."""
         config = make_bc_config()
         employee = {"id": "emp-no-date"}
         holiday_date = date(2025, 1, 1)
@@ -86,7 +86,8 @@ class TestEligibilityCheck:
             employee, holiday_date, config
         )
 
-        assert result is True
+        # Employee without hire_date is ineligible
+        assert result is False
 
 
 class TestNewEmployeeFallback:

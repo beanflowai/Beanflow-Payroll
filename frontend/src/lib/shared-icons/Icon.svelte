@@ -1,9 +1,7 @@
 <script lang="ts">
-	import { setContext } from 'svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type { IconProps, IconComponentType } from './types';
 	import { ICON_SIZES, ICON_COLORS } from './types';
-	import type { LineIconName, FilledIconName, BrandIconName, IconVariant } from './types';
 	import { ICON_REGISTRY } from './index';
 
 	// 使用 ICON_REGISTRY 中的图标注册表
@@ -65,7 +63,7 @@
 						`./${name.charAt(0).toUpperCase() + name.slice(1)}Icon.svelte`
 					);
 					IconComponent = iconModule.default;
-				} catch (fallbackError) {
+				} catch (_fallbackError) {
 					console.warn(`Icon "${name}" not found in variant "${variant}"`);
 					error = true;
 				}
@@ -91,7 +89,7 @@
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault();
-			handleClick(event as any);
+			handleClick(event as unknown as MouseEvent);
 		}
 	}
 
@@ -138,12 +136,7 @@
 		onkeydown={handleKeydown}
 		{...restProps}
 	>
-		<svelte:component
-			this={IconComponent}
-			size={actualSize}
-			color={actualColor}
-			class="icon__svg"
-		/>
+		<IconComponent size={actualSize} color={actualColor} class="icon__svg" />
 	</div>
 {/if}
 

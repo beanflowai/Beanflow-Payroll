@@ -58,7 +58,7 @@ export function getProvincialBpa(province: string): string {
 		ON: '12747.00',
 		PE: '15050.00',
 		SK: '19491.00',
-		YT: '16129.00',
+		YT: '16129.00'
 	};
 	return bpaMap[province] ?? '12747.00'; // Default to ON if unknown
 }

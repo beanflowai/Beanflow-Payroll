@@ -12,7 +12,7 @@
 		children: Snippet;
 	}
 
-	let { id, icon, title, onEdit, children }: Props = $props();
+	let { id: _id, icon, title, onEdit, children }: Props = $props();
 </script>
 
 <div class="profile-section">

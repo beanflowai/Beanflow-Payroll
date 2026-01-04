@@ -10,9 +10,16 @@
 	 */
 	import BaseModal from '$lib/shared-base/BaseModal.svelte';
 	import type { TaxInfoFormData } from '$lib/types/employee-portal';
-	import { FEDERAL_BPA_2025, PROVINCIAL_BPA_2025, PROVINCE_LABELS, PROVINCES_WITH_EDITION_DIFF, type Province } from '$lib/types/employee';
+	import {
+		FEDERAL_BPA_2025,
+		PROVINCIAL_BPA_2025,
+		PROVINCE_LABELS,
+		PROVINCES_WITH_EDITION_DIFF,
+		type Province
+	} from '$lib/types/employee';
 	import { getBPADefaults, type BPADefaults } from '$lib/services/taxConfigService';
 	import { submitTaxChange } from '$lib/services/employeePortalService';
+	import { formatCurrency } from '$lib/utils/formatUtils';
 
 	interface Props {
 		visible: boolean;
@@ -33,9 +40,10 @@
 		const data = initialData;
 		return {
 			province: data.provinceOfEmployment as Province,
-			provinceName: PROVINCE_LABELS[data.provinceOfEmployment as Province] ?? data.provinceOfEmployment,
+			provinceName:
+				PROVINCE_LABELS[data.provinceOfEmployment as Province] ?? data.provinceOfEmployment,
 			federalAdditionalClaims: data.federalAdditionalClaims,
-			provincialAdditionalClaims: data.provincialAdditionalClaims,
+			provincialAdditionalClaims: data.provincialAdditionalClaims
 		};
 	})();
 
@@ -49,7 +57,9 @@
 
 	// Derived: Current BPA values (from API or fallback)
 	const federalBPA = $derived(bpaDefaults?.federalBPA ?? FEDERAL_BPA_2025);
-	const provincialBPA = $derived(bpaDefaults?.provincialBPA ?? PROVINCIAL_BPA_2025[province] ?? PROVINCIAL_BPA_2025.ON);
+	const provincialBPA = $derived(
+		bpaDefaults?.provincialBPA ?? PROVINCIAL_BPA_2025[province] ?? PROVINCIAL_BPA_2025.ON
+	);
 
 	// Form state - additional claims are now stored directly (no reverse calculation needed)
 	let federalAdditionalClaims = $state(initial.federalAdditionalClaims);
@@ -63,13 +73,15 @@
 		if (province && !bpaFetched) {
 			bpaFetched = true;
 			bpaLoading = true;
-			getBPADefaults(province).then(defaults => {
-				bpaDefaults = defaults;
-				bpaLoading = false;
-			}).catch(() => {
-				// Fallback values are already set via $derived
-				bpaLoading = false;
-			});
+			getBPADefaults(province)
+				.then((defaults) => {
+					bpaDefaults = defaults;
+					bpaLoading = false;
+				})
+				.catch(() => {
+					// Fallback values are already set via $derived
+					bpaLoading = false;
+				});
 		}
 	});
 
@@ -81,13 +93,9 @@
 	const federalTotalClaim = $derived(federalBPA + federalAdditionalClaims);
 	const provincialTotalClaim = $derived(provincialBPA + provincialAdditionalClaims);
 
-	function formatMoney(amount: number): string {
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD',
-			minimumFractionDigits: 0,
-			maximumFractionDigits: 0
-		}).format(amount);
+	// Format currency with no decimals for cleaner display
+	function formatCurrencyNoDecimals(amount: number): string {
+		return formatCurrency(amount, { maximumFractionDigits: 0 });
 	}
 
 	async function handleSubmit() {
@@ -113,7 +121,13 @@
 </script>
 
 <BaseModal {visible} {onclose} size="medium" title="Edit Tax Information">
-	<form class="edit-form" onsubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+	<form
+		class="edit-form"
+		onsubmit={(e) => {
+			e.preventDefault();
+			handleSubmit();
+		}}
+	>
 		{#if error}
 			<div class="error-banner">{error}</div>
 		{/if}
@@ -129,7 +143,8 @@
 					clip-rule="evenodd"
 				/>
 			</svg>
-			<span>Changes to tax information will be reviewed by your employer before taking effect.</span>
+			<span>Changes to tax information will be reviewed by your employer before taking effect.</span
+			>
 		</div>
 
 		<!-- SIN Display (read-only) -->
@@ -158,7 +173,7 @@
 						{#if bpaLoading}
 							<span class="loading">Loading...</span>
 						{:else}
-							{formatMoney(federalBPA)}
+							{formatCurrencyNoDecimals(federalBPA)}
 						{/if}
 					</div>
 				</div>
@@ -177,11 +192,12 @@
 				</div>
 				<div class="claim-item">
 					<span class="claim-sublabel">Total Claim Amount</span>
-					<div class="claim-value total">{formatMoney(federalTotalClaim)}</div>
+					<div class="claim-value total">{formatCurrencyNoDecimals(federalTotalClaim)}</div>
 				</div>
 			</div>
 			<p class="form-hint">
-				Enter additional claims from your TD1 form (spouse, dependants, disability, etc.) - the amount above the Basic Personal Amount.
+				Enter additional claims from your TD1 form (spouse, dependants, disability, etc.) - the
+				amount above the Basic Personal Amount.
 			</p>
 		</div>
 
@@ -200,9 +216,11 @@
 						{#if bpaLoading}
 							<span class="loading">Loading...</span>
 						{:else}
-							{formatMoney(provincialBPA)}
-							{#if bpaDefaults && PROVINCES_WITH_EDITION_DIFF.includes(province as typeof PROVINCES_WITH_EDITION_DIFF[number])}
-								<span class="edition-note">Edition: {bpaDefaults.edition === 'jan' ? 'January' : 'July'}</span>
+							{formatCurrencyNoDecimals(provincialBPA)}
+							{#if bpaDefaults && PROVINCES_WITH_EDITION_DIFF.includes(province as (typeof PROVINCES_WITH_EDITION_DIFF)[number])}
+								<span class="edition-note"
+									>Edition: {bpaDefaults.edition === 'jan' ? 'January' : 'July'}</span
+								>
 							{/if}
 						{/if}
 					</div>
@@ -222,7 +240,7 @@
 				</div>
 				<div class="claim-item">
 					<span class="claim-sublabel">Total Claim Amount</span>
-					<div class="claim-value total">{formatMoney(provincialTotalClaim)}</div>
+					<div class="claim-value total">{formatCurrencyNoDecimals(provincialTotalClaim)}</div>
 				</div>
 			</div>
 		</div>
@@ -252,10 +270,10 @@
 
 	.error-banner {
 		padding: var(--spacing-3) var(--spacing-4);
-		background: var(--color-danger-50);
-		border: 1px solid var(--color-danger-200);
+		background: var(--color-error-50);
+		border: 1px solid var(--color-error-200);
 		border-radius: var(--radius-md);
-		color: var(--color-danger-700);
+		color: var(--color-error-700);
 		font-size: var(--font-size-auxiliary-text);
 	}
 

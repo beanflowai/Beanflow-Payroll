@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import type { Employee, ColumnGroup, EmployeeFilters, EmployeeStatusCounts } from '$lib/types/employee';
-	import {
-		PROVINCE_LABELS,
-		DEFAULT_EMPLOYEE_FILTERS
+	import type {
+		Employee,
+		ColumnGroup,
+		EmployeeFilters,
+		EmployeeStatusCounts
 	} from '$lib/types/employee';
+	import { PROVINCE_LABELS, DEFAULT_EMPLOYEE_FILTERS } from '$lib/types/employee';
 	import type { PayGroup } from '$lib/types/pay-group';
 	import type { EmployeeWithPortalStatus } from '$lib/types/employee-portal';
 	import {
@@ -13,6 +15,7 @@
 		EmployeeFilters as EmployeeFiltersComponent,
 		InviteToPortalModal
 	} from '$lib/components/employees';
+	import { AlertBanner, TableSkeleton, EmptyState } from '$lib/components/shared';
 	import { listEmployees } from '$lib/services/employeeService';
 	import { listPayGroups } from '$lib/services/payGroupService';
 	import { companyState } from '$lib/stores/company.svelte';
@@ -93,7 +96,8 @@
 			if (filters.payFrequency !== 'all' && emp.payFrequency !== filters.payFrequency) return false;
 
 			// Employment type filter
-			if (filters.employmentType !== 'all' && emp.employmentType !== filters.employmentType) return false;
+			if (filters.employmentType !== 'all' && emp.employmentType !== filters.employmentType)
+				return false;
 
 			// Compensation type filter
 			if (filters.compensationType !== 'all') {
@@ -143,7 +147,8 @@
 	const summaryCounts = $derived({
 		total: employees.length,
 		active: employees.filter((e) => e.status === 'active').length,
-		salaried: employees.filter((e) => e.annualSalary !== null && e.annualSalary !== undefined).length,
+		salaried: employees.filter((e) => e.annualSalary !== null && e.annualSalary !== undefined)
+			.length,
 		hourly: employees.filter((e) => e.hourlyRate !== null && e.hourlyRate !== undefined).length,
 		unassigned: employees.filter((e) => !e.payGroupId).length
 	});
@@ -213,7 +218,7 @@
 		showInviteModal = true;
 	}
 
-	function handleInviteSuccess(employeeIds: string[]) {
+	function handleInviteSuccess(_employeeIds: string[]) {
 		// Refresh employee list to get updated portal status
 		loadEmployees();
 		showInviteModal = false;
@@ -253,13 +258,13 @@
 
 		<!-- Error Message -->
 		{#if error}
-			<div class="error-banner">
-				<i class="fas fa-exclamation-circle"></i>
-				<span>{error}</span>
-				<button class="error-dismiss" onclick={() => error = null} aria-label="Dismiss error">
-					<i class="fas fa-times"></i>
-				</button>
-			</div>
+			<AlertBanner
+				type="error"
+				title="Failed to load employees"
+				message={error}
+				dismissible
+				onDismiss={() => (error = null)}
+			/>
 		{/if}
 
 		<!-- Summary Cards -->
@@ -317,10 +322,7 @@
 
 		<!-- Loading State -->
 		{#if isLoading}
-			<div class="loading-container">
-				<div class="loading-spinner"></div>
-				<p>Loading employees...</p>
-			</div>
+			<TableSkeleton rows={8} columns={5} />
 		{:else}
 			<!-- Employee Filters -->
 			<EmployeeFiltersComponent
@@ -330,23 +332,46 @@
 				onFiltersChange={(newFilters) => (filters = newFilters)}
 			/>
 
-			<!-- Employee Table -->
-			<EmployeeTable
-				employees={filteredEmployees()}
-				{selectedIds}
-				{activeColumnGroup}
-				onToggleSelectAll={toggleSelectAll}
-				onToggleSelect={toggleSelect}
-				onRowClick={handleRowClick}
-				onInviteToPortal={handleInviteToPortal}
-			/>
+			{#if employees.length === 0}
+				<!-- Empty State - No employees at all -->
+				<EmptyState
+					icon="fa-users"
+					title="No employees yet"
+					description="Add your first employee to get started with payroll management."
+					actionLabel="Add Employee"
+					onAction={handleAddEmployee}
+					variant="card"
+				/>
+			{:else if filteredEmployees().length === 0}
+				<!-- Empty State - No results for filters -->
+				<EmptyState
+					icon="fa-filter"
+					title="No matching employees"
+					description="Try adjusting your filters to find employees."
+					variant="card"
+				/>
+			{:else}
+				<!-- Employee Table -->
+				<EmployeeTable
+					employees={filteredEmployees()}
+					{selectedIds}
+					{activeColumnGroup}
+					onToggleSelectAll={toggleSelectAll}
+					onToggleSelect={toggleSelect}
+					onRowClick={handleRowClick}
+					onInviteToPortal={handleInviteToPortal}
+				/>
 
-			<!-- Results Summary -->
-			<div class="results-summary">
-				<span class="results-count">
-					Showing {filteredEmployees().length} of {employees.length} employee{employees.length !== 1 ? 's' : ''}
-				</span>
-			</div>
+				<!-- Results Summary -->
+				<div class="results-summary">
+					<span class="results-count">
+						Showing {filteredEmployees().length} of {employees.length} employee{employees.length !==
+						1
+							? 's'
+							: ''}
+					</span>
+				</div>
+			{/if}
 		{/if}
 	</div>
 
@@ -434,13 +459,13 @@
 	}
 
 	.summary-icon.salaried {
-		background: var(--color-info-100, #e0f2fe);
-		color: var(--color-info-600, #0284c7);
+		background: var(--color-info-100);
+		color: var(--color-info-600);
 	}
 
 	.summary-icon.hourly {
-		background: var(--color-secondary-100, #f5f3ff);
-		color: var(--color-secondary-600, #7c3aed);
+		background: var(--color-secondary-100);
+		color: var(--color-secondary-600);
 	}
 
 	.summary-icon.unassigned {
@@ -534,70 +559,6 @@
 	.btn-secondary:disabled {
 		opacity: 0.6;
 		cursor: not-allowed;
-	}
-
-	/* Error Banner */
-	.error-banner {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-		padding: var(--spacing-4);
-		background: var(--color-danger-50, #fef2f2);
-		border: 1px solid var(--color-danger-200, #fecaca);
-		border-radius: var(--radius-lg);
-		color: var(--color-danger-700, #b91c1c);
-		margin-bottom: var(--spacing-4);
-	}
-
-	.error-banner i:first-child {
-		font-size: 1.25rem;
-	}
-
-	.error-banner span {
-		flex: 1;
-	}
-
-	.error-dismiss {
-		background: none;
-		border: none;
-		color: var(--color-danger-500, #ef4444);
-		cursor: pointer;
-		padding: var(--spacing-1);
-		opacity: 0.7;
-	}
-
-	.error-dismiss:hover {
-		opacity: 1;
-	}
-
-	/* Loading State */
-	.loading-container {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: var(--spacing-12) var(--spacing-6);
-		gap: var(--spacing-4);
-	}
-
-	.loading-spinner {
-		width: 40px;
-		height: 40px;
-		border: 3px solid var(--color-surface-200);
-		border-top-color: var(--color-primary-500, #3b82f6);
-		border-radius: 50%;
-		animation: spin 1s linear infinite;
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
-
-	.loading-container p {
-		color: var(--color-surface-500);
-		margin: 0;
 	}
 
 	/* Results Summary */

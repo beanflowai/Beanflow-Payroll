@@ -19,7 +19,7 @@
 		return {
 			compensationType: (comp?.compensationType || 'salary') as CompensationType,
 			annualSalary: comp?.annualSalary?.toString() || '',
-			hourlyRate: comp?.hourlyRate?.toString() || '',
+			hourlyRate: comp?.hourlyRate?.toString() || ''
 		};
 	})();
 
@@ -229,9 +229,7 @@
 				{#if validationErrors().effectiveDate}
 					<span class="error-text">{validationErrors().effectiveDate}</span>
 				{/if}
-				<span class="help-text">
-					The date when this compensation change takes effect
-				</span>
+				<span class="help-text"> The date when this compensation change takes effect </span>
 			</div>
 
 			<!-- Change Reason -->

@@ -256,7 +256,7 @@ class TestCreateOrGetRunByPeriodEnd:
         mock_create_records_func.return_value = ([], [])
         mock_get_run_func.return_value = None
 
-        result = await run_operations.create_or_get_run_by_period_end("2025-01-17")
+        await run_operations.create_or_get_run_by_period_end("2025-01-17")
 
         # Verify insert was called with correct period_start
         insert_call = mock_table.insert.call_args[0][0]
@@ -321,7 +321,7 @@ class TestCreateOrGetRunByPeriodEnd:
         mock_create_records_func.return_value = ([], [])
         mock_get_run_func.return_value = None
 
-        result = await run_operations.create_or_get_run_by_period_end("2025-01-31")
+        await run_operations.create_or_get_run_by_period_end("2025-01-31")
 
         # Verify insert was called with correct period_start
         insert_call = mock_table.insert.call_args[0][0]
@@ -386,7 +386,7 @@ class TestCreateOrGetRunByPeriodEnd:
         mock_create_records_func.return_value = ([], [])
         mock_get_run_func.return_value = None
 
-        result = await run_operations.create_or_get_run_by_period_end("2025-01-15")
+        await run_operations.create_or_get_run_by_period_end("2025-01-15")
 
         # Verify insert was called with correct period_start
         insert_call = mock_table.insert.call_args[0][0]
@@ -451,7 +451,7 @@ class TestCreateOrGetRunByPeriodEnd:
         mock_create_records_func.return_value = ([], [])
         mock_get_run_func.return_value = None
 
-        result = await run_operations.create_or_get_run_by_period_end("2025-01-31")
+        await run_operations.create_or_get_run_by_period_end("2025-01-31")
 
         # Verify insert was called with correct period_start
         insert_call = mock_table.insert.call_args[0][0]

@@ -170,7 +170,7 @@ class TestTier5DataIntegrity:
         cases = load_tier_cases(TIER)
 
         pre_july_cases = [c for c in cases if c.category == "pre_july"]
-        post_july_cases = [c for c in cases if c.category == "post_july"]
+        [c for c in cases if c.category == "post_july"]
 
         assert len(pre_july_cases) >= 1, f"Expected at least 1 pre-July case, got {len(pre_july_cases)}"
 

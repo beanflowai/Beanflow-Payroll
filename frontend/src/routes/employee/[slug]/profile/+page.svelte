@@ -9,10 +9,17 @@
 	import ProfileField from '$lib/components/employee-portal/ProfileField.svelte';
 	import EditPersonalInfoModal from '$lib/components/employee-portal/EditPersonalInfoModal.svelte';
 	import EditTaxInfoModal from '$lib/components/employee-portal/EditTaxInfoModal.svelte';
-	import type { EmployeePortalProfile, PersonalInfoFormData, TaxInfoFormData, PortalCompanyContext } from '$lib/types/employee-portal';
+	import type {
+		EmployeePortalProfile,
+		PersonalInfoFormData,
+		TaxInfoFormData,
+		PortalCompanyContext
+	} from '$lib/types/employee-portal';
 	import { PORTAL_COMPANY_CONTEXT_KEY } from '$lib/types/employee-portal';
 	import { getMyProfile } from '$lib/services/employeePortalService';
 	import { formatShortDate } from '$lib/utils/dateUtils';
+	import { formatCurrency } from '$lib/utils/formatUtils';
+	import { Skeleton, AlertBanner } from '$lib/components/shared';
 
 	// Get company context from layout
 	const portalContext = getContext<PortalCompanyContext>(PORTAL_COMPANY_CONTEXT_KEY);
@@ -44,14 +51,6 @@
 		}
 	}
 
-	function formatMoney(amount: number): string {
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD',
-			minimumFractionDigits: 2
-		}).format(amount);
-	}
-
 	// Handle personal info save - refresh profile data
 	function handlePersonalInfoSave(_data: PersonalInfoFormData) {
 		loadProfile();
@@ -66,18 +65,22 @@
 <div class="profile-page">
 	{#if loading}
 		<!-- Loading State -->
-		<div class="loading-state">
-			<div class="loading-spinner"></div>
-			<p>Loading profile...</p>
+		<div class="loading-skeleton">
+			<div class="header-skeleton">
+				<Skeleton variant="circular" width="72px" height="72px" />
+				<div class="header-text-skeleton">
+					<Skeleton variant="text" width="200px" height="28px" />
+					<Skeleton variant="text" width="150px" height="18px" />
+				</div>
+			</div>
+			<Skeleton variant="rounded" height="200px" />
+			<Skeleton variant="rounded" height="150px" />
 		</div>
 	{:else if error}
 		<!-- Error State -->
-		<div class="error-state">
-			<div class="error-icon">!</div>
-			<h2>Unable to load profile</h2>
-			<p>{error}</p>
-			<button class="retry-btn" onclick={loadProfile}>Try Again</button>
-		</div>
+		<AlertBanner type="error" title="Unable to load profile" message={error}>
+			<button class="retry-btn mt-2" onclick={loadProfile}>Try Again</button>
+		</AlertBanner>
 	{:else if profile}
 		<!-- Profile Content -->
 		<header class="page-header">
@@ -135,11 +138,11 @@
 				<ProfileField label="SIN" value={profile.sin || 'Not on file'} />
 				<ProfileField
 					label="Federal Additional Claims"
-					value={formatMoney(profile.federalAdditionalClaims)}
+					value={formatCurrency(profile.federalAdditionalClaims)}
 				/>
 				<ProfileField
 					label="Provincial Additional Claims"
-					value={formatMoney(profile.provincialAdditionalClaims)}
+					value={formatCurrency(profile.provincialAdditionalClaims)}
 				/>
 			</ProfileSection>
 
@@ -159,7 +162,6 @@
 			</ProfileSection>
 			-->
 		</div>
-
 	{/if}
 </div>
 
@@ -206,69 +208,29 @@
 		margin: 0 auto;
 	}
 
-	/* Loading State */
-	.loading-state {
+	/* Loading Skeleton */
+	.loading-skeleton {
 		display: flex;
 		flex-direction: column;
+		gap: var(--spacing-4);
+	}
+
+	.header-skeleton {
+		display: flex;
 		align-items: center;
-		justify-content: center;
-		padding: var(--spacing-12);
-		color: var(--color-surface-600);
+		gap: var(--spacing-4);
+		margin-bottom: var(--spacing-2);
 	}
 
-	.loading-spinner {
-		width: 40px;
-		height: 40px;
-		border: 3px solid var(--color-surface-200);
-		border-top-color: var(--color-primary-500);
-		border-radius: 50%;
-		animation: spin 1s linear infinite;
-		margin-bottom: var(--spacing-4);
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
-
-	/* Error State */
-	.error-state {
+	.header-text-skeleton {
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: var(--spacing-12);
-		text-align: center;
-	}
-
-	.error-icon {
-		width: 48px;
-		height: 48px;
-		background: var(--color-danger-100);
-		color: var(--color-danger-600);
-		border-radius: 50%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: var(--font-size-title-large);
-		font-weight: var(--font-weight-bold);
-		margin-bottom: var(--spacing-4);
-	}
-
-	.error-state h2 {
-		color: var(--color-surface-900);
-		margin: 0 0 var(--spacing-2) 0;
-	}
-
-	.error-state p {
-		color: var(--color-surface-600);
-		margin: 0 0 var(--spacing-4) 0;
+		gap: var(--spacing-2);
 	}
 
 	.retry-btn {
-		padding: var(--spacing-3) var(--spacing-6);
-		background: var(--color-primary-500);
+		padding: var(--spacing-2) var(--spacing-4);
+		background: var(--color-error-500);
 		color: white;
 		border: none;
 		border-radius: var(--radius-md);
@@ -278,7 +240,7 @@
 	}
 
 	.retry-btn:hover {
-		background: var(--color-primary-600);
+		background: var(--color-error-600);
 	}
 
 	/* Profile Content */

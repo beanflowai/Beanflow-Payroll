@@ -767,3 +767,174 @@ class TestProvincialTaxPDOCValidation:
         # Alberta has relatively simple tax structure
         assert result.tax_per_period > Decimal("100")
         assert result.tax_per_period < Decimal("300")
+
+
+class TestNonOntarianSurtaxReturnsZero:
+    """Test non-Ontario provinces return 0 for surtax (line 358, 467)."""
+
+    def test_bc_no_surtax(self):
+        """Test: BC calculator returns 0 for Ontario surtax method."""
+        calc = ProvincialTaxCalculator("BC", 26, 2025)
+
+        result = calc.calculate_provincial_tax(
+            annual_taxable_income=Decimal("100000"),
+            total_claim_amount=Decimal("12747"),
+            cpp_per_period=Decimal("140"),
+            ei_per_period=Decimal("40"),
+        )
+
+        # BC should have no Ontario surtax
+        assert result.surtax_v1 == Decimal("0")
+
+    def test_ab_no_surtax(self):
+        """Test: AB calculator returns 0 for surtax."""
+        calc = ProvincialTaxCalculator("AB", 26, 2025)
+
+        result = calc.calculate_provincial_tax(
+            annual_taxable_income=Decimal("150000"),
+            total_claim_amount=Decimal("22323"),
+            cpp_per_period=Decimal("155"),
+            ei_per_period=Decimal("41"),
+        )
+
+        # AB should have no surtax
+        assert result.surtax_v1 == Decimal("0")
+
+    def test_sk_no_surtax(self):
+        """Test: SK calculator returns 0 for surtax."""
+        calc = ProvincialTaxCalculator("SK", 26, 2025)
+
+        result = calc.calculate_provincial_tax(
+            annual_taxable_income=Decimal("100000"),
+            total_claim_amount=Decimal("19645"),
+            cpp_per_period=Decimal("140"),
+            ei_per_period=Decimal("40"),
+        )
+
+        # SK should have no Ontario surtax
+        assert result.surtax_v1 == Decimal("0")
+
+
+class TestNonOntarioHealthPremiumReturnsZero:
+    """Test non-Ontario provinces return 0 for health premium (line 391)."""
+
+    def test_bc_no_health_premium(self):
+        """Test: BC calculator returns 0 for Ontario health premium (line 391)."""
+        calc = ProvincialTaxCalculator("BC", 26, 2025)
+
+        result = calc.calculate_provincial_tax(
+            annual_taxable_income=Decimal("100000"),
+            total_claim_amount=Decimal("12747"),
+            cpp_per_period=Decimal("140"),
+            ei_per_period=Decimal("40"),
+        )
+
+        # BC should have no Ontario health premium
+        assert result.health_premium_v2 == Decimal("0")
+
+    def test_ab_no_health_premium(self):
+        """Test: AB calculator returns 0 for health premium."""
+        calc = ProvincialTaxCalculator("AB", 26, 2025)
+
+        result = calc.calculate_provincial_tax(
+            annual_taxable_income=Decimal("150000"),
+            total_claim_amount=Decimal("22323"),
+            cpp_per_period=Decimal("155"),
+            ei_per_period=Decimal("41"),
+        )
+
+        # AB should have no Ontario health premium
+        assert result.health_premium_v2 == Decimal("0")
+
+    def test_bc_calculator_direct_method_call(self):
+        """Test: Calling _calculate_ontario_health_premium on BC calculator returns 0 (line 391)."""
+        calc = ProvincialTaxCalculator("BC", 26, 2025)
+
+        # Directly call the private method - should return 0 for non-ON provinces
+        premium = calc._calculate_ontario_health_premium(Decimal("100000"))
+        assert premium == Decimal("0")
+
+
+class TestOntarioHealthPremiumEmptyBrackets:
+    """Test Ontario health premium with empty brackets returns 0 (line 397)."""
+
+    def test_ontario_health_premium_empty_brackets(self):
+        """Test: Ontario health premium returns 0 when brackets config is empty (line 397)."""
+        calc = ProvincialTaxCalculator("ON", 26, 2025)
+
+        # Create a calculator with modified config (empty brackets)
+        # This tests the edge case where brackets list is empty
+        original_config = calc._config.copy()
+        try:
+            # Simulate empty brackets by clearing the health_premium_config
+            calc._config["health_premium_config"] = {}
+
+            result = calc.calculate_provincial_tax(
+                annual_taxable_income=Decimal("100000"),
+                total_claim_amount=Decimal("12747"),
+                cpp_per_period=Decimal("140"),
+                ei_per_period=Decimal("40"),
+            )
+
+            # Should return 0 when brackets are empty
+            assert result.health_premium_v2 == Decimal("0")
+        finally:
+            # Restore original config
+            calc._config = original_config
+
+
+class TestNonOntarioSurtaxDirectMethodCalls:
+    """Test direct calls to _calculate_ontario_surtax from non-ON provinces (line 358)."""
+
+    def test_bc_calculator_ontario_surtax(self):
+        """Test: BC calculator calling _calculate_ontario_surtax returns 0 (line 358)."""
+        calc = ProvincialTaxCalculator("BC", 26, 2025)
+
+        # Directly call the private method - should return 0 for non-ON provinces
+        surtax = calc._calculate_ontario_surtax(Decimal("100000"))
+        assert surtax == Decimal("0")
+
+    def test_ab_calculator_ontario_surtax(self):
+        """Test: AB calculator calling _calculate_ontario_surtax returns 0."""
+        calc = ProvincialTaxCalculator("AB", 26, 2025)
+
+        surtax = calc._calculate_ontario_surtax(Decimal("150000"))
+        assert surtax == Decimal("0")
+
+
+class TestNonBCTaxReductionDirectMethodCalls:
+    """Test direct calls to _calculate_bc_tax_reduction from non-BC provinces (line 436)."""
+
+    def test_on_calculator_bc_tax_reduction(self):
+        """Test: ON calculator calling _calculate_bc_tax_reduction returns 0 (line 436)."""
+        calc = ProvincialTaxCalculator("ON", 26, 2025)
+
+        # Directly call the private method - should return 0 for non-BC provinces
+        reduction = calc._calculate_bc_tax_reduction(Decimal("30000"))
+        assert reduction == Decimal("0")
+
+    def test_ab_calculator_bc_tax_reduction(self):
+        """Test: AB calculator calling _calculate_bc_tax_reduction returns 0."""
+        calc = ProvincialTaxCalculator("AB", 26, 2025)
+
+        reduction = calc._calculate_bc_tax_reduction(Decimal("25000"))
+        assert reduction == Decimal("0")
+
+
+class TestNonPEISurtaxDirectMethodCalls:
+    """Test direct calls to _calculate_pe_surtax from non-PEI provinces (line 467)."""
+
+    def test_on_calculator_pe_surtax(self):
+        """Test: ON calculator calling _calculate_pe_surtax returns 0 (line 467)."""
+        calc = ProvincialTaxCalculator("ON", 26, 2025)
+
+        # Directly call the private method - should return 0 for non-PEI provinces
+        surtax = calc._calculate_pe_surtax(Decimal("100000"))
+        assert surtax == Decimal("0")
+
+    def test_bc_calculator_pe_surtax(self):
+        """Test: BC calculator calling _calculate_pe_surtax returns 0."""
+        calc = ProvincialTaxCalculator("BC", 26, 2025)
+
+        surtax = calc._calculate_pe_surtax(Decimal("80000"))
+        assert surtax == Decimal("0")

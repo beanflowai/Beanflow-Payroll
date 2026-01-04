@@ -6,9 +6,11 @@
 		PAY_FREQUENCY_LABELS,
 		EMPLOYMENT_TYPE_LABELS,
 		EMPLOYEE_STATUS_LABELS,
+		PAY_PERIODS_PER_YEAR,
 		formatVacationRate
 	} from '$lib/types/employee';
-	import { formatShortDate } from '$lib/utils/dateUtils';
+	import { formatDate } from '$lib/utils/dateUtils';
+	import { formatCurrency } from '$lib/utils/formatUtils';
 	import { getEmployeeSickLeaveBalance } from '$lib/services/sickLeaveService';
 	import { PortalStatusBadge } from '$lib/components/employees';
 	import type { SickLeaveBalance } from '$lib/types/sick-leave';
@@ -57,46 +59,27 @@
 		goto(`/employees/${employee.id}`);
 	}
 
-	// Pay periods per year based on frequency
-	const PAY_PERIODS_MAP: Record<string, number> = {
-		weekly: 52,
-		bi_weekly: 26,
-		semi_monthly: 24,
-		monthly: 12
-	};
-
 	// Helpers
 	function maskSIN(sin: string): string {
 		const digits = sin.replace(/\D/g, '');
 		return `***-***-${digits.slice(6)}`;
 	}
 
-	function formatCurrency(amount: number | null | undefined): string {
-		if (amount == null) return '-';
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD',
-			maximumFractionDigits: 0
-		}).format(amount);
+	function formatCurrencyNoDecimals(amount: number | null | undefined): string {
+		return formatCurrency(amount, { maximumFractionDigits: 0 });
 	}
 
 	function formatCompensation(emp: Employee): string {
 		if (emp.hourlyRate) return `$${emp.hourlyRate.toFixed(2)}/hr`;
-		if (emp.annualSalary) return `${formatCurrency(emp.annualSalary)}/yr`;
+		if (emp.annualSalary) return `${formatCurrencyNoDecimals(emp.annualSalary)}/yr`;
 		return '-';
-	}
-
-	function formatDate(dateStr: string | null | undefined): string {
-		if (!dateStr) return '-';
-		return formatShortDate(dateStr);
 	}
 
 	function getPerPeriodAmount(emp: Employee): string {
 		if (!emp.annualSalary) return '-';
-		const periods = PAY_PERIODS_MAP[emp.payFrequency] || 26;
-		return formatCurrency(emp.annualSalary / periods);
+		const periods = PAY_PERIODS_PER_YEAR[emp.payFrequency] || 26;
+		return formatCurrencyNoDecimals(emp.annualSalary / periods);
 	}
-
 </script>
 
 <aside class="detail-sidebar">
@@ -131,7 +114,11 @@
 			<div class="detail-row">
 				<span class="detail-label">Status</span>
 				<span class="detail-value">
-					<span class="status-badge" class:active={employee.status === 'active'} class:draft={employee.status === 'draft'}>
+					<span
+						class="status-badge"
+						class:active={employee.status === 'active'}
+						class:draft={employee.status === 'draft'}
+					>
 						{EMPLOYEE_STATUS_LABELS[employee.status]}
 					</span>
 				</span>
@@ -235,7 +222,10 @@
 				<span class="detail-value tooltip-container">
 					{employee.cpp2Exempt ? 'Yes' : 'No'}
 					{#if employee.cpp2Exempt}
-						<span class="info-tooltip" title="CPT30 form on file - exempt from additional CPP contributions for multi-job employees">
+						<span
+							class="info-tooltip"
+							title="CPT30 form on file - exempt from additional CPP contributions for multi-job employees"
+						>
 							<i class="fas fa-info-circle"></i>
 						</span>
 					{/if}
@@ -289,7 +279,9 @@
 				<div class="detail-row">
 					<span class="detail-label">YTD Used</span>
 					<span class="detail-value">
-						{((sickLeaveBalance.paidDaysUsed ?? 0) + (sickLeaveBalance.unpaidDaysUsed ?? 0)).toFixed(1)} days
+						{(
+							(sickLeaveBalance.paidDaysUsed ?? 0) + (sickLeaveBalance.unpaidDaysUsed ?? 0)
+						).toFixed(1)} days
 					</span>
 				</div>
 				<div class="detail-row">
@@ -309,7 +301,10 @@
 				<i class="fas fa-edit"></i>
 				Edit Employee
 			</button>
-			<button class="btn-secondary full-width" onclick={() => goto(`/employees/${employee.id}/compensation`)}>
+			<button
+				class="btn-secondary full-width"
+				onclick={() => goto(`/employees/${employee.id}/compensation`)}
+			>
 				<i class="fas fa-history"></i>
 				View Compensation History
 			</button>

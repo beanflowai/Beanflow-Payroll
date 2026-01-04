@@ -1,4 +1,5 @@
 // Type definitions for Beanflow Design System Base Components
+import type { Snippet } from 'svelte';
 
 export interface ButtonProps {
 	variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
@@ -8,7 +9,7 @@ export interface ButtonProps {
 	type?: 'button' | 'submit' | 'reset';
 	href?: string;
 	onclick?: (event: MouseEvent) => void;
-	children?: any;
+	children?: Snippet;
 	class?: string;
 	ariaLabel?: string;
 }
@@ -20,7 +21,7 @@ export interface CardProps {
 	interactive?: boolean;
 	class?: string;
 	onclick?: (event: MouseEvent) => void;
-	children?: any;
+	children?: Snippet;
 }
 
 export interface IconContainerProps {
@@ -30,5 +31,5 @@ export interface IconContainerProps {
 	interactive?: boolean;
 	class?: string;
 	onclick?: (event: MouseEvent) => void;
-	children?: any;
+	children?: Snippet;
 }

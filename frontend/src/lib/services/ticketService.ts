@@ -59,10 +59,17 @@ export async function getTickets(status?: TicketStatus): Promise<Ticket[]> {
 		throw new Error(`Failed to fetch tickets: ${error.message}`);
 	}
 
-	return (data || []).map((row: TicketDB & { ticket_attachments: { count: number }[]; ticket_replies: { count: number }[] }) => ({
-		...convertTicket(row),
-		replyCount: row.ticket_replies?.[0]?.count || 0
-	}));
+	return (data || []).map(
+		(
+			row: TicketDB & {
+				ticket_attachments: { count: number }[];
+				ticket_replies: { count: number }[];
+			}
+		) => ({
+			...convertTicket(row),
+			replyCount: row.ticket_replies?.[0]?.count || 0
+		})
+	);
 }
 
 /**
@@ -118,10 +125,7 @@ export async function getTicket(ticketId: string): Promise<Ticket | null> {
 /**
  * Create a new ticket
  */
-export async function createTicket(
-	input: TicketCreateInput,
-	companyId?: string
-): Promise<Ticket> {
+export async function createTicket(input: TicketCreateInput, companyId?: string): Promise<Ticket> {
 	const {
 		data: { user }
 	} = await supabase.auth.getUser();
@@ -158,10 +162,7 @@ export async function createTicket(
 /**
  * Upload an attachment for a ticket
  */
-export async function uploadAttachment(
-	ticketId: string,
-	file: File
-): Promise<TicketAttachment> {
+export async function uploadAttachment(ticketId: string, file: File): Promise<TicketAttachment> {
 	// Validate file
 	if (!ALLOWED_MIME_TYPES.includes(file.type)) {
 		throw new Error(`File type ${file.type} is not allowed. Allowed types: JPEG, PNG, GIF, WebP`);
@@ -396,10 +397,7 @@ export async function checkIsAdmin(): Promise<boolean> {
 /**
  * Update ticket status (admin only)
  */
-export async function updateTicketStatus(
-	ticketId: string,
-	status: TicketStatus
-): Promise<Ticket> {
+export async function updateTicketStatus(ticketId: string, status: TicketStatus): Promise<Ticket> {
 	const { data, error } = await supabase
 		.from('support_tickets')
 		.update({ status })
@@ -456,9 +454,7 @@ export async function getTicketStats(): Promise<{
 	resolved: number;
 	closed: number;
 }> {
-	const { data, error } = await supabase
-		.from('support_tickets')
-		.select('status');
+	const { data, error } = await supabase.from('support_tickets').select('status');
 
 	if (error) {
 		console.error('Error fetching ticket stats:', error);

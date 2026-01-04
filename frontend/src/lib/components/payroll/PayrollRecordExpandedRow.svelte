@@ -2,6 +2,7 @@
 	import type { PayrollRecord } from '$lib/types/payroll';
 	import type { GroupBenefits } from '$lib/types/pay-group';
 	import { LEAVE_TYPE_LABELS } from '$lib/types/payroll';
+	import { formatCurrency } from '$lib/utils/formatUtils';
 
 	interface Props {
 		record: PayrollRecord;
@@ -16,14 +17,6 @@
 	const totalLeavePay = $derived(
 		record.leaveEntries?.reduce((sum, entry) => sum + entry.leavePay, 0) ?? 0
 	);
-
-	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD',
-			minimumFractionDigits: 2
-		}).format(amount);
-	}
 </script>
 
 <tr class="detail-row">
@@ -43,7 +36,8 @@
 								<span class="vacation-icon">🏖️</span>
 								Vacation Earned
 							</span>
-							<span class="item-value vacation-value">{formatCurrency(record.vacationAccrued)}</span>
+							<span class="item-value vacation-value">{formatCurrency(record.vacationAccrued)}</span
+							>
 						</div>
 					{/if}
 					{#if record.grossOvertime > 0}
@@ -144,31 +138,41 @@
 						{#if groupBenefits.health?.enabled}
 							<div class="breakdown-item">
 								<span class="item-label">Health</span>
-								<span class="item-value">{formatCurrency(groupBenefits.health.employeeDeduction)}</span>
+								<span class="item-value"
+									>{formatCurrency(groupBenefits.health.employeeDeduction)}</span
+								>
 							</div>
 						{/if}
 						{#if groupBenefits.dental?.enabled}
 							<div class="breakdown-item">
 								<span class="item-label">Dental</span>
-								<span class="item-value">{formatCurrency(groupBenefits.dental.employeeDeduction)}</span>
+								<span class="item-value"
+									>{formatCurrency(groupBenefits.dental.employeeDeduction)}</span
+								>
 							</div>
 						{/if}
 						{#if groupBenefits.vision?.enabled}
 							<div class="breakdown-item">
 								<span class="item-label">Vision</span>
-								<span class="item-value">{formatCurrency(groupBenefits.vision.employeeDeduction)}</span>
+								<span class="item-value"
+									>{formatCurrency(groupBenefits.vision.employeeDeduction)}</span
+								>
 							</div>
 						{/if}
 						{#if groupBenefits.lifeInsurance?.enabled}
 							<div class="breakdown-item">
 								<span class="item-label">Life Insurance</span>
-								<span class="item-value">{formatCurrency(groupBenefits.lifeInsurance.employeeDeduction)}</span>
+								<span class="item-value"
+									>{formatCurrency(groupBenefits.lifeInsurance.employeeDeduction)}</span
+								>
 							</div>
 						{/if}
 						{#if groupBenefits.disability?.enabled}
 							<div class="breakdown-item">
 								<span class="item-label">Disability</span>
-								<span class="item-value">{formatCurrency(groupBenefits.disability.employeeDeduction)}</span>
+								<span class="item-value"
+									>{formatCurrency(groupBenefits.disability.employeeDeduction)}</span
+								>
 							</div>
 						{/if}
 					{:else if record.otherDeductions > 0}
@@ -193,7 +197,7 @@
 				<div class="breakdown-grid">
 					{#if hasLeaveThisPeriod}
 						<!-- This Period Leave Entries -->
-						{#each record.leaveEntries ?? [] as entry}
+						{#each record.leaveEntries ?? [] as entry (entry.leaveType)}
 							<div
 								class="breakdown-item leave-item"
 								class:vacation={entry.leaveType === 'vacation'}
@@ -204,7 +208,9 @@
 									{LEAVE_TYPE_LABELS[entry.leaveType].full}
 								</span>
 								<span class="item-value leave-value-row">
-									<span class="leave-detail">{entry.hours}h × {formatCurrency(entry.payRate)}/h</span>
+									<span class="leave-detail"
+										>{entry.hours}h × {formatCurrency(entry.payRate)}/h</span
+									>
 									{formatCurrency(entry.leavePay)}
 								</span>
 							</div>
@@ -259,7 +265,9 @@
 								<span class="balance-value-container">
 									<span class="balance-hours">{record.vacationBalanceHours ?? 0}h</span>
 									{#if record.vacationBalanceDollars}
-										<span class="balance-dollars">{formatCurrency(record.vacationBalanceDollars)}</span>
+										<span class="balance-dollars"
+											>{formatCurrency(record.vacationBalanceDollars)}</span
+										>
 									{/if}
 								</span>
 							</div>
@@ -444,7 +452,7 @@
 
 	/* Vacation Earned styling */
 	.vacation-earned {
-		background: var(--color-info-50, #eff6ff);
+		background: var(--color-info-50);
 		border-radius: var(--radius-md);
 		padding: var(--spacing-2) !important;
 		margin: var(--spacing-1) 0;
@@ -454,7 +462,7 @@
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-1);
-		color: var(--color-info-700, #1d4ed8);
+		color: var(--color-info-700);
 	}
 
 	.vacation-icon {
@@ -462,13 +470,13 @@
 	}
 
 	.vacation-value {
-		color: var(--color-info-700, #1d4ed8);
+		color: var(--color-info-700);
 		font-weight: var(--font-weight-medium);
 	}
 
 	/* Benefits styling */
 	.benefits-item {
-		background: var(--color-warning-50, #fff7ed);
+		background: var(--color-warning-50);
 		border-radius: var(--radius-md);
 		padding: var(--spacing-2) !important;
 		margin: var(--spacing-1) 0;
@@ -478,7 +486,7 @@
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-1);
-		color: var(--color-warning-700, #c2410c);
+		color: var(--color-warning-700);
 	}
 
 	.benefits-icon {
@@ -486,7 +494,7 @@
 	}
 
 	.benefits-item .item-value {
-		color: var(--color-warning-700, #c2410c);
+		color: var(--color-warning-700);
 	}
 
 	.net-pay-display {
@@ -568,12 +576,12 @@
 	/* Leave Items with Color Coding */
 	.leave-item.vacation .item-label,
 	.leave-item.vacation .item-value {
-		color: var(--color-info-700, #1d4ed8);
+		color: var(--color-info-700);
 	}
 
 	.leave-item.sick .item-label,
 	.leave-item.sick .item-value {
-		color: var(--color-warning-700, #c2410c);
+		color: var(--color-warning-700);
 	}
 
 	.leave-label-row {
@@ -650,11 +658,11 @@
 	}
 
 	.ytd-leave-item.vacation {
-		background: var(--color-info-50, #eff6ff);
+		background: var(--color-info-50);
 	}
 
 	.ytd-leave-item.sick {
-		background: var(--color-warning-50, #fff7ed);
+		background: var(--color-warning-50);
 	}
 
 	.ytd-leave-icon {
@@ -668,11 +676,11 @@
 	}
 
 	.ytd-leave-item.vacation .ytd-leave-value {
-		color: var(--color-info-700, #1d4ed8);
+		color: var(--color-info-700);
 	}
 
 	.ytd-leave-item.sick .ytd-leave-value {
-		color: var(--color-warning-700, #c2410c);
+		color: var(--color-warning-700);
 	}
 
 	.ytd-leave-label {
@@ -697,11 +705,11 @@
 	}
 
 	.balance-item.vacation {
-		background: var(--color-info-50, #eff6ff);
+		background: var(--color-info-50);
 	}
 
 	.balance-item.sick {
-		background: var(--color-warning-50, #fff7ed);
+		background: var(--color-warning-50);
 	}
 
 	.balance-label {
@@ -726,11 +734,11 @@
 	}
 
 	.balance-item.vacation .balance-hours {
-		color: var(--color-info-700, #1d4ed8);
+		color: var(--color-info-700);
 	}
 
 	.balance-item.sick .balance-hours {
-		color: var(--color-warning-700, #c2410c);
+		color: var(--color-warning-700);
 	}
 
 	.balance-dollars {

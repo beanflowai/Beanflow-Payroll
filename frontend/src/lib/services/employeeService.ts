@@ -31,7 +31,7 @@ const TABLE_NAME = 'employees';
 /**
  * Helper to mask SIN for display (***-***-XXX)
  */
-export function maskSin(sinEncrypted: string): string {
+export function maskSin(_sinEncrypted: string): string {
 	// Since SIN is encrypted, we can't derive last 3 digits
 	// In production, this would be handled by the backend
 	return '***-***-***';
@@ -186,7 +186,7 @@ export async function createEmployee(
 			termination_date: input.termination_date ?? null,
 			vacation_config: input.vacation_config ?? {
 				payout_method: 'accrual',
-				vacation_rate: '0.04'  // Default to 4% (standard minimum)
+				vacation_rate: '0.04' // Default to 4% (standard minimum)
 			},
 			vacation_balance: input.vacation_balance ?? 0,
 			// Initial YTD for transferred employees
@@ -234,7 +234,8 @@ export async function updateEmployee(
 		// Address fields
 		if (input.address_street !== undefined) updateData.address_street = input.address_street;
 		if (input.address_city !== undefined) updateData.address_city = input.address_city;
-		if (input.address_postal_code !== undefined) updateData.address_postal_code = input.address_postal_code;
+		if (input.address_postal_code !== undefined)
+			updateData.address_postal_code = input.address_postal_code;
 		if (input.occupation !== undefined) updateData.occupation = input.occupation;
 		if (input.province_of_employment !== undefined)
 			updateData.province_of_employment = input.province_of_employment;
@@ -423,9 +424,7 @@ export async function getEmployeesByPayFrequency(): Promise<Record<PayFrequency,
 /**
  * Get employees assigned to a specific pay group
  */
-export async function getEmployeesByPayGroup(
-	payGroupId: string
-): Promise<EmployeeListResult> {
+export async function getEmployeesByPayGroup(payGroupId: string): Promise<EmployeeListResult> {
 	try {
 		const userId = getCurrentUserId();
 		const companyId = getCurrentCompanyId();
@@ -577,9 +576,7 @@ export async function removeEmployeeFromPayGroup(
  * Used to determine if vacation balance can be manually edited.
  * If employee has payroll records, balance should be managed by the payroll system.
  */
-export async function checkEmployeeHasPayrollRecords(
-	employeeId: string
-): Promise<boolean> {
+export async function checkEmployeeHasPayrollRecords(employeeId: string): Promise<boolean> {
 	try {
 		const { count, error } = await supabase
 			.from('payroll_records')
@@ -701,11 +698,7 @@ export async function createEmployeeTaxClaim(
 			provincial_additional_claims: provincialAdditionalClaims
 		};
 
-		const { data, error } = await supabase
-			.from(TAX_CLAIMS_TABLE)
-			.insert(record)
-			.select()
-			.single();
+		const { data, error } = await supabase.from(TAX_CLAIMS_TABLE).insert(record).select().single();
 
 		if (error) {
 			console.error('Failed to create tax claim:', error);

@@ -27,7 +27,6 @@
 		bank_info: 'Bank Information'
 	};
 
-
 	function handleApprove() {
 		isSubmitting = true;
 		setTimeout(() => {
@@ -66,26 +65,54 @@
 
 		if (changeRequest.changeType === 'bank_info') {
 			if (current.bankName !== requested.bankName) {
-				fields.push({ label: 'Bank', current: String(current.bankName), requested: String(requested.bankName) });
+				fields.push({
+					label: 'Bank',
+					current: String(current.bankName),
+					requested: String(requested.bankName)
+				});
 			}
 			if (current.transitNumber !== requested.transitNumber) {
-				fields.push({ label: 'Transit', current: String(current.transitNumber), requested: String(requested.transitNumber) });
+				fields.push({
+					label: 'Transit',
+					current: String(current.transitNumber),
+					requested: String(requested.transitNumber)
+				});
 			}
 			if (current.institutionNumber !== requested.institutionNumber) {
-				fields.push({ label: 'Institution', current: String(current.institutionNumber), requested: String(requested.institutionNumber) });
+				fields.push({
+					label: 'Institution',
+					current: String(current.institutionNumber),
+					requested: String(requested.institutionNumber)
+				});
 			}
 			if (current.accountNumber !== requested.accountNumber) {
-				fields.push({ label: 'Account', current: String(current.accountNumber), requested: String(requested.accountNumber) });
+				fields.push({
+					label: 'Account',
+					current: String(current.accountNumber),
+					requested: String(requested.accountNumber)
+				});
 			}
 		} else if (changeRequest.changeType === 'tax_info') {
 			if (current.federalAdditionalClaims !== requested.federalAdditionalClaims) {
-				fields.push({ label: 'Federal Additional Claims', current: `$${current.federalAdditionalClaims}`, requested: `$${requested.federalAdditionalClaims}` });
+				fields.push({
+					label: 'Federal Additional Claims',
+					current: `$${current.federalAdditionalClaims}`,
+					requested: `$${requested.federalAdditionalClaims}`
+				});
 			}
 			if (current.provincialAdditionalClaims !== requested.provincialAdditionalClaims) {
-				fields.push({ label: 'Provincial Additional Claims', current: `$${current.provincialAdditionalClaims}`, requested: `$${requested.provincialAdditionalClaims}` });
+				fields.push({
+					label: 'Provincial Additional Claims',
+					current: `$${current.provincialAdditionalClaims}`,
+					requested: `$${requested.provincialAdditionalClaims}`
+				});
 			}
 			if (current.additionalTaxPerPeriod !== requested.additionalTaxPerPeriod) {
-				fields.push({ label: 'Additional Tax/Period', current: `$${current.additionalTaxPerPeriod}`, requested: `$${requested.additionalTaxPerPeriod}` });
+				fields.push({
+					label: 'Additional Tax/Period',
+					current: `$${current.additionalTaxPerPeriod}`,
+					requested: `$${requested.additionalTaxPerPeriod}`
+				});
 			}
 		}
 
@@ -115,7 +142,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each changeFields as field}
+					{#each changeFields as field (field.label)}
 						<tr>
 							<td class="field-label">{field.label}</td>
 							<td class="current-value">{field.current}</td>
@@ -131,7 +158,7 @@
 			<div class="attachments-section">
 				<h4 class="attachments-title">Attached Documents:</h4>
 				<div class="attachments-list">
-					{#each changeRequest.attachments as attachment}
+					{#each changeRequest.attachments as attachment, idx (idx)}
 						<a href={attachment} target="_blank" class="attachment-link">
 							<svg viewBox="0 0 20 20" fill="currentColor">
 								<path
@@ -176,7 +203,12 @@
 					{isSubmitting ? 'Rejecting...' : 'Confirm Reject'}
 				</button>
 			{:else}
-				<button type="button" class="btn-reject-outline" onclick={startReject} disabled={isSubmitting}>
+				<button
+					type="button"
+					class="btn-reject-outline"
+					onclick={startReject}
+					disabled={isSubmitting}
+				>
 					Reject
 				</button>
 				<button type="button" class="btn-approve" onclick={handleApprove} disabled={isSubmitting}>

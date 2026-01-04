@@ -5,7 +5,7 @@
 		class?: string;
 	}
 
-	let { size = 18, color = 'currentColor', class: className = '' }: AIIconProps = $props();
+	let { size = 18, color: _color = 'currentColor', class: className = '' }: AIIconProps = $props();
 </script>
 
 <svg

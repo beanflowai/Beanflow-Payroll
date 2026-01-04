@@ -60,12 +60,7 @@
 	<!-- Tab Content -->
 	<div class="tab-content">
 		{#if activeTab === 'profile'}
-			<div
-				id="tabpanel-profile"
-				role="tabpanel"
-				aria-labelledby="tab-profile"
-				class="tab-panel"
-			>
+			<div id="tabpanel-profile" role="tabpanel" aria-labelledby="tab-profile" class="tab-panel">
 				<ProfileTab />
 			</div>
 		{:else if activeTab === 'pay-groups'}

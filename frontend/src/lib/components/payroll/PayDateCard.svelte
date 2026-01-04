@@ -1,8 +1,9 @@
 <script lang="ts">
 	import type { UpcomingPayDate, PayGroupSummary } from '$lib/types/payroll';
-	import { PAYROLL_STATUS_LABELS, PAY_FREQUENCY_LABELS, EMPLOYMENT_TYPE_LABELS } from '$lib/types/payroll';
+	import { PAYROLL_STATUS_LABELS } from '$lib/types/payroll';
 	import { goto } from '$app/navigation';
 	import { formatShortDate } from '$lib/utils/dateUtils';
+	import { formatCurrency } from '$lib/utils/formatUtils';
 
 	interface Props {
 		payDateData: UpcomingPayDate;
@@ -11,14 +12,9 @@
 
 	let { payDateData, onPayGroupClick }: Props = $props();
 
-	// Helpers
-	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD',
-			minimumFractionDigits: 0,
-			maximumFractionDigits: 0
-		}).format(amount);
+	// Format currency with no decimals for cleaner display
+	function formatCurrencyNoDecimals(amount: number): string {
+		return formatCurrency(amount, { maximumFractionDigits: 0 });
 	}
 
 	function getDaysUntil(dateStr: string): string {
@@ -125,7 +121,7 @@
 		<span class="summary-divider"></span>
 		<span class="summary-item estimated">
 			<i class="fas fa-dollar-sign"></i>
-			Est. {formatCurrency(payDateData.totalEstimatedGross)}
+			Est. {formatCurrencyNoDecimals(payDateData.totalEstimatedGross)}
 		</span>
 	</div>
 
@@ -153,7 +149,7 @@
 					<div class="chip-details">
 						<span class="chip-stat">{group.employeeCount} emp</span>
 						<span class="chip-divider"></span>
-						<span class="chip-stat">{formatCurrency(group.estimatedGross)}</span>
+						<span class="chip-stat">{formatCurrencyNoDecimals(group.estimatedGross)}</span>
 					</div>
 				{/if}
 			</div>

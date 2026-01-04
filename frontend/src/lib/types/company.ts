@@ -13,13 +13,16 @@ import type { PayFrequency, Province } from './employee';
 // Remitter types based on CRA classification
 export type RemitterType = 'quarterly' | 'regular' | 'threshold_1' | 'threshold_2';
 
-export const REMITTER_TYPE_INFO: Record<RemitterType, {
-	label: string;
-	description: string;
-	frequency: string;
-	amwaRange: string;
-	periodsPerYear: number;
-}> = {
+export const REMITTER_TYPE_INFO: Record<
+	RemitterType,
+	{
+		label: string;
+		description: string;
+		frequency: string;
+		amwaRange: string;
+		periodsPerYear: number;
+	}
+> = {
 	quarterly: {
 		label: 'Quarterly',
 		description: 'Remit 4 times per year',
@@ -56,9 +59,9 @@ export interface CompanySettings {
 
 	// Company Information
 	companyName: string;
-	businessNumber: string;           // 9-digit CRA BN
-	payrollAccountNumber: string;     // 15-char (e.g., 123456789RP0001)
-	province: Province;               // Company's primary province
+	businessNumber: string; // 9-digit CRA BN
+	payrollAccountNumber: string; // 15-char (e.g., 123456789RP0001)
+	province: Province; // Company's primary province
 
 	// Address fields (for paystub)
 	addressStreet?: string | null;
@@ -73,7 +76,7 @@ export interface CompanySettings {
 
 	// Payroll Settings
 	payFrequency: PayFrequency;
-	nextPayDate: string;              // ISO date
+	nextPayDate: string; // ISO date
 	autoCalculateDeductions: boolean;
 	sendPaystubEmails: boolean;
 
@@ -89,7 +92,10 @@ export interface CompanySettings {
 /**
  * Calculate next remittance due date based on remitter type
  */
-export function calculateNextDueDate(remitterType: RemitterType, referenceDate: Date = new Date()): Date {
+export function calculateNextDueDate(
+	remitterType: RemitterType,
+	referenceDate: Date = new Date()
+): Date {
 	const year = referenceDate.getFullYear();
 	const month = referenceDate.getMonth();
 	const day = referenceDate.getDate();
@@ -142,7 +148,11 @@ export function calculateNextDueDate(remitterType: RemitterType, referenceDate: 
 /**
  * Format due date with days remaining
  */
-export function formatDueDateWithDays(dueDate: Date): { formatted: string; daysRemaining: number; isOverdue: boolean } {
+export function formatDueDateWithDays(dueDate: Date): {
+	formatted: string;
+	daysRemaining: number;
+	isOverdue: boolean;
+} {
 	const today = new Date();
 	today.setHours(0, 0, 0, 0);
 
@@ -179,9 +189,9 @@ export interface CompanyProfile {
 
 	// Company Information
 	companyName: string;
-	businessNumber: string;           // 9-digit CRA BN
-	payrollAccountNumber: string;     // 15-char (e.g., 123456789RP0001)
-	province: Province;               // Company's primary province
+	businessNumber: string; // 9-digit CRA BN
+	payrollAccountNumber: string; // 15-char (e.g., 123456789RP0001)
+	province: Province; // Company's primary province
 
 	// Address fields (for paystub)
 	addressStreet?: string | null;

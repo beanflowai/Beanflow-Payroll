@@ -39,7 +39,9 @@
 			nextPeriodEnd: editMode ? pg.nextPeriodEnd : '',
 			periodStartDay: (editMode ? pg.periodStartDay : 'monday') as PeriodStartDay,
 			leaveEnabled: editMode ? pg.leaveEnabled : true,
-			taxCalculationMethod: (editMode ? pg.taxCalculationMethod : 'annualization') as TaxCalculationMethod,
+			taxCalculationMethod: (editMode
+				? pg.taxCalculationMethod
+				: 'annualization') as TaxCalculationMethod
 		};
 	})();
 
@@ -54,7 +56,9 @@
 	let editNextPeriodEnd = $state(initialEditValues.nextPeriodEnd);
 	let editPeriodStartDay = $state<PeriodStartDay>(initialEditValues.periodStartDay);
 	let editLeaveEnabled = $state(initialEditValues.leaveEnabled);
-	let editTaxCalculationMethod = $state<TaxCalculationMethod>(initialEditValues.taxCalculationMethod);
+	let editTaxCalculationMethod = $state<TaxCalculationMethod>(
+		initialEditValues.taxCalculationMethod
+	);
 
 	// Enter edit mode
 	function enterEditMode() {
@@ -108,7 +112,6 @@
 			enterEditMode();
 		}
 	}
-
 
 	// Validation
 	const isValid = $derived(editName.trim().length > 0 && editNextPeriodEnd.length > 0);
@@ -168,7 +171,7 @@
 		{/if}
 	</div>
 
-	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="section-content" ondblclick={handleDoubleClick}>
 		{#if isEditing}
 			<!-- Edit Mode -->
@@ -197,7 +200,7 @@
 				<div class="form-group">
 					<label for="payFrequency">Pay Frequency *</label>
 					<select id="payFrequency" bind:value={editPayFrequency}>
-						{#each Object.entries(PAY_FREQUENCY_INFO) as [value, info]}
+						{#each Object.entries(PAY_FREQUENCY_INFO) as [value, info] (value)}
 							<option {value}>{info.label}</option>
 						{/each}
 					</select>
@@ -206,7 +209,7 @@
 				<div class="form-group">
 					<label for="employmentType">Employment Type *</label>
 					<select id="employmentType" bind:value={editEmploymentType}>
-						{#each Object.entries(EMPLOYMENT_TYPE_INFO) as [value, info]}
+						{#each Object.entries(EMPLOYMENT_TYPE_INFO) as [value, info] (value)}
 							<option {value}>{info.label}</option>
 						{/each}
 					</select>
@@ -232,7 +235,7 @@
 				<div class="form-group">
 					<label for="periodStartDay">Period Start *</label>
 					<select id="periodStartDay" bind:value={editPeriodStartDay}>
-						{#each PERIOD_START_DAY_OPTIONS[editPayFrequency] as option}
+						{#each PERIOD_START_DAY_OPTIONS[editPayFrequency] as option (option.value)}
 							<option value={option.value}>{option.label}</option>
 						{/each}
 					</select>
@@ -250,7 +253,7 @@
 				<div class="form-group tax-method-group">
 					<span class="form-label">Tax Calculation Method</span>
 					<div class="tax-method-options">
-						{#each Object.entries(TAX_CALCULATION_METHOD_INFO) as [value, info]}
+						{#each Object.entries(TAX_CALCULATION_METHOD_INFO) as [value, info] (value)}
 							<label
 								class="tax-method-option"
 								class:selected={editTaxCalculationMethod === value}

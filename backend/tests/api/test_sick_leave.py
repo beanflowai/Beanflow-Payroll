@@ -325,3 +325,23 @@ class TestGetEmployeeSickLeaveBalance:
                 assert response.status_code == 200
                 data = response.json()
                 assert data["year"] == year
+
+    def test_get_sick_leave_balance_unexpected_error(
+        self, client: TestClient, mock_supabase
+    ):
+        """Return 500 on unexpected error (lines 198-200)."""
+        employee_id = str(uuid4())
+
+        # Mock table method to raise a generic exception
+        mock_supabase.table.side_effect = RuntimeError("Unexpected database error")
+
+        with patch(
+            "app.api.v1.payroll.sick_leave.get_supabase_client",
+            return_value=mock_supabase,
+        ):
+            response = client.get(
+                f"/api/v1/payroll/employees/{employee_id}/sick-leave/2025"
+            )
+
+            assert response.status_code == 500
+            assert "Internal error getting sick leave balance" in response.json()["detail"]

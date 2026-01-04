@@ -636,3 +636,97 @@ class TestPartTimeEmployees:
         )
 
         assert balance.paid_days_entitled == Decimal("10")
+
+
+# =============================================================================
+# TEST: EDGE CASES FOR UNCOVERED LINES (132, 162, 228, 316, 427)
+# =============================================================================
+
+
+class TestEdgeCasesForUncoveredLines:
+    """Tests for uncovered lines in sick_leave_service.py."""
+
+    def test_init_with_custom_configs(self):
+        """Test __init__ with custom configs passed directly (line 132)."""
+        from app.services.payroll.sick_leave_config_loader import SickLeaveConfig
+
+        custom_configs = {
+            "CUSTOM": SickLeaveConfig(
+                province_code="CUSTOM",
+                paid_days_per_year=15,
+                unpaid_days_per_year=5,
+                waiting_period_days=0,
+                allows_carryover=True,
+                max_carryover_days=15,
+                accrual_method="annual",
+                initial_days_after_qualifying=0,
+                days_per_month_after_initial=0,
+            )
+        }
+
+        service = SickLeaveService(configs=custom_configs)
+
+        assert service.configs == custom_configs
+        assert "CUSTOM" in service.configs
+
+    def test_check_eligibility_unknown_province(self, sick_leave_service: SickLeaveService):
+        """Test check_eligibility with unknown province (line 162)."""
+        is_eligible, eligibility_date = sick_leave_service.check_eligibility(
+            province_code="INVALID_PROV",
+            hire_date=date(2024, 1, 1),
+            reference_date=date(2024, 4, 1),
+        )
+
+        # Unknown province should return not eligible with None date
+        assert is_eligible is False
+        assert eligibility_date is None
+
+    def test_federal_average_day_pay_zero_days(self, sick_leave_service: SickLeaveService):
+        """Test federal average day pay with days_count <= 0 (line 228)."""
+        result = sick_leave_service.calculate_federal_average_day_pay(
+            earnings_past_20_days=Decimal("1000.00"),
+            days_count=0,  # Edge case: zero days
+        )
+
+        assert result.amount == Decimal("0")
+        assert result.days_counted == 0
+        assert result.calculation_method == "federal_20_day_avg"
+
+    def test_calculate_sick_pay_unknown_province(self, sick_leave_service: SickLeaveService):
+        """Test calculate_sick_pay with unknown province (line 316)."""
+        result = sick_leave_service.calculate_sick_pay(
+            province_code="INVALID_PROV",
+            sick_hours_taken=Decimal("24"),  # 3 days × 8 hours
+            average_day_pay=Decimal("200.00"),
+            balance=SickLeaveBalance(
+                employee_id="emp-123",
+                year=2025,
+                paid_days_entitled=Decimal("5"),
+                unpaid_days_entitled=Decimal("3"),
+                paid_days_used=Decimal("0"),
+                unpaid_days_used=Decimal("0"),
+                carried_over_days=Decimal("0"),
+                is_eligible=True,
+            ),
+        )
+
+        # Should return not eligible with reason
+        assert result.eligible is False
+        assert result.amount == Decimal("0")
+        assert "No sick leave configuration" in result.reason
+
+    def test_calculate_balance_unknown_province(self, sick_leave_service: SickLeaveService):
+        """Test create_new_year_balance with unknown province (line 427)."""
+        balance = sick_leave_service.create_new_year_balance(
+            employee_id="emp-123",
+            year=2025,
+            province_code="INVALID_PROV",
+            hire_date=date(2024, 1, 1),
+        )
+
+        # Province with no sick leave config
+        assert balance.is_eligible is False
+        assert balance.paid_days_entitled == Decimal("0")
+        assert balance.unpaid_days_entitled == Decimal("0")
+        assert balance.paid_days_used == Decimal("0")
+        assert balance.unpaid_days_used == Decimal("0")

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from xml.etree.ElementTree import Element, ParseError, fromstring
 
 from app.models.t4 import T4ValidationError, T4ValidationResult, T4ValidationWarning
@@ -458,7 +458,7 @@ class T4XMLValidator:
                         try:
                             # Amounts are in cents
                             slip_totals[total_key] += Decimal(box_elem.text)
-                        except (ValueError, TypeError):
+                        except (ValueError, TypeError, InvalidOperation):
                             pass
 
         # Compare with summary totals
@@ -484,5 +484,5 @@ class T4XMLValidator:
                                 field=f"T4Summary/{summary_elem_name}",
                             )
                         )
-                except (ValueError, TypeError):
+                except (ValueError, TypeError, InvalidOperation):
                     pass

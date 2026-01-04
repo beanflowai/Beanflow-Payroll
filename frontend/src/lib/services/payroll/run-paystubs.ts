@@ -51,7 +51,9 @@ export async function getPaystubDownloadUrl(
  */
 export async function sendPaystubs(
 	runId: string
-): Promise<PayrollServiceResult<{ sent: number; sent_record_ids: string[]; errors: string[] | null }>> {
+): Promise<
+	PayrollServiceResult<{ sent: number; sent_record_ids: string[]; errors: string[] | null }>
+> {
 	try {
 		getCurrentUserId();
 

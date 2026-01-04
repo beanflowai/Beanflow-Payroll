@@ -8,10 +8,7 @@
 
 import { supabase } from '$lib/api/supabase';
 import { api } from '$lib/api/client';
-import type {
-	CompensationHistory,
-	CompensationHistoryCreate
-} from '$lib/types/compensation';
+import type { CompensationHistory, CompensationHistoryCreate } from '$lib/types/compensation';
 
 const TABLE_NAME = 'employee_compensation_history';
 

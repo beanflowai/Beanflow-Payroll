@@ -501,7 +501,7 @@ export const ICON_REGISTRY = {
 export async function loadIcon(name: string, variant: 'line' | 'filled' | 'brand' = 'line') {
 	const iconLoader = ICON_REGISTRY[variant]?.[
 		name as keyof (typeof ICON_REGISTRY)[typeof variant]
-	] as (() => Promise<any>) | undefined;
+	] as (() => Promise<{ default: unknown }>) | undefined;
 
 	if (!iconLoader) {
 		throw new Error(`Icon "${name}" not found in variant "${variant}"`);

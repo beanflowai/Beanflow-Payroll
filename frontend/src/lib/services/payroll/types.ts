@@ -3,10 +3,7 @@
  * All type definitions for payroll service operations
  */
 
-import type {
-	PayrollRunStatus,
-	PayrollRunWithGroups
-} from '$lib/types/payroll';
+import type { PayrollRunStatus, PayrollRunWithGroups } from '$lib/types/payroll';
 import type {
 	OvertimePolicy,
 	GroupBenefits,
@@ -108,8 +105,8 @@ export interface PayGroupWithEmployees {
  * Data for "before run" state - pay groups with their employees
  */
 export interface BeforeRunData {
-	periodEnd: string;  // Authoritative grouping key
-	payDate: string;    // Auto-calculated: periodEnd + 6 days (SK)
+	periodEnd: string; // Authoritative grouping key
+	payDate: string; // Auto-calculated: periodEnd + 6 days (SK)
 	payGroups: PayGroupWithEmployees[];
 	totalEmployees: number;
 	holidays: { date: string; name: string; province: string }[];

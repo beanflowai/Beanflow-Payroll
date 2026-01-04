@@ -12,7 +12,12 @@
 		getMyPaystubs,
 		getMyLeaveBalance
 	} from '$lib/services/employeePortalService';
-	import { PORTAL_COMPANY_CONTEXT_KEY, type PortalCompanyContext } from '$lib/types/employee-portal';
+	import {
+		PORTAL_COMPANY_CONTEXT_KEY,
+		type PortalCompanyContext
+	} from '$lib/types/employee-portal';
+	import { formatCurrency } from '$lib/utils/formatUtils';
+	import { formatDate } from '$lib/utils/dateUtils';
 
 	const portalContext = getContext<PortalCompanyContext>(PORTAL_COMPANY_CONTEXT_KEY);
 	const slug = $derived($page.params.slug);
@@ -23,14 +28,14 @@
 	let lastPay = $state({ amount: '--', date: '' });
 	let vacation = $state({ hours: '--', dollars: '' });
 	let sickLeave = $state({ hours: '--', label: 'remaining' });
-	let loading = $state(true);
+	let _loading = $state(true);
 
 	onMount(async () => {
 		await loadDashboardData();
 	});
 
 	async function loadDashboardData() {
-		loading = true;
+		_loading = true;
 		try {
 			// Load employee name (scoped to company)
 			const employee = await getCurrentEmployee(companyId ?? undefined);
@@ -42,7 +47,7 @@
 			if (paystubData.paystubs.length > 0) {
 				const latest = paystubData.paystubs[0];
 				lastPay = {
-					amount: formatMoney(latest.netPay),
+					amount: formatCurrency(latest.netPay),
 					date: formatDate(latest.payDate)
 				};
 			}
@@ -51,7 +56,7 @@
 			const leaveData = await getMyLeaveBalance(currentYear, companyId ?? undefined);
 			vacation = {
 				hours: `${leaveData.vacationHours.toFixed(0)} hours`,
-				dollars: `(${formatMoney(leaveData.vacationDollars)})`
+				dollars: `(${formatCurrency(leaveData.vacationDollars)})`
 			};
 			sickLeave = {
 				hours: `${leaveData.sickHoursRemaining.toFixed(0)} hours`,
@@ -60,23 +65,8 @@
 		} catch (err) {
 			console.error('Failed to load dashboard data:', err);
 		} finally {
-			loading = false;
+			_loading = false;
 		}
-	}
-
-	function formatMoney(amount: number): string {
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD'
-		}).format(amount);
-	}
-
-	function formatDate(dateStr: string): string {
-		return new Date(dateStr).toLocaleDateString('en-CA', {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric'
-		});
 	}
 </script>
 
@@ -124,7 +114,11 @@
 			<QuickActionCard icon="bank" label="Bank Details" href="/employee/{slug}/profile#bank" />
 			<QuickActionCard icon="tax" label="Tax Info (TD1)" href="/employee/{slug}/profile#tax" />
 			<QuickActionCard icon="ytd" label="YTD Summary" href="/employee/{slug}/paystubs#ytd" />
-			<QuickActionCard icon="download" label="Download T4" href="/employee/{slug}/paystubs#documents" />
+			<QuickActionCard
+				icon="download"
+				label="Download T4"
+				href="/employee/{slug}/paystubs#documents"
+			/>
 		</div>
 	</section>
 </div>
