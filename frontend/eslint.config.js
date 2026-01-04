@@ -24,7 +24,21 @@ export default defineConfig(
 		rules: {
 			// typescript-eslint strongly recommend that you do not use the no-undef lint rule on TypeScript projects.
 			// see: https://typescript-eslint.io/troubleshooting/faqs/eslint/#i-get-errors-from-the-no-undef-rule-about-global-variables-not-being-defined-even-though-there-are-no-typescript-errors
-			'no-undef': 'off'
+			'no-undef': 'off',
+			// Allow unused variables that start with underscore
+			'@typescript-eslint/no-unused-vars': [
+				'error',
+				{
+					argsIgnorePattern: '^_',
+					varsIgnorePattern: '^_',
+					caughtErrorsIgnorePattern: '^_'
+				}
+			],
+			// Disable - this app uses absolute paths which don't need resolve()
+			'svelte/no-navigation-without-resolve': 'off',
+			// Disable - native Set/Map/Date work correctly, Svelte reactive versions are an optimization
+			// TODO: Consider converting to SvelteSet/SvelteMap/SvelteDate for better reactivity
+			'svelte/prefer-svelte-reactivity': 'off'
 		}
 	},
 	{

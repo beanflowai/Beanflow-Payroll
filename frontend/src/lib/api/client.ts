@@ -253,4 +253,4 @@ export interface CompanySettings {
 	sendPaystubEmails: boolean;
 }
 
-export interface UpdateCompanySettingsRequest extends Partial<Omit<CompanySettings, 'id'>> {}
+export type UpdateCompanySettingsRequest = Partial<Omit<CompanySettings, 'id'>>;
