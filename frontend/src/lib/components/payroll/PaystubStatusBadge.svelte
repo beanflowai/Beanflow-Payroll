@@ -133,7 +133,7 @@
 	}
 
 	.status-failed {
-		background: var(--color-danger-50);
-		color: var(--color-danger-700);
+		background: var(--color-error-50);
+		color: var(--color-error-700);
 	}
 </style>

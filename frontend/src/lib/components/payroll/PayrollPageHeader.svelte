@@ -23,7 +23,9 @@
 
 	<div class="flex items-start justify-between flex-wrap gap-4 max-md:flex-col">
 		<div>
-			<h1 class="text-headline-minimum font-semibold text-surface-800 m-0 mb-1">Pay Date: {payDateFormatted}</h1>
+			<h1 class="text-headline-minimum font-semibold text-surface-800 m-0 mb-1">
+				Pay Date: {payDateFormatted}
+			</h1>
 			<p class="text-body-content text-surface-600 m-0">
 				{payGroupCount} Pay Group{payGroupCount > 1 ? 's' : ''}
 				&middot;

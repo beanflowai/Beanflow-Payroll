@@ -36,13 +36,13 @@
 	}
 
 	.leave-badge.vacation {
-		background: var(--color-info-50, #eff6ff);
-		color: var(--color-info-700, #1d4ed8);
+		background: var(--color-info-50);
+		color: var(--color-info-700);
 	}
 
 	.leave-badge.sick {
-		background: var(--color-warning-50, #fff7ed);
-		color: var(--color-warning-700, #c2410c);
+		background: var(--color-warning-50);
+		color: var(--color-warning-700);
 	}
 
 	.icon {

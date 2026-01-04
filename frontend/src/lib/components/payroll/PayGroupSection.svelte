@@ -3,6 +3,7 @@
 	import { PAY_FREQUENCY_LABELS, EMPLOYMENT_TYPE_LABELS } from '$lib/types/payroll';
 	import { PayrollRecordExpandedRow, LeaveTypeBadge } from '$lib/components/payroll';
 	import { formatDateRange } from '$lib/utils/dateUtils';
+	import { formatCurrency } from '$lib/utils/formatUtils';
 
 	interface Props {
 		payGroup: PayrollRunPayGroup;
@@ -23,14 +24,6 @@
 	}: Props = $props();
 
 	let isCollapsed = $state(false);
-
-	// Helpers
-	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD'
-		}).format(amount);
-	}
 
 	function toggleCollapse() {
 		isCollapsed = !isCollapsed;
@@ -116,7 +109,7 @@
 							<td class="col-leave">
 								{#if record.leaveEntries && record.leaveEntries.length > 0}
 									<div class="leave-badges">
-										{#each record.leaveEntries as entry}
+										{#each record.leaveEntries as entry (entry.leaveType)}
 											<LeaveTypeBadge type={entry.leaveType} hours={entry.hours} compact />
 										{/each}
 									</div>
@@ -166,7 +159,8 @@
 											class="expand-btn"
 											title={expandedRecordId === record.id ? 'Collapse' : 'Expand'}
 										>
-											<i class="fas fa-chevron-{expandedRecordId === record.id ? 'up' : 'down'}"></i>
+											<i class="fas fa-chevron-{expandedRecordId === record.id ? 'up' : 'down'}"
+											></i>
 										</button>
 									</div>
 								{:else}

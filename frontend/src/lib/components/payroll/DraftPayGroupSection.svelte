@@ -3,7 +3,6 @@
 		PayrollRunPayGroup,
 		PayrollRecord,
 		EmployeePayrollInput,
-		EarningsBreakdown,
 		Adjustment,
 		AdjustmentType,
 		Holiday
@@ -11,13 +10,19 @@
 	import {
 		PAY_FREQUENCY_LABELS,
 		EMPLOYMENT_TYPE_LABELS,
-		ADJUSTMENT_TYPE_LABELS,
-		createDefaultPayrollInput
+		ADJUSTMENT_TYPE_LABELS
 	} from '$lib/types/payroll';
 	import type { CustomDeduction } from '$lib/types/pay-group';
+	import { formatCurrency } from '$lib/utils/formatUtils';
 
 	// Adjustment type options for dropdown menus
-	const EARNINGS_TYPES: AdjustmentType[] = ['bonus', 'retroactive_pay', 'taxable_benefit', 'reimbursement', 'other'];
+	const EARNINGS_TYPES: AdjustmentType[] = [
+		'bonus',
+		'retroactive_pay',
+		'taxable_benefit',
+		'reimbursement',
+		'other'
+	];
 	const DEDUCTIONS_TYPES: AdjustmentType[] = ['deduction'];
 
 	interface Props {
@@ -25,12 +30,24 @@
 		holidays?: Holiday[];
 		expandedRecordId: string | null;
 		onToggleExpand: (id: string) => void;
-		onUpdateRecord: (recordId: string, employeeId: string, updates: Partial<EmployeePayrollInput>) => void;
+		onUpdateRecord: (
+			recordId: string,
+			employeeId: string,
+			updates: Partial<EmployeePayrollInput>
+		) => void;
 		onAddEmployee?: (payGroupId: string) => void;
 		onRemoveEmployee?: (employeeId: string) => void;
 	}
 
-	let { payGroup, holidays = [], expandedRecordId, onToggleExpand, onUpdateRecord, onAddEmployee, onRemoveEmployee }: Props = $props();
+	let {
+		payGroup,
+		holidays = [],
+		expandedRecordId,
+		onToggleExpand,
+		onUpdateRecord,
+		onAddEmployee,
+		onRemoveEmployee
+	}: Props = $props();
 
 	let isCollapsed = $state(false);
 
@@ -40,13 +57,6 @@
 
 	// Local input state for editing
 	let localInputMap = $state<Map<string, Partial<EmployeePayrollInput>>>(new Map());
-
-	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD'
-		}).format(amount);
-	}
 
 	function formatPeriod(start: string, end: string): string {
 		// Parse date strings as local dates (not UTC) to avoid timezone shift
@@ -67,7 +77,11 @@
 		return localInputMap.get(recordId) || {};
 	}
 
-	function handleHoursChange(record: PayrollRecord, field: 'regularHours' | 'overtimeHours', value: number) {
+	function handleHoursChange(
+		record: PayrollRecord,
+		field: 'regularHours' | 'overtimeHours',
+		value: number
+	) {
 		const current = getLocalInput(record.id);
 		const updated = { ...current, [field]: value };
 		localInputMap = new Map(localInputMap).set(record.id, updated);
@@ -139,7 +153,11 @@
 		showDeductionsMenu = null;
 	}
 
-	function handleUpdateAdjustment(record: PayrollRecord, idx: number, updates: Partial<Adjustment>) {
+	function handleUpdateAdjustment(
+		record: PayrollRecord,
+		idx: number,
+		updates: Partial<Adjustment>
+	) {
 		const current = getLocalInput(record.id);
 		const existingAdjs = getAdjustments(record);
 		const newAdjs = [...existingAdjs];
@@ -160,11 +178,15 @@
 
 	function getLeaveHours(record: PayrollRecord, type: 'vacation' | 'sick'): number {
 		const local = getLocalInput(record.id);
-		const localEntry = local.leaveEntries?.find((l: { type: string; hours: number }) => l.type === type);
+		const localEntry = local.leaveEntries?.find(
+			(l: { type: string; hours: number }) => l.type === type
+		);
 		if (localEntry !== undefined) {
 			return localEntry.hours;
 		}
-		const recordEntry = record.inputData?.leaveEntries?.find((l: { type: string; hours: number }) => l.type === type);
+		const recordEntry = record.inputData?.leaveEntries?.find(
+			(l: { type: string; hours: number }) => l.type === type
+		);
 		return recordEntry?.hours ?? 0;
 	}
 
@@ -179,9 +201,10 @@
 	function calculateVacationPay(record: PayrollRecord, vacationHours: number): number {
 		if (vacationHours <= 0) return 0;
 		// Use vacation hourly rate if available, otherwise calculate from salary/hourly
-		const hourlyRate = record.vacationHourlyRate
-			?? record.hourlyRate
-			?? (record.annualSalary ? record.annualSalary / 2080 : 0);
+		const hourlyRate =
+			record.vacationHourlyRate ??
+			record.hourlyRate ??
+			(record.annualSalary ? record.annualSalary / 2080 : 0);
 		return vacationHours * hourlyRate;
 	}
 
@@ -197,7 +220,8 @@
 
 		const vacationPay = calculateVacationPay(record, vacationHours);
 		// Available balance = old balance + accrued this period - paid this period
-		const availableBalance = (record.vacationBalance ?? 0) + record.vacationAccrued - (record.vacationPayPaid ?? 0);
+		const availableBalance =
+			(record.vacationBalance ?? 0) + record.vacationAccrued - (record.vacationPayPaid ?? 0);
 		return vacationPay > availableBalance;
 	}
 
@@ -215,15 +239,11 @@
 	}
 
 	function getEarningsAdjustments(record: PayrollRecord): Adjustment[] {
-		return getAdjustments(record).filter(adj =>
-			EARNINGS_TYPES.includes(adj.type)
-		);
+		return getAdjustments(record).filter((adj) => EARNINGS_TYPES.includes(adj.type));
 	}
 
 	function getDeductionAdjustments(record: PayrollRecord): Adjustment[] {
-		return getAdjustments(record).filter(adj =>
-			DEDUCTIONS_TYPES.includes(adj.type)
-		);
+		return getAdjustments(record).filter((adj) => DEDUCTIONS_TYPES.includes(adj.type));
 	}
 
 	function getDeductionLabel(adj: Adjustment): string {
@@ -285,7 +305,7 @@
 	 * Check if there's a holiday for this employee's province in the current pay period
 	 */
 	function hasHolidayForEmployee(record: PayrollRecord): boolean {
-		return holidays.some(h => h.province === record.employeeProvince);
+		return holidays.some((h) => h.province === record.employeeProvince);
 	}
 
 	/**
@@ -305,11 +325,15 @@
 	>
 		<div class="flex items-center gap-3">
 			<i class="fas fa-chevron-{isCollapsed ? 'right' : 'down'} text-xs text-surface-500 w-4"></i>
-			<div class="w-9 h-9 rounded-lg bg-warning-100 text-warning-700 flex items-center justify-center text-sm">
+			<div
+				class="w-9 h-9 rounded-lg bg-warning-100 text-warning-700 flex items-center justify-center text-sm"
+			>
 				<i class="fas fa-tag"></i>
 			</div>
 			<div class="flex flex-col gap-1">
-				<h3 class="text-body-content font-semibold text-surface-800 m-0">{payGroup.payGroupName}</h3>
+				<h3 class="text-body-content font-semibold text-surface-800 m-0">
+					{payGroup.payGroupName}
+				</h3>
 				<div class="flex items-center gap-2">
 					<span class="text-caption text-surface-600">
 						{PAY_FREQUENCY_LABELS[payGroup.payFrequency] || payGroup.payFrequency}
@@ -327,19 +351,27 @@
 		</div>
 		<div class="flex items-center gap-6">
 			<div class="flex flex-col items-end">
-				<span class="text-body-content font-semibold text-surface-800">{payGroup.totalEmployees}</span>
+				<span class="text-body-content font-semibold text-surface-800"
+					>{payGroup.totalEmployees}</span
+				>
 				<span class="text-caption text-surface-500">Employees</span>
 			</div>
 			<div class="flex flex-col items-end">
-				<span class="text-body-content font-semibold text-surface-800">{formatCurrency(payGroup.totalGross)}</span>
+				<span class="text-body-content font-semibold text-surface-800"
+					>{formatCurrency(payGroup.totalGross)}</span
+				>
 				<span class="text-caption text-surface-500">Gross</span>
 			</div>
 			<div class="flex flex-col items-end">
-				<span class="text-body-content font-semibold text-surface-800">{formatCurrency(payGroup.totalDeductions)}</span>
+				<span class="text-body-content font-semibold text-surface-800"
+					>{formatCurrency(payGroup.totalDeductions)}</span
+				>
 				<span class="text-caption text-surface-500">Deductions</span>
 			</div>
 			<div class="flex flex-col items-end">
-				<span class="text-body-content font-semibold text-success-600">{formatCurrency(payGroup.totalNetPay)}</span>
+				<span class="text-body-content font-semibold text-success-600"
+					>{formatCurrency(payGroup.totalNetPay)}</span
+				>
 				<span class="text-caption text-surface-500">Net Pay</span>
 			</div>
 			<!-- svelte-ignore node_invalid_placement_ssr -->
@@ -361,21 +393,46 @@
 			<table class="w-full border-collapse">
 				<thead>
 					<tr class="bg-surface-50">
-						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-left uppercase tracking-wider border-b border-surface-200 w-[18%]">Employee</th>
-						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-center uppercase tracking-wider border-b border-surface-200 w-[8%]">Province</th>
-						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-left uppercase tracking-wider border-b border-surface-200 w-[15%]">Hours/Rate</th>
-						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-right uppercase tracking-wider border-b border-surface-200 w-[14%]">Earnings</th>
-						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-right uppercase tracking-wider border-b border-surface-200 w-[14%]">Deductions</th>
-						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-center uppercase tracking-wider border-b border-surface-200 w-[10%]">Leave</th>
-						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-right uppercase tracking-wider border-b border-surface-200 w-[14%]">Net Pay</th>
-						<th class="py-3 px-4 text-caption font-semibold text-surface-600 text-right uppercase tracking-wider border-b border-surface-200 w-[5%]"></th>
+						<th
+							class="py-3 px-4 text-caption font-semibold text-surface-600 text-left uppercase tracking-wider border-b border-surface-200 w-[18%]"
+							>Employee</th
+						>
+						<th
+							class="py-3 px-4 text-caption font-semibold text-surface-600 text-center uppercase tracking-wider border-b border-surface-200 w-[8%]"
+							>Province</th
+						>
+						<th
+							class="py-3 px-4 text-caption font-semibold text-surface-600 text-left uppercase tracking-wider border-b border-surface-200 w-[15%]"
+							>Hours/Rate</th
+						>
+						<th
+							class="py-3 px-4 text-caption font-semibold text-surface-600 text-right uppercase tracking-wider border-b border-surface-200 w-[14%]"
+							>Earnings</th
+						>
+						<th
+							class="py-3 px-4 text-caption font-semibold text-surface-600 text-right uppercase tracking-wider border-b border-surface-200 w-[14%]"
+							>Deductions</th
+						>
+						<th
+							class="py-3 px-4 text-caption font-semibold text-surface-600 text-center uppercase tracking-wider border-b border-surface-200 w-[10%]"
+							>Leave</th
+						>
+						<th
+							class="py-3 px-4 text-caption font-semibold text-surface-600 text-right uppercase tracking-wider border-b border-surface-200 w-[14%]"
+							>Net Pay</th
+						>
+						<th
+							class="py-3 px-4 text-caption font-semibold text-surface-600 text-right uppercase tracking-wider border-b border-surface-200 w-[5%]"
+						></th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each payGroup.records as record (record.id)}
 						<!-- Main Row -->
 						<tr
-							class="cursor-pointer transition-all duration-150 {expandedRecordId === record.id ? 'bg-neutral-50' : 'hover:bg-surface-50'}"
+							class="cursor-pointer transition-all duration-150 {expandedRecordId === record.id
+								? 'bg-neutral-50'
+								: 'hover:bg-surface-50'}"
 							onclick={() => onToggleExpand(record.id)}
 						>
 							<td class="py-3 px-4 text-body-content text-surface-700 border-b border-surface-100">
@@ -384,12 +441,16 @@
 										<div class="flex items-center gap-2">
 											<span class="font-medium text-surface-800">{record.employeeName}</span>
 											{#if isUncalculated(record)}
-												<span class="inline-flex items-center px-1.5 py-0.5 bg-warning-100 text-warning-700 rounded text-caption font-medium">
+												<span
+													class="inline-flex items-center px-1.5 py-0.5 bg-warning-100 text-warning-700 rounded text-caption font-medium"
+												>
 													Est.
 												</span>
 											{/if}
 										</div>
-										<span class="text-caption text-surface-500 capitalize">{record.compensationType}</span>
+										<span class="text-caption text-surface-500 capitalize"
+											>{record.compensationType}</span
+										>
 									</div>
 									{#if onRemoveEmployee}
 										<button
@@ -402,21 +463,31 @@
 									{/if}
 								</div>
 							</td>
-							<td class="py-3 px-4 text-body-content text-surface-700 border-b border-surface-100 text-center">
-								<span class="inline-flex py-1 px-2 bg-surface-100 rounded text-caption font-medium text-surface-700">
+							<td
+								class="py-3 px-4 text-body-content text-surface-700 border-b border-surface-100 text-center"
+							>
+								<span
+									class="inline-flex py-1 px-2 bg-surface-100 rounded text-caption font-medium text-surface-700"
+								>
 									{record.employeeProvince}
 								</span>
 							</td>
 							<td class="py-3 px-4 text-body-content text-surface-700 border-b border-surface-100">
 								<span class="font-medium text-surface-700">{formatHoursRate(record)}</span>
 							</td>
-							<td class="py-3 px-4 text-body-content text-surface-700 border-b border-surface-100 text-right">
+							<td
+								class="py-3 px-4 text-body-content text-surface-700 border-b border-surface-100 text-right"
+							>
 								{formatCurrency(record.totalGross)}
 							</td>
-							<td class="py-3 px-4 text-body-content text-surface-700 border-b border-surface-100 text-right">
+							<td
+								class="py-3 px-4 text-body-content text-surface-700 border-b border-surface-100 text-right"
+							>
 								{formatCurrency(record.totalDeductions)}
 							</td>
-							<td class="py-3 px-4 text-body-content text-surface-700 border-b border-surface-100 text-center">
+							<td
+								class="py-3 px-4 text-body-content text-surface-700 border-b border-surface-100 text-center"
+							>
 								{#if getTotalLeaveHours(record) > 0}
 									<span class="text-warning-600 font-medium">{getTotalLeaveHours(record)}h</span>
 								{:else}
@@ -445,19 +516,28 @@
 										<div class="grid grid-cols-3 gap-5">
 											<!-- EARNINGS Column -->
 											<div class="flex flex-col gap-3">
-												<h4 class="text-caption font-semibold text-surface-600 uppercase tracking-wider m-0 pb-2 border-b border-surface-200">Earnings</h4>
+												<h4
+													class="text-caption font-semibold text-surface-600 uppercase tracking-wider m-0 pb-2 border-b border-surface-200"
+												>
+													Earnings
+												</h4>
 												<div class="flex flex-col gap-2">
 													<!-- Regular Pay -->
 													<div class="flex flex-col gap-1">
 														<div class="flex justify-between items-center">
 															<span class="text-body-content text-surface-600">Regular Pay</span>
-															<span class="text-body-content text-surface-800">{formatCurrency(record.grossRegular)}</span>
+															<span class="text-body-content text-surface-800"
+																>{formatCurrency(record.grossRegular)}</span
+															>
 														</div>
 														<!-- Regular Hours input (only for hourly employees) -->
 														{#if record.compensationType === 'hourly'}
 															<!-- svelte-ignore a11y_no_static_element_interactions -->
 															<!-- svelte-ignore a11y_click_events_have_key_events -->
-															<div class="flex justify-between items-center gap-2 pl-4" onclick={(e) => e.stopPropagation()}>
+															<div
+																class="flex justify-between items-center gap-2 pl-4"
+																onclick={(e) => e.stopPropagation()}
+															>
 																<span class="text-body-small text-surface-500">Regular Hours</span>
 																<div class="flex items-center gap-1">
 																	<input
@@ -482,8 +562,11 @@
 													<!-- Vacation Earned -->
 													{#if record.vacationAccrued > 0}
 														<div class="flex justify-between items-center">
-															<span class="text-body-content text-surface-600">Vacation Earned</span>
-															<span class="text-body-content text-surface-800">{formatCurrency(record.vacationAccrued)}</span>
+															<span class="text-body-content text-surface-600">Vacation Earned</span
+															>
+															<span class="text-body-content text-surface-800"
+																>{formatCurrency(record.vacationAccrued)}</span
+															>
 														</div>
 													{/if}
 
@@ -491,12 +574,17 @@
 													<div class="flex flex-col gap-1">
 														<div class="flex justify-between items-center">
 															<span class="text-body-content text-surface-600">Overtime</span>
-															<span class="text-body-content text-surface-800">{formatCurrency(record.grossOvertime)}</span>
+															<span class="text-body-content text-surface-800"
+																>{formatCurrency(record.grossOvertime)}</span
+															>
 														</div>
 														<!-- Overtime Hours input (for both hourly and salaried) -->
 														<!-- svelte-ignore a11y_no_static_element_interactions -->
 														<!-- svelte-ignore a11y_click_events_have_key_events -->
-														<div class="flex justify-between items-center gap-2 pl-4" onclick={(e) => e.stopPropagation()}>
+														<div
+															class="flex justify-between items-center gap-2 pl-4"
+															onclick={(e) => e.stopPropagation()}
+														>
 															<span class="text-body-small text-surface-500">Overtime Hours</span>
 															<div class="flex items-center gap-1">
 																<input
@@ -521,20 +609,28 @@
 													{#if hasHolidayForEmployee(record)}
 														<!-- svelte-ignore a11y_no_static_element_interactions -->
 														<!-- svelte-ignore a11y_click_events_have_key_events -->
-														<div class="flex justify-between items-center" onclick={(e) => e.stopPropagation()}>
+														<div
+															class="flex justify-between items-center"
+															onclick={(e) => e.stopPropagation()}
+														>
 															<div class="flex items-center gap-2">
 																<span class="text-body-content text-surface-600">Holiday Pay</span>
-																<label class="flex items-center gap-1 text-body-small text-surface-500 cursor-pointer">
+																<label
+																	class="flex items-center gap-1 text-body-small text-surface-500 cursor-pointer"
+																>
 																	<input
 																		type="checkbox"
 																		class="w-3.5 h-3.5 rounded border-surface-300 accent-primary-600"
 																		checked={record.inputData?.holidayPayExempt ?? false}
-																		onchange={(e) => handleHolidayPayExemptChange(record, e.currentTarget.checked)}
+																		onchange={(e) =>
+																			handleHolidayPayExemptChange(record, e.currentTarget.checked)}
 																	/>
 																	<span>Exempt</span>
 																</label>
 															</div>
-															<span class="text-body-content text-surface-800">{formatCurrency(record.holidayPay)}</span>
+															<span class="text-body-content text-surface-800"
+																>{formatCurrency(record.holidayPay)}</span
+															>
 														</div>
 													{/if}
 
@@ -542,15 +638,20 @@
 													{#if record.vacationPayPaid > 0}
 														<div class="flex justify-between items-center">
 															<span class="text-body-content text-surface-600">Vacation Pay</span>
-															<span class="text-body-content text-surface-800">{formatCurrency(record.vacationPayPaid)}</span>
+															<span class="text-body-content text-surface-800"
+																>{formatCurrency(record.vacationPayPaid)}</span
+															>
 														</div>
 													{/if}
 
 													<!-- Holiday Premium (if any) -->
 													{#if record.holidayPremiumPay > 0}
 														<div class="flex justify-between items-center">
-															<span class="text-body-content text-surface-600">Holiday Premium</span>
-															<span class="text-body-content text-surface-800">{formatCurrency(record.holidayPremiumPay)}</span>
+															<span class="text-body-content text-surface-600">Holiday Premium</span
+															>
+															<span class="text-body-content text-surface-800"
+																>{formatCurrency(record.holidayPremiumPay)}</span
+															>
 														</div>
 													{/if}
 
@@ -558,20 +659,27 @@
 													{#if record.otherEarnings > 0}
 														<div class="flex justify-between items-center">
 															<span class="text-body-content text-surface-600">Other Earnings</span>
-															<span class="text-body-content text-surface-800">{formatCurrency(record.otherEarnings)}</span>
+															<span class="text-body-content text-surface-800"
+																>{formatCurrency(record.otherEarnings)}</span
+															>
 														</div>
 													{/if}
 
 													<!-- User-added earnings adjustments -->
-													{#each getEarningsAdjustments(record) as adj, idx (adj.id)}
+													{#each getEarningsAdjustments(record) as adj, _idx (adj.id)}
 														{@const adjIdx = getAdjustments(record).indexOf(adj)}
 														{@const typeInfo = ADJUSTMENT_TYPE_LABELS[adj.type]}
 														<!-- svelte-ignore a11y_no_static_element_interactions -->
 														<!-- svelte-ignore a11y_click_events_have_key_events -->
-														<div class="flex flex-col gap-1 py-2" onclick={(e) => e.stopPropagation()}>
+														<div
+															class="flex flex-col gap-1 py-2"
+															onclick={(e) => e.stopPropagation()}
+														>
 															<!-- Row 1: Type label + Delete -->
 															<div class="flex items-center justify-between">
-																<span class="text-body-content text-surface-700">{typeInfo?.label}</span>
+																<span class="text-body-content text-surface-700"
+																	>{typeInfo?.label}</span
+																>
 																<button
 																	class="p-1 bg-transparent border-none text-error-500 cursor-pointer rounded hover:bg-error-50 hover:text-error-600"
 																	title="Remove"
@@ -587,7 +695,10 @@
 																	class="flex-1 py-1 px-2 border border-surface-200 rounded text-body-small focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
 																	value={adj.description}
 																	placeholder="Note"
-																	onchange={(e) => handleUpdateAdjustment(record, adjIdx, { description: e.currentTarget.value })}
+																	onchange={(e) =>
+																		handleUpdateAdjustment(record, adjIdx, {
+																			description: e.currentTarget.value
+																		})}
 																/>
 																<input
 																	type="number"
@@ -614,7 +725,8 @@
 														<button
 															class="w-full flex items-center justify-center gap-2 py-2 bg-surface-50 border border-dashed border-surface-300 rounded text-body-small text-surface-600 cursor-pointer transition-all duration-150 hover:bg-primary-50 hover:border-primary-300 hover:text-primary-600"
 															onclick={() => {
-																showEarningsMenu = showEarningsMenu === record.id ? null : record.id;
+																showEarningsMenu =
+																	showEarningsMenu === record.id ? null : record.id;
 																showDeductionsMenu = null;
 															}}
 														>
@@ -624,8 +736,10 @@
 														</button>
 
 														{#if showEarningsMenu === record.id}
-															<div class="absolute left-0 bottom-full mb-1 bg-white border border-surface-200 rounded-lg shadow-lg z-20 min-w-[180px] py-1">
-																{#each EARNINGS_TYPES as type}
+															<div
+																class="absolute left-0 bottom-full mb-1 bg-white border border-surface-200 rounded-lg shadow-lg z-20 min-w-[180px] py-1"
+															>
+																{#each EARNINGS_TYPES as type (type)}
 																	{@const info = ADJUSTMENT_TYPE_LABELS[type]}
 																	<button
 																		class="w-full px-3 py-2 text-left text-body-small text-surface-700 hover:bg-surface-50 flex items-center gap-2 border-none bg-transparent cursor-pointer"
@@ -640,39 +754,55 @@
 													</div>
 
 													<!-- Total Gross -->
-													<div class="flex justify-between items-center pt-2 border-t border-surface-200 font-semibold">
+													<div
+														class="flex justify-between items-center pt-2 border-t border-surface-200 font-semibold"
+													>
 														<span class="text-body-content text-surface-600">Total Gross</span>
-														<span class="text-body-content text-surface-800">{formatCurrency(record.totalGross)}</span>
+														<span class="text-body-content text-surface-800"
+															>{formatCurrency(record.totalGross)}</span
+														>
 													</div>
 												</div>
 											</div>
 
 											<!-- DEDUCTIONS Column -->
 											<div class="flex flex-col gap-3">
-												<h4 class="text-caption font-semibold text-surface-600 uppercase tracking-wider m-0 pb-2 border-b border-surface-200">Deductions</h4>
+												<h4
+													class="text-caption font-semibold text-surface-600 uppercase tracking-wider m-0 pb-2 border-b border-surface-200"
+												>
+													Deductions
+												</h4>
 												<div class="flex flex-col gap-2">
 													<!-- CPP -->
 													<div class="flex justify-between items-center">
 														<span class="text-body-content text-surface-600">CPP</span>
-														<span class="text-body-content text-surface-800">{formatCurrency(record.cppEmployee + record.cppAdditional)}</span>
+														<span class="text-body-content text-surface-800"
+															>{formatCurrency(record.cppEmployee + record.cppAdditional)}</span
+														>
 													</div>
 
 													<!-- EI -->
 													<div class="flex justify-between items-center">
 														<span class="text-body-content text-surface-600">EI</span>
-														<span class="text-body-content text-surface-800">{formatCurrency(record.eiEmployee)}</span>
+														<span class="text-body-content text-surface-800"
+															>{formatCurrency(record.eiEmployee)}</span
+														>
 													</div>
 
 													<!-- Federal Tax -->
 													<div class="flex justify-between items-center">
 														<span class="text-body-content text-surface-600">Federal Tax</span>
-														<span class="text-body-content text-surface-800">{formatCurrency(record.federalTax)}</span>
+														<span class="text-body-content text-surface-800"
+															>{formatCurrency(record.federalTax)}</span
+														>
 													</div>
 
 													<!-- Provincial Tax -->
 													<div class="flex justify-between items-center">
 														<span class="text-body-content text-surface-600">Provincial Tax</span>
-														<span class="text-body-content text-surface-800">{formatCurrency(record.provincialTax)}</span>
+														<span class="text-body-content text-surface-800"
+															>{formatCurrency(record.provincialTax)}</span
+														>
 													</div>
 
 													<!-- Benefits (from Pay Group group_benefits) -->
@@ -680,49 +810,81 @@
 														{#if payGroup.groupBenefits.health?.enabled}
 															<div class="flex justify-between items-center">
 																<span class="text-body-content text-surface-600">Health</span>
-																<span class="text-body-content text-surface-800">{formatCurrency(payGroup.groupBenefits.health.employeeDeduction)}</span>
+																<span class="text-body-content text-surface-800"
+																	>{formatCurrency(
+																		payGroup.groupBenefits.health.employeeDeduction
+																	)}</span
+																>
 															</div>
 														{/if}
 														{#if payGroup.groupBenefits.dental?.enabled}
 															<div class="flex justify-between items-center">
 																<span class="text-body-content text-surface-600">Dental</span>
-																<span class="text-body-content text-surface-800">{formatCurrency(payGroup.groupBenefits.dental.employeeDeduction)}</span>
+																<span class="text-body-content text-surface-800"
+																	>{formatCurrency(
+																		payGroup.groupBenefits.dental.employeeDeduction
+																	)}</span
+																>
 															</div>
 														{/if}
 														{#if payGroup.groupBenefits.vision?.enabled}
 															<div class="flex justify-between items-center">
 																<span class="text-body-content text-surface-600">Vision</span>
-																<span class="text-body-content text-surface-800">{formatCurrency(payGroup.groupBenefits.vision.employeeDeduction)}</span>
+																<span class="text-body-content text-surface-800"
+																	>{formatCurrency(
+																		payGroup.groupBenefits.vision.employeeDeduction
+																	)}</span
+																>
 															</div>
 														{/if}
 														{#if payGroup.groupBenefits.lifeInsurance?.enabled}
 															<div class="flex justify-between items-center">
-																<span class="text-body-content text-surface-600">Life Insurance</span>
-																<span class="text-body-content text-surface-800">{formatCurrency(payGroup.groupBenefits.lifeInsurance.employeeDeduction)}</span>
+																<span class="text-body-content text-surface-600"
+																	>Life Insurance</span
+																>
+																<span class="text-body-content text-surface-800"
+																	>{formatCurrency(
+																		payGroup.groupBenefits.lifeInsurance.employeeDeduction
+																	)}</span
+																>
 															</div>
 														{/if}
 														{#if payGroup.groupBenefits.disability?.enabled}
 															<div class="flex justify-between items-center">
 																<span class="text-body-content text-surface-600">Disability</span>
-																<span class="text-body-content text-surface-800">{formatCurrency(payGroup.groupBenefits.disability.employeeDeduction)}</span>
+																<span class="text-body-content text-surface-800"
+																	>{formatCurrency(
+																		payGroup.groupBenefits.disability.employeeDeduction
+																	)}</span
+																>
 															</div>
 														{/if}
 													{/if}
 
 													<!-- User-added deduction adjustments -->
-													{#each getDeductionAdjustments(record) as adj, idx (adj.id)}
+													{#each getDeductionAdjustments(record) as adj, _idx (adj.id)}
 														{@const adjIdx = getAdjustments(record).indexOf(adj)}
 														{@const deductionLabel = getDeductionLabel(adj)}
 														{@const taxType = getDeductionTaxType(adj)}
 														<!-- svelte-ignore a11y_no_static_element_interactions -->
 														<!-- svelte-ignore a11y_click_events_have_key_events -->
-														<div class="flex flex-col gap-1 py-2" onclick={(e) => e.stopPropagation()}>
+														<div
+															class="flex flex-col gap-1 py-2"
+															onclick={(e) => e.stopPropagation()}
+														>
 															<!-- Row 1: Deduction name + Tax type badge + Delete -->
 															<div class="flex items-center justify-between">
 																<div class="flex items-center gap-2">
-																	<span class="text-body-content text-surface-700">{deductionLabel}</span>
+																	<span class="text-body-content text-surface-700"
+																		>{deductionLabel}</span
+																	>
 																	{#if taxType}
-																		<span class="text-caption px-1.5 py-0.5 rounded {taxType === 'Pre-tax' ? 'bg-primary-100 text-primary-700' : 'bg-surface-100 text-surface-600'}">
+																		<span
+																			class="text-caption px-1.5 py-0.5 rounded {taxType ===
+																			'Pre-tax'
+																				? 'bg-primary-100 text-primary-700'
+																				: 'bg-surface-100 text-surface-600'}"
+																		>
 																			{taxType}
 																		</span>
 																	{/if}
@@ -739,7 +901,8 @@
 															<div class="flex items-center gap-2 pl-4">
 																{#if adj.customDeductionId}
 																	<!-- For custom deductions, show a simple amount input -->
-																	<span class="flex-1 text-body-small text-surface-500">Amount</span>
+																	<span class="flex-1 text-body-small text-surface-500">Amount</span
+																	>
 																{:else}
 																	<!-- For ad-hoc deductions, allow note editing -->
 																	<input
@@ -747,7 +910,10 @@
 																		class="flex-1 py-1 px-2 border border-surface-200 rounded text-body-small focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
 																		value={adj.description}
 																		placeholder="Note"
-																		onchange={(e) => handleUpdateAdjustment(record, adjIdx, { description: e.currentTarget.value })}
+																		onchange={(e) =>
+																			handleUpdateAdjustment(record, adjIdx, {
+																				description: e.currentTarget.value
+																			})}
 																	/>
 																{/if}
 																<input
@@ -775,7 +941,8 @@
 														<button
 															class="w-full flex items-center justify-center gap-2 py-2 bg-surface-50 border border-dashed border-surface-300 rounded text-body-small text-surface-600 cursor-pointer transition-all duration-150 hover:bg-primary-50 hover:border-primary-300 hover:text-primary-600"
 															onclick={() => {
-																showDeductionsMenu = showDeductionsMenu === record.id ? null : record.id;
+																showDeductionsMenu =
+																	showDeductionsMenu === record.id ? null : record.id;
 																showEarningsMenu = null;
 															}}
 														>
@@ -785,10 +952,12 @@
 														</button>
 
 														{#if showDeductionsMenu === record.id}
-															<div class="absolute left-0 bottom-full mb-1 bg-white border border-surface-200 rounded-lg shadow-lg z-20 min-w-[200px] py-1">
+															<div
+																class="absolute left-0 bottom-full mb-1 bg-white border border-surface-200 rounded-lg shadow-lg z-20 min-w-[200px] py-1"
+															>
 																<!-- Custom deductions from pay group -->
 																{#if payGroup.deductionsConfig?.customDeductions && payGroup.deductionsConfig.customDeductions.length > 0}
-																	{#each payGroup.deductionsConfig.customDeductions as customDed}
+																	{#each payGroup.deductionsConfig.customDeductions as customDed (customDed.name)}
 																		<button
 																			class="w-full px-3 py-2 text-left text-body-small text-surface-700 hover:bg-surface-50 flex items-center justify-between border-none bg-transparent cursor-pointer"
 																			onclick={() => handleAddCustomDeduction(record, customDed)}
@@ -797,7 +966,12 @@
 																				<span>➖</span>
 																				<span>{customDed.name}</span>
 																			</div>
-																			<span class="text-caption px-1.5 py-0.5 rounded {customDed.taxTreatment === 'pre_tax' ? 'bg-primary-100 text-primary-700' : 'bg-surface-100 text-surface-500'}">
+																			<span
+																				class="text-caption px-1.5 py-0.5 rounded {customDed.taxTreatment ===
+																				'pre_tax'
+																					? 'bg-primary-100 text-primary-700'
+																					: 'bg-surface-100 text-surface-500'}"
+																			>
 																				{customDed.taxTreatment === 'pre_tax' ? 'Pre' : 'Post'}
 																			</span>
 																		</button>
@@ -817,105 +991,137 @@
 													</div>
 
 													<!-- Total Deductions -->
-													<div class="flex justify-between items-center pt-2 border-t border-surface-200 font-semibold">
+													<div
+														class="flex justify-between items-center pt-2 border-t border-surface-200 font-semibold"
+													>
 														<span class="text-body-content text-surface-600">Total</span>
-														<span class="text-body-content text-surface-800">{formatCurrency(record.totalDeductions)}</span>
+														<span class="text-body-content text-surface-800"
+															>{formatCurrency(record.totalDeductions)}</span
+														>
 													</div>
 												</div>
 											</div>
 
 											<!-- LEAVE Column -->
 											<div class="flex flex-col gap-3">
-												<h4 class="text-caption font-semibold text-surface-600 uppercase tracking-wider m-0 pb-2 border-b border-surface-200">Leave</h4>
+												<h4
+													class="text-caption font-semibold text-surface-600 uppercase tracking-wider m-0 pb-2 border-b border-surface-200"
+												>
+													Leave
+												</h4>
 												<div class="flex flex-col gap-2">
 													<!-- Vacation Used -->
 													{#if true}
-													{@const vacationHours = getLeaveHours(record, 'vacation')}
-													{@const vacationPay = calculateVacationPay(record, vacationHours)}
-													{@const availableVacationDollars = (record.vacationBalance ?? 0) + record.vacationAccrued - (record.vacationPayPaid ?? 0)}
-													{@const vacationDisabled = record.vacationPayoutMethod === 'accrual' && availableVacationDollars <= 0}
-													{@const insufficientBalance = hasInsufficientBalance(record)}
-													{@const availableSickHours = record.sickBalanceHours ?? 0}
-													<!-- svelte-ignore a11y_no_static_element_interactions -->
-													<!-- svelte-ignore a11y_click_events_have_key_events -->
-													<div class="flex flex-col gap-1" onclick={(e) => e.stopPropagation()}>
-														<div class="flex justify-between items-center gap-2">
-															<span class="text-body-content text-surface-600">Vacation Used</span>
-															<div class="flex items-center gap-1">
-																<input
-																	type="number"
-																	class="w-16 py-1 px-2 border rounded text-body-small text-center focus:outline-none focus:ring-2 {vacationDisabled ? 'bg-surface-100 text-surface-400 cursor-not-allowed border-surface-200' : insufficientBalance ? 'border-error-400 focus:border-error-500 focus:ring-error-100' : 'border-surface-300 focus:border-primary-500 focus:ring-primary-100'}"
-																	value={vacationHours}
-																	min="0"
-																	step="0.5"
-																	disabled={vacationDisabled}
-																	onchange={(e) => handleLeaveChange(record, 'vacation', parseFloat(e.currentTarget.value) || 0)}
-																/>
-																<span class="text-caption text-surface-500">hrs</span>
+														{@const vacationHours = getLeaveHours(record, 'vacation')}
+														{@const vacationPay = calculateVacationPay(record, vacationHours)}
+														{@const availableVacationDollars =
+															(record.vacationBalance ?? 0) +
+															record.vacationAccrued -
+															(record.vacationPayPaid ?? 0)}
+														{@const vacationDisabled =
+															record.vacationPayoutMethod === 'accrual' &&
+															availableVacationDollars <= 0}
+														{@const insufficientBalance = hasInsufficientBalance(record)}
+														{@const availableSickHours = record.sickBalanceHours ?? 0}
+														<!-- svelte-ignore a11y_no_static_element_interactions -->
+														<!-- svelte-ignore a11y_click_events_have_key_events -->
+														<div class="flex flex-col gap-1" onclick={(e) => e.stopPropagation()}>
+															<div class="flex justify-between items-center gap-2">
+																<span class="text-body-content text-surface-600">Vacation Used</span
+																>
+																<div class="flex items-center gap-1">
+																	<input
+																		type="number"
+																		class="w-16 py-1 px-2 border rounded text-body-small text-center focus:outline-none focus:ring-2 {vacationDisabled
+																			? 'bg-surface-100 text-surface-400 cursor-not-allowed border-surface-200'
+																			: insufficientBalance
+																				? 'border-error-400 focus:border-error-500 focus:ring-error-100'
+																				: 'border-surface-300 focus:border-primary-500 focus:ring-primary-100'}"
+																		value={vacationHours}
+																		min="0"
+																		step="0.5"
+																		disabled={vacationDisabled}
+																		onchange={(e) =>
+																			handleLeaveChange(
+																				record,
+																				'vacation',
+																				parseFloat(e.currentTarget.value) || 0
+																			)}
+																	/>
+																	<span class="text-caption text-surface-500">hrs</span>
+																</div>
 															</div>
+															<!-- Show calculated vacation pay when hours > 0 -->
+															{#if vacationHours > 0}
+																<div class="flex justify-between items-center pl-4">
+																	<span class="text-caption text-surface-500"
+																		>= Vacation Pay ({vacationHours} hrs)</span
+																	>
+																	<span class="text-body-small text-surface-700 font-medium"
+																		>{formatCurrency(vacationPay)}</span
+																	>
+																</div>
+															{/if}
+															<!-- Disabled hint -->
+															{#if vacationDisabled}
+																<div class="flex items-center gap-1 pl-4 text-surface-500">
+																	<i class="fas fa-info-circle text-xs"></i>
+																	<span class="text-caption">No vacation balance available</span>
+																</div>
+															{/if}
+															<!-- Insufficient balance warning -->
+															{#if insufficientBalance && !vacationDisabled}
+																<div class="flex items-center gap-1 pl-4 text-error-600">
+																	<i class="fas fa-exclamation-triangle text-xs"></i>
+																	<span class="text-caption">Insufficient balance</span>
+																</div>
+															{/if}
 														</div>
-														<!-- Show calculated vacation pay when hours > 0 -->
-														{#if vacationHours > 0}
-															<div class="flex justify-between items-center pl-4">
-																<span class="text-caption text-surface-500">= Vacation Pay ({vacationHours} hrs)</span>
-																<span class="text-body-small text-surface-700 font-medium">{formatCurrency(vacationPay)}</span>
-															</div>
-														{/if}
-														<!-- Disabled hint -->
-														{#if vacationDisabled}
-															<div class="flex items-center gap-1 pl-4 text-surface-500">
-																<i class="fas fa-info-circle text-xs"></i>
-																<span class="text-caption">No vacation balance available</span>
-															</div>
-														{/if}
-														<!-- Insufficient balance warning -->
-														{#if insufficientBalance && !vacationDisabled}
-															<div class="flex items-center gap-1 pl-4 text-error-600">
-																<i class="fas fa-exclamation-triangle text-xs"></i>
-																<span class="text-caption">Insufficient balance</span>
-															</div>
-														{/if}
-													</div>
 
-													<!-- Sick Used -->
-													{@const sickHours = getLeaveHours(record, 'sick')}
-													{@const paidSickHours = Math.min(sickHours, availableSickHours)}
-													{@const unpaidSickHours = Math.max(0, sickHours - availableSickHours)}
-													<!-- svelte-ignore a11y_no_static_element_interactions -->
-													<!-- svelte-ignore a11y_click_events_have_key_events -->
-													<div class="flex flex-col gap-1" onclick={(e) => e.stopPropagation()}>
-														<div class="flex justify-between items-center gap-2">
-															<span class="text-body-content text-surface-600">Sick Used</span>
-															<div class="flex items-center gap-1">
-																<input
-																	type="number"
-																	class="w-16 py-1 px-2 border rounded text-body-small text-center focus:outline-none focus:ring-2 border-surface-300 focus:border-primary-500 focus:ring-primary-100"
-																	value={sickHours}
-																	min="0"
-																	step="0.5"
-																	onchange={(e) => handleLeaveChange(record, 'sick', parseFloat(e.currentTarget.value) || 0)}
-																/>
-																<span class="text-caption text-surface-500">hrs</span>
+														<!-- Sick Used -->
+														{@const sickHours = getLeaveHours(record, 'sick')}
+														{@const paidSickHours = Math.min(sickHours, availableSickHours)}
+														{@const unpaidSickHours = Math.max(0, sickHours - availableSickHours)}
+														<!-- svelte-ignore a11y_no_static_element_interactions -->
+														<!-- svelte-ignore a11y_click_events_have_key_events -->
+														<div class="flex flex-col gap-1" onclick={(e) => e.stopPropagation()}>
+															<div class="flex justify-between items-center gap-2">
+																<span class="text-body-content text-surface-600">Sick Used</span>
+																<div class="flex items-center gap-1">
+																	<input
+																		type="number"
+																		class="w-16 py-1 px-2 border rounded text-body-small text-center focus:outline-none focus:ring-2 border-surface-300 focus:border-primary-500 focus:ring-primary-100"
+																		value={sickHours}
+																		min="0"
+																		step="0.5"
+																		onchange={(e) =>
+																			handleLeaveChange(
+																				record,
+																				'sick',
+																				parseFloat(e.currentTarget.value) || 0
+																			)}
+																	/>
+																	<span class="text-caption text-surface-500">hrs</span>
+																</div>
 															</div>
+															<!-- Sick hours breakdown when entered -->
+															{#if sickHours > 0}
+																<div class="pl-4 space-y-0.5">
+																	{#if paidSickHours > 0}
+																		<div class="flex justify-between text-caption text-success-600">
+																			<span>└ Paid Sick</span>
+																			<span>{paidSickHours} hrs</span>
+																		</div>
+																	{/if}
+																	{#if unpaidSickHours > 0}
+																		<div class="flex justify-between text-caption text-warning-600">
+																			<span>└ Unpaid (deducted)</span>
+																			<span>{unpaidSickHours} hrs</span>
+																		</div>
+																	{/if}
+																</div>
+															{/if}
 														</div>
-														<!-- Sick hours breakdown when entered -->
-														{#if sickHours > 0}
-															<div class="pl-4 space-y-0.5">
-																{#if paidSickHours > 0}
-																	<div class="flex justify-between text-caption text-success-600">
-																		<span>└ Paid Sick</span>
-																		<span>{paidSickHours} hrs</span>
-																	</div>
-																{/if}
-																{#if unpaidSickHours > 0}
-																	<div class="flex justify-between text-caption text-warning-600">
-																		<span>└ Unpaid (deducted)</span>
-																		<span>{unpaidSickHours} hrs</span>
-																	</div>
-																{/if}
-															</div>
-														{/if}
-													</div>
 													{/if}
 
 													<!-- Separator -->
@@ -926,9 +1132,21 @@
 														<!-- Vacation Balance (for accrual method employees) -->
 														{#if record.vacationPayoutMethod === 'accrual'}
 															<div class="flex justify-between items-center">
-																<span class="text-body-content text-surface-600">Available Vacation</span>
-																<span class="text-body-content font-medium {hasInsufficientBalance(record) ? 'text-error-600' : 'text-surface-800'}">
-																	{formatCurrency((record.vacationBalance ?? 0) + record.vacationAccrued - (record.vacationPayPaid ?? 0))}
+																<span class="text-body-content text-surface-600"
+																	>Available Vacation</span
+																>
+																<span
+																	class="text-body-content font-medium {hasInsufficientBalance(
+																		record
+																	)
+																		? 'text-error-600'
+																		: 'text-surface-800'}"
+																>
+																	{formatCurrency(
+																		(record.vacationBalance ?? 0) +
+																			record.vacationAccrued -
+																			(record.vacationPayPaid ?? 0)
+																	)}
 																</span>
 															</div>
 														{:else if record.vacationPayoutMethod === 'pay_as_you_go'}
@@ -951,9 +1169,13 @@
 										</div>
 
 										<!-- Net Pay Summary -->
-										<div class="flex justify-end items-center gap-4 mt-4 pt-4 border-t-2 border-surface-200">
+										<div
+											class="flex justify-end items-center gap-4 mt-4 pt-4 border-t-2 border-surface-200"
+										>
 											<span class="text-body-content font-semibold text-surface-600">Net Pay</span>
-											<span class="text-title font-bold text-success-600">{formatCurrency(record.netPay)}</span>
+											<span class="text-title font-bold text-success-600"
+												>{formatCurrency(record.netPay)}</span
+											>
 										</div>
 									</div>
 								</td>

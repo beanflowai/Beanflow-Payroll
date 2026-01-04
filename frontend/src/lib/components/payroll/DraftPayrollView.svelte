@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type {
 		PayrollRunWithGroups,
-		PayrollRunPayGroup,
 		EmployeePayrollInput,
 		HolidayWorkEntry
 	} from '$lib/types/payroll';
@@ -18,7 +17,11 @@
 		isDeleting?: boolean;
 		onRecalculate: () => void;
 		onFinalize: () => void;
-		onUpdateRecord: (recordId: string, employeeId: string, updates: Partial<EmployeePayrollInput>) => void;
+		onUpdateRecord: (
+			recordId: string,
+			employeeId: string,
+			updates: Partial<EmployeePayrollInput>
+		) => void;
 		onAddEmployee?: (payGroupId: string) => void;
 		onRemoveEmployee?: (employeeId: string) => void;
 		onDeleteDraft?: () => void;
@@ -57,11 +60,14 @@
 
 	function handleHolidayWorkSave(entries: HolidayWorkEntry[]) {
 		// Group holiday work entries by employee
-		const entriesByEmployee = new Map<string, Array<{
-			holidayDate: string;
-			holidayName: string;
-			hoursWorked: number;
-		}>>();
+		const entriesByEmployee = new Map<
+			string,
+			Array<{
+				holidayDate: string;
+				holidayName: string;
+				hoursWorked: number;
+			}>
+		>();
 
 		for (const entry of entries) {
 			const existing = entriesByEmployee.get(entry.employeeId) || [];
@@ -75,7 +81,7 @@
 
 		// Update each employee's record with their holiday work entries
 		for (const [employeeId, holidayWorkEntries] of entriesByEmployee) {
-			const record = allRecords.find(r => r.employeeId === employeeId);
+			const record = allRecords.find((r) => r.employeeId === employeeId);
 			if (record) {
 				onUpdateRecord(record.id, employeeId, { holidayWorkEntries });
 			}
@@ -85,13 +91,12 @@
 	}
 
 	// Get all records for the holiday modal
-	const allRecords = $derived(
-		payrollRun.payGroups.flatMap((pg) => pg.records)
-	);
+	const allRecords = $derived(payrollRun.payGroups.flatMap((pg) => pg.records));
 
 	// Tooltip content
 	const tooltips = $derived({
-		totalDeductions: 'Amount withheld from employee pay: CPP, EI, income taxes, and other deductions',
+		totalDeductions:
+			'Amount withheld from employee pay: CPP, EI, income taxes, and other deductions',
 		totalEmployerCost: `Employer CPP: ${formatCurrency(payrollRun.totalCppEmployer)} + Employer EI: ${formatCurrency(payrollRun.totalEiEmployer)}`,
 		totalPayrollCost: 'Total Gross + Total Employer Cost',
 		totalRemittance: 'Amount to remit to CRA: Employee & Employer CPP/EI + Income Taxes'
@@ -103,11 +108,15 @@
 	<div class="flex flex-col gap-3">
 		<div class="flex justify-between items-center flex-wrap gap-3">
 			<div class="flex items-center gap-3">
-				<div class="inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold bg-amber-100 text-amber-700">
+				<div
+					class="inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold bg-amber-100 text-amber-700"
+				>
 					<i class="fas fa-edit"></i>
 					Draft
 				</div>
-				<h1 class="text-2xl font-bold text-gray-800 m-0">Pay Date: {formatShortDate(payrollRun.payDate)}</h1>
+				<h1 class="text-2xl font-bold text-gray-800 m-0">
+					Pay Date: {formatShortDate(payrollRun.payDate)}
+				</h1>
 			</div>
 			<div class="flex gap-3">
 				{#if onBack}
@@ -166,7 +175,9 @@
 
 		<!-- Warning Banner (when modified) -->
 		{#if hasModifiedRecords}
-			<div class="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-300 rounded-lg text-amber-800 text-base">
+			<div
+				class="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-300 rounded-lg text-amber-800 text-base"
+			>
 				<i class="fas fa-exclamation-triangle text-amber-600 text-lg"></i>
 				<span>
 					<strong>Unsaved Changes:</strong> You have modified employee data. Click
@@ -184,7 +195,9 @@
 	<!-- Summary Cards - Row 1: Employee Perspective -->
 	<div class="grid grid-cols-4 gap-4 max-lg:grid-cols-2 max-md:grid-cols-1">
 		<div class="flex items-center gap-4 px-5 py-4 bg-white rounded-2xl shadow-md">
-			<div class="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-blue-100 text-blue-600">
+			<div
+				class="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-blue-100 text-blue-600"
+			>
 				<i class="fas fa-dollar-sign"></i>
 			</div>
 			<div class="flex flex-col gap-0.5">
@@ -194,26 +207,37 @@
 		</div>
 		<Tooltip content={tooltips.totalDeductions}>
 			<div class="flex items-center gap-4 px-5 py-4 bg-white rounded-2xl shadow-md">
-				<div class="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-amber-100 text-amber-600">
+				<div
+					class="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-amber-100 text-amber-600"
+				>
 					<i class="fas fa-minus-circle"></i>
 				</div>
 				<div class="flex flex-col gap-0.5">
-					<span class="text-xl font-bold text-red-600">-{formatCurrency(payrollRun.totalDeductions)}</span>
+					<span class="text-xl font-bold text-red-600"
+						>-{formatCurrency(payrollRun.totalDeductions)}</span
+					>
 					<span class="text-xs text-gray-500">Total Deductions</span>
 				</div>
 			</div>
 		</Tooltip>
-		<div class="flex items-center gap-4 px-5 py-4 bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-2xl shadow-md">
-			<div class="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-green-600 text-white">
+		<div
+			class="flex items-center gap-4 px-5 py-4 bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-2xl shadow-md"
+		>
+			<div
+				class="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-green-600 text-white"
+			>
 				<i class="fas fa-wallet"></i>
 			</div>
 			<div class="flex flex-col gap-0.5">
-				<span class="text-xl font-bold text-gray-800">{formatCurrency(payrollRun.totalNetPay)}</span>
+				<span class="text-xl font-bold text-gray-800">{formatCurrency(payrollRun.totalNetPay)}</span
+				>
 				<span class="text-xs text-gray-500">Total Net Pay</span>
 			</div>
 		</div>
 		<div class="flex items-center gap-4 px-5 py-4 bg-white rounded-2xl shadow-md">
-			<div class="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-purple-100 text-purple-600">
+			<div
+				class="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-purple-100 text-purple-600"
+			>
 				<i class="fas fa-users"></i>
 			</div>
 			<div class="flex flex-col gap-0.5">
@@ -227,33 +251,47 @@
 	<div class="grid grid-cols-3 gap-4 max-md:grid-cols-1">
 		<Tooltip content={tooltips.totalEmployerCost}>
 			<div class="flex items-center gap-4 px-5 py-4 bg-white rounded-2xl shadow-md">
-				<div class="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-cyan-100 text-cyan-600">
+				<div
+					class="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-cyan-100 text-cyan-600"
+				>
 					<i class="fas fa-building"></i>
 				</div>
 				<div class="flex flex-col gap-0.5">
-					<span class="text-xl font-bold text-gray-800">{formatCurrency(payrollRun.totalEmployerCost)}</span>
+					<span class="text-xl font-bold text-gray-800"
+						>{formatCurrency(payrollRun.totalEmployerCost)}</span
+					>
 					<span class="text-xs text-gray-500">Total Employer Cost</span>
 				</div>
 			</div>
 		</Tooltip>
 		<Tooltip content={tooltips.totalPayrollCost}>
-			<div class="flex items-center gap-4 px-5 py-4 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl shadow-md">
-				<div class="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-white/20 text-white">
+			<div
+				class="flex items-center gap-4 px-5 py-4 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl shadow-md"
+			>
+				<div
+					class="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-white/20 text-white"
+				>
 					<i class="fas fa-receipt"></i>
 				</div>
 				<div class="flex flex-col gap-0.5">
-					<span class="text-xl font-bold text-white">{formatCurrency(payrollRun.totalPayrollCost)}</span>
+					<span class="text-xl font-bold text-white"
+						>{formatCurrency(payrollRun.totalPayrollCost)}</span
+					>
 					<span class="text-xs text-white/80">Total Payroll Cost</span>
 				</div>
 			</div>
 		</Tooltip>
 		<Tooltip content={tooltips.totalRemittance}>
 			<div class="flex items-center gap-4 px-5 py-4 bg-white rounded-2xl shadow-md">
-				<div class="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-orange-100 text-orange-600">
+				<div
+					class="w-12 h-12 rounded-lg flex items-center justify-center text-xl bg-orange-100 text-orange-600"
+				>
 					<i class="fas fa-paper-plane"></i>
 				</div>
 				<div class="flex flex-col gap-0.5">
-					<span class="text-xl font-bold text-gray-800">{formatCurrency(payrollRun.totalRemittance)}</span>
+					<span class="text-xl font-bold text-gray-800"
+						>{formatCurrency(payrollRun.totalRemittance)}</span
+					>
 					<span class="text-xs text-gray-500">Total Remittance</span>
 				</div>
 			</div>
@@ -266,27 +304,39 @@
 		<div class="grid grid-cols-3 gap-3 max-lg:grid-cols-2 max-md:grid-cols-1">
 			<div class="flex justify-between px-3 py-2 bg-gray-50 rounded-md">
 				<span class="text-base text-gray-600">CPP (Employee)</span>
-				<span class="text-base font-medium text-gray-800">{formatCurrency(payrollRun.totalCppEmployee)}</span>
+				<span class="text-base font-medium text-gray-800"
+					>{formatCurrency(payrollRun.totalCppEmployee)}</span
+				>
 			</div>
 			<div class="flex justify-between px-3 py-2 bg-gray-50 rounded-md">
 				<span class="text-base text-gray-600">CPP (Employer)</span>
-				<span class="text-base font-medium text-cyan-600">{formatCurrency(payrollRun.totalCppEmployer)}</span>
+				<span class="text-base font-medium text-cyan-600"
+					>{formatCurrency(payrollRun.totalCppEmployer)}</span
+				>
 			</div>
 			<div class="flex justify-between px-3 py-2 bg-gray-50 rounded-md">
 				<span class="text-base text-gray-600">EI (Employee)</span>
-				<span class="text-base font-medium text-gray-800">{formatCurrency(payrollRun.totalEiEmployee)}</span>
+				<span class="text-base font-medium text-gray-800"
+					>{formatCurrency(payrollRun.totalEiEmployee)}</span
+				>
 			</div>
 			<div class="flex justify-between px-3 py-2 bg-gray-50 rounded-md">
 				<span class="text-base text-gray-600">EI (Employer)</span>
-				<span class="text-base font-medium text-cyan-600">{formatCurrency(payrollRun.totalEiEmployer)}</span>
+				<span class="text-base font-medium text-cyan-600"
+					>{formatCurrency(payrollRun.totalEiEmployer)}</span
+				>
 			</div>
 			<div class="flex justify-between px-3 py-2 bg-gray-50 rounded-md">
 				<span class="text-base text-gray-600">Federal Tax</span>
-				<span class="text-base font-medium text-gray-800">{formatCurrency(payrollRun.totalFederalTax)}</span>
+				<span class="text-base font-medium text-gray-800"
+					>{formatCurrency(payrollRun.totalFederalTax)}</span
+				>
 			</div>
 			<div class="flex justify-between px-3 py-2 bg-gray-50 rounded-md">
 				<span class="text-base text-gray-600">Provincial Tax</span>
-				<span class="text-base font-medium text-gray-800">{formatCurrency(payrollRun.totalProvincialTax)}</span>
+				<span class="text-base font-medium text-gray-800"
+					>{formatCurrency(payrollRun.totalProvincialTax)}</span
+				>
 			</div>
 		</div>
 	</div>

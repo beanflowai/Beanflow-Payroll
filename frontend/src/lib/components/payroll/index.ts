@@ -8,7 +8,7 @@ export { default as LeaveTypeBadge } from './LeaveTypeBadge.svelte';
 
 // Multi Pay Group Support
 export { default as PayPeriodCard } from './PayPeriodCard.svelte';
-export { default as PayDateCard } from './PayDateCard.svelte';  // @deprecated - use PayPeriodCard
+export { default as PayDateCard } from './PayDateCard.svelte'; // @deprecated - use PayPeriodCard
 export { default as PayGroupSection } from './PayGroupSection.svelte';
 
 // Draft State Components
