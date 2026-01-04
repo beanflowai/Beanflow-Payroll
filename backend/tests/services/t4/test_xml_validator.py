@@ -1096,9 +1096,7 @@ class TestAdditionalScenarios:
         assert len(errors) >= 1
 
     def test_invalid_amount_format(self, validator):
-        """Test validation fails when amount has invalid format (lines 395-396)."""
-        from decimal import InvalidOperation
-
+        """Test validation handles invalid amount format gracefully (lines 458-462)."""
         current_year = datetime.now().year
         xml = f"""<?xml version="1.0"?>
 <Return>
@@ -1128,10 +1126,9 @@ class TestAdditionalScenarios:
     </T4>
 </Return>"""
 
-        # The code doesn't catch decimal.InvalidOperation, so this will raise
-        # This reveals a bug in the code (lines 461-462 should catch InvalidOperation)
-        with pytest.raises(InvalidOperation):
-            validator.validate(xml)
+        # InvalidOperation is now caught - validation should complete gracefully
+        result = validator.validate(xml)
+        assert result is not None
 
     def test_invalid_slip_count_format(self, validator):
         """Test validation handles invalid TotalSlips format (lines 424-425)."""
@@ -1170,9 +1167,7 @@ class TestAdditionalScenarios:
         assert result is not None
 
     def test_invalid_summary_total_format(self, validator):
-        """Test validation handles invalid summary total format (lines 487-488)."""
-        from decimal import InvalidOperation
-
+        """Test validation handles invalid summary total format gracefully (lines 476-488)."""
         current_year = datetime.now().year
         xml = f"""<?xml version="1.0"?>
 <Return>
@@ -1203,6 +1198,6 @@ class TestAdditionalScenarios:
     </T4>
 </Return>"""
 
-        # The code doesn't catch decimal.InvalidOperation (bug at lines 487-488)
-        with pytest.raises(InvalidOperation):
-            validator.validate(xml)
+        # InvalidOperation is now caught - validation should complete gracefully
+        result = validator.validate(xml)
+        assert result is not None

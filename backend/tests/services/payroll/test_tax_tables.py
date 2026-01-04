@@ -1312,3 +1312,76 @@ class TestValidateConfigSchemaFullPath:
             errors = validate_config_schema(2025)
 
             assert any("Invalid JSON in" in e for e in errors)
+
+
+class TestValidateTaxTablesWithVersionedFiles:
+    """Tests for validate_tax_tables with versioned province configs (line 558)."""
+
+    def setup_method(self):
+        """Clear caches before each test."""
+        _load_json_file.cache_clear()
+        get_cpp_config.cache_clear()
+        get_ei_config.cache_clear()
+        _get_provinces_config_with_edition.cache_clear()
+
+    def test_validates_versioned_province_configs(self, tmp_path: Path):
+        """Test validation when versioned province config files exist (line 558)."""
+        federal_config = {
+            "bpaf": 16129,
+            "brackets": [
+                {"threshold": 0, "rate": 0.15, "constant": 0},
+                {"threshold": 55867, "rate": 0.205, "constant": 3155.63},
+            ]
+        }
+
+        with patch("app.services.payroll.tax_tables._has_versioned_federal_config", return_value=False), \
+             patch("app.services.payroll.tax_tables._has_versioned_provinces_config", return_value=True), \
+             patch("app.services.payroll.tax_tables.get_federal_config", return_value=federal_config), \
+             patch("app.services.payroll.tax_tables.get_cpp_config", return_value={"ympe": 71300}), \
+             patch("app.services.payroll.tax_tables.get_ei_config", return_value={"mie": 65700}), \
+             patch("app.services.payroll.tax_tables.get_province_config") as mock_province, \
+             patch("app.services.payroll.tax_tables.validate_config_schema", return_value=[]):
+            mock_province.return_value = {
+                "bpa": 12747,
+                "brackets": [{"threshold": 0, "rate": 0.05}]
+            }
+
+            errors = validate_tax_tables(2025)
+
+            # Should validate both jan and jul editions
+            # This covers the versioned config path at line 558
+            assert not any("missing 'bpa'" in e or "missing 'brackets'" in e for e in errors)
+
+
+class TestModuleInitExceptionHandling:
+    """Tests for module initialization exception handling (lines 611-619)."""
+
+    def test_init_logs_warning_on_validation_errors(self):
+        """Test that _init_module logs warnings when validation finds errors."""
+        with patch("app.services.payroll.tax_tables.validate_tax_tables") as mock_validate, \
+             patch("app.services.payroll.tax_tables.logger") as mock_logger:
+            # Simulate validation returning errors
+            mock_validate.return_value = ["Error 1", "Error 2"]
+
+            # Call the init function
+            from app.services.payroll.tax_tables import _init_module
+            _init_module()
+
+            # Should log warning
+            mock_logger.warning.assert_called()
+            assert "issue(s) found" in str(mock_logger.warning.call_args)
+
+    def test_init_logs_error_on_exception(self):
+        """Test that _init_module logs error when exception occurs (line 618-619)."""
+        with patch("app.services.payroll.tax_tables.validate_tax_tables") as mock_validate, \
+             patch("app.services.payroll.tax_tables.logger") as mock_logger:
+            # Simulate exception during validation
+            mock_validate.side_effect = Exception("Test exception")
+
+            # Call the init function
+            from app.services.payroll.tax_tables import _init_module
+            _init_module()
+
+            # Should log error
+            mock_logger.error.assert_called()
+            assert "Failed to validate" in str(mock_logger.error.call_args)

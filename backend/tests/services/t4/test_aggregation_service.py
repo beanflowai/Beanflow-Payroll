@@ -870,3 +870,173 @@ class TestGenerateT4Summary:
         assert summary.total_employment_income == Decimal("50000.00")
         assert summary.total_cpp_contributions == Decimal("3800.00")
         assert summary.employer_name == "Test Company Inc."
+
+
+# =============================================================================
+# Test: Exception Handling
+# =============================================================================
+
+
+class TestExceptionHandling:
+    """Tests for exception handling in T4AggregationService."""
+
+    @pytest.mark.asyncio
+    async def test_get_company_database_error(self, service, mock_supabase):
+        """Test that database error in get_company propagates appropriately."""
+        query_builder = MagicMock()
+        query_builder.select.return_value = query_builder
+        query_builder.eq.return_value = query_builder
+        query_builder.maybe_single.return_value = query_builder
+        query_builder.execute.side_effect = Exception("Database connection failed")
+
+        mock_supabase.table.return_value = query_builder
+
+        # get_company doesn't have graceful error handling - exception should propagate
+        with pytest.raises(Exception, match="Database connection failed"):
+            await service.get_company()
+
+    @pytest.mark.asyncio
+    async def test_get_employees_database_error(self, service, mock_supabase, sample_company_data):
+        """Test that database error in get_employees_with_payroll propagates appropriately."""
+        company_response = MagicMock()
+        company_response.data = sample_company_data
+
+        call_count = [0]
+
+        def table_side_effect(table_name):
+            query_builder = MagicMock()
+            query_builder.select.return_value = query_builder
+            query_builder.eq.return_value = query_builder
+            query_builder.maybe_single.return_value = query_builder
+            query_builder.in_.return_value = query_builder
+            query_builder.gte.return_value = query_builder
+            query_builder.lte.return_value = query_builder
+
+            if table_name == "companies":
+                query_builder.execute.return_value = company_response
+            elif table_name == "payroll_records":
+                call_count[0] += 1
+                # First call is for get_employees_with_payroll
+                if call_count[0] == 1:
+                    query_builder.execute.side_effect = Exception("Database query failed")
+                else:
+                    empty_response = MagicMock()
+                    empty_response.data = []
+                    query_builder.execute.return_value = empty_response
+            else:
+                empty_response = MagicMock()
+                empty_response.data = []
+                query_builder.execute.return_value = empty_response
+
+            return query_builder
+
+        mock_supabase.table.side_effect = table_side_effect
+
+        # get_employees_with_payroll doesn't have graceful error handling
+        with pytest.raises(Exception, match="Database query failed"):
+            await service.get_employees_with_payroll(TEST_TAX_YEAR)
+
+    @pytest.mark.asyncio
+    async def test_aggregate_employee_year_database_error(
+        self, service, mock_supabase, sample_company_data, sample_employee_data
+    ):
+        """Test that database error in aggregate_employee_year propagates appropriately."""
+        company_response = MagicMock()
+        company_response.data = sample_company_data
+
+        employee = Employee(
+            id=UUID(TEST_EMPLOYEE_ID),
+            user_id=TEST_USER_ID,
+            company_id=TEST_COMPANY_ID,
+            first_name="John",
+            last_name="Doe",
+            email="john.doe@example.com",
+            sin_encrypted="encrypted",
+            date_of_birth="1990-01-15",
+            hire_date="2024-01-01",
+            address_street="123 St",
+            address_city="Toronto",
+            address_postal_code="M5V 1A1",
+            province_of_employment="ON",
+            pay_frequency="bi_weekly",
+            annual_salary=60000,
+            is_cpp_exempt=False,
+            is_ei_exempt=False,
+            employment_status="active",
+            created_at="2024-01-01T00:00:00Z",
+            updated_at="2024-01-01T00:00:00Z",
+        )
+
+        company = Company(
+            id=UUID(TEST_COMPANY_ID),
+            user_id=TEST_USER_ID,
+            company_name="Test Company Inc.",
+            business_number="123456789",
+            payroll_account_number="123456789RP0001",
+            province="ON",
+            address_street="123 Main St",
+            address_city="Toronto",
+            address_postal_code="M5V 1A1",
+            remitter_type="regular",
+            auto_calculate_deductions=True,
+            send_paystub_emails=False,
+            created_at="2024-01-01T00:00:00Z",
+            updated_at="2024-01-01T00:00:00Z",
+        )
+
+        def table_side_effect(table_name):
+            query_builder = MagicMock()
+            query_builder.select.return_value = query_builder
+            query_builder.eq.return_value = query_builder
+            query_builder.maybe_single.return_value = query_builder
+            query_builder.in_.return_value = query_builder
+            query_builder.gte.return_value = query_builder
+            query_builder.lte.return_value = query_builder
+
+            if table_name == "companies":
+                query_builder.execute.return_value = company_response
+            elif table_name == "payroll_records":
+                # Simulate database error during payroll records fetch
+                query_builder.execute.side_effect = Exception("Payroll records query failed")
+            else:
+                empty_response = MagicMock()
+                empty_response.data = []
+                query_builder.execute.return_value = empty_response
+
+            return query_builder
+
+        mock_supabase.table.side_effect = table_side_effect
+
+        # aggregate_employee_year doesn't have graceful error handling for DB errors
+        with pytest.raises(Exception, match="Payroll records query failed"):
+            await service.aggregate_employee_year(employee, company, TEST_TAX_YEAR)
+
+    def test_aggregate_records_invalid_decimal(self, service):
+        """Test that invalid decimal values in payroll records raise InvalidOperation."""
+        from decimal import InvalidOperation
+
+        # Create payroll records with invalid numeric values
+        # The _aggregate_records method uses fields like gross_regular, gross_overtime, etc.
+        records = [
+            {
+                "gross_regular": "not_a_number",  # Invalid decimal - will raise
+                "gross_overtime": "0.00",
+                "holiday_pay": "0.00",
+                "holiday_premium_pay": "0.00",
+                "vacation_pay_paid": "0.00",
+                "other_earnings": "0.00",
+                "federal_tax": "100.00",
+                "provincial_tax": "50.00",
+                "cpp_employee": "50.00",
+                "cpp_employer": "50.00",
+                "cpp_additional": "0.00",
+                "ei_employee": "25.00",
+                "ei_employer": "35.00",
+                "union_dues": "0.00",
+            }
+        ]
+
+        # _aggregate_records uses Decimal(str(record.get(..., 0)))
+        # When a non-numeric string is present, Decimal() raises InvalidOperation
+        with pytest.raises(InvalidOperation):
+            service._aggregate_records(records)

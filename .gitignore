@@ -22,4 +22,4 @@ backend/.coverage
 backend/htmlcov/
 
 # Deploy (contains certificates and sensitive configs)
-backend/deploy/
+deploy/

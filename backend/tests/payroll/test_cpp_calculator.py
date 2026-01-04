@@ -452,3 +452,62 @@ class TestCPPPDOCValidation:
         # YMPE/26 = $2,742.31, so $3,846.15 > YMPE per period
         # CPP2 would apply on the excess
         assert result.additional >= Decimal("0")
+
+
+class TestCPPCalculatorProratedMax:
+    """Test prorated maximum calculation for partial year (line 97)."""
+
+    def setup_method(self):
+        """Create calculator for bi-weekly (26 periods)."""
+        self.calc = CPPCalculator(pay_periods_per_year=26, year=2025)
+
+    def test_prorated_max_with_zero_months(self):
+        """Test: Prorated max returns 0 when pensionable_months is 0 (line 97)."""
+        prorated = self.calc.get_prorated_max(pensionable_months=0)
+        assert prorated == Decimal("0")
+
+    def test_prorated_max_with_negative_months(self):
+        """Test: Prorated max returns 0 when pensionable_months is negative."""
+        prorated = self.calc.get_prorated_max(pensionable_months=-1)
+        assert prorated == Decimal("0")
+
+    def test_prorated_max_with_positive_months(self):
+        """Test: Prorated max calculates correctly for partial year."""
+        # 6 months out of 12 should give half the max
+        prorated = self.calc.get_prorated_max(pensionable_months=6)
+        expected = self.calc.max_base_contribution / 2
+        # Round to nearest cent
+        assert abs(prorated - expected) < Decimal("0.01")
+
+
+class TestCPPCalculatorEmployerMethod:
+    """Test get_employer_contribution method directly (line 324)."""
+
+    def setup_method(self):
+        """Create calculator for bi-weekly (26 periods)."""
+        self.calc = CPPCalculator(pay_periods_per_year=26, year=2025)
+
+    def test_calculate_employer_cpp_directly(self):
+        """Test: get_employer_contribution returns employee contribution (line 324)."""
+        employee_cpp = Decimal("200")
+
+        employer_cpp = self.calc.get_employer_contribution(employee_cpp=employee_cpp)
+
+        # Employer contribution should equal employee contribution
+        assert employer_cpp == employee_cpp
+
+    def test_calculate_employer_cpp_with_zero(self):
+        """Test: get_employer_contribution handles zero employee contribution."""
+        employee_cpp = Decimal("0")
+
+        employer_cpp = self.calc.get_employer_contribution(employee_cpp=employee_cpp)
+
+        assert employer_cpp == Decimal("0")
+
+    def test_calculate_employer_cpp_with_large_amount(self):
+        """Test: get_employer_contribution handles large contributions."""
+        employee_cpp = Decimal("4034.10")  # Max base contribution
+
+        employer_cpp = self.calc.get_employer_contribution(employee_cpp=employee_cpp)
+
+        assert employer_cpp == Decimal("4034.10")
