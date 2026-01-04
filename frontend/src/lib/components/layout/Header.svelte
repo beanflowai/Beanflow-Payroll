@@ -50,7 +50,9 @@
 <svelte:window onclick={handleWindowClick} />
 
 <!-- Desktop Header -->
-<header class="flex items-center justify-between h-16 px-6 bg-white/95 backdrop-blur-sm border-b border-surface-200">
+<header
+	class="flex items-center justify-between h-16 px-6 bg-white/95 backdrop-blur-sm border-b border-surface-200"
+>
 	<div class="flex items-center">
 		<span class="text-title-medium font-semibold text-surface-800">{companyName}</span>
 	</div>
@@ -64,17 +66,22 @@
 				aria-haspopup="true"
 				aria-label="User menu"
 			>
-				<span class="w-8 h-8 rounded-full bg-gradient-to-br from-primary-600 to-secondary-600 flex items-center justify-center text-white text-sm">
+				<span
+					class="w-8 h-8 rounded-full bg-gradient-to-br from-primary-600 to-secondary-600 flex items-center justify-center text-white text-sm"
+				>
 					<i class="fa-solid fa-user"></i>
 				</span>
 				<span class="text-body-content font-medium text-surface-700">{userName}</span>
 				<i
-					class="fa-solid fa-chevron-down text-[10px] text-surface-500 transition-transform duration-150"
+					class="fa-solid fa-chevron-down text-caption-text text-surface-500 transition-transform duration-150"
 					class:rotate-180={userMenuOpen}
 				></i>
 			</button>
 			{#if userMenuOpen}
-				<div class="absolute top-full right-0 mt-2 min-w-[180px] bg-white border border-surface-200 rounded-lg shadow-md3-2 overflow-hidden z-[100]" role="menu">
+				<div
+					class="absolute top-full right-0 mt-2 min-w-[180px] bg-white border border-surface-200 rounded-lg shadow-md3-2 overflow-hidden z-[100]"
+					role="menu"
+				>
 					<button
 						type="button"
 						class="flex items-center gap-3 w-full py-3 px-4 bg-transparent border-none no-underline text-body-content text-surface-700 cursor-pointer transition-fast hover:bg-surface-100 hover:text-primary-600"
@@ -91,10 +98,14 @@
 </header>
 
 <!-- Mobile Header -->
-<header class="hidden fixed top-0 left-0 right-0 z-[1000] bg-white/95 backdrop-blur-sm border-b border-surface-200">
+<header
+	class="hidden fixed top-0 left-0 right-0 z-[1000] bg-white/95 backdrop-blur-sm border-b border-surface-200"
+>
 	<nav class="flex items-center justify-between py-3 px-4">
 		<div class="flex items-center gap-2">
-			<div class="w-8 h-8 bg-gradient-to-br from-primary-600 to-secondary-600 rounded-lg flex items-center justify-center text-white text-sm">
+			<div
+				class="w-8 h-8 bg-gradient-to-br from-primary-600 to-secondary-600 rounded-lg flex items-center justify-center text-white text-sm"
+			>
 				<i class="fa-solid fa-seedling"></i>
 			</div>
 			<span class="text-title-medium font-semibold text-surface-800">Beanflow</span>
@@ -110,14 +121,16 @@
 		</button>
 	</nav>
 	{#if mobileMenuOpen}
-		<div class="absolute top-full left-0 right-0 bg-white border-t border-surface-200 shadow-md3-2 max-h-[calc(100vh-64px)] overflow-y-auto">
+		<div
+			class="absolute top-full left-0 right-0 bg-white border-t border-surface-200 shadow-md3-2 max-h-[calc(100vh-64px)] overflow-y-auto"
+		>
 			<div class="p-4 flex flex-col gap-1">
 				<span class="text-body-content font-semibold text-surface-800">{companyName}</span>
 				<span class="text-auxiliary-text text-surface-600">{userName}</span>
 			</div>
 			<div class="h-px bg-surface-200"></div>
 			<div class="p-2">
-				{#each navigationItems as item}
+				{#each navigationItems as item (item.href)}
 					<a
 						href={item.href}
 						class="flex items-center gap-3 w-full py-3 px-4 rounded-md bg-transparent border-none no-underline text-body-content text-surface-700 cursor-pointer transition-fast hover:bg-gradient-to-br hover:from-primary-50 hover:to-secondary-50 hover:text-primary-600"
