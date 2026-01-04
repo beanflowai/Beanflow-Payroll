@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
+
 	interface IconContainerProps {
 		variant?: 'primary' | 'secondary' | 'tertiary' | 'error' | 'surface';
 		size?: 'small' | 'medium' | 'large' | 'xl';
@@ -6,7 +8,7 @@
 		interactive?: boolean;
 		class?: string;
 		onclick?: (event: MouseEvent) => void;
-		children?: any;
+		children?: Snippet;
 	}
 
 	let {
@@ -41,7 +43,13 @@
 	};
 
 	const containerClasses = $derived(
-		[baseClasses, sizeClasses[size], variantClasses[variant], interactive ? 'interactive cursor-pointer' : '', className]
+		[
+			baseClasses,
+			sizeClasses[size],
+			variantClasses[variant],
+			interactive ? 'interactive cursor-pointer' : '',
+			className
+		]
 			.filter(Boolean)
 			.join(' ')
 	);
@@ -57,7 +65,7 @@
 		? (e) => {
 				if (e.key === 'Enter' || e.key === ' ') {
 					e.preventDefault();
-					handleClick(e as any);
+					handleClick(e as unknown as MouseEvent);
 				}
 			}
 		: undefined}
