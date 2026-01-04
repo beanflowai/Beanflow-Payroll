@@ -4,10 +4,7 @@
  */
 
 import { supabase } from '$lib/api/supabase';
-import type {
-	UpcomingPeriod,
-	PayrollRunStatus
-} from '$lib/types/payroll';
+import type { UpcomingPeriod, PayrollRunStatus } from '$lib/types/payroll';
 import {
 	DEFAULT_EARNINGS_CONFIG,
 	DEFAULT_TAXABLE_BENEFITS_CONFIG,
@@ -158,7 +155,9 @@ export async function getPayGroupsWithEmployeesForPeriodEnd(
 		for (const pg of payGroups) {
 			const { data: employees, error: empError } = await supabase
 				.from('employees')
-				.select('id, first_name, last_name, province_of_employment, pay_group_id, annual_salary, hourly_rate')
+				.select(
+					'id, first_name, last_name, province_of_employment, pay_group_id, annual_salary, hourly_rate'
+				)
 				.eq('user_id', userId)
 				.eq('company_id', companyId)
 				.eq('pay_group_id', pg.id)
@@ -175,7 +174,8 @@ export async function getPayGroupsWithEmployeesForPeriodEnd(
 				const hourlyRate = emp.hourly_rate ? Number(emp.hourly_rate) : null;
 				const annualSalary = emp.annual_salary ? Number(emp.annual_salary) : null;
 				// Employee is hourly if they have hourly_rate and no annual_salary
-				const compensationType: EmployeeCompensationType = (hourlyRate !== null && annualSalary === null) ? 'hourly' : 'salaried';
+				const compensationType: EmployeeCompensationType =
+					hourlyRate !== null && annualSalary === null ? 'hourly' : 'salaried';
 				return {
 					id: emp.id,
 					firstName: emp.first_name,
@@ -233,7 +233,7 @@ export async function getPayGroupsWithEmployeesForPeriodEnd(
 			if (holidayError) {
 				console.error('Failed to query holidays:', holidayError);
 			} else if (holidayData) {
-				holidays = holidayData.map(h => ({
+				holidays = holidayData.map((h) => ({
 					date: h.holiday_date,
 					name: h.name,
 					province: h.province

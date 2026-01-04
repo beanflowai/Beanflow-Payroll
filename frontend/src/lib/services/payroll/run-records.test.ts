@@ -13,37 +13,52 @@ const mockGetCurrentCompanyId = vi.fn();
 
 vi.mock('$lib/api/supabase', () => ({
 	supabase: {
-		get from() { return mockSupabaseFrom; }
+		get from() {
+			return mockSupabaseFrom;
+		}
 	}
 }));
 
 vi.mock('$lib/api/client', () => ({
 	api: {
-		get post() { return mockApiPost; },
-		get patch() { return mockApiPatch; }
+		get post() {
+			return mockApiPost;
+		},
+		get patch() {
+			return mockApiPatch;
+		}
 	}
 }));
 
 vi.mock('./helpers', () => ({
-	get getCurrentUserId() { return mockGetCurrentUserId; },
-	get getCurrentCompanyId() { return mockGetCurrentCompanyId; }
+	get getCurrentUserId() {
+		return mockGetCurrentUserId;
+	},
+	get getCurrentCompanyId() {
+		return mockGetCurrentCompanyId;
+	}
 }));
 
-import {
-	updatePayrollRecord,
-	recalculatePayrollRun,
-	checkHasModifiedRecords
-} from './run-records';
+import { updatePayrollRecord, recalculatePayrollRun, checkHasModifiedRecords } from './run-records';
 
 // Helper to create mock Supabase query chain
-function createMockSupabaseQuery(options: {
-	data?: unknown;
-	error?: { message: string } | null;
-}) {
+function createMockSupabaseQuery(options: { data?: unknown; error?: { message: string } | null }) {
 	const { data = null, error = null } = options;
 	const mockChain: Record<string, unknown> = {};
-	const chainMethods = ['select', 'eq', 'neq', 'in', 'not', 'gte', 'lte', 'order', 'update', 'insert', 'delete'];
-	chainMethods.forEach(method => {
+	const chainMethods = [
+		'select',
+		'eq',
+		'neq',
+		'in',
+		'not',
+		'gte',
+		'lte',
+		'order',
+		'update',
+		'insert',
+		'delete'
+	];
+	chainMethods.forEach((method) => {
 		mockChain[method] = vi.fn(() => mockChain);
 	});
 	mockChain.single = vi.fn(() => Promise.resolve({ data, error }));
@@ -89,10 +104,12 @@ describe('Payroll Run Records', () => {
 				data: mockDbPayrollRun,
 				error: null
 			});
-			mockQuery.maybeSingle = vi.fn(() => Promise.resolve({
-				data: mockDbPayrollRun,
-				error: null
-			}));
+			mockQuery.maybeSingle = vi.fn(() =>
+				Promise.resolve({
+					data: mockDbPayrollRun,
+					error: null
+				})
+			);
 
 			const getMockQuery = createMockSupabaseQuery({
 				data: [mockDbPayrollRun],
@@ -149,10 +166,12 @@ describe('Payroll Run Records', () => {
 				data: mockDbPayrollRun,
 				error: null
 			});
-			mockQuery.maybeSingle = vi.fn(() => Promise.resolve({
-				data: mockDbPayrollRun,
-				error: null
-			}));
+			mockQuery.maybeSingle = vi.fn(() =>
+				Promise.resolve({
+					data: mockDbPayrollRun,
+					error: null
+				})
+			);
 
 			const getMockQuery = createMockSupabaseQuery({
 				data: [mockDbPayrollRun],
@@ -187,10 +206,12 @@ describe('Payroll Run Records', () => {
 				data: mockDbPayrollRun,
 				error: null
 			});
-			mockQuery.maybeSingle = vi.fn(() => Promise.resolve({
-				data: mockDbPayrollRun,
-				error: null
-			}));
+			mockQuery.maybeSingle = vi.fn(() =>
+				Promise.resolve({
+					data: mockDbPayrollRun,
+					error: null
+				})
+			);
 
 			const getMockQuery = createMockSupabaseQuery({
 				data: [mockDbPayrollRun],
@@ -223,10 +244,12 @@ describe('Payroll Run Records', () => {
 				data: mockDbPayrollRun,
 				error: null
 			});
-			mockQuery.maybeSingle = vi.fn(() => Promise.resolve({
-				data: mockDbPayrollRun,
-				error: null
-			}));
+			mockQuery.maybeSingle = vi.fn(() =>
+				Promise.resolve({
+					data: mockDbPayrollRun,
+					error: null
+				})
+			);
 
 			const getMockQuery = createMockSupabaseQuery({
 				data: [mockDbPayrollRun],
@@ -241,24 +264,28 @@ describe('Payroll Run Records', () => {
 			});
 
 			await updatePayrollRecord('run-123', 'record-1', {
-				adjustments: [{
-					id: 'adj-1',
-					type: 'bonus',
-					amount: 500,
-					description: 'Performance bonus',
-					taxable: true
-				}]
+				adjustments: [
+					{
+						id: 'adj-1',
+						type: 'bonus',
+						amount: 500,
+						description: 'Performance bonus',
+						taxable: true
+					}
+				]
 			});
 
 			expect(mockApiPatch).toHaveBeenCalledWith(
 				'/payroll/runs/run-123/records/record-1',
 				expect.objectContaining({
-					adjustments: [{
-						type: 'bonus',
-						amount: 500,
-						description: 'Performance bonus',
-						taxable: true
-					}]
+					adjustments: [
+						{
+							type: 'bonus',
+							amount: 500,
+							description: 'Performance bonus',
+							taxable: true
+						}
+					]
 				})
 			);
 		});

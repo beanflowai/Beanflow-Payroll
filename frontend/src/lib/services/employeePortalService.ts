@@ -16,7 +16,6 @@ import type {
 	PaystubDetail,
 	PaystubYTD,
 	EmployeePortalProfile,
-	EmployeeLeaveBalance,
 	LeaveHistoryEntry,
 	TaxDocument
 } from '$lib/types/employee-portal';
@@ -89,7 +88,9 @@ interface PayrollRecordWithRun {
  * @param companyId - Optional company ID to scope to a specific company
  * @returns Employee profile or throws error if not found
  */
-export async function getCurrentEmployee(companyId?: string): Promise<EmployeePortalProfileResponse> {
+export async function getCurrentEmployee(
+	companyId?: string
+): Promise<EmployeePortalProfileResponse> {
 	const {
 		data: { user }
 	} = await supabase.auth.getUser();
@@ -134,8 +135,9 @@ export async function getCurrentEmployee(companyId?: string): Promise<EmployeePo
 
 /**
  * Mask a bank account number to show only last 4 digits: ****4567
+ * Reserved for future use when bank account info is displayed.
  */
-function maskAccountNumber(account: string | null): string {
+function _maskAccountNumber(account: string | null): string {
 	if (!account) return '****';
 	const digits = account.replace(/\D/g, '');
 	if (digits.length < 4) return '****';
@@ -357,7 +359,7 @@ export async function getMyT4Documents(companyId?: string): Promise<T4ListRespon
 		throw new Error(`Failed to fetch T4 documents: ${error.message}`);
 	}
 
-	const taxDocuments: TaxDocument[] = (data || []).map((slip: any) => ({
+	const taxDocuments: TaxDocument[] = (data || []).map((slip) => ({
 		id: slip.id,
 		type: 'T4' as const,
 		year: slip.tax_year,
@@ -375,7 +377,10 @@ export async function getMyT4Documents(companyId?: string): Promise<T4ListRespon
  * @param companyId - Optional company ID to scope to a specific company
  * @returns Blob URL for the PDF
  */
-export async function downloadMyT4(taxYear: number, companyId?: string): Promise<{ error: string | null }> {
+export async function downloadMyT4(
+	taxYear: number,
+	companyId?: string
+): Promise<{ error: string | null }> {
 	const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 	try {

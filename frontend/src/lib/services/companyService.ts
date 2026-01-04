@@ -116,18 +116,13 @@ export interface CompanyListOptions {
 /**
  * List companies for the current user
  */
-export async function listCompanies(
-	options: CompanyListOptions = {}
-): Promise<CompanyListResult> {
+export async function listCompanies(options: CompanyListOptions = {}): Promise<CompanyListResult> {
 	const { province, search, limit = 100, offset = 0 } = options;
 
 	try {
 		const userId = getCurrentUserId();
 
-		let query = supabase
-			.from(TABLE_NAME)
-			.select('*', { count: 'exact' })
-			.eq('user_id', userId);
+		let query = supabase.from(TABLE_NAME).select('*', { count: 'exact' }).eq('user_id', userId);
 
 		if (province) {
 			query = query.eq('province', province);

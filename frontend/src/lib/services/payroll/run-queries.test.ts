@@ -11,19 +11,22 @@ const mockGetCurrentCompanyId = vi.fn();
 
 vi.mock('$lib/api/supabase', () => ({
 	supabase: {
-		get from() { return mockSupabaseFrom; }
+		get from() {
+			return mockSupabaseFrom;
+		}
 	}
 }));
 
 vi.mock('./helpers', () => ({
-	get getCurrentUserId() { return mockGetCurrentUserId; },
-	get getCurrentCompanyId() { return mockGetCurrentCompanyId; }
+	get getCurrentUserId() {
+		return mockGetCurrentUserId;
+	},
+	get getCurrentCompanyId() {
+		return mockGetCurrentCompanyId;
+	}
 }));
 
-import {
-	getPayrollRunByPayDate,
-	listPayrollRuns
-} from './run-queries';
+import { getPayrollRunByPayDate, listPayrollRuns } from './run-queries';
 
 // Helper to create mock Supabase query chain
 function createMockSupabaseQuery(options: {
@@ -33,8 +36,20 @@ function createMockSupabaseQuery(options: {
 }) {
 	const { data = null, error = null, count = null } = options;
 	const mockChain: Record<string, unknown> = {};
-	const chainMethods = ['select', 'eq', 'neq', 'in', 'not', 'gte', 'lte', 'order', 'update', 'insert', 'delete'];
-	chainMethods.forEach(method => {
+	const chainMethods = [
+		'select',
+		'eq',
+		'neq',
+		'in',
+		'not',
+		'gte',
+		'lte',
+		'order',
+		'update',
+		'insert',
+		'delete'
+	];
+	chainMethods.forEach((method) => {
 		mockChain[method] = vi.fn(() => mockChain);
 	});
 	mockChain.single = vi.fn(() => Promise.resolve({ data, error }));

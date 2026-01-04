@@ -60,25 +60,36 @@ export async function startPayrollRun(
 		}
 
 		// Track hours used for each employee (to store in payroll_records)
-		const employeeHoursUsed = new Map<string, { regularHours: number; overtimeHours: number; hourlyRate: number | null }>();
+		const employeeHoursUsed = new Map<
+			string,
+			{ regularHours: number; overtimeHours: number; hourlyRate: number | null }
+		>();
 
 		// Track snapshot data for each employee (for historical accuracy)
-		const employeeSnapshotData = new Map<string, {
-			name: string;
-			province: string;
-			annualSalary: number | null;
-			payGroupId: string;
-			payGroupName: string;
-		}>();
+		const employeeSnapshotData = new Map<
+			string,
+			{
+				name: string;
+				province: string;
+				annualSalary: number | null;
+				payGroupId: string;
+				payGroupName: string;
+			}
+		>();
 
 		// Build calculation requests for all employees
 		const calculationRequests: EmployeeCalculationRequest[] = [];
 
 		for (const payGroup of payGroups) {
 			// Map pay frequency to backend format
-			const payFrequency = payGroup.payFrequency === 'bi_weekly' ? 'bi_weekly' :
-				payGroup.payFrequency === 'semi_monthly' ? 'semi_monthly' :
-				payGroup.payFrequency === 'monthly' ? 'monthly' : 'weekly';
+			const payFrequency =
+				payGroup.payFrequency === 'bi_weekly'
+					? 'bi_weekly'
+					: payGroup.payFrequency === 'semi_monthly'
+						? 'semi_monthly'
+						: payGroup.payFrequency === 'monthly'
+							? 'monthly'
+							: 'weekly';
 
 			for (const employee of payGroup.employees) {
 				// Store snapshot data for this employee
@@ -98,9 +109,14 @@ export async function startPayrollRun(
 
 				if (employee.compensationType === 'salaried' && employee.annualSalary) {
 					// Salaried employee: calculate from annual salary
-					const periodsPerYear = payGroup.payFrequency === 'weekly' ? 52 :
-						payGroup.payFrequency === 'bi_weekly' ? 26 :
-						payGroup.payFrequency === 'semi_monthly' ? 24 : 12;
+					const periodsPerYear =
+						payGroup.payFrequency === 'weekly'
+							? 52
+							: payGroup.payFrequency === 'bi_weekly'
+								? 26
+								: payGroup.payFrequency === 'semi_monthly'
+									? 24
+									: 12;
 					grossRegular = employee.annualSalary / periodsPerYear;
 				} else if (employee.compensationType === 'hourly' && employee.hourlyRate) {
 					// Hourly employee: use provided hours
@@ -137,7 +153,7 @@ export async function startPayrollRun(
 					ytd_gross: '0',
 					ytd_cpp_base: '0',
 					ytd_cpp_additional: '0',
-					ytd_ei: '0',
+					ytd_ei: '0'
 				});
 			}
 		}
@@ -145,16 +161,16 @@ export async function startPayrollRun(
 		// Call backend API for batch calculation
 		let calculationResponse: BatchCalculationResponse;
 		try {
-			calculationResponse = await api.post<BatchCalculationResponse>(
-				'/payroll/calculate/batch',
-				{
-					employees: calculationRequests,
-					include_details: false
-				} as BatchCalculationRequest
-			);
+			calculationResponse = await api.post<BatchCalculationResponse>('/payroll/calculate/batch', {
+				employees: calculationRequests,
+				include_details: false
+			} as BatchCalculationRequest);
 		} catch (apiError) {
 			console.error('Backend calculation failed:', apiError);
-			return { data: null, error: `Calculation failed: ${apiError instanceof Error ? apiError.message : 'Unknown error'}` };
+			return {
+				data: null,
+				error: `Calculation failed: ${apiError instanceof Error ? apiError.message : 'Unknown error'}`
+			};
 		}
 
 		// Create the payroll_runs record with calculated totals
@@ -249,9 +265,7 @@ export async function startPayrollRun(
 		});
 
 		// Insert all payroll records
-		const { error: recordsError } = await supabase
-			.from('payroll_records')
-			.insert(payrollRecords);
+		const { error: recordsError } = await supabase.from('payroll_records').insert(payrollRecords);
 
 		if (recordsError) {
 			console.error('Failed to create payroll records:', recordsError);

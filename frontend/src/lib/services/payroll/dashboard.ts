@@ -187,7 +187,9 @@ export const getUpcomingPayDates = getUpcomingPeriods;
 // Dashboard Statistics
 // ===========================================
 
-export async function getPayrollDashboardStats(): Promise<PayrollServiceResult<PayrollDashboardStats>> {
+export async function getPayrollDashboardStats(): Promise<
+	PayrollServiceResult<PayrollDashboardStats>
+> {
 	try {
 		const { data: upcomingPeriods, error } = await getUpcomingPeriods();
 
@@ -199,7 +201,7 @@ export async function getPayrollDashboardStats(): Promise<PayrollServiceResult<P
 
 		const stats: PayrollDashboardStats = {
 			upcomingCount: upcomingPeriods.length,
-			nextPayDate: nextPeriod?.periodEnd ?? null,  // Now returns periodEnd
+			nextPayDate: nextPeriod?.periodEnd ?? null, // Now returns periodEnd
 			nextPayDateEmployees: nextPeriod?.totalEmployees ?? 0,
 			nextPayDateEstimatedGross: nextPeriod?.totalEstimatedGross ?? 0
 		};

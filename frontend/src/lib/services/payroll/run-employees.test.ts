@@ -11,20 +11,22 @@ const mockGetCurrentUserId = vi.fn();
 
 vi.mock('$lib/api/client', () => ({
 	api: {
-		get post() { return mockApiPost; },
-		get delete() { return mockApiDelete; }
+		get post() {
+			return mockApiPost;
+		},
+		get delete() {
+			return mockApiDelete;
+		}
 	}
 }));
 
 vi.mock('./helpers', () => ({
-	get getCurrentUserId() { return mockGetCurrentUserId; }
+	get getCurrentUserId() {
+		return mockGetCurrentUserId;
+	}
 }));
 
-import {
-	syncEmployeesToRun,
-	addEmployeeToRun,
-	removeEmployeeFromRun
-} from './run-employees';
+import { syncEmployeesToRun, addEmployeeToRun, removeEmployeeFromRun } from './run-employees';
 
 describe('Payroll Run Employees', () => {
 	beforeEach(() => {
@@ -67,7 +69,9 @@ describe('Payroll Run Employees', () => {
 
 			const result = await addEmployeeToRun('run-123', 'emp-1');
 
-			expect(mockApiPost).toHaveBeenCalledWith('/payroll/runs/run-123/employees', { employeeId: 'emp-1' });
+			expect(mockApiPost).toHaveBeenCalledWith('/payroll/runs/run-123/employees', {
+				employeeId: 'emp-1'
+			});
 			expect(result.data?.employeeId).toBe('emp-1');
 			expect(result.data?.employeeName).toBe('John Doe');
 		});

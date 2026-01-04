@@ -13,36 +13,52 @@ const mockGetCurrentCompanyId = vi.fn();
 
 vi.mock('$lib/api/supabase', () => ({
 	supabase: {
-		get from() { return mockSupabaseFrom; }
+		get from() {
+			return mockSupabaseFrom;
+		}
 	}
 }));
 
 vi.mock('$lib/api/client', () => ({
 	api: {
-		get post() { return mockApiPost; },
-		get delete() { return mockApiDelete; }
+		get post() {
+			return mockApiPost;
+		},
+		get delete() {
+			return mockApiDelete;
+		}
 	}
 }));
 
 vi.mock('./helpers', () => ({
-	get getCurrentUserId() { return mockGetCurrentUserId; },
-	get getCurrentCompanyId() { return mockGetCurrentCompanyId; }
+	get getCurrentUserId() {
+		return mockGetCurrentUserId;
+	},
+	get getCurrentCompanyId() {
+		return mockGetCurrentCompanyId;
+	}
 }));
 
-import {
-	createOrGetPayrollRun,
-	deletePayrollRun
-} from './run-lifecycle';
+import { createOrGetPayrollRun, deletePayrollRun } from './run-lifecycle';
 
 // Helper to create mock Supabase query chain
-function createMockSupabaseQuery(options: {
-	data?: unknown;
-	error?: { message: string } | null;
-}) {
+function createMockSupabaseQuery(options: { data?: unknown; error?: { message: string } | null }) {
 	const { data = null, error = null } = options;
 	const mockChain: Record<string, unknown> = {};
-	const chainMethods = ['select', 'eq', 'neq', 'in', 'not', 'gte', 'lte', 'order', 'update', 'insert', 'delete'];
-	chainMethods.forEach(method => {
+	const chainMethods = [
+		'select',
+		'eq',
+		'neq',
+		'in',
+		'not',
+		'gte',
+		'lte',
+		'order',
+		'update',
+		'insert',
+		'delete'
+	];
+	chainMethods.forEach((method) => {
 		mockChain[method] = vi.fn(() => mockChain);
 	});
 	mockChain.single = vi.fn(() => Promise.resolve({ data, error }));
@@ -111,7 +127,9 @@ describe('Payroll Run Lifecycle', () => {
 
 			const result = await createOrGetPayrollRun('2025-01-20');
 
-			expect(mockApiPost).toHaveBeenCalledWith('/payroll/runs/create-or-get', { payDate: '2025-01-20' });
+			expect(mockApiPost).toHaveBeenCalledWith('/payroll/runs/create-or-get', {
+				payDate: '2025-01-20'
+			});
 			expect(result.data?.created).toBe(true);
 		});
 
