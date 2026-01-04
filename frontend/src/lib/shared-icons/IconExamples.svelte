@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Icon } from './index';
-	import { ArrowLeftIcon, SearchIcon, AIIcon, SettingsIcon } from './index';
+	import { SearchIcon, AIIcon, SettingsIcon } from './index';
 	import { BeanflowIcon } from './index';
 	import type { IconName } from './types';
 
@@ -18,9 +18,9 @@
 			<div class="example-item">
 				<h3>统一组件方式</h3>
 				<div class="demo-row">
-					<Icon name={icon("search")} size="md" />
-					<Icon name={icon("settings")} size="lg" />
-					<Icon name={icon("ai")} size="xl" />
+					<Icon name={icon('search')} size="md" />
+					<Icon name={icon('settings')} size="lg" />
+					<Icon name={icon('ai')} size="xl" />
 				</div>
 				<pre><code
 						>&lt;Icon name="search" size="md" /&gt;
@@ -52,26 +52,26 @@
 			<div class="variant-group">
 				<h3>Linear 图标</h3>
 				<div class="demo-row">
-					<Icon name={icon("arrow-left")} variant="line" />
-					<Icon name={icon("search")} variant="line" />
-					<Icon name={icon("settings")} variant="line" />
-					<Icon name={icon("ai")} variant="line" />
+					<Icon name={icon('arrow-left')} variant="line" />
+					<Icon name={icon('search')} variant="line" />
+					<Icon name={icon('settings')} variant="line" />
+					<Icon name={icon('ai')} variant="line" />
 				</div>
 			</div>
 
 			<div class="variant-group">
 				<h3>Filled 图标</h3>
 				<div class="demo-row">
-					<Icon name={icon("home")} variant="filled" />
-					<Icon name={icon("user")} variant="filled" />
-					<Icon name={icon("ai")} variant="filled" />
+					<Icon name={icon('home')} variant="filled" />
+					<Icon name={icon('user')} variant="filled" />
+					<Icon name={icon('ai')} variant="filled" />
 				</div>
 			</div>
 
 			<div class="variant-group">
 				<h3>Brand 图标</h3>
 				<div class="demo-row">
-					<Icon name={icon("beanflow")} variant="brand" />
+					<Icon name={icon('beanflow')} variant="brand" />
 					<BeanflowIcon size={32} />
 				</div>
 			</div>
@@ -83,27 +83,27 @@
 		<h2>不同尺寸</h2>
 		<div class="size-grid">
 			<div class="size-item">
-				<Icon name={icon("search")} size="xs" />
+				<Icon name={icon('search')} size="xs" />
 				<span>XS (16px)</span>
 			</div>
 			<div class="size-item">
-				<Icon name={icon("search")} size="sm" />
+				<Icon name={icon('search')} size="sm" />
 				<span>SM (18px)</span>
 			</div>
 			<div class="size-item">
-				<Icon name={icon("search")} size="md" />
+				<Icon name={icon('search')} size="md" />
 				<span>MD (20px)</span>
 			</div>
 			<div class="size-item">
-				<Icon name={icon("search")} size="lg" />
+				<Icon name={icon('search')} size="lg" />
 				<span>LG (24px)</span>
 			</div>
 			<div class="size-item">
-				<Icon name={icon("search")} size="xl" />
+				<Icon name={icon('search')} size="xl" />
 				<span>XL (32px)</span>
 			</div>
 			<div class="size-item">
-				<Icon name={icon("search")} size={40} />
+				<Icon name={icon('search')} size={40} />
 				<span>Custom (40px)</span>
 			</div>
 		</div>
@@ -114,31 +114,31 @@
 		<h2>不同颜色</h2>
 		<div class="color-grid">
 			<div class="color-item">
-				<Icon name={icon("search")} color="current" />
+				<Icon name={icon('search')} color="current" />
 				<span>Current</span>
 			</div>
 			<div class="color-item">
-				<Icon name={icon("search")} color="primary" />
+				<Icon name={icon('search')} color="primary" />
 				<span>Primary</span>
 			</div>
 			<div class="color-item">
-				<Icon name={icon("search")} color="secondary" />
+				<Icon name={icon('search')} color="secondary" />
 				<span>Secondary</span>
 			</div>
 			<div class="color-item">
-				<Icon name={icon("search")} color="success" />
+				<Icon name={icon('search')} color="success" />
 				<span>Success</span>
 			</div>
 			<div class="color-item">
-				<Icon name={icon("search")} color="warning" />
+				<Icon name={icon('search')} color="warning" />
 				<span>Warning</span>
 			</div>
 			<div class="color-item">
-				<Icon name={icon("search")} color="error" />
+				<Icon name={icon('search')} color="error" />
 				<span>Error</span>
 			</div>
 			<div class="color-item">
-				<Icon name={icon("search")} color="#9810fa" />
+				<Icon name={icon('search')} color="#9810fa" />
 				<span>Custom</span>
 			</div>
 		</div>
@@ -152,15 +152,15 @@
 				<h3>按钮中的图标</h3>
 				<div class="demo-row">
 					<button class="btn btn-primary">
-						<Icon name={icon("search")} />
+						<Icon name={icon('search')} />
 						搜索
 					</button>
 					<button class="btn btn-secondary">
-						<Icon name={icon("settings")} />
+						<Icon name={icon('settings')} />
 						设置
 					</button>
 					<button class="btn btn-ghost">
-						<Icon name={icon("ai")} />
+						<Icon name={icon('ai')} />
 						AI 助手
 					</button>
 				</div>
@@ -171,7 +171,7 @@
 				<div class="demo-row">
 					<!-- svelte-ignore a11y_invalid_attribute -->
 					<a href="#" class="link">
-						<Icon name={icon("arrow-left")} />
+						<Icon name={icon('arrow-left')} />
 						返回
 					</a>
 					<!-- svelte-ignore a11y_invalid_attribute -->

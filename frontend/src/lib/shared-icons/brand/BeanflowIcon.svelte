@@ -3,7 +3,7 @@
 
 	let {
 		size = 20,
-		color = 'currentColor',
+		color: _color = 'currentColor',
 		class: className = '',
 		ariaLabel,
 		ariaHidden = false,

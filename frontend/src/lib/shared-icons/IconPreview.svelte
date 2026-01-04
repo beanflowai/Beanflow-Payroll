@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { setContext } from 'svelte';
 	import { AVAILABLE_ICONS, ICON_SIZES, ICON_COLORS } from './index';
 	import type { IconVariant, IconSize, IconName } from './types';
 	import Icon from './Icon.svelte';
@@ -65,7 +64,7 @@
 		<div class="control-group">
 			<label for="size-select">尺寸：</label>
 			<select id="size-select" bind:value={selectedSize}>
-				{#each sizeOptions as size}
+				{#each sizeOptions as size (size)}
 					<option value={size}>{size.toUpperCase()} ({ICON_SIZES[size]}px)</option>
 				{/each}
 			</select>
@@ -74,7 +73,7 @@
 		<div class="control-group">
 			<label for="color-select">颜色：</label>
 			<select id="color-select" bind:value={selectedColor}>
-				{#each colorOptions as color}
+				{#each colorOptions as color (color)}
 					<option value={color}>{color}</option>
 				{/each}
 			</select>
@@ -88,7 +87,7 @@
 
 	<!-- 图标网格 -->
 	<div class="icon-grid">
-		{#each filteredIcons as iconName}
+		{#each filteredIcons as iconName (iconName)}
 			<div class="icon-item">
 				<div class="icon-display">
 					<Icon
