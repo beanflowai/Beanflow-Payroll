@@ -1108,3 +1108,207 @@ class TestValidateTaxTables:
             errors = validate_tax_tables(2025)
 
             assert any("Test error" in e for e in errors)
+
+    def test_handles_cpp_ei_tax_config_error(self):
+        """Test handling of TaxConfigError during CPP/EI validation."""
+        federal_config = {
+            "bpaf": 16129,
+            "brackets": [
+                {"threshold": 0, "rate": 0.15, "constant": 0},
+                {"threshold": 55867, "rate": 0.205, "constant": 3155.63},
+                {"threshold": 111733, "rate": 0.26, "constant": 9252.65},
+                {"threshold": 173205, "rate": 0.29, "constant": 14452.88},
+                {"threshold": 246752, "rate": 0.33, "constant": 24322.90},
+            ]
+        }
+
+        with patch("app.services.payroll.tax_tables._has_versioned_federal_config", return_value=False), \
+             patch("app.services.payroll.tax_tables._has_versioned_provinces_config", return_value=False), \
+             patch("app.services.payroll.tax_tables.get_federal_config", return_value=federal_config), \
+             patch("app.services.payroll.tax_tables.get_cpp_config") as mock_cpp, \
+             patch("app.services.payroll.tax_tables.get_ei_config", return_value={"mie": 65700}), \
+             patch("app.services.payroll.tax_tables.get_province_config") as mock_province, \
+             patch("app.services.payroll.tax_tables.validate_config_schema", return_value=[]):
+            mock_cpp.side_effect = TaxConfigError("CPP error")
+            mock_province.return_value = {
+                "bpa": 12747,
+                "brackets": [{"threshold": 0, "rate": 0.05}]
+            }
+
+            errors = validate_tax_tables(2025)
+
+            assert any("CPP/EI config error" in e for e in errors)
+
+    def test_detects_empty_brackets(self):
+        """Test detection of empty brackets list in province config."""
+        federal_config = {
+            "bpaf": 16129,
+            "brackets": [
+                {"threshold": 0, "rate": 0.15, "constant": 0},
+                {"threshold": 55867, "rate": 0.205, "constant": 3155.63},
+                {"threshold": 111733, "rate": 0.26, "constant": 9252.65},
+                {"threshold": 173205, "rate": 0.29, "constant": 14452.88},
+                {"threshold": 246752, "rate": 0.33, "constant": 24322.90},
+            ]
+        }
+
+        with patch("app.services.payroll.tax_tables._has_versioned_federal_config", return_value=False), \
+             patch("app.services.payroll.tax_tables._has_versioned_provinces_config", return_value=False), \
+             patch("app.services.payroll.tax_tables.get_federal_config", return_value=federal_config), \
+             patch("app.services.payroll.tax_tables.get_cpp_config", return_value={"ympe": 71300}), \
+             patch("app.services.payroll.tax_tables.get_ei_config", return_value={"mie": 65700}), \
+             patch("app.services.payroll.tax_tables.get_province_config") as mock_province, \
+             patch("app.services.payroll.tax_tables.validate_config_schema", return_value=[]):
+            # Empty brackets list
+            mock_province.return_value = {
+                "bpa": 12747,
+                "brackets": []
+            }
+
+            errors = validate_tax_tables(2025)
+
+            assert any("empty brackets list" in e for e in errors)
+
+    def test_handles_province_tax_config_error(self):
+        """Test handling of TaxConfigError during province validation."""
+        federal_config = {
+            "bpaf": 16129,
+            "brackets": [
+                {"threshold": 0, "rate": 0.15, "constant": 0},
+                {"threshold": 55867, "rate": 0.205, "constant": 3155.63},
+                {"threshold": 111733, "rate": 0.26, "constant": 9252.65},
+                {"threshold": 173205, "rate": 0.29, "constant": 14452.88},
+                {"threshold": 246752, "rate": 0.33, "constant": 24322.90},
+            ]
+        }
+
+        with patch("app.services.payroll.tax_tables._has_versioned_federal_config", return_value=False), \
+             patch("app.services.payroll.tax_tables._has_versioned_provinces_config", return_value=False), \
+             patch("app.services.payroll.tax_tables.get_federal_config", return_value=federal_config), \
+             patch("app.services.payroll.tax_tables.get_cpp_config", return_value={"ympe": 71300}), \
+             patch("app.services.payroll.tax_tables.get_ei_config", return_value={"mie": 65700}), \
+             patch("app.services.payroll.tax_tables.get_province_config") as mock_province, \
+             patch("app.services.payroll.tax_tables.validate_config_schema", return_value=[]):
+            mock_province.side_effect = TaxConfigError("Province error")
+
+            errors = validate_tax_tables(2025)
+
+            assert any("Province error" in e for e in errors)
+
+
+class TestCalculateDynamicBpaFallback:
+    """Additional tests for calculate_dynamic_bpa fallback path."""
+
+    def test_fallback_to_static_bpa_unknown_dynamic_type(self):
+        """Test fallback to static BPA when dynamic type is unknown."""
+        with patch("app.services.payroll.tax_tables.get_province_config") as mock:
+            mock.return_value = {
+                "bpa": 10000,
+                "bpa_is_dynamic": True,
+                "dynamic_bpa_type": "unknown_type",  # Unknown type
+                "dynamic_bpa_config": {}
+            }
+
+            result = calculate_dynamic_bpa("ON", Decimal("50000"))
+
+            assert result == Decimal("10000")
+
+
+class TestValidateConfigSchemaFullPath:
+    """Additional tests for validate_config_schema function."""
+
+    def setup_method(self):
+        """Clear caches before each test."""
+        _load_json_file.cache_clear()
+
+    def test_validates_with_jsonschema_when_available(self, tmp_path: Path):
+        """Test validation path when jsonschema is available."""
+        # Create valid schema files
+        cpp_ei_schema = tmp_path / "cpp_ei.schema.json"
+        cpp_ei_schema.write_text('{"type": "object"}')
+
+        federal_schema = tmp_path / "federal.schema.json"
+        federal_schema.write_text('{"type": "object"}')
+
+        provinces_schema = tmp_path / "provinces.schema.json"
+        provinces_schema.write_text('{"type": "object"}')
+
+        # Create valid config files
+        cpp_ei_config = tmp_path / "cpp_ei.json"
+        cpp_ei_config.write_text('{"cpp": {}, "ei": {}}')
+
+        federal_config = tmp_path / "federal.json"
+        federal_config.write_text('{"bpaf": 16129, "brackets": []}')
+
+        provinces_config = tmp_path / "provinces.json"
+        provinces_config.write_text('{"provinces": {}}')
+
+        call_count = [0]
+        def path_side_effect(year: int, filename: str) -> Path:
+            call_count[0] += 1
+            if "cpp_ei" in filename:
+                return cpp_ei_config
+            elif "provinces" in filename:
+                return provinces_config
+            return federal_config
+
+        with patch("app.services.payroll.tax_tables.SCHEMA_BASE_PATH", tmp_path), \
+             patch("app.services.payroll.tax_tables._get_config_path", side_effect=path_side_effect):
+            errors = validate_config_schema(2025)
+
+            # Should have no jsonschema errors
+            assert not any("jsonschema" in e for e in errors)
+
+    def test_detects_missing_schema_file(self, tmp_path: Path):
+        """Test detection of missing schema file."""
+        # Don't create any schema files
+        config_file = tmp_path / "federal.json"
+        config_file.write_text('{"bpaf": 16129}')
+
+        with patch("app.services.payroll.tax_tables.SCHEMA_BASE_PATH", tmp_path), \
+             patch("app.services.payroll.tax_tables._get_config_path", return_value=config_file):
+            errors = validate_config_schema(2025)
+
+            assert any("Schema file not found" in e for e in errors)
+
+    def test_detects_invalid_json_in_schema(self, tmp_path: Path):
+        """Test detection of invalid JSON in schema file."""
+        # Create invalid schema
+        federal_schema = tmp_path / "federal.schema.json"
+        federal_schema.write_text('{invalid json}')
+
+        # Create valid other schemas
+        cpp_ei_schema = tmp_path / "cpp_ei.schema.json"
+        cpp_ei_schema.write_text('{"type": "object"}')
+        provinces_schema = tmp_path / "provinces.schema.json"
+        provinces_schema.write_text('{"type": "object"}')
+
+        # Create valid config file
+        config_file = tmp_path / "federal.json"
+        config_file.write_text('{"bpaf": 16129}')
+
+        with patch("app.services.payroll.tax_tables.SCHEMA_BASE_PATH", tmp_path), \
+             patch("app.services.payroll.tax_tables._get_config_path", return_value=config_file):
+            errors = validate_config_schema(2025)
+
+            assert any("Invalid JSON in schema federal.schema.json" in e for e in errors)
+
+    def test_detects_invalid_json_in_config(self, tmp_path: Path):
+        """Test detection of invalid JSON in config file."""
+        # Create valid schemas
+        cpp_ei_schema = tmp_path / "cpp_ei.schema.json"
+        cpp_ei_schema.write_text('{"type": "object"}')
+        federal_schema = tmp_path / "federal.schema.json"
+        federal_schema.write_text('{"type": "object"}')
+        provinces_schema = tmp_path / "provinces.schema.json"
+        provinces_schema.write_text('{"type": "object"}')
+
+        # Create invalid config
+        config_file = tmp_path / "cpp_ei.json"
+        config_file.write_text('{invalid json}')
+
+        with patch("app.services.payroll.tax_tables.SCHEMA_BASE_PATH", tmp_path), \
+             patch("app.services.payroll.tax_tables._get_config_path", return_value=config_file):
+            errors = validate_config_schema(2025)
+
+            assert any("Invalid JSON in" in e for e in errors)

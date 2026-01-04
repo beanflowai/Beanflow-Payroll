@@ -730,3 +730,60 @@ class TestPayrollEngineFederalTaxRateChange:
 
         # Tax after July should be lower due to 14% vs 15%
         assert result_after.federal_tax < result_before.federal_tax
+
+
+# =============================================================================
+# TEST: NEGATIVE VALUE VALIDATION (lines 498, 501)
+# =============================================================================
+
+
+class TestNegativeValueValidation:
+    """Tests for negative value validation in payroll_engine.py."""
+
+    def test_negative_provincial_claim_amount(self):
+        """Test validation of negative provincial claim amount (line 498)."""
+        engine = PayrollEngine(year=2025)
+
+        input_data = EmployeePayrollInput(
+            employee_id="emp-test",
+            pay_date=date(2025, 1, 15),
+            province=Province.ON,
+            pay_frequency=PayFrequency.BIWEEKLY,
+            gross_regular=Decimal("2000.00"),
+            federal_claim_amount=Decimal("16129.00"),
+            provincial_claim_amount=Decimal("-100.00"),  # Negative
+            ytd_gross=Decimal("0"),
+            ytd_pensionable_earnings=Decimal("0"),
+            ytd_insurable_earnings=Decimal("0"),
+            ytd_cpp_base=Decimal("0"),
+            ytd_cpp_additional=Decimal("0"),
+            ytd_ei=Decimal("0"),
+        )
+
+        errors = engine.validate_input(input_data)
+
+        assert "Provincial claim amount cannot be negative" in errors
+
+    def test_negative_ytd_gross(self):
+        """Test validation of negative YTD gross (line 501)."""
+        engine = PayrollEngine(year=2025)
+
+        input_data = EmployeePayrollInput(
+            employee_id="emp-test",
+            pay_date=date(2025, 1, 15),
+            province=Province.ON,
+            pay_frequency=PayFrequency.BIWEEKLY,
+            gross_regular=Decimal("2000.00"),
+            federal_claim_amount=Decimal("16129.00"),
+            provincial_claim_amount=Decimal("12747.00"),
+            ytd_gross=Decimal("-5000.00"),  # Negative
+            ytd_pensionable_earnings=Decimal("0"),
+            ytd_insurable_earnings=Decimal("0"),
+            ytd_cpp_base=Decimal("0"),
+            ytd_cpp_additional=Decimal("0"),
+            ytd_ei=Decimal("0"),
+        )
+
+        errors = engine.validate_input(input_data)
+
+        assert "YTD gross cannot be negative" in errors

@@ -354,3 +354,232 @@ class TestPrettify:
 
         # Should have newlines and indentation
         assert "\n" in result
+
+
+# =============================================================================
+# Test: Optional Fields Coverage
+# =============================================================================
+
+
+class TestOptionalFields:
+    """Tests for optional T4 fields (lines 173, 202, 219, 223)."""
+
+    def test_slip_with_address_line_2(self, generator):
+        """Test slip with address line 2 (line 173)."""
+        slip = T4SlipData(
+            employee_id=UUID(TEST_EMPLOYEE_ID),
+            tax_year=TEST_TAX_YEAR,
+            sin="123456789",
+            employee_first_name="John",
+            employee_last_name="Doe",
+            employee_address_line1="123 Employee St",
+            employee_address_line2="Apt 4B",  # Optional field
+            employee_city="Toronto",
+            employee_province=Province.ON,
+            employee_postal_code="M4K 2A1",
+            employer_name="Test Company Inc.",
+            employer_account_number="123456789RP0001",
+            employer_address_line1="456 Company Ave",
+            employer_city="Toronto",
+            employer_province=Province.ON,
+            employer_postal_code="M5V 1A1",
+            box_14_employment_income=Decimal("50000.00"),
+            box_16_cpp_contributions=Decimal("3800.00"),
+            box_18_ei_premiums=Decimal("1049.12"),
+            box_22_income_tax_deducted=Decimal("8500.00"),
+            box_24_ei_insurable_earnings=Decimal("50000.00"),
+            box_26_cpp_pensionable_earnings=Decimal("50000.00"),
+            province_of_employment=Province.ON,
+            cpp_exempt=False,
+            ei_exempt=False,
+        )
+
+        summary = T4Summary(
+            company_id=UUID(TEST_COMPANY_ID),
+            user_id=TEST_USER_ID,
+            tax_year=TEST_TAX_YEAR,
+            employer_name="Test Company Inc.",
+            employer_account_number="123456789RP0001",
+            employer_address_line1="456 Company Ave",
+            employer_city="Toronto",
+            employer_province=Province.ON,
+            employer_postal_code="M5V 1A1",
+            total_number_of_t4_slips=1,
+            total_employment_income=Decimal("50000.00"),
+            total_cpp_contributions=Decimal("3800.00"),
+            total_ei_premiums=Decimal("1049.12"),
+            total_income_tax_deducted=Decimal("8500.00"),
+            total_cpp_employer=Decimal("3800.00"),
+            total_ei_employer=Decimal("1463.77"),
+            status=T4Status.GENERATED,
+        )
+
+        xml_output = generator.generate_xml(summary, [slip])
+
+        # Verify Address2 is in the XML
+        assert "Apt 4B" in xml_output
+
+    def test_slip_with_rpp_contributions(self, generator):
+        """Test slip with RPP contributions - Box 20 (line 202)."""
+        slip = T4SlipData(
+            employee_id=UUID(TEST_EMPLOYEE_ID),
+            tax_year=TEST_TAX_YEAR,
+            sin="123456789",
+            employee_first_name="John",
+            employee_last_name="Doe",
+            employee_address_line1="123 Employee St",
+            employee_city="Toronto",
+            employee_province=Province.ON,
+            employee_postal_code="M4K 2A1",
+            employer_name="Test Company Inc.",
+            employer_account_number="123456789RP0001",
+            employer_address_line1="456 Company Ave",
+            employer_city="Toronto",
+            employer_province=Province.ON,
+            employer_postal_code="M5V 1A1",
+            box_14_employment_income=Decimal("50000.00"),
+            box_16_cpp_contributions=Decimal("3800.00"),
+            box_18_ei_premiums=Decimal("1049.12"),
+            box_20_rpp_contributions=Decimal("2000.00"),  # Optional field
+            box_22_income_tax_deducted=Decimal("8500.00"),
+            box_24_ei_insurable_earnings=Decimal("50000.00"),
+            box_26_cpp_pensionable_earnings=Decimal("50000.00"),
+            province_of_employment=Province.ON,
+            cpp_exempt=False,
+            ei_exempt=False,
+        )
+
+        summary = T4Summary(
+            company_id=UUID(TEST_COMPANY_ID),
+            user_id=TEST_USER_ID,
+            tax_year=TEST_TAX_YEAR,
+            employer_name="Test Company Inc.",
+            employer_account_number="123456789RP0001",
+            employer_address_line1="456 Company Ave",
+            employer_city="Toronto",
+            employer_province=Province.ON,
+            employer_postal_code="M5V 1A1",
+            total_number_of_t4_slips=1,
+            total_employment_income=Decimal("50000.00"),
+            total_cpp_contributions=Decimal("3800.00"),
+            total_ei_premiums=Decimal("1049.12"),
+            total_income_tax_deducted=Decimal("8500.00"),
+            total_cpp_employer=Decimal("3800.00"),
+            total_ei_employer=Decimal("1463.77"),
+            status=T4Status.GENERATED,
+        )
+
+        xml_output = generator.generate_xml(summary, [slip])
+
+        # Verify Box20 is in the XML (amount in cents: 2000.00 -> 200000)
+        assert "<Box20>200000</Box20>" in xml_output
+
+    def test_slip_with_charitable_donations(self, generator):
+        """Test slip with charitable donations - Box 46 (line 219)."""
+        slip = T4SlipData(
+            employee_id=UUID(TEST_EMPLOYEE_ID),
+            tax_year=TEST_TAX_YEAR,
+            sin="123456789",
+            employee_first_name="John",
+            employee_last_name="Doe",
+            employee_address_line1="123 Employee St",
+            employee_city="Toronto",
+            employee_province=Province.ON,
+            employee_postal_code="M4K 2A1",
+            employer_name="Test Company Inc.",
+            employer_account_number="123456789RP0001",
+            employer_address_line1="456 Company Ave",
+            employer_city="Toronto",
+            employer_province=Province.ON,
+            employer_postal_code="M5V 1A1",
+            box_14_employment_income=Decimal("50000.00"),
+            box_16_cpp_contributions=Decimal("3800.00"),
+            box_18_ei_premiums=Decimal("1049.12"),
+            box_22_income_tax_deducted=Decimal("8500.00"),
+            box_24_ei_insurable_earnings=Decimal("50000.00"),
+            box_26_cpp_pensionable_earnings=Decimal("50000.00"),
+            box_46_charitable_donations=Decimal("500.00"),  # Optional field
+            province_of_employment=Province.ON,
+            cpp_exempt=False,
+            ei_exempt=False,
+        )
+
+        summary = T4Summary(
+            company_id=UUID(TEST_COMPANY_ID),
+            user_id=TEST_USER_ID,
+            tax_year=TEST_TAX_YEAR,
+            employer_name="Test Company Inc.",
+            employer_account_number="123456789RP0001",
+            employer_address_line1="456 Company Ave",
+            employer_city="Toronto",
+            employer_province=Province.ON,
+            employer_postal_code="M5V 1A1",
+            total_number_of_t4_slips=1,
+            total_employment_income=Decimal("50000.00"),
+            total_cpp_contributions=Decimal("3800.00"),
+            total_ei_premiums=Decimal("1049.12"),
+            total_income_tax_deducted=Decimal("8500.00"),
+            total_cpp_employer=Decimal("3800.00"),
+            total_ei_employer=Decimal("1463.77"),
+            status=T4Status.GENERATED,
+        )
+
+        xml_output = generator.generate_xml(summary, [slip])
+
+        # Verify Box46 is in the XML (amount in cents: 500.00 -> 50000)
+        assert "<Box46>50000</Box46>" in xml_output
+
+    def test_slip_with_pension_adjustment(self, generator):
+        """Test slip with pension adjustment - Box 52 (line 223)."""
+        slip = T4SlipData(
+            employee_id=UUID(TEST_EMPLOYEE_ID),
+            tax_year=TEST_TAX_YEAR,
+            sin="123456789",
+            employee_first_name="John",
+            employee_last_name="Doe",
+            employee_address_line1="123 Employee St",
+            employee_city="Toronto",
+            employee_province=Province.ON,
+            employee_postal_code="M4K 2A1",
+            employer_name="Test Company Inc.",
+            employer_account_number="123456789RP0001",
+            employer_address_line1="456 Company Ave",
+            employer_city="Toronto",
+            employer_province=Province.ON,
+            employer_postal_code="M5V 1A1",
+            box_14_employment_income=Decimal("50000.00"),
+            box_16_cpp_contributions=Decimal("3800.00"),
+            box_18_ei_premiums=Decimal("1049.12"),
+            box_22_income_tax_deducted=Decimal("8500.00"),
+            box_24_ei_insurable_earnings=Decimal("50000.00"),
+            box_26_cpp_pensionable_earnings=Decimal("50000.00"),
+            box_52_pension_adjustment=Decimal("1500.00"),  # Optional field
+            province_of_employment=Province.ON,
+            cpp_exempt=False,
+            ei_exempt=False,
+        )
+
+        summary = T4Summary(
+            company_id=UUID(TEST_COMPANY_ID),
+            user_id=TEST_USER_ID,
+            tax_year=TEST_TAX_YEAR,
+            employer_name="Test Company Inc.",
+            employer_account_number="123456789RP0001",
+            employer_address_line1="456 Company Ave",
+            employer_city="Toronto",
+            employer_province=Province.ON,
+            employer_postal_code="M5V 1A1",
+            total_number_of_t4_slips=1,
+            total_employment_income=Decimal("50000.00"),
+            total_cpp_contributions=Decimal("3800.00"),
+            total_ei_premiums=Decimal("1049.12"),
+            total_income_tax_deducted=Decimal("8500.00"),
+            total_cpp_employer=Decimal("3800.00"),
+            total_ei_employer=Decimal("1463.77"),
+            status=T4Status.GENERATED,
+        )
+
+        xml_output = generator.generate_xml(summary, [slip])
+
+        # Verify Box52 is in the XML (amount in cents: 1500.00 -> 150000)
+        assert "<Box52>150000</Box52>" in xml_output

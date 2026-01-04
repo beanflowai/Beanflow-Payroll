@@ -227,6 +227,50 @@ class TestCalculateHolidayPay:
 class TestCalculationDetails:
     """Tests for calculation details in the result."""
 
+    def test_invalid_holiday_date_format_skipped(self, holiday_calculator, hourly_employee):
+        """Test that holidays with invalid date format are skipped (lines 175-177)."""
+        holidays = [
+            {"holiday_date": "invalid-date", "name": "Invalid Holiday", "province": "BC"},
+            {"holiday_date": "2025-07-01", "name": "Canada Day", "province": "BC"},
+        ]
+
+        result = holiday_calculator.calculate_holiday_pay(
+            employee=hourly_employee,
+            province="BC",
+            pay_frequency="bi_weekly",
+            period_start=date(2025, 6, 28),
+            period_end=date(2025, 7, 11),
+            holidays_in_period=holidays,
+            holiday_work_entries=[],
+            current_period_gross=Decimal("2000"),
+            current_run_id="run-001",
+        )
+
+        # Should only calculate for valid holiday
+        assert result.regular_holiday_pay == Decimal("200")
+        assert result.total_holiday_pay == Decimal("200")
+
+    def test_hr_exempt_employee_no_regular_pay(self, holiday_calculator, hourly_employee):
+        """Test that HR-exempt employees skip Regular holiday pay (lines 191-194)."""
+        holidays = [{"holiday_date": "2025-07-01", "name": "Canada Day", "province": "BC"}]
+
+        result = holiday_calculator.calculate_holiday_pay(
+            employee=hourly_employee,
+            province="BC",
+            pay_frequency="bi_weekly",
+            period_start=date(2025, 6, 28),
+            period_end=date(2025, 7, 11),
+            holidays_in_period=holidays,
+            holiday_work_entries=[],
+            current_period_gross=Decimal("2000"),
+            current_run_id="run-001",
+            holiday_pay_exempt=True,  # Pass as parameter
+        )
+
+        # No Regular pay when exempt
+        assert result.regular_holiday_pay == Decimal("0")
+        assert result.premium_holiday_pay == Decimal("0")
+
     def test_details_include_config_info(self, holiday_calculator, hourly_employee):
         """Details should include config information."""
         holidays = [{"holiday_date": "2025-07-01", "name": "Canada Day", "province": "BC"}]

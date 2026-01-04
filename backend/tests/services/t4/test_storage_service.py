@@ -460,3 +460,101 @@ class TestGetFileContent:
 
         assert result == b"file content"
         service.s3_client.get_object.assert_called_once()
+
+
+class TestFileExistsErrorHandling:
+    """Tests for file_exists error handling."""
+
+    @pytest.fixture
+    def service(self) -> T4StorageService:
+        """Create a mock T4StorageService."""
+        with patch("app.services.t4.storage_service.boto3.client") as mock_client:
+            mock_config = MagicMock()
+            mock_config.do_spaces_access_key = "access"
+            mock_config.do_spaces_secret_key = "secret"
+            mock_config.do_spaces_bucket = "bucket"
+            mock_config.do_spaces_endpoint = "nyc3.digitaloceanspaces.com"
+            mock_config.do_spaces_region = "nyc3"
+            mock_config.do_spaces_root_prefix = "payroll"
+            service = T4StorageService(config=mock_config)
+            service.s3_client = mock_client.return_value
+            return service
+
+    @pytest.mark.asyncio
+    async def test_file_exists_non_404_error(self, service: T4StorageService):
+        """Test file_exists raises for non-404 ClientError."""
+        from botocore.exceptions import ClientError
+
+        # Simulate a 403 Forbidden error (not 404)
+        error_response = {"Error": {"Code": "403", "Message": "Forbidden"}}
+        service.s3_client.head_object.side_effect = ClientError(
+            error_response, "head_object"
+        )
+
+        with pytest.raises(ClientError) as exc_info:
+            await service.file_exists("test/key.pdf")
+
+        assert "403" in str(exc_info.value)
+
+
+class TestDeleteFileErrorHandling:
+    """Tests for delete_file error handling."""
+
+    @pytest.fixture
+    def service(self) -> T4StorageService:
+        """Create a mock T4StorageService."""
+        with patch("app.services.t4.storage_service.boto3.client") as mock_client:
+            mock_config = MagicMock()
+            mock_config.do_spaces_access_key = "access"
+            mock_config.do_spaces_secret_key = "secret"
+            mock_config.do_spaces_bucket = "bucket"
+            mock_config.do_spaces_endpoint = "nyc3.digitaloceanspaces.com"
+            mock_config.do_spaces_region = "nyc3"
+            mock_config.do_spaces_root_prefix = "payroll"
+            service = T4StorageService(config=mock_config)
+            service.s3_client = mock_client.return_value
+            return service
+
+    @pytest.mark.asyncio
+    async def test_delete_file_raises_on_error(self, service: T4StorageService):
+        """Test delete_file raises ClientError on failure."""
+        from botocore.exceptions import ClientError
+
+        error_response = {"Error": {"Code": "403", "Message": "Forbidden"}}
+        service.s3_client.delete_object.side_effect = ClientError(
+            error_response, "delete_object"
+        )
+
+        with pytest.raises(ClientError):
+            await service.delete_file("test/key.pdf")
+
+
+class TestGetT4StorageSingleton:
+    """Tests for get_t4_storage singleton function."""
+
+    def test_returns_singleton_instance(self):
+        """Test that get_t4_storage returns the same instance."""
+        with patch("app.services.t4.storage_service.boto3.client"):
+            from app.services.t4.storage_service import get_t4_storage
+
+            # Clear the singleton first
+            import app.services.t4.storage_service as storage_module
+            storage_module._t4_storage = None
+
+            instance1 = get_t4_storage()
+            instance2 = get_t4_storage()
+
+            assert instance1 is instance2
+
+    def test_initializes_singleton_on_first_call(self):
+        """Test that singleton is initialized on first call."""
+        with patch("app.services.t4.storage_service.boto3.client"):
+            from app.services.t4.storage_service import get_t4_storage, T4StorageService
+
+            # Clear the singleton first
+            import app.services.t4.storage_service as storage_module
+            storage_module._t4_storage = None
+
+            instance = get_t4_storage()
+
+            assert isinstance(instance, T4StorageService)

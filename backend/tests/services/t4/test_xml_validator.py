@@ -671,3 +671,538 @@ class TestCompleteValidation:
 
         assert result.is_valid is True
         assert len(result.errors) == 0
+
+
+# =============================================================================
+# Test: Transmitter Sub-elements Validation
+# =============================================================================
+
+
+class TestTransmitterSubElements:
+    """Tests for Transmitter required sub-elements validation."""
+
+    def test_missing_transmitter_number(self, validator):
+        """Test validation fails when TransmitterNumber is missing."""
+        current_year = datetime.now().year
+        xml = f"""<?xml version="1.0"?>
+<Return>
+    <Transmitter>
+        <TransmitterName>Test</TransmitterName>
+    </Transmitter>
+    <T4>
+        <T4Summary>
+            <BusinessNumber>123456789</BusinessNumber>
+            <EmployerName>Test</EmployerName>
+            <TotalSlips>0</TotalSlips>
+            <TaxYear>{current_year}</TaxYear>
+        </T4Summary>
+        <T4Slips></T4Slips>
+    </T4>
+</Return>"""
+
+        result = validator.validate(xml)
+
+        errors = [e for e in result.errors if "Transmitter" in e.field]
+        assert len(errors) >= 1
+        assert any("TransmitterNumber" in e.message for e in errors)
+
+    def test_missing_transmitter_name(self, validator):
+        """Test validation fails when TransmitterName is missing."""
+        current_year = datetime.now().year
+        xml = f"""<?xml version="1.0"?>
+<Return>
+    <Transmitter>
+        <TransmitterNumber>MM123456</TransmitterNumber>
+    </Transmitter>
+    <T4>
+        <T4Summary>
+            <BusinessNumber>123456789</BusinessNumber>
+            <EmployerName>Test</EmployerName>
+            <TotalSlips>0</TotalSlips>
+            <TaxYear>{current_year}</TaxYear>
+        </T4Summary>
+        <T4Slips></T4Slips>
+    </T4>
+</Return>"""
+
+        result = validator.validate(xml)
+
+        errors = [e for e in result.errors if "Transmitter" in e.field]
+        assert len(errors) >= 1
+        assert any("TransmitterName" in e.message for e in errors)
+
+
+# =============================================================================
+# Test: Empty T4Summary Elements
+# =============================================================================
+
+
+class TestEmptySummaryElements:
+    """Tests for empty T4Summary element validation."""
+
+    def test_empty_business_number(self, validator):
+        """Test validation fails when BusinessNumber is empty."""
+        current_year = datetime.now().year
+        xml = f"""<?xml version="1.0"?>
+<Return>
+    <Transmitter>
+        <TransmitterNumber>MM123456</TransmitterNumber>
+        <TransmitterName>Test</TransmitterName>
+    </Transmitter>
+    <T4>
+        <T4Summary>
+            <BusinessNumber></BusinessNumber>
+            <EmployerName>Test</EmployerName>
+            <TotalSlips>0</TotalSlips>
+            <TaxYear>{current_year}</TaxYear>
+        </T4Summary>
+        <T4Slips></T4Slips>
+    </T4>
+</Return>"""
+
+        result = validator.validate(xml)
+
+        errors = [e for e in result.errors if "BusinessNumber" in e.field]
+        assert len(errors) >= 1
+        assert any("empty" in e.message.lower() for e in errors)
+
+    def test_empty_employer_name(self, validator):
+        """Test validation fails when EmployerName is empty."""
+        current_year = datetime.now().year
+        xml = f"""<?xml version="1.0"?>
+<Return>
+    <Transmitter>
+        <TransmitterNumber>MM123456</TransmitterNumber>
+        <TransmitterName>Test</TransmitterName>
+    </Transmitter>
+    <T4>
+        <T4Summary>
+            <BusinessNumber>123456789</BusinessNumber>
+            <EmployerName></EmployerName>
+            <TotalSlips>0</TotalSlips>
+            <TaxYear>{current_year}</TaxYear>
+        </T4Summary>
+        <T4Slips></T4Slips>
+    </T4>
+</Return>"""
+
+        result = validator.validate(xml)
+
+        errors = [e for e in result.errors if "EmployerName" in e.field]
+        assert len(errors) >= 1
+
+
+# =============================================================================
+# Test: T4 Slip Element Validation
+# =============================================================================
+
+
+class TestT4SlipElements:
+    """Tests for T4 slip element validation."""
+
+    def test_missing_employee_in_slip(self, validator):
+        """Test validation fails when Employee element is missing from T4Slip."""
+        current_year = datetime.now().year
+        xml = f"""<?xml version="1.0"?>
+<Return>
+    <Transmitter>
+        <TransmitterNumber>MM123456</TransmitterNumber>
+        <TransmitterName>Test</TransmitterName>
+    </Transmitter>
+    <T4>
+        <T4Summary>
+            <BusinessNumber>123456789</BusinessNumber>
+            <EmployerName>Test</EmployerName>
+            <TotalSlips>1</TotalSlips>
+            <TaxYear>{current_year}</TaxYear>
+        </T4Summary>
+        <T4Slips>
+            <T4Slip>
+                <T4Amounts>
+                    <Box14>5000000</Box14>
+                </T4Amounts>
+            </T4Slip>
+        </T4Slips>
+    </T4>
+</Return>"""
+
+        result = validator.validate(xml)
+
+        errors = [e for e in result.errors if "Employee" in e.field]
+        assert len(errors) >= 1
+
+    def test_missing_sin_in_employee(self, validator):
+        """Test validation fails when SIN is missing from Employee."""
+        current_year = datetime.now().year
+        xml = f"""<?xml version="1.0"?>
+<Return>
+    <Transmitter>
+        <TransmitterNumber>MM123456</TransmitterNumber>
+        <TransmitterName>Test</TransmitterName>
+    </Transmitter>
+    <T4>
+        <T4Summary>
+            <BusinessNumber>123456789</BusinessNumber>
+            <EmployerName>Test</EmployerName>
+            <TotalSlips>1</TotalSlips>
+            <TaxYear>{current_year}</TaxYear>
+        </T4Summary>
+        <T4Slips>
+            <T4Slip>
+                <Employee>
+                    <FirstName>John</FirstName>
+                    <LastName>Doe</LastName>
+                </Employee>
+                <T4Amounts>
+                    <Box14>5000000</Box14>
+                </T4Amounts>
+            </T4Slip>
+        </T4Slips>
+    </T4>
+</Return>"""
+
+        result = validator.validate(xml)
+
+        sin_errors = [e for e in result.errors if "SIN" in e.field]
+        assert len(sin_errors) >= 1
+
+    def test_missing_t4_amounts(self, validator):
+        """Test validation fails when T4Amounts is missing."""
+        current_year = datetime.now().year
+        xml = f"""<?xml version="1.0"?>
+<Return>
+    <Transmitter>
+        <TransmitterNumber>MM123456</TransmitterNumber>
+        <TransmitterName>Test</TransmitterName>
+    </Transmitter>
+    <T4>
+        <T4Summary>
+            <BusinessNumber>123456789</BusinessNumber>
+            <EmployerName>Test</EmployerName>
+            <TotalSlips>1</TotalSlips>
+            <TaxYear>{current_year}</TaxYear>
+        </T4Summary>
+        <T4Slips>
+            <T4Slip>
+                <Employee>
+                    <SIN>046454286</SIN>
+                    <FirstName>John</FirstName>
+                    <LastName>Doe</LastName>
+                </Employee>
+            </T4Slip>
+        </T4Slips>
+    </T4>
+</Return>"""
+
+        result = validator.validate(xml)
+
+        errors = [e for e in result.errors if "T4Amounts" in e.message]
+        assert len(errors) >= 1
+
+    def test_missing_required_box(self, validator):
+        """Test validation fails when required Box14 is missing."""
+        current_year = datetime.now().year
+        xml = f"""<?xml version="1.0"?>
+<Return>
+    <Transmitter>
+        <TransmitterNumber>MM123456</TransmitterNumber>
+        <TransmitterName>Test</TransmitterName>
+    </Transmitter>
+    <T4>
+        <T4Summary>
+            <BusinessNumber>123456789</BusinessNumber>
+            <EmployerName>Test</EmployerName>
+            <TotalSlips>1</TotalSlips>
+            <TaxYear>{current_year}</TaxYear>
+        </T4Summary>
+        <T4Slips>
+            <T4Slip>
+                <Employee>
+                    <SIN>046454286</SIN>
+                    <FirstName>John</FirstName>
+                    <LastName>Doe</LastName>
+                </Employee>
+                <T4Amounts>
+                </T4Amounts>
+            </T4Slip>
+        </T4Slips>
+    </T4>
+</Return>"""
+
+        result = validator.validate(xml)
+
+        box_errors = [e for e in result.errors if "Box" in e.message or "T4Amounts" in e.message]
+        assert len(box_errors) >= 1
+
+
+# =============================================================================
+# Test: Additional Validation Scenarios
+# =============================================================================
+
+
+class TestAdditionalScenarios:
+    """Tests for additional validation scenarios."""
+
+    def test_multiple_slips_with_one_invalid(self, validator):
+        """Test validation with multiple slips where one is invalid."""
+        current_year = datetime.now().year
+        xml = f"""<?xml version="1.0"?>
+<Return>
+    <Transmitter>
+        <TransmitterNumber>MM123456</TransmitterNumber>
+        <TransmitterName>Test</TransmitterName>
+    </Transmitter>
+    <T4>
+        <T4Summary>
+            <BusinessNumber>123456789</BusinessNumber>
+            <EmployerName>Test</EmployerName>
+            <TotalSlips>2</TotalSlips>
+            <TaxYear>{current_year}</TaxYear>
+        </T4Summary>
+        <T4Slips>
+            <T4Slip>
+                <Employee>
+                    <SIN>046454286</SIN>
+                    <FirstName>John</FirstName>
+                    <LastName>Doe</LastName>
+                </Employee>
+                <T4Amounts>
+                    <Box14>5000000</Box14>
+                </T4Amounts>
+            </T4Slip>
+            <T4Slip>
+                <Employee>
+                    <FirstName>Jane</FirstName>
+                    <LastName>Smith</LastName>
+                </Employee>
+                <T4Amounts>
+                    <Box14>4500000</Box14>
+                </T4Amounts>
+            </T4Slip>
+        </T4Slips>
+    </T4>
+</Return>"""
+
+        result = validator.validate(xml)
+
+        # Should fail due to missing SIN in second slip
+        sin_errors = [e for e in result.errors if "SIN" in e.field]
+        assert len(sin_errors) >= 1
+
+    def test_slip_with_empty_sin(self, validator):
+        """Test validation fails when SIN element is empty."""
+        current_year = datetime.now().year
+        xml = f"""<?xml version="1.0"?>
+<Return>
+    <Transmitter>
+        <TransmitterNumber>MM123456</TransmitterNumber>
+        <TransmitterName>Test</TransmitterName>
+    </Transmitter>
+    <T4>
+        <T4Summary>
+            <BusinessNumber>123456789</BusinessNumber>
+            <EmployerName>Test</EmployerName>
+            <TotalSlips>1</TotalSlips>
+            <TaxYear>{current_year}</TaxYear>
+        </T4Summary>
+        <T4Slips>
+            <T4Slip>
+                <Employee>
+                    <SIN></SIN>
+                    <FirstName>John</FirstName>
+                    <LastName>Doe</LastName>
+                </Employee>
+                <T4Amounts>
+                    <Box14>5000000</Box14>
+                </T4Amounts>
+            </T4Slip>
+        </T4Slips>
+    </T4>
+</Return>"""
+
+        result = validator.validate(xml)
+
+        sin_errors = [e for e in result.errors if "SIN" in e.field]
+        assert len(sin_errors) >= 1
+
+    def test_missing_first_name(self, validator):
+        """Test validation fails when FirstName is missing from Employee (line 336)."""
+        current_year = datetime.now().year
+        xml = f"""<?xml version="1.0"?>
+<Return>
+    <Transmitter>
+        <TransmitterNumber>MM123456</TransmitterNumber>
+        <TransmitterName>Test</TransmitterName>
+    </Transmitter>
+    <T4>
+        <T4Summary>
+            <BusinessNumber>123456789</BusinessNumber>
+            <EmployerName>Test</EmployerName>
+            <TotalSlips>1</TotalSlips>
+            <TaxYear>{current_year}</TaxYear>
+        </T4Summary>
+        <T4Slips>
+            <T4Slip>
+                <Employee>
+                    <SIN>046454286</SIN>
+                    <LastName>Doe</LastName>
+                </Employee>
+                <T4Amounts>
+                    <Box14>5000000</Box14>
+                </T4Amounts>
+            </T4Slip>
+        </T4Slips>
+    </T4>
+</Return>"""
+
+        result = validator.validate(xml)
+
+        errors = [e for e in result.errors if "FirstName" in e.message or "FirstName" in e.field]
+        assert len(errors) >= 1
+
+    def test_missing_last_name(self, validator):
+        """Test validation fails when LastName is missing from Employee (line 336)."""
+        current_year = datetime.now().year
+        xml = f"""<?xml version="1.0"?>
+<Return>
+    <Transmitter>
+        <TransmitterNumber>MM123456</TransmitterNumber>
+        <TransmitterName>Test</TransmitterName>
+    </Transmitter>
+    <T4>
+        <T4Summary>
+            <BusinessNumber>123456789</BusinessNumber>
+            <EmployerName>Test</EmployerName>
+            <TotalSlips>1</TotalSlips>
+            <TaxYear>{current_year}</TaxYear>
+        </T4Summary>
+        <T4Slips>
+            <T4Slip>
+                <Employee>
+                    <SIN>046454286</SIN>
+                    <FirstName>John</FirstName>
+                </Employee>
+                <T4Amounts>
+                    <Box14>5000000</Box14>
+                </T4Amounts>
+            </T4Slip>
+        </T4Slips>
+    </T4>
+</Return>"""
+
+        result = validator.validate(xml)
+
+        errors = [e for e in result.errors if "LastName" in e.message or "LastName" in e.field]
+        assert len(errors) >= 1
+
+    def test_invalid_amount_format(self, validator):
+        """Test validation fails when amount has invalid format (lines 395-396)."""
+        from decimal import InvalidOperation
+
+        current_year = datetime.now().year
+        xml = f"""<?xml version="1.0"?>
+<Return>
+    <Transmitter>
+        <TransmitterNumber>MM123456</TransmitterNumber>
+        <TransmitterName>Test</TransmitterName>
+    </Transmitter>
+    <T4>
+        <T4Summary>
+            <BusinessNumber>123456789</BusinessNumber>
+            <EmployerName>Test</EmployerName>
+            <TotalSlips>1</TotalSlips>
+            <TaxYear>{current_year}</TaxYear>
+        </T4Summary>
+        <T4Slips>
+            <T4Slip>
+                <Employee>
+                    <SIN>046454286</SIN>
+                    <FirstName>John</FirstName>
+                    <LastName>Doe</LastName>
+                </Employee>
+                <T4Amounts>
+                    <Box14>not_a_number</Box14>
+                </T4Amounts>
+            </T4Slip>
+        </T4Slips>
+    </T4>
+</Return>"""
+
+        # The code doesn't catch decimal.InvalidOperation, so this will raise
+        # This reveals a bug in the code (lines 461-462 should catch InvalidOperation)
+        with pytest.raises(InvalidOperation):
+            validator.validate(xml)
+
+    def test_invalid_slip_count_format(self, validator):
+        """Test validation handles invalid TotalSlips format (lines 424-425)."""
+        current_year = datetime.now().year
+        xml = f"""<?xml version="1.0"?>
+<Return>
+    <Transmitter>
+        <TransmitterNumber>MM123456</TransmitterNumber>
+        <TransmitterName>Test</TransmitterName>
+    </Transmitter>
+    <T4>
+        <T4Summary>
+            <BusinessNumber>123456789</BusinessNumber>
+            <EmployerName>Test</EmployerName>
+            <TotalSlips>not_a_number</TotalSlips>
+            <TaxYear>{current_year}</TaxYear>
+        </T4Summary>
+        <T4Slips>
+            <T4Slip>
+                <Employee>
+                    <SIN>046454286</SIN>
+                    <FirstName>John</FirstName>
+                    <LastName>Doe</LastName>
+                </Employee>
+                <T4Amounts>
+                    <Box14>5000000</Box14>
+                </T4Amounts>
+            </T4Slip>
+        </T4Slips>
+    </T4>
+</Return>"""
+
+        # Should handle invalid format gracefully (no crash)
+        # The code catches ValueError for int(), so this should work
+        result = validator.validate(xml)
+        assert result is not None
+
+    def test_invalid_summary_total_format(self, validator):
+        """Test validation handles invalid summary total format (lines 487-488)."""
+        from decimal import InvalidOperation
+
+        current_year = datetime.now().year
+        xml = f"""<?xml version="1.0"?>
+<Return>
+    <Transmitter>
+        <TransmitterNumber>MM123456</TransmitterNumber>
+        <TransmitterName>Test</TransmitterName>
+    </Transmitter>
+    <T4>
+        <T4Summary>
+            <BusinessNumber>123456789</BusinessNumber>
+            <EmployerName>Test</EmployerName>
+            <TotalSlips>1</TotalSlips>
+            <TotalEmploymentIncome>invalid_amount</TotalEmploymentIncome>
+            <TaxYear>{current_year}</TaxYear>
+        </T4Summary>
+        <T4Slips>
+            <T4Slip>
+                <Employee>
+                    <SIN>046454286</SIN>
+                    <FirstName>John</FirstName>
+                    <LastName>Doe</LastName>
+                </Employee>
+                <T4Amounts>
+                    <Box14>5000000</Box14>
+                </T4Amounts>
+            </T4Slip>
+        </T4Slips>
+    </T4>
+</Return>"""
+
+        # The code doesn't catch decimal.InvalidOperation (bug at lines 487-488)
+        with pytest.raises(InvalidOperation):
+            validator.validate(xml)

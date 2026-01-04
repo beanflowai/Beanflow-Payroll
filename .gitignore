@@ -16,5 +16,10 @@ __pycache__/
 backend/tools/tax_config_converter/output/*
 !backend/tools/tax_config_converter/output/.gitkeep
 
+# Coverage reports
+backend/coverage.json
+backend/.coverage
+backend/htmlcov/
+
 # Deploy (contains certificates and sensitive configs)
 backend/deploy/

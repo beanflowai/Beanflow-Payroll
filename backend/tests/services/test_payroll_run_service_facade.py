@@ -297,6 +297,37 @@ class TestUpdateRecord:
         assert result["input_data"]["hours"] == 40
         assert result["input_data"]["overtime_hours"] == 5
 
+    @pytest.mark.asyncio
+    async def test_update_record_raises_when_update_returns_no_data(self, service, mock_supabase):
+        """Test update_record raises when update returns no data (line 203)."""
+        run_id = UUID("12345678-1234-5678-1234-567812345678")
+        record_id = UUID("87654321-1234-5678-1234-567812345678")
+
+        # Mock get_run to return draft run
+        service.get_run = AsyncMock(return_value={"id": str(run_id), "status": "draft"})
+
+        # Mock record query to return existing record
+        existing_record = {"id": str(record_id), "input_data": {"hours": 40}}
+        mock_select_result = MagicMock()
+        mock_select_result.data = [existing_record]
+
+        # Mock update to return NO data (simulating update failure)
+        mock_update_result = MagicMock()
+        mock_update_result.data = []  # Empty data = no record returned
+
+        # Configure the mock chain
+        mock_chain = MagicMock()
+        mock_chain.select.return_value = mock_chain
+        mock_chain.eq.return_value = mock_chain
+        mock_chain.update.return_value = mock_chain
+        mock_chain.execute.side_effect = [mock_select_result, mock_update_result]
+
+        mock_supabase.table.return_value = mock_chain
+
+        # Should raise ValueError when update returns no data
+        with pytest.raises(ValueError, match="Failed to update payroll record"):
+            await service.update_record(run_id, record_id, {"overtime_hours": 5})
+
 
 class TestCheckHasModifiedRecords:
     """Tests for check_has_modified_records method."""

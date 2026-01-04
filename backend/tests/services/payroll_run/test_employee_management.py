@@ -687,3 +687,405 @@ class TestCreateRecordsForEmployees:
             assert len(calc_inputs) == 1
             assert calc_inputs[0].ytd_gross == Decimal("30000")
             assert calc_inputs[0].ytd_cpp_base == Decimal("1500")
+
+
+class TestSyncEmployeesSuccessPath:
+    """Tests for the success path of sync_employees method."""
+
+    @pytest.mark.asyncio
+    async def test_syncs_new_employees_and_updates_totals(
+        self, employee_mgmt, mock_get_run, mock_supabase, mock_ytd_calculator
+    ):
+        """Test successful sync of new employees and run totals update."""
+        run_id = UUID("12345678-1234-5678-1234-567812345678")
+
+        mock_get_run.return_value = {
+            "id": "run-123",
+            "status": "draft",
+            "period_end": "2025-01-31",
+            "pay_date": "2025-02-06",
+            "total_employees": 0,
+            "total_gross": 0,
+            "total_cpp_employee": 0,
+            "total_cpp_employer": 0,
+            "total_ei_employee": 0,
+            "total_ei_employer": 0,
+            "total_federal_tax": 0,
+            "total_provincial_tax": 0,
+            "total_net_pay": 0,
+            "total_employer_cost": 0,
+        }
+
+        # Mock pay groups query
+        pay_groups_mock = MagicMock()
+        pay_groups_mock.data = [{"id": "pg-1", "name": "Salaried", "pay_frequency": "bi_weekly", "employment_type": "full_time", "group_benefits": None}]
+
+        # Mock employees query
+        employees_mock = MagicMock()
+        employees_mock.data = [
+            {
+                "id": "emp-1",
+                "first_name": "John",
+                "last_name": "Doe",
+                "province_of_employment": "ON",
+                "pay_group_id": "pg-1",
+                "annual_salary": 78000,
+                "hourly_rate": None,
+                "federal_additional_claims": 0,
+                "provincial_additional_claims": 0,
+                "is_cpp_exempt": False,
+                "is_ei_exempt": False,
+                "cpp2_exempt": False,
+                "vacation_config": {"payout_method": "accrual", "vacation_rate": 0.04},
+            }
+        ]
+
+        # Mock existing records query (no existing employees)
+        records_mock = MagicMock()
+        records_mock.data = []
+
+        # Configure mock for different table queries
+        call_count = [0]
+        def table_side_effect(table_name):
+            nonlocal call_count
+            mock_table = MagicMock()
+            if table_name == "pay_groups":
+                mock_table.select.return_value.eq.return_value.execute.return_value = pay_groups_mock
+            elif table_name == "employees":
+                mock_table.select.return_value.eq.return_value.eq.return_value.in_.return_value.is_.return_value.execute.return_value = employees_mock
+            elif table_name == "payroll_records":
+                mock_table.select.return_value.eq.return_value.execute.return_value = records_mock
+            elif table_name == "payroll_runs":
+                # For update
+                mock_table.update.return_value.eq.return_value.execute.return_value = MagicMock()
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
+        mock_ytd_calculator.get_prior_ytd_for_employees.return_value = {}
+
+        # Mock insert for payroll records
+        mock_supabase.table.return_value.insert.return_value.execute.return_value = MagicMock()
+
+        # Patch PayrollEngine to return a mock result
+        with patch("app.services.payroll_run.employee_management.PayrollEngine") as MockEngine:
+            mock_engine = MagicMock()
+            mock_result = MagicMock()
+            mock_result.employee_id = "emp-1"
+            mock_result.gross_regular = Decimal("3000")
+            mock_result.gross_overtime = Decimal("0")
+            mock_result.total_gross = Decimal("3000")
+            mock_result.cpp_total = Decimal("150")
+            mock_result.cpp_employer = Decimal("150")
+            mock_result.ei_employee = Decimal("50")
+            mock_result.ei_employer = Decimal("70")
+            mock_result.federal_tax = Decimal("400")
+            mock_result.provincial_tax = Decimal("200")
+            mock_result.net_pay = Decimal("2200")
+            mock_result.cpp_base = Decimal("150")
+            mock_result.cpp_additional = Decimal("0")
+            mock_result.holiday_pay = Decimal("0")
+            mock_result.holiday_premium_pay = Decimal("0")
+            mock_result.vacation_pay = Decimal("0")
+            mock_result.other_earnings = Decimal("0")
+            mock_result.rrsp = Decimal("0")
+            mock_result.union_dues = Decimal("0")
+            mock_result.garnishments = Decimal("0")
+            mock_result.other_deductions = Decimal("0")
+            mock_result.new_ytd_gross = Decimal("3000")
+            mock_result.new_ytd_cpp = Decimal("150")
+            mock_result.new_ytd_ei = Decimal("50")
+            mock_result.new_ytd_federal_tax = Decimal("400")
+            mock_result.new_ytd_provincial_tax = Decimal("200")
+
+            mock_engine.calculate_batch.return_value = [mock_result]
+            MockEngine.return_value = mock_engine
+
+            result = await employee_mgmt.sync_employees(run_id)
+
+        assert result["added_count"] == 1
+        assert len(result["added_employees"]) == 1
+        assert result["added_employees"][0]["employee_id"] == "emp-1"
+        assert result["added_employees"][0]["employee_name"] == "John Doe"
+
+
+class TestAddEmployeeToRunSuccessPath:
+    """Tests for the success path of add_employee_to_run method."""
+
+    @pytest.mark.asyncio
+    async def test_adds_employee_successfully(
+        self, employee_mgmt, mock_get_run, mock_supabase, mock_ytd_calculator
+    ):
+        """Test successful addition of employee to run."""
+        run_id = UUID("12345678-1234-5678-1234-567812345678")
+
+        mock_get_run.return_value = {
+            "id": "run-123",
+            "status": "draft",
+            "pay_date": "2025-02-06",
+            "total_employees": 0,
+            "total_gross": 0,
+            "total_cpp_employee": 0,
+            "total_cpp_employer": 0,
+            "total_ei_employee": 0,
+            "total_ei_employer": 0,
+            "total_federal_tax": 0,
+            "total_provincial_tax": 0,
+            "total_net_pay": 0,
+            "total_employer_cost": 0,
+        }
+
+        # Mock existing record check (no records)
+        existing_record_mock = MagicMock()
+        existing_record_mock.data = []
+
+        # Mock employee query
+        employee_mock = MagicMock()
+        employee_mock.data = {
+            "id": "emp-1",
+            "first_name": "John",
+            "last_name": "Doe",
+            "province_of_employment": "ON",
+            "pay_group_id": "pg-1",
+            "annual_salary": 78000,
+            "hourly_rate": None,
+            "federal_additional_claims": 0,
+            "provincial_additional_claims": 0,
+            "is_cpp_exempt": False,
+            "is_ei_exempt": False,
+            "cpp2_exempt": False,
+            "vacation_config": {"payout_method": "accrual", "vacation_rate": 0.04},
+        }
+
+        # Mock pay group query
+        pay_group_mock = MagicMock()
+        pay_group_mock.data = [{"id": "pg-1", "name": "Salaried", "pay_frequency": "bi_weekly", "employment_type": "full_time", "group_benefits": None}]
+
+        # Configure mock for different table queries
+        call_count = [0]
+        def table_side_effect(table_name):
+            call_count[0] += 1
+            mock_table = MagicMock()
+            if call_count[0] == 1:
+                # First call - check existing record
+                mock_table.select.return_value.eq.return_value.eq.return_value.execute.return_value = existing_record_mock
+            elif call_count[0] == 2:
+                # Second call - get employee
+                mock_table.select.return_value.eq.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = employee_mock
+            elif call_count[0] == 3:
+                # Third call - get pay group
+                mock_table.select.return_value.eq.return_value.execute.return_value = pay_group_mock
+            elif table_name == "payroll_records":
+                # For insert
+                mock_table.insert.return_value.execute.return_value = MagicMock()
+            elif table_name == "payroll_runs":
+                # For update
+                mock_table.update.return_value.eq.return_value.execute.return_value = MagicMock()
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
+        mock_ytd_calculator.get_prior_ytd_for_employees.return_value = {}
+
+        # Patch PayrollEngine to return a mock result
+        with patch("app.services.payroll_run.employee_management.PayrollEngine") as MockEngine:
+            mock_engine = MagicMock()
+            mock_result = MagicMock()
+            mock_result.employee_id = "emp-1"
+            mock_result.gross_regular = Decimal("3000")
+            mock_result.gross_overtime = Decimal("0")
+            mock_result.total_gross = Decimal("3000")
+            mock_result.cpp_total = Decimal("150")
+            mock_result.cpp_employer = Decimal("150")
+            mock_result.ei_employee = Decimal("50")
+            mock_result.ei_employer = Decimal("70")
+            mock_result.federal_tax = Decimal("400")
+            mock_result.provincial_tax = Decimal("200")
+            mock_result.net_pay = Decimal("2200")
+            mock_result.cpp_base = Decimal("150")
+            mock_result.cpp_additional = Decimal("0")
+            mock_result.holiday_pay = Decimal("0")
+            mock_result.holiday_premium_pay = Decimal("0")
+            mock_result.vacation_pay = Decimal("0")
+            mock_result.other_earnings = Decimal("0")
+            mock_result.rrsp = Decimal("0")
+            mock_result.union_dues = Decimal("0")
+            mock_result.garnishments = Decimal("0")
+            mock_result.other_deductions = Decimal("0")
+            mock_result.new_ytd_gross = Decimal("3000")
+            mock_result.new_ytd_cpp = Decimal("150")
+            mock_result.new_ytd_ei = Decimal("50")
+            mock_result.new_ytd_federal_tax = Decimal("400")
+            mock_result.new_ytd_provincial_tax = Decimal("200")
+
+            mock_engine.calculate_batch.return_value = [mock_result]
+            MockEngine.return_value = mock_engine
+
+            result = await employee_mgmt.add_employee_to_run(run_id, "emp-1")
+
+        assert result["employee_id"] == "emp-1"
+        assert result["employee_name"] == "John Doe"
+
+    @pytest.mark.asyncio
+    async def test_raises_when_failed_to_create_record(
+        self, employee_mgmt, mock_get_run, mock_supabase, mock_ytd_calculator
+    ):
+        """Test ValueError when PayrollEngine returns no results."""
+        run_id = UUID("12345678-1234-5678-1234-567812345678")
+
+        mock_get_run.return_value = {
+            "id": "run-123",
+            "status": "draft",
+            "pay_date": "2025-02-06",
+        }
+
+        # Mock existing record check (no records)
+        existing_record_mock = MagicMock()
+        existing_record_mock.data = []
+
+        # Mock employee query
+        employee_mock = MagicMock()
+        employee_mock.data = {
+            "id": "emp-1",
+            "first_name": "John",
+            "last_name": "Doe",
+            "province_of_employment": "ON",
+            "pay_group_id": "pg-1",
+            "annual_salary": 78000,
+            "hourly_rate": None,
+            "federal_additional_claims": 0,
+            "provincial_additional_claims": 0,
+            "is_cpp_exempt": False,
+            "is_ei_exempt": False,
+            "cpp2_exempt": False,
+            "vacation_config": None,
+        }
+
+        # Mock pay group query
+        pay_group_mock = MagicMock()
+        pay_group_mock.data = [{"id": "pg-1", "name": "Salaried", "pay_frequency": "bi_weekly", "employment_type": "full_time", "group_benefits": None}]
+
+        # Configure mock for different table queries
+        call_count = [0]
+        def table_side_effect(table_name):
+            call_count[0] += 1
+            mock_table = MagicMock()
+            if call_count[0] == 1:
+                mock_table.select.return_value.eq.return_value.eq.return_value.execute.return_value = existing_record_mock
+            elif call_count[0] == 2:
+                mock_table.select.return_value.eq.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = employee_mock
+            elif call_count[0] == 3:
+                mock_table.select.return_value.eq.return_value.execute.return_value = pay_group_mock
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
+        mock_ytd_calculator.get_prior_ytd_for_employees.return_value = {}
+
+        # Patch PayrollEngine to return empty results
+        with patch("app.services.payroll_run.employee_management.PayrollEngine") as MockEngine:
+            mock_engine = MagicMock()
+            mock_engine.calculate_batch.return_value = []
+            MockEngine.return_value = mock_engine
+
+            with pytest.raises(ValueError, match="Failed to create payroll record"):
+                await employee_mgmt.add_employee_to_run(run_id, "emp-1")
+
+    @pytest.mark.asyncio
+    async def test_handles_employee_without_pay_group(
+        self, employee_mgmt, mock_get_run, mock_supabase, mock_ytd_calculator
+    ):
+        """Test adding employee without pay group_id."""
+        run_id = UUID("12345678-1234-5678-1234-567812345678")
+
+        mock_get_run.return_value = {
+            "id": "run-123",
+            "status": "draft",
+            "pay_date": "2025-02-06",
+            "total_employees": 0,
+            "total_gross": 0,
+            "total_cpp_employee": 0,
+            "total_cpp_employer": 0,
+            "total_ei_employee": 0,
+            "total_ei_employer": 0,
+            "total_federal_tax": 0,
+            "total_provincial_tax": 0,
+            "total_net_pay": 0,
+            "total_employer_cost": 0,
+        }
+
+        # Mock existing record check (no records)
+        existing_record_mock = MagicMock()
+        existing_record_mock.data = []
+
+        # Mock employee query (employee without pay_group_id)
+        employee_mock = MagicMock()
+        employee_mock.data = {
+            "id": "emp-1",
+            "first_name": "Jane",
+            "last_name": "Smith",
+            "province_of_employment": "BC",
+            "pay_group_id": None,  # No pay group
+            "annual_salary": None,
+            "hourly_rate": 25,
+            "federal_additional_claims": 0,
+            "provincial_additional_claims": 0,
+            "is_cpp_exempt": False,
+            "is_ei_exempt": False,
+            "cpp2_exempt": False,
+            "vacation_config": None,
+        }
+
+        # Configure mock for different table queries
+        call_count = [0]
+        def table_side_effect(table_name):
+            call_count[0] += 1
+            mock_table = MagicMock()
+            if call_count[0] == 1:
+                mock_table.select.return_value.eq.return_value.eq.return_value.execute.return_value = existing_record_mock
+            elif call_count[0] == 2:
+                mock_table.select.return_value.eq.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = employee_mock
+            elif table_name == "payroll_records":
+                mock_table.insert.return_value.execute.return_value = MagicMock()
+            elif table_name == "payroll_runs":
+                mock_table.update.return_value.eq.return_value.execute.return_value = MagicMock()
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
+        mock_ytd_calculator.get_prior_ytd_for_employees.return_value = {}
+
+        # Patch PayrollEngine to return a mock result
+        with patch("app.services.payroll_run.employee_management.PayrollEngine") as MockEngine:
+            mock_engine = MagicMock()
+            mock_result = MagicMock()
+            mock_result.employee_id = "emp-1"
+            mock_result.gross_regular = Decimal("2000")
+            mock_result.gross_overtime = Decimal("0")
+            mock_result.total_gross = Decimal("2000")
+            mock_result.cpp_total = Decimal("100")
+            mock_result.cpp_employer = Decimal("100")
+            mock_result.ei_employee = Decimal("33")
+            mock_result.ei_employer = Decimal("46")
+            mock_result.federal_tax = Decimal("250")
+            mock_result.provincial_tax = Decimal("125")
+            mock_result.net_pay = Decimal("1492")
+            mock_result.cpp_base = Decimal("100")
+            mock_result.cpp_additional = Decimal("0")
+            mock_result.holiday_pay = Decimal("0")
+            mock_result.holiday_premium_pay = Decimal("0")
+            mock_result.vacation_pay = Decimal("0")
+            mock_result.other_earnings = Decimal("0")
+            mock_result.rrsp = Decimal("0")
+            mock_result.union_dues = Decimal("0")
+            mock_result.garnishments = Decimal("0")
+            mock_result.other_deductions = Decimal("0")
+            mock_result.new_ytd_gross = Decimal("2000")
+            mock_result.new_ytd_cpp = Decimal("100")
+            mock_result.new_ytd_ei = Decimal("33")
+            mock_result.new_ytd_federal_tax = Decimal("250")
+            mock_result.new_ytd_provincial_tax = Decimal("125")
+
+            mock_engine.calculate_batch.return_value = [mock_result]
+            MockEngine.return_value = mock_engine
+
+            result = await employee_mgmt.add_employee_to_run(run_id, "emp-1")
+
+        assert result["employee_id"] == "emp-1"
+        assert result["employee_name"] == "Jane Smith"

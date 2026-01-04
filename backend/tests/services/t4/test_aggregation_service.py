@@ -264,6 +264,67 @@ class TestGetEmployeesWithPayroll:
         # Should only have one employee despite two records
         assert len(employees) == 1
 
+    @pytest.mark.asyncio
+    async def test_get_employees_with_none_employee_data(self, service, mock_supabase):
+        """Test that records with None employee_data are skipped (line 97)."""
+        mock_response = MagicMock()
+        mock_response.data = [
+            {
+                "employee_id": TEST_EMPLOYEE_ID,
+                "employees": None,  # Missing employee data - should be skipped
+                "payroll_runs": {"pay_date": "2025-01-15", "status": "approved"},
+            },
+        ]
+
+        query_builder = MagicMock()
+        query_builder.select.return_value = query_builder
+        query_builder.eq.return_value = query_builder
+        query_builder.in_.return_value = query_builder
+        query_builder.gte.return_value = query_builder
+        query_builder.lte.return_value = query_builder
+        query_builder.execute.return_value = mock_response
+
+        mock_supabase.table.return_value = query_builder
+
+        employees = await service.get_employees_with_payroll(TEST_TAX_YEAR)
+
+        # Should skip the record with None employee_data
+        assert len(employees) == 0
+
+    @pytest.mark.asyncio
+    async def test_get_employees_validation_fails(self, service, mock_supabase):
+        """Test that employee validation errors are handled gracefully (lines 104-105)."""
+        mock_response = MagicMock()
+        # Invalid employee data that will fail model validation
+        invalid_employee_data = {
+            "id": TEST_EMPLOYEE_ID,
+            "user_id": TEST_USER_ID,
+            "company_id": TEST_COMPANY_ID,
+            # Missing required fields like first_name, last_name
+        }
+        mock_response.data = [
+            {
+                "employee_id": TEST_EMPLOYEE_ID,
+                "employees": invalid_employee_data,
+                "payroll_runs": {"pay_date": "2025-01-15", "status": "approved"},
+            },
+        ]
+
+        query_builder = MagicMock()
+        query_builder.select.return_value = query_builder
+        query_builder.eq.return_value = query_builder
+        query_builder.in_.return_value = query_builder
+        query_builder.gte.return_value = query_builder
+        query_builder.lte.return_value = query_builder
+        query_builder.execute.return_value = mock_response
+
+        mock_supabase.table.return_value = query_builder
+
+        employees = await service.get_employees_with_payroll(TEST_TAX_YEAR)
+
+        # Should skip the invalid employee (validation error caught and logged)
+        assert len(employees) == 0
+
 
 # =============================================================================
 # Test: _aggregate_records
@@ -372,6 +433,36 @@ class TestAggregateEmployeeYear:
             slip = await service.aggregate_employee_year(employee, company, TEST_TAX_YEAR)
 
         assert slip is None
+
+    @pytest.mark.asyncio
+    async def test_aggregate_employee_year_sin_luhn_fails_but_continues(
+        self, service, mock_supabase, sample_company_data, sample_employee_data, sample_payroll_record
+    ):
+        """Test that invalid SIN (Luhn check failed) logs warning but continues (line 166)."""
+        mock_response = MagicMock()
+        mock_response.data = [sample_payroll_record]
+
+        query_builder = MagicMock()
+        query_builder.select.return_value = query_builder
+        query_builder.eq.return_value = query_builder
+        query_builder.in_.return_value = query_builder
+        query_builder.gte.return_value = query_builder
+        query_builder.lte.return_value = query_builder
+        query_builder.execute.return_value = mock_response
+
+        mock_supabase.table.return_value = query_builder
+
+        employee = Employee.model_validate(sample_employee_data)
+        company = Company.model_validate(sample_company_data)
+
+        # SIN fails Luhn check but process continues (test number)
+        with patch("app.services.t4.aggregation_service.decrypt_sin", return_value="000000000"), \
+             patch("app.services.t4.aggregation_service.validate_sin_luhn", return_value=False):
+            slip = await service.aggregate_employee_year(employee, company, TEST_TAX_YEAR)
+
+        # Should still generate T4 despite invalid SIN
+        assert slip is not None
+        assert slip.sin == "000000000"
 
     @pytest.mark.asyncio
     async def test_aggregate_employee_year_success(
@@ -500,6 +591,121 @@ class TestGenerateAllT4Slips:
         # The test verifies filtering logic works
         assert isinstance(slips, list)
 
+    @pytest.mark.asyncio
+    async def test_generate_all_handles_aggregate_exception(self, service, mock_supabase, sample_company_data):
+        """Test that exceptions during aggregate_employee_year are handled gracefully (lines 300-302)."""
+        company_response = MagicMock()
+        company_response.data = sample_company_data
+
+        query_builder = MagicMock()
+        query_builder.select.return_value = query_builder
+        query_builder.eq.return_value = query_builder
+        query_builder.maybe_single.return_value = query_builder
+        query_builder.execute.return_value = company_response
+
+        mock_supabase.table.return_value = query_builder
+
+        # Mock get_employees_with_payroll to return an employee
+        employee = Employee(
+            id=UUID(TEST_EMPLOYEE_ID),
+            user_id=TEST_USER_ID,
+            company_id=TEST_COMPANY_ID,  # String, not UUID
+            first_name="John",
+            last_name="Doe",
+            email="john.doe@example.com",
+            sin_encrypted="encrypted",
+            date_of_birth="1990-01-15",
+            hire_date="2024-01-01",
+            address_street="123 St",
+            address_city="Toronto",
+            address_postal_code="M5V 1A1",
+            province_of_employment="ON",
+            pay_frequency="bi_weekly",
+            annual_salary=60000,
+            is_cpp_exempt=False,
+            is_ei_exempt=False,
+            employment_status="active",
+            created_at="2024-01-01T00:00:00Z",
+            updated_at="2024-01-01T00:00:00Z",
+        )
+
+        with patch.object(service, "get_employees_with_payroll", return_value=[employee]), \
+             patch.object(service, "aggregate_employee_year", side_effect=Exception("Aggregation failed")):
+            # Should handle exception and return empty list
+            slips = await service.generate_all_t4_slips(TEST_TAX_YEAR)
+
+        # Should not crash, just skip the employee with error
+        assert isinstance(slips, list)
+        assert len(slips) == 0
+
+    @pytest.mark.asyncio
+    async def test_generate_all_handles_employee_exception(self, service, mock_supabase, sample_company_data):
+        """Test that exceptions during employee aggregation are handled gracefully (lines 300-302)."""
+        company_response = MagicMock()
+        company_response.data = sample_company_data
+
+        sample_employee_data2 = {
+            "id": TEST_EMPLOYEE_ID,
+            "user_id": TEST_USER_ID,
+            "company_id": TEST_COMPANY_ID,
+            "first_name": "John",
+            "last_name": "Doe",
+            "email": "john.doe@example.com",
+            "sin_encrypted": "test_encrypted_sin",
+            "date_of_birth": "1990-01-15",
+            "hire_date": "2024-01-01",
+            "address_street": "456 Employee St",
+            "address_city": "Toronto",
+            "address_postal_code": "M4K 2A1",
+            "province_of_employment": "ON",
+            "pay_frequency": "bi_weekly",
+            "annual_salary": 60000,
+            "is_cpp_exempt": False,
+            "is_ei_exempt": False,
+            "employment_status": "active",
+        }
+
+        employees_response = MagicMock()
+        employees_response.data = [
+            {"employee_id": TEST_EMPLOYEE_ID, "employees": sample_employee_data2, "payroll_runs": {"status": "approved"}},
+        ]
+
+        call_count = [0]
+
+        def table_side_effect(table_name):
+            query_builder = MagicMock()
+            query_builder.select.return_value = query_builder
+            query_builder.eq.return_value = query_builder
+            query_builder.maybe_single.return_value = query_builder
+            query_builder.in_.return_value = query_builder
+            query_builder.gte.return_value = query_builder
+            query_builder.lte.return_value = query_builder
+
+            if table_name == "companies":
+                query_builder.execute.return_value = company_response
+            elif table_name == "payroll_records":
+                call_count[0] += 1
+                # Raise exception on second call (for individual employee)
+                if call_count[0] > 1:
+                    query_builder.execute.side_effect = Exception("Database error")
+                else:
+                    query_builder.execute.return_value = employees_response
+            else:
+                empty_response = MagicMock()
+                empty_response.data = []
+                query_builder.execute.return_value = empty_response
+
+            return query_builder
+
+        mock_supabase.table.side_effect = table_side_effect
+
+        # Should handle exception and return empty list
+        slips = await service.generate_all_t4_slips(TEST_TAX_YEAR)
+
+        # Should not crash, just skip the employee with error
+        assert isinstance(slips, list)
+        assert len(slips) == 0
+
 
 # =============================================================================
 # Test: generate_t4_summary
@@ -554,6 +760,51 @@ class TestGenerateT4Summary:
 
         summary = await service.generate_t4_summary(TEST_TAX_YEAR, slips=[])
 
+        assert summary is None
+
+    @pytest.mark.asyncio
+    async def test_generate_summary_with_slips_none_generates_slips(self, service, mock_supabase, sample_company_data):
+        """Test that slips=None triggers auto-generation (line 328)."""
+        from app.models.t4 import T4SlipData
+
+        company_response = MagicMock()
+        company_response.data = sample_company_data
+
+        employer_totals_response = MagicMock()
+        employer_totals_response.data = [
+            {"cpp_employer": "150.00", "ei_employer": "56.00"},
+        ]
+
+        def table_side_effect(table_name):
+            query_builder = MagicMock()
+            query_builder.select.return_value = query_builder
+            query_builder.eq.return_value = query_builder
+            query_builder.maybe_single.return_value = query_builder
+            query_builder.in_.return_value = query_builder
+            query_builder.gte.return_value = query_builder
+            query_builder.lte.return_value = query_builder
+
+            if table_name == "companies":
+                query_builder.execute.return_value = company_response
+            elif table_name == "payroll_records":
+                query_builder.execute.return_value = employer_totals_response
+            else:
+                empty_response = MagicMock()
+                empty_response.data = []
+                query_builder.execute.return_value = empty_response
+
+            return query_builder
+
+        mock_supabase.table.side_effect = table_side_effect
+
+        # Pass slips=None (not empty list) to trigger auto-generation
+        with patch.object(service, "generate_all_t4_slips", return_value=[]) as mock_generate:
+            summary = await service.generate_t4_summary(TEST_TAX_YEAR, slips=None)
+
+            # Should have called generate_all_t4_slips since slips was None
+            mock_generate.assert_called_once_with(TEST_TAX_YEAR)
+
+        # Returns None because no slips were generated
         assert summary is None
 
     @pytest.mark.asyncio
