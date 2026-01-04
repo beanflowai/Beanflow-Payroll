@@ -9,7 +9,12 @@
 	let { label, value, variant = 'default', valueClass = '' }: Props = $props();
 </script>
 
-<div class="summary-card" class:highlight={variant === 'highlight'} class:accent={variant === 'accent'} class:small={variant === 'small'}>
+<div
+	class="summary-card"
+	class:highlight={variant === 'highlight'}
+	class:accent={variant === 'accent'}
+	class:small={variant === 'small'}
+>
 	<span class="summary-label">{label}</span>
 	<span class="summary-value {valueClass}">{value}</span>
 </div>

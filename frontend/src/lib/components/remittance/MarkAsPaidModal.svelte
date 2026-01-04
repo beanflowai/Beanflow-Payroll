@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { PAYMENT_METHOD_INFO } from '$lib/types/remittance';
 	import type { RemittancePeriod, PaymentMethod } from '$lib/types/remittance';
-	import { formatShortDate } from '$lib/utils/dateUtils';
+	import { formatDate } from '$lib/utils/dateUtils';
+	import { formatCurrency } from '$lib/utils/formatUtils';
 
 	interface Props {
 		remittance: RemittancePeriod;
@@ -20,19 +21,6 @@
 	let paymentMethod = $state<PaymentMethod>('my_payment');
 	let confirmationNumber = $state('');
 
-	// Helpers
-	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('en-CA', {
-			style: 'currency',
-			currency: 'CAD',
-			minimumFractionDigits: 2
-		}).format(amount);
-	}
-
-	function formatDate(dateStr: string): string {
-		return formatShortDate(dateStr);
-	}
-
 	function handleSubmit() {
 		onSubmit({
 			paymentDate,
@@ -42,8 +30,14 @@
 	}
 </script>
 
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<div class="modal-overlay" onclick={onClose} onkeydown={(e) => e.key === 'Escape' && onClose()} role="dialog" aria-modal="true" tabindex="0">
+<div
+	class="modal-overlay"
+	onclick={onClose}
+	onkeydown={(e) => e.key === 'Escape' && onClose()}
+	role="dialog"
+	aria-modal="true"
+	tabindex="0"
+>
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="modal" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
 		<div class="modal-header">

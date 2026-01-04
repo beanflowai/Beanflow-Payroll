@@ -1,10 +1,6 @@
 <script lang="ts">
 	import type { T4ValidationResult, T4SummaryData } from '$lib/types/t4';
-	import {
-		validateT4ForCRA,
-		downloadT4Xml,
-		recordT4Submission
-	} from '$lib/services/t4Service';
+	import { validateT4ForCRA, downloadT4Xml, recordT4Submission } from '$lib/services/t4Service';
 
 	// Props
 	interface Props {
@@ -134,7 +130,6 @@
 		tabindex="-1"
 	>
 		<!-- Modal -->
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<div
 			class="bg-white rounded-xl shadow-lg w-full max-w-lg max-h-[90vh] overflow-hidden"
@@ -218,7 +213,7 @@
 										Warnings ({validationResult.warnings.length})
 									</p>
 									<ul class="m-0 pl-6 space-y-1">
-										{#each validationResult.warnings as warning}
+										{#each validationResult.warnings as warning, idx (idx)}
 											<li class="text-auxiliary-text text-warning-600">
 												{warning.message}
 											</li>
@@ -233,9 +228,7 @@
 									Submission Steps:
 								</p>
 								<ol class="m-0 pl-5 space-y-2">
-									<li class="text-body-content text-surface-600">
-										Download the T4 XML file
-									</li>
+									<li class="text-body-content text-surface-600">Download the T4 XML file</li>
 									<li class="text-body-content text-surface-600">
 										Open CRA's Internet File Transfer portal
 									</li>
@@ -278,7 +271,7 @@
 									Validation Errors ({validationResult.errors.length})
 								</p>
 								<ul class="m-0 pl-6 space-y-1">
-									{#each validationResult.errors as error}
+									{#each validationResult.errors as error, idx (idx)}
 										<li class="text-auxiliary-text text-error-600">
 											{error.message}
 											{#if error.field}
@@ -297,8 +290,8 @@
 					<!-- Submission Step -->
 					<div class="space-y-4">
 						<p class="text-body-content text-surface-600 m-0">
-							After uploading your T4 XML to CRA, enter the confirmation number below to complete the
-							submission process.
+							After uploading your T4 XML to CRA, enter the confirmation number below to complete
+							the submission process.
 						</p>
 
 						{#if submitError}
@@ -311,7 +304,10 @@
 						{/if}
 
 						<div>
-							<label for="confirmation-number" class="block text-body-content text-surface-700 mb-1">
+							<label
+								for="confirmation-number"
+								class="block text-body-content text-surface-700 mb-1"
+							>
 								CRA Confirmation Number <span class="text-error-500">*</span>
 							</label>
 							<input
