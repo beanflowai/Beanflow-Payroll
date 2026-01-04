@@ -991,6 +991,8 @@ class TestRecordT4Submission:
         mock_updated_response = MagicMock()
         mock_updated_response.data = {
             "id": summary_id,
+            "company_id": TEST_COMPANY_ID,
+            "user_id": TEST_USER_ID,
             "status": "filed",
             "cra_confirmation_number": "CRA123456",
             "submitted_at": "2025-01-15T10:00:00Z",
@@ -1093,7 +1095,7 @@ class TestGenerateT4SlipsSuccess:
             client = TestClient(app)
             response = client.post(
                 f"/api/v1/t4/slips/{TEST_COMPANY_ID}/{TEST_TAX_YEAR}/generate",
-                json={"regenerate": False},
+                json={"tax_year": TEST_TAX_YEAR, "regenerate": False},
             )
 
         app.dependency_overrides.clear()
@@ -1170,7 +1172,7 @@ class TestGenerateT4SlipsSuccess:
             client = TestClient(app)
             response = client.post(
                 f"/api/v1/t4/slips/{TEST_COMPANY_ID}/{TEST_TAX_YEAR}/generate",
-                json={"regenerate": True, "employee_ids": [TEST_EMPLOYEE_ID]},
+                json={"tax_year": TEST_TAX_YEAR, "regenerate": True, "employee_ids": [TEST_EMPLOYEE_ID]},
             )
 
         app.dependency_overrides.clear()
