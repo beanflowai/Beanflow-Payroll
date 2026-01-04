@@ -13,10 +13,13 @@ export type PaymentMethod =
 	| 'wire_transfer'
 	| 'cheque';
 
-export const PAYMENT_METHOD_INFO: Record<PaymentMethod, {
-	label: string;
-	description: string;
-}> = {
+export const PAYMENT_METHOD_INFO: Record<
+	PaymentMethod,
+	{
+		label: string;
+		description: string;
+	}
+> = {
 	my_payment: {
 		label: 'My Payment (CRA Online)',
 		description: "Pay through CRA's online portal"
@@ -39,11 +42,14 @@ export const PAYMENT_METHOD_INFO: Record<PaymentMethod, {
 	}
 };
 
-export const REMITTANCE_STATUS_INFO: Record<RemittanceStatus, {
-	label: string;
-	icon: string;
-	colorClass: string;
-}> = {
+export const REMITTANCE_STATUS_INFO: Record<
+	RemittanceStatus,
+	{
+		label: string;
+		icon: string;
+		colorClass: string;
+	}
+> = {
 	pending: {
 		label: 'Pending',
 		icon: 'clock',
@@ -77,10 +83,10 @@ export interface RemittancePeriod {
 	remitterType: RemitterType;
 
 	// Period Information
-	periodStart: string;    // ISO date
-	periodEnd: string;      // ISO date
-	periodLabel: string;    // e.g., "December 2025", "Q4 2025", "Dec 1-15"
-	dueDate: string;        // ISO date
+	periodStart: string; // ISO date
+	periodEnd: string; // ISO date
+	periodLabel: string; // e.g., "December 2025", "Q4 2025", "Dec 1-15"
+	dueDate: string; // ISO date
 
 	// Amounts
 	cppEmployee: number;
@@ -100,7 +106,7 @@ export interface RemittancePeriod {
 
 	// Penalty (if overdue)
 	daysOverdue: number;
-	penaltyRate: number;        // 0.03, 0.05, 0.07, 0.10
+	penaltyRate: number; // 0.03, 0.05, 0.07, 0.10
 	penaltyAmount: number;
 
 	// Linked Payroll Runs
@@ -116,7 +122,7 @@ export interface RemittanceSummary {
 	ytdRemitted: number;
 	totalRemittances: number;
 	completedRemittances: number;
-	onTimeRate: number;         // 0.0 to 1.0
+	onTimeRate: number; // 0.0 to 1.0
 	pendingAmount: number;
 	pendingCount: number;
 }
@@ -130,7 +136,7 @@ export function calculatePenaltyRate(daysOverdue: number): number {
 	if (daysOverdue <= 3) return 0.03;
 	if (daysOverdue <= 5) return 0.05;
 	if (daysOverdue <= 7) return 0.07;
-	return 0.10;
+	return 0.1;
 }
 
 /**
@@ -181,8 +187,18 @@ export function formatPeriodLabel(
 	const end = new Date(periodEnd);
 
 	const monthNames = [
-		'January', 'February', 'March', 'April', 'May', 'June',
-		'July', 'August', 'September', 'October', 'November', 'December'
+		'January',
+		'February',
+		'March',
+		'April',
+		'May',
+		'June',
+		'July',
+		'August',
+		'September',
+		'October',
+		'November',
+		'December'
 	];
 
 	switch (remitterType) {

@@ -41,14 +41,12 @@ export interface OvertimeEntry {
 // Vacation payout types (for accrual method employees only)
 export type VacationPayoutReason = 'scheduled' | 'cashout_request' | 'termination';
 
-export const VACATION_PAYOUT_LABELS: Record<
-	VacationPayoutReason,
-	{ label: string; icon: string }
-> = {
-	scheduled: { label: 'Scheduled Payout', icon: '📅' },
-	cashout_request: { label: 'Cashout Request', icon: '💵' },
-	termination: { label: 'Termination', icon: '🚪' }
-};
+export const VACATION_PAYOUT_LABELS: Record<VacationPayoutReason, { label: string; icon: string }> =
+	{
+		scheduled: { label: 'Scheduled Payout', icon: '📅' },
+		cashout_request: { label: 'Cashout Request', icon: '💵' },
+		termination: { label: 'Termination', icon: '🚪' }
+	};
 
 export interface VacationPayoutEntry {
 	id: string;
@@ -115,8 +113,8 @@ export interface PayrollRun {
 	totalDeductions: number;
 	totalNetPay: number;
 	totalEmployerCost: number;
-	totalPayrollCost: number;    // totalGross + totalEmployerCost
-	totalRemittance: number;     // CPP (employee+employer) + EI (employee+employer) + federal tax + provincial tax
+	totalPayrollCost: number; // totalGross + totalEmployerCost
+	totalRemittance: number; // CPP (employee+employer) + EI (employee+employer) + federal tax + provincial tax
 	holidays?: Holiday[];
 }
 
@@ -132,13 +130,13 @@ export interface PayrollRecord {
 
 	// Compensation info (for display and calculation)
 	compensationType: CompensationType;
-	annualSalary?: number;  // For salaried employees
-	hourlyRate?: number;    // For hourly employees
+	annualSalary?: number; // For salaried employees
+	hourlyRate?: number; // For hourly employees
 
 	// Hours worked (for hourly employees)
-	regularHoursWorked?: number;   // NULL for salaried employees
+	regularHoursWorked?: number; // NULL for salaried employees
 	overtimeHoursWorked?: number;
-	hourlyRateSnapshot?: number;   // Rate at time of payroll
+	hourlyRateSnapshot?: number; // Rate at time of payroll
 
 	// Earnings
 	grossRegular: number;
@@ -195,8 +193,8 @@ export interface PayrollRecord {
 	sickBalanceHours?: number;
 
 	// Employee vacation info (for UI display during draft editing)
-	vacationBalance?: number;         // Current available balance ($)
-	vacationHourlyRate?: number;      // Hourly rate for vacation pay calculation
+	vacationBalance?: number; // Current available balance ($)
+	vacationHourlyRate?: number; // Hourly rate for vacation pay calculation
 	vacationPayoutMethod?: 'accrual' | 'pay_as_you_go';
 
 	// YTD Leave (Year-to-Date leave usage)
@@ -240,13 +238,13 @@ export interface HolidayWorkEntry {
 
 // Earnings breakdown for expanded row
 export interface EarningsBreakdown {
-	key: string;       // Unique identifier for the earning item
+	key: string; // Unique identifier for the earning item
 	label: string;
 	amount: number;
-	detail?: string;   // e.g., "5h @ $23.08"
+	detail?: string; // e.g., "5h @ $23.08"
 	editable?: boolean;
-	editType?: 'amount' | 'hours';  // What to edit: dollar amount or hours
-	editValue?: number;  // The current value to edit (hours for overtime, amount for regular pay)
+	editType?: 'amount' | 'hours'; // What to edit: dollar amount or hours
+	editValue?: number; // The current value to edit (hours for overtime, amount for regular pay)
 }
 
 // Deductions breakdown for expanded row
@@ -281,7 +279,7 @@ export interface PayGroupSummary {
  */
 export interface UpcomingPeriod {
 	periodEnd: string; // ISO date string - grouping key
-	payDate: string;   // Auto-calculated: periodEnd + 6 days (SK)
+	payDate: string; // Auto-calculated: periodEnd + 6 days (SK)
 	payGroups: PayGroupSummary[];
 	totalEmployees: number;
 	totalEstimatedGross: number;
@@ -351,8 +349,8 @@ export interface PayrollRunWithGroups {
 	totalDeductions: number;
 	totalNetPay: number;
 	totalEmployerCost: number;
-	totalPayrollCost: number;    // totalGross + totalEmployerCost
-	totalRemittance: number;     // CPP (employee+employer) + EI (employee+employer) + federal tax + provincial tax
+	totalPayrollCost: number; // totalGross + totalEmployerCost
+	totalRemittance: number; // CPP (employee+employer) + EI (employee+employer) + federal tax + provincial tax
 	// Holidays applicable to this pay date
 	holidays?: Holiday[];
 }
@@ -553,7 +551,13 @@ export function dbPayrollRunToUi(db: DbPayrollRun): PayrollRun {
 		// New: totalPayrollCost = totalGross + totalEmployerCost
 		totalPayrollCost: totalGross + totalEmployerCost,
 		// New: totalRemittance = all CPP/EI (employee + employer) + taxes
-		totalRemittance: totalCppEmployee + totalCppEmployer + totalEiEmployee + totalEiEmployer + totalFederalTax + totalProvincialTax
+		totalRemittance:
+			totalCppEmployee +
+			totalCppEmployer +
+			totalEiEmployee +
+			totalEiEmployer +
+			totalFederalTax +
+			totalProvincialTax
 	};
 }
 
@@ -637,9 +641,10 @@ export function dbPayrollRecordToUi(db: DbPayrollRecordWithEmployee): PayrollRec
 		vacationHoursTaken: Number(db.vacation_hours_taken),
 		// Employee vacation info for UI
 		vacationBalance: employee.vacation_balance ?? undefined,
-		vacationBalanceHours: vacationHourlyRate && vacationHourlyRate > 0
-			? Math.round(((employee.vacation_balance ?? 0) / vacationHourlyRate) * 100) / 100
-			: 0,
+		vacationBalanceHours:
+			vacationHourlyRate && vacationHourlyRate > 0
+				? Math.round(((employee.vacation_balance ?? 0) / vacationHourlyRate) * 100) / 100
+				: 0,
 		vacationBalanceDollars: employee.vacation_balance ?? undefined,
 		vacationHourlyRate: vacationHourlyRate,
 		vacationPayoutMethod: vacationPayoutMethod,
@@ -660,7 +665,9 @@ export function dbPayrollRecordToUi(db: DbPayrollRecordWithEmployee): PayrollRec
  * Convert database payroll_record with employee info to UI PayrollRecordWithGroup
  * Uses snapshot fields when available, falls back to joined pay group data
  */
-export function dbPayrollRecordToUiWithGroup(db: DbPayrollRecordWithEmployee): PayrollRecordWithGroup {
+export function dbPayrollRecordToUiWithGroup(
+	db: DbPayrollRecordWithEmployee
+): PayrollRecordWithGroup {
 	const baseRecord = dbPayrollRecordToUi(db);
 	const payGroup = db.employees.pay_groups;
 
@@ -693,12 +700,21 @@ export interface HoursInput {
 // One-time Adjustment Types
 // ===========================================
 
-export type AdjustmentType = 'bonus' | 'retroactive_pay' | 'taxable_benefit' | 'reimbursement' | 'deduction' | 'other';
+export type AdjustmentType =
+	| 'bonus'
+	| 'retroactive_pay'
+	| 'taxable_benefit'
+	| 'reimbursement'
+	| 'deduction'
+	| 'other';
 
 // Overtime choice when bank time is enabled
 export type OvertimeChoice = 'pay_out' | 'bank_time';
 
-export const ADJUSTMENT_TYPE_LABELS: Record<AdjustmentType, { label: string; icon: string; taxable: boolean }> = {
+export const ADJUSTMENT_TYPE_LABELS: Record<
+	AdjustmentType,
+	{ label: string; icon: string; taxable: boolean }
+> = {
 	bonus: { label: 'Bonus', icon: '💰', taxable: true },
 	retroactive_pay: { label: 'Retroactive Pay', icon: '⏪', taxable: true },
 	taxable_benefit: { label: 'Taxable Benefit', icon: '🎁', taxable: true },
@@ -731,8 +747,8 @@ export interface EmployeePayrollInput {
 	employeeId: string;
 
 	// Hours
-	regularHours: number;          // Required for hourly employees
-	overtimeHours: number;         // Overtime hours worked
+	regularHours: number; // Required for hourly employees
+	overtimeHours: number; // Overtime hours worked
 
 	// Overtime choice (when bank time is enabled)
 	overtimeChoice?: OvertimeChoice;
@@ -764,8 +780,8 @@ export interface EmployeePayrollInput {
 	// Stores original sick hours input and auto-generated vacation from sick overflow
 	// This is needed because leaveEntries only stores the paid sick portion
 	sickAllocation?: {
-		sickHoursInput: number;      // Original sick hours the user entered
-		vacationFromSick: number;    // Auto-generated vacation from sick overflow
+		sickHoursInput: number; // Original sick hours the user entered
+		vacationFromSick: number; // Auto-generated vacation from sick overflow
 	};
 
 	// Holiday Pay Exempt (HR manual override)
@@ -803,7 +819,9 @@ export interface HoursInputValidation {
 /**
  * Helper function to get default regular hours based on pay frequency
  */
-export function getDefaultRegularHours(payFrequency: 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly'): number {
+export function getDefaultRegularHours(
+	payFrequency: 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly'
+): number {
 	switch (payFrequency) {
 		case 'weekly':
 			return 40;
