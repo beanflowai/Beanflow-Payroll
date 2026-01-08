@@ -360,10 +360,13 @@ export async function updatePayGroup(
 		if (input.description !== undefined) updateData.description = input.description;
 		if (input.pay_frequency !== undefined) updateData.pay_frequency = input.pay_frequency;
 		if (input.employment_type !== undefined) updateData.employment_type = input.employment_type;
+		if (input.compensation_type !== undefined) updateData.compensation_type = input.compensation_type;
 		if (input.province !== undefined) updateData.province = input.province;
 		if (input.next_period_end !== undefined) updateData.next_period_end = input.next_period_end;
 		if (input.period_start_day !== undefined) updateData.period_start_day = input.period_start_day;
 		if (input.leave_enabled !== undefined) updateData.leave_enabled = input.leave_enabled;
+		if (input.tax_calculation_method !== undefined)
+			updateData.tax_calculation_method = input.tax_calculation_method;
 		if (input.overtime_policy !== undefined) updateData.overtime_policy = input.overtime_policy;
 		if (input.wcb_config !== undefined) updateData.wcb_config = input.wcb_config;
 		if (input.group_benefits !== undefined) updateData.group_benefits = input.group_benefits;
