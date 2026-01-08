@@ -5,12 +5,14 @@
 		PayGroup,
 		PayFrequency,
 		EmploymentType,
+		CompensationType,
 		PeriodStartDay,
 		TaxCalculationMethod
 	} from '$lib/types/pay-group';
 	import {
 		PAY_FREQUENCY_INFO,
 		EMPLOYMENT_TYPE_INFO,
+		COMPENSATION_TYPE_INFO,
 		PERIOD_START_DAY_OPTIONS,
 		TAX_CALCULATION_METHOD_INFO,
 		calculatePayDate
@@ -38,6 +40,7 @@
 			description: editMode ? (pg.description ?? '') : '',
 			payFrequency: (editMode ? pg.payFrequency : 'bi_weekly') as PayFrequency,
 			employmentType: (editMode ? pg.employmentType : 'full_time') as EmploymentType,
+			compensationType: (editMode ? pg.compensationType : 'salary') as CompensationType,
 			province: (editMode ? pg.province : companyProvince) as Province,
 			nextPeriodEnd: editMode ? pg.nextPeriodEnd : '',
 			periodStartDay: (editMode ? pg.periodStartDay : 'monday') as PeriodStartDay,
@@ -56,6 +59,7 @@
 	let editDescription = $state(initialEditValues.description);
 	let editPayFrequency = $state<PayFrequency>(initialEditValues.payFrequency);
 	let editEmploymentType = $state<EmploymentType>(initialEditValues.employmentType);
+	let editCompensationType = $state<CompensationType>(initialEditValues.compensationType);
 	let editProvince = $state<Province>(initialEditValues.province);
 	let editNextPeriodEnd = $state(initialEditValues.nextPeriodEnd);
 	let editPeriodStartDay = $state<PeriodStartDay>(initialEditValues.periodStartDay);
@@ -70,6 +74,7 @@
 		editDescription = payGroup.description ?? '';
 		editPayFrequency = payGroup.payFrequency;
 		editEmploymentType = payGroup.employmentType;
+		editCompensationType = payGroup.compensationType;
 		editProvince = payGroup.province;
 		editNextPeriodEnd = payGroup.nextPeriodEnd;
 		editPeriodStartDay = payGroup.periodStartDay;
@@ -101,6 +106,7 @@
 			description: editDescription.trim() || undefined,
 			payFrequency: editPayFrequency,
 			employmentType: editEmploymentType,
+			compensationType: editCompensationType,
 			province: editProvince,
 			nextPeriodEnd: editNextPeriodEnd,
 			periodStartDay: editPeriodStartDay,
@@ -132,6 +138,7 @@
 			const desc = editDescription;
 			const freq = editPayFrequency;
 			const empType = editEmploymentType;
+			const compType = editCompensationType;
 			const prov = editProvince;
 			const nextPeriodEnd = editNextPeriodEnd;
 			const startDay = editPeriodStartDay;
@@ -146,6 +153,7 @@
 					description: desc.trim() || undefined,
 					payFrequency: freq,
 					employmentType: empType,
+					compensationType: compType,
 					province: prov,
 					nextPeriodEnd: nextPeriodEnd,
 					periodStartDay: startDay,
@@ -221,6 +229,16 @@
 							<option {value}>{info.label}</option>
 						{/each}
 					</select>
+				</div>
+
+				<div class="form-group">
+					<label for="compensationType">Compensation Type *</label>
+					<select id="compensationType" bind:value={editCompensationType}>
+						{#each Object.entries(COMPENSATION_TYPE_INFO) as [value, info] (value)}
+							<option {value}>{info.label}</option>
+						{/each}
+					</select>
+					<p class="field-hint">Determines which employees can be assigned to this pay group</p>
 				</div>
 
 				<div class="form-group">
@@ -324,6 +342,11 @@
 				<div class="info-item">
 					<span class="info-label">Employment Type</span>
 					<span class="info-value">{EMPLOYMENT_TYPE_INFO[payGroup.employmentType].label}</span>
+				</div>
+
+				<div class="info-item">
+					<span class="info-label">Compensation Type</span>
+					<span class="info-value">{COMPENSATION_TYPE_INFO[payGroup.compensationType].label}</span>
 				</div>
 
 				<div class="info-item">

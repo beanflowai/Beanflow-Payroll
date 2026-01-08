@@ -70,8 +70,15 @@ class EmploymentType(str, Enum):
     """Employment type classification."""
     FULL_TIME = "full_time"
     PART_TIME = "part_time"
+    SEASONAL = "seasonal"
     CONTRACT = "contract"
     CASUAL = "casual"
+
+
+class CompensationType(str, Enum):
+    """Compensation type classification."""
+    SALARY = "salary"    # Annual salary
+    HOURLY = "hourly"    # Hourly rate
 
 
 class VacationPayoutMethod(str, Enum):
@@ -813,6 +820,8 @@ class PayGroupBase(BaseModel):
     description: str | None = None
     pay_frequency: PayFrequency
     employment_type: EmploymentType = EmploymentType.FULL_TIME
+    compensation_type: CompensationType = CompensationType.SALARY
+    province: Province | None = None
 
     # Pay Schedule
     next_pay_date: date
@@ -839,6 +848,8 @@ class PayGroupUpdate(BaseModel):
     description: str | None = None
     pay_frequency: PayFrequency | None = None
     employment_type: EmploymentType | None = None
+    compensation_type: CompensationType | None = None
+    province: Province | None = None
     next_pay_date: date | None = None
     period_start_day: PeriodStartDay | None = None
     leave_enabled: bool | None = None
@@ -879,3 +890,5 @@ class PayGroupListFilters(BaseModel):
     company_id: UUID | None = None
     pay_frequency: PayFrequency | None = None
     employment_type: EmploymentType | None = None
+    compensation_type: CompensationType | None = None
+    province: Province | None = None

@@ -125,6 +125,7 @@ export async function getUpcomingPeriods(): Promise<PayrollServiceResult<Upcomin
 				name: pg.name,
 				payFrequency: pg.pay_frequency,
 				employmentType: pg.employment_type,
+				compensationType: pg.compensation_type,
 				employeeCount: pg.employee_count ?? 0,
 				estimatedGross: 0, // Would need salary data to estimate
 				periodStart: periodStart.toISOString().split('T')[0],

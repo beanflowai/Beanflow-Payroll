@@ -304,8 +304,11 @@ export interface DeductionsConfig {
 	customDeductions: CustomDeduction[];
 }
 
-// Employment type options
-export type EmploymentType = 'full_time' | 'part_time';
+// Employment type options (expanded to match employee types)
+export type EmploymentType = 'full_time' | 'part_time' | 'seasonal' | 'contract' | 'casual';
+
+// Compensation type options
+export type CompensationType = 'salary' | 'hourly';
 
 // Period start day options vary by frequency
 export type PeriodStartDay =
@@ -417,6 +420,7 @@ export interface PayGroup {
 	description?: string;
 	payFrequency: PayFrequency;
 	employmentType: EmploymentType;
+	compensationType: CompensationType;
 
 	// Province (defaults to company province, determines holidays)
 	province: Province;
@@ -458,6 +462,18 @@ export interface PayGroup {
 }
 
 /**
+ * Criteria for matching employees to a pay group
+ * Contains only the fields needed for validation
+ */
+export interface PayGroupMatchCriteria {
+	id: string;
+	payFrequency: PayFrequency;
+	employmentType: EmploymentType;
+	compensationType: CompensationType;
+	province: Province;
+}
+
+/**
  * Form data for creating/editing pay groups (basic info only)
  * Used in the simple create modal
  */
@@ -466,6 +482,7 @@ export interface PayGroupFormData {
 	description?: string;
 	payFrequency: PayFrequency;
 	employmentType: EmploymentType;
+	compensationType: CompensationType;
 	province: Province;
 	nextPeriodEnd: string;
 	periodStartDay: PeriodStartDay;
@@ -674,6 +691,7 @@ export function createDefaultPayGroup(
 		name: '',
 		payFrequency: 'bi_weekly',
 		employmentType: 'full_time',
+		compensationType: 'salary',
 		province: companyProvince,
 		nextPeriodEnd: '',
 		periodStartDay: 'monday',
@@ -738,6 +756,38 @@ export const EMPLOYMENT_TYPE_INFO: Record<
 	part_time: {
 		label: 'Part-time',
 		description: 'Part-time employees'
+	},
+	seasonal: {
+		label: 'Seasonal',
+		description: 'Seasonal employees'
+	},
+	contract: {
+		label: 'Contract',
+		description: 'Contract workers'
+	},
+	casual: {
+		label: 'Casual',
+		description: 'Casual/on-call workers'
+	}
+};
+
+/**
+ * Compensation type display information
+ */
+export const COMPENSATION_TYPE_INFO: Record<
+	CompensationType,
+	{
+		label: string;
+		description: string;
+	}
+> = {
+	salary: {
+		label: 'Salary',
+		description: 'Annual salary employees'
+	},
+	hourly: {
+		label: 'Hourly',
+		description: 'Hourly rate employees'
 	}
 };
 

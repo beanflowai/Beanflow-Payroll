@@ -88,7 +88,7 @@ export interface PayGroupWithEmployees {
 	id: string;
 	name: string;
 	payFrequency: 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly';
-	employmentType: 'full_time' | 'part_time';
+	employmentType: 'full_time' | 'part_time' | 'seasonal' | 'contract' | 'casual';
 	periodStart: string;
 	periodEnd: string;
 	employees: EmployeeForPayroll[];

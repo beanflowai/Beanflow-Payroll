@@ -39,6 +39,7 @@ export interface DbPayGroup {
 	description: string | null;
 	pay_frequency: PayFrequency;
 	employment_type: EmploymentType;
+	compensation_type: 'salary' | 'hourly';
 	province: string;
 	next_period_end: string;
 	period_start_day: PeriodStartDay;
@@ -63,6 +64,7 @@ export interface PayGroupCreateInput {
 	description?: string;
 	pay_frequency: PayFrequency;
 	employment_type?: EmploymentType;
+	compensation_type?: 'salary' | 'hourly';
 	province?: string; // Defaults to company province via DB trigger
 	next_period_end: string;
 	period_start_day?: PeriodStartDay;
@@ -84,6 +86,7 @@ export interface PayGroupUpdateInput {
 	description?: string;
 	pay_frequency?: PayFrequency;
 	employment_type?: EmploymentType;
+	compensation_type?: 'salary' | 'hourly';
 	province?: string;
 	next_period_end?: string;
 	period_start_day?: PeriodStartDay;
@@ -108,6 +111,7 @@ export function dbPayGroupToUi(db: DbPayGroup): PayGroup {
 		description: db.description ?? undefined,
 		payFrequency: db.pay_frequency,
 		employmentType: db.employment_type,
+		compensationType: db.compensation_type,
 		province: db.province as PayGroup['province'],
 		nextPeriodEnd: db.next_period_end,
 		periodStartDay: db.period_start_day,

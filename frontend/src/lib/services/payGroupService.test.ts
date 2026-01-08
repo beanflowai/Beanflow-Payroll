@@ -75,6 +75,7 @@ const sampleDbPayGroup: DbPayGroup = {
 	description: 'Full-time salaried staff',
 	pay_frequency: 'bi_weekly',
 	employment_type: 'full_time',
+	compensation_type: 'salary',
 	next_period_end: '2025-01-15',
 	period_start_day: 'monday',
 	leave_enabled: true,

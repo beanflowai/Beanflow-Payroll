@@ -265,7 +265,8 @@ export interface PayGroupSummary {
 	id: string;
 	name: string;
 	payFrequency: 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly';
-	employmentType: 'full_time' | 'part_time';
+	employmentType: 'full_time' | 'part_time' | 'seasonal' | 'contract' | 'casual';
+	compensationType: 'salary' | 'hourly';
 	province: string;
 	employeeCount: number;
 	estimatedGross: number;
@@ -309,7 +310,7 @@ export interface PayrollRunPayGroup {
 	payGroupId: string;
 	payGroupName: string;
 	payFrequency: 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly';
-	employmentType: 'full_time' | 'part_time';
+	employmentType: 'full_time' | 'part_time' | 'seasonal' | 'contract' | 'casual';
 	province: string;
 	periodStart: string;
 	periodEnd: string;

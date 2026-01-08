@@ -627,7 +627,15 @@ describe('assignEmployeesToPayGroup', () => {
 		}));
 		mockSupabase.from.mockReturnValue(mockBuilder as unknown as ReturnType<typeof supabase.from>);
 
-		const result = await assignEmployeesToPayGroup(['emp-1', 'emp-2'], 'group-123');
+		const mockPayGroup = {
+			id: 'group-123',
+			payFrequency: 'bi_weekly' as const,
+			employmentType: 'full_time' as const,
+			compensationType: 'salary' as const,
+			province: 'SK' as const
+		};
+
+		const result = await assignEmployeesToPayGroup(['emp-1', 'emp-2'], mockPayGroup);
 
 		expect(mockBuilder.update).toHaveBeenCalledWith({ pay_group_id: 'group-123' });
 		expect(mockBuilder.in).toHaveBeenCalledWith('id', ['emp-1', 'emp-2']);

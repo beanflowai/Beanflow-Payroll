@@ -1,11 +1,12 @@
 <script lang="ts">
 	import type { PayGroupSummary } from '$lib/types/payroll';
-	import type { Employee, Province } from '$lib/types/employee';
-	import { PROVINCE_LABELS } from '$lib/types/employee';
+	import type { PayGroupMatchCriteria } from '$lib/types/pay-group';
+	import type { Employee, Province, EmployeeMatchResult } from '$lib/types/employee';
+	import { PROVINCE_LABELS, formatMismatchReason } from '$lib/types/employee';
 	import SlideOverPanel from '$lib/components/ui/SlideOverPanel.svelte';
 	import {
 		getEmployeesByPayGroup,
-		getUnassignedEmployees,
+		getUnassignedEmployeesWithMatchStatus,
 		assignEmployeesToPayGroup,
 		removeEmployeeFromPayGroup
 	} from '$lib/services/employeeService';
@@ -22,15 +23,29 @@
 	// Pay group province for filtering (default to SK if not set)
 	const payGroupProvince = $derived((payGroup.province ?? 'SK') as Province);
 
+	// Extract matching criteria from pay group summary (with fallback for province)
+	const payGroupCriteria: PayGroupMatchCriteria = $derived({
+		id: payGroup.id,
+		payFrequency: payGroup.payFrequency,
+		employmentType: payGroup.employmentType,
+		compensationType: payGroup.compensationType,
+		province: payGroupProvince
+	});
+
 	// State
 	let assignedEmployees = $state<Employee[]>([]);
-	let unassignedEmployees = $state<Employee[]>([]);
+	let matchResults = $state<EmployeeMatchResult[]>([]);
 	let selectedIds = $state<Set<string>>(new Set());
 	let isLoading = $state(true);
 	let isAssigning = $state(false);
 	let isRemoving = $state<string | null>(null);
 	let error = $state<string | null>(null);
 	let showAddSection = $state(false);
+
+	// Derived: separate matching and non-matching employees
+	const matchingEmployees = $derived(matchResults.filter((r) => r.isMatch));
+	const nonMatchingEmployees = $derived(matchResults.filter((r) => !r.isMatch));
+	const totalUnassigned = $derived(matchResults.length);
 
 	// Load data when panel opens or pay group changes
 	$effect(() => {
@@ -45,23 +60,23 @@
 		selectedIds = new Set();
 
 		try {
-			// Filter unassigned employees by pay group province
-			const [assignedResult, unassignedResult] = await Promise.all([
+			// Get assigned employees and unassigned with match status
+			const [assignedResult, matchResult] = await Promise.all([
 				getEmployeesByPayGroup(payGroup.id),
-				getUnassignedEmployees({ province: payGroupProvince })
+				getUnassignedEmployeesWithMatchStatus(payGroupCriteria)
 			]);
 
 			if (assignedResult.error) {
 				error = assignedResult.error;
 				return;
 			}
-			if (unassignedResult.error) {
-				error = unassignedResult.error;
+			if (matchResult.error) {
+				error = matchResult.error;
 				return;
 			}
 
 			assignedEmployees = assignedResult.data;
-			unassignedEmployees = unassignedResult.data;
+			matchResults = matchResult.data ?? [];
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load employees';
 		} finally {
@@ -80,10 +95,11 @@
 	}
 
 	function toggleSelectAll() {
-		if (selectedIds.size === unassignedEmployees.length) {
+		// Only select matching employees
+		if (selectedIds.size === matchingEmployees.length) {
 			selectedIds = new Set();
 		} else {
-			selectedIds = new Set(unassignedEmployees.map((e) => e.id));
+			selectedIds = new Set(matchingEmployees.map((r) => r.employee.id));
 		}
 	}
 
@@ -94,12 +110,8 @@
 		error = null;
 
 		try {
-			// Pass pay group province for validation
-			const result = await assignEmployeesToPayGroup(
-				Array.from(selectedIds),
-				payGroup.id,
-				payGroupProvince
-			);
+			// Pass pay group criteria for validation
+			const result = await assignEmployeesToPayGroup(Array.from(selectedIds), payGroupCriteria);
 			if (result.error) {
 				error = result.error;
 				return;
@@ -246,11 +258,10 @@
 				<span class="flex items-center gap-2 font-medium text-surface-700">
 					<i class="fas fa-user-plus text-primary-500"></i>
 					Add Employees
-					{#if unassignedEmployees.length > 0}
-						<span class="text-auxiliary-text font-normal text-surface-500"
-							>({unassignedEmployees.length} in {PROVINCE_LABELS[payGroupProvince] ??
-								payGroupProvince})</span
-						>
+					{#if totalUnassigned > 0}
+						<span class="text-auxiliary-text font-normal text-surface-500">
+							({matchingEmployees.length} compatible{nonMatchingEmployees.length > 0 ? `, ${nonMatchingEmployees.length} incompatible` : ''})
+						</span>
 					{/if}
 				</span>
 				<i class="fas fa-chevron-{showAddSection ? 'up' : 'down'} text-surface-400"></i>
@@ -258,14 +269,14 @@
 
 			{#if showAddSection}
 				<div class="mt-3 border border-surface-200 rounded-lg overflow-hidden">
-					{#if unassignedEmployees.length === 0}
+					{#if totalUnassigned === 0}
 						<div class="flex flex-col items-center py-8 px-4 text-center">
 							<i class="fas fa-info-circle text-2xl text-surface-400 mb-3"></i>
 							<p class="text-surface-600 m-0 mb-1">
-								No unassigned employees in {PROVINCE_LABELS[payGroupProvince] ?? payGroupProvince}.
+								No unassigned employees available.
 							</p>
 							<p class="text-auxiliary-text text-surface-500 m-0">
-								Only employees in the same province as the pay group can be added.
+								All employees are already assigned to pay groups.
 							</p>
 							<a
 								href="/employees"
@@ -275,46 +286,115 @@
 								Go to Employees
 							</a>
 						</div>
+					{:else if matchingEmployees.length === 0}
+						<div class="flex flex-col items-center py-8 px-4 text-center">
+							<i class="fas fa-exclamation-triangle text-2xl text-warning-500 mb-3"></i>
+							<p class="text-surface-600 m-0 mb-1">
+								No compatible employees found.
+							</p>
+							<p class="text-auxiliary-text text-surface-500 m-0">
+								All {nonMatchingEmployees.length} unassigned employees have mismatched attributes.
+							</p>
+						</div>
+
+						<!-- Show non-matching employees -->
+						{#if nonMatchingEmployees.length > 0}
+							<div class="border-t border-surface-200">
+								<div class="p-2 bg-surface-100 text-auxiliary-text text-surface-500 font-medium">
+									<i class="fas fa-ban mr-1"></i> Incompatible ({nonMatchingEmployees.length})
+								</div>
+								<div class="max-h-[200px] overflow-y-auto">
+									{#each nonMatchingEmployees as result (result.employee.id)}
+										<div
+											class="flex items-center gap-3 p-3 bg-surface-50 opacity-60 border-b border-surface-100 last:border-b-0"
+										>
+											<div class="w-4 h-4 flex items-center justify-center text-surface-400">
+												<i class="fas fa-ban text-xs"></i>
+											</div>
+											<div class="flex flex-col gap-0.5 min-w-0 flex-1">
+												<span class="font-medium text-surface-600 truncate">
+													{result.employee.firstName}
+													{result.employee.lastName}
+												</span>
+												<span class="text-auxiliary-text text-surface-500 truncate">
+													{result.mismatchReasons.map((r) => formatMismatchReason(r)).join(' | ')}
+												</span>
+											</div>
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
 					{:else}
-						<!-- Select All -->
+						<!-- Select All (only for matching employees) -->
 						<div class="p-3 border-b border-surface-100 bg-surface-50">
 							<label class="flex items-center gap-2 cursor-pointer">
 								<input
 									type="checkbox"
 									class="w-4 h-4 accent-primary-500"
-									checked={selectedIds.size === unassignedEmployees.length}
+									checked={selectedIds.size === matchingEmployees.length && matchingEmployees.length > 0}
 									onchange={toggleSelectAll}
 								/>
-								<span class="text-body-content text-surface-700">Select All</span>
+								<span class="text-body-content text-surface-700">Select All Compatible</span>
 							</label>
 						</div>
 
-						<!-- Employee List -->
+						<!-- Matching Employees -->
 						<div class="max-h-[250px] overflow-y-auto">
-							{#each unassignedEmployees as employee (employee.id)}
+							{#each matchingEmployees as result (result.employee.id)}
 								<label
 									class="flex items-center gap-3 p-3 cursor-pointer hover:bg-surface-50 transition-colors border-b border-surface-100 last:border-b-0"
 								>
 									<input
 										type="checkbox"
 										class="w-4 h-4 accent-primary-500"
-										checked={selectedIds.has(employee.id)}
-										onchange={() => toggleSelect(employee.id)}
+										checked={selectedIds.has(result.employee.id)}
+										onchange={() => toggleSelect(result.employee.id)}
 									/>
 									<div class="flex flex-col gap-0.5 min-w-0 flex-1">
 										<span class="font-medium text-surface-800 truncate">
-											{employee.firstName}
-											{employee.lastName}
+											{result.employee.firstName}
+											{result.employee.lastName}
 										</span>
 										<span class="text-auxiliary-text text-surface-500 truncate">
-											{PROVINCE_LABELS[employee.provinceOfEmployment]} · {formatCompensation(
-												employee
+											{PROVINCE_LABELS[result.employee.provinceOfEmployment]} · {formatCompensation(
+												result.employee
 											)}
 										</span>
 									</div>
 								</label>
 							{/each}
 						</div>
+
+						<!-- Non-matching Employees (disabled, grayed out) -->
+						{#if nonMatchingEmployees.length > 0}
+							<div class="border-t border-surface-200">
+								<div class="p-2 bg-surface-100 text-auxiliary-text text-surface-500 font-medium">
+									<i class="fas fa-ban mr-1"></i> Incompatible ({nonMatchingEmployees.length})
+								</div>
+								<div class="max-h-[150px] overflow-y-auto">
+									{#each nonMatchingEmployees as result (result.employee.id)}
+										<div
+											class="flex items-center gap-3 p-3 bg-surface-50 opacity-60 border-b border-surface-100 last:border-b-0"
+											title={result.mismatchReasons.map((r) => formatMismatchReason(r)).join('\n')}
+										>
+											<div class="w-4 h-4 flex items-center justify-center text-surface-400">
+												<i class="fas fa-ban text-xs"></i>
+											</div>
+											<div class="flex flex-col gap-0.5 min-w-0 flex-1">
+												<span class="font-medium text-surface-600 truncate">
+													{result.employee.firstName}
+													{result.employee.lastName}
+												</span>
+												<span class="text-auxiliary-text text-error-500 truncate text-xs">
+													{result.mismatchReasons.map((r) => formatMismatchReason(r)).join(' | ')}
+												</span>
+											</div>
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
 					{/if}
 				</div>
 			{/if}
@@ -322,7 +402,7 @@
 	{/if}
 
 	{#snippet footer()}
-		{#if !isLoading && showAddSection && unassignedEmployees.length > 0}
+		{#if !isLoading && showAddSection && matchingEmployees.length > 0}
 			<div class="flex justify-end gap-3">
 				<button
 					type="button"

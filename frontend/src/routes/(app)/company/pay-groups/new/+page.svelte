@@ -89,6 +89,7 @@
 			description: payGroup.description,
 			pay_frequency: payGroup.payFrequency,
 			employment_type: payGroup.employmentType,
+			compensation_type: payGroup.compensationType,
 			province: payGroup.province,
 			next_period_end: payGroup.nextPeriodEnd,
 			period_start_day: payGroup.periodStartDay,

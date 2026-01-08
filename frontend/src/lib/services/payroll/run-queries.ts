@@ -118,7 +118,12 @@ async function buildPayrollRunWithGroups(
 					| 'bi_weekly'
 					| 'semi_monthly'
 					| 'monthly',
-				employmentType: (payGroup?.employment_type ?? 'full_time') as 'full_time' | 'part_time',
+				employmentType: (payGroup?.employment_type ?? 'full_time') as
+				| 'full_time'
+				| 'part_time'
+				| 'seasonal'
+				| 'contract'
+				| 'casual',
 				province: payGroupProvince,
 				periodStart: runData.period_start,
 				periodEnd: runData.period_end,

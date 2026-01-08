@@ -17,9 +17,16 @@ import type {
 	Employee,
 	Province,
 	PayFrequency,
-	EmploymentType
+	EmploymentType,
+	EmployeeMatchResult,
+	MismatchReason
 } from '$lib/types/employee';
-import { dbEmployeeToUi, dbTaxClaimToUi } from '$lib/types/employee';
+import {
+	dbEmployeeToUi,
+	dbTaxClaimToUi,
+	getEmployeeCompensationType
+} from '$lib/types/employee';
+import type { PayGroupMatchCriteria } from '$lib/types/pay-group';
 import { authState } from '$lib/stores/auth.svelte';
 import { getCurrentCompanyId as getCompanyIdFromStore } from '$lib/stores/company.svelte';
 
@@ -513,51 +520,164 @@ export async function getUnassignedEmployees(
 }
 
 /**
+ * Check if an employee matches a pay group's requirements
+ */
+function checkEmployeeMatch(employee: Employee, payGroup: PayGroupMatchCriteria): EmployeeMatchResult {
+	const reasons: MismatchReason[] = [];
+
+	// 1. Province
+	if (employee.provinceOfEmployment !== payGroup.province) {
+		reasons.push({
+			field: 'province',
+			expected: payGroup.province,
+			actual: employee.provinceOfEmployment
+		});
+	}
+
+	// 2. Pay Frequency
+	if (employee.payFrequency !== payGroup.payFrequency) {
+		reasons.push({
+			field: 'payFrequency',
+			expected: payGroup.payFrequency,
+			actual: employee.payFrequency
+		});
+	}
+
+	// 3. Employment Type
+	if (employee.employmentType !== payGroup.employmentType) {
+		reasons.push({
+			field: 'employmentType',
+			expected: payGroup.employmentType,
+			actual: employee.employmentType
+		});
+	}
+
+	// 4. Compensation Type (inferred from annualSalary/hourlyRate)
+	const employeeCompType = getEmployeeCompensationType(employee);
+	if (employeeCompType !== payGroup.compensationType) {
+		reasons.push({
+			field: 'compensationType',
+			expected: payGroup.compensationType,
+			actual: employeeCompType
+		});
+	}
+
+	return {
+		employee,
+		isMatch: reasons.length === 0,
+		mismatchReasons: reasons
+	};
+}
+
+/**
+ * Get all unassigned employees with their match status for a pay group
+ * Returns all employees (both matching and non-matching) with match status info
+ */
+export async function getUnassignedEmployeesWithMatchStatus(
+	payGroup: PayGroupMatchCriteria
+): Promise<{ data: EmployeeMatchResult[] | null; error: string | null }> {
+	try {
+		const userId = getCurrentUserId();
+		const companyId = getCurrentCompanyId();
+
+		const { data, error } = await supabase
+			.from(TABLE_NAME)
+			.select('*')
+			.eq('user_id', userId)
+			.eq('company_id', companyId)
+			.is('pay_group_id', null)
+			.is('termination_date', null)
+			.order('last_name')
+			.order('first_name');
+
+		if (error) {
+			console.error('Failed to get unassigned employees:', error);
+			return { data: null, error: error.message };
+		}
+
+		const employees: Employee[] = (data as DbEmployee[]).map((db) =>
+			dbEmployeeToUi(db, maskSin(db.sin_encrypted))
+		);
+
+		// Check each employee against the pay group
+		const results: EmployeeMatchResult[] = employees.map((emp) =>
+			checkEmployeeMatch(emp, payGroup)
+		);
+
+		// Sort: matching employees first, then non-matching
+		results.sort((a, b) => {
+			if (a.isMatch && !b.isMatch) return -1;
+			if (!a.isMatch && b.isMatch) return 1;
+			return 0;
+		});
+
+		return { data: results, error: null };
+	} catch (err) {
+		const message =
+			err instanceof Error ? err.message : 'Failed to get unassigned employees with match status';
+		return { data: null, error: message };
+	}
+}
+
+/**
  * Assign multiple employees to a pay group
+ * Validates all matching criteria: province, pay frequency, employment type, compensation type
  * @param employeeIds - List of employee IDs to assign
- * @param payGroupId - Pay group ID to assign to
- * @param payGroupProvince - Province of the pay group (for validation)
+ * @param payGroup - Pay group criteria to match against (used for validation)
  */
 export async function assignEmployeesToPayGroup(
 	employeeIds: string[],
-	payGroupId: string,
-	payGroupProvince?: Province
+	payGroup: PayGroupMatchCriteria
 ): Promise<{ error: string | null; mismatchedEmployees?: string[] }> {
 	try {
 		const userId = getCurrentUserId();
 		const companyId = getCurrentCompanyId();
 
-		// If pay group province is provided, validate employee provinces match
-		if (payGroupProvince) {
-			const { data: employees, error: fetchError } = await supabase
-				.from(TABLE_NAME)
-				.select('id, first_name, last_name, province_of_employment')
-				.eq('user_id', userId)
-				.eq('company_id', companyId)
-				.in('id', employeeIds);
+		// Fetch employees to validate matching criteria
+		const { data: dbEmployees, error: fetchError } = await supabase
+			.from(TABLE_NAME)
+			.select('*')
+			.eq('user_id', userId)
+			.eq('company_id', companyId)
+			.in('id', employeeIds);
 
-			if (fetchError) {
-				console.error('Failed to fetch employees for validation:', fetchError);
-				return { error: fetchError.message };
+		if (fetchError) {
+			console.error('Failed to fetch employees for validation:', fetchError);
+			return { error: fetchError.message };
+		}
+
+		// Convert to Employee objects and check matching
+		const employees = (dbEmployees as DbEmployee[]).map((db) =>
+			dbEmployeeToUi(db, maskSin(db.sin_encrypted))
+		);
+
+		// Validate all employees match the pay group requirements
+		const mismatchedResults: { employee: Employee; reasons: MismatchReason[] }[] = [];
+
+		for (const employee of employees) {
+			const matchResult = checkEmployeeMatch(employee, payGroup);
+			if (!matchResult.isMatch) {
+				mismatchedResults.push({
+					employee,
+					reasons: matchResult.mismatchReasons
+				});
 			}
+		}
 
-			// Check for province mismatches
-			const mismatched = (employees ?? []).filter(
-				(e) => e.province_of_employment !== payGroupProvince
-			);
-
-			if (mismatched.length > 0) {
-				const names = mismatched.map((e) => `${e.first_name} ${e.last_name}`);
-				return {
-					error: `Cannot assign employees from different provinces. The following employees are not in ${payGroupProvince}: ${names.join(', ')}`,
-					mismatchedEmployees: mismatched.map((e) => e.id)
-				};
-			}
+		if (mismatchedResults.length > 0) {
+			const errorMessages = mismatchedResults.map((r) => {
+				const reasonTexts = r.reasons.map((reason) => reason.field).join(', ');
+				return `${r.employee.firstName} ${r.employee.lastName} (${reasonTexts})`;
+			});
+			return {
+				error: `Cannot assign employees that don't match pay group requirements: ${errorMessages.join('; ')}`,
+				mismatchedEmployees: mismatchedResults.map((r) => r.employee.id)
+			};
 		}
 
 		const { error } = await supabase
 			.from(TABLE_NAME)
-			.update({ pay_group_id: payGroupId })
+			.update({ pay_group_id: payGroup.id })
 			.eq('user_id', userId)
 			.eq('company_id', companyId)
 			.in('id', employeeIds);

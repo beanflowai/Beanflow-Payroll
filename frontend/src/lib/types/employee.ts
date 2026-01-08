@@ -5,6 +5,13 @@
 // Re-export PortalStatus from employee-portal for convenience
 export type { PortalStatus } from './employee-portal';
 
+// Import types from pay-group for matching logic
+import type {
+	CompensationType as PayGroupCompensationType,
+	EmploymentType as PayGroupEmploymentType,
+	PayFrequency as PayGroupPayFrequency
+} from './pay-group';
+
 // 12 provinces/territories supported (Quebec excluded - separate system required)
 export type Province =
 	| 'AB'
@@ -52,11 +59,12 @@ export const PAY_PERIODS_PER_YEAR: Record<PayFrequency, number> = {
 	monthly: 12
 };
 
-export type EmploymentType = 'full_time' | 'part_time' | 'contract' | 'casual';
+export type EmploymentType = 'full_time' | 'part_time' | 'seasonal' | 'contract' | 'casual';
 
 export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
 	full_time: 'Full-time',
 	part_time: 'Part-time',
+	seasonal: 'Seasonal',
 	contract: 'Contract',
 	casual: 'Casual'
 };
@@ -574,4 +582,64 @@ export function uiEmployeeToDbCreate(
 		initial_ytd_ei: ui.initialYtdEi ?? 0,
 		initial_ytd_year: ui.initialYtdYear ?? null
 	};
+}
+
+// ============================================================================
+// Pay Group Employee Matching Types
+// ============================================================================
+
+/**
+ * Mismatch reason for employee-pay group matching
+ */
+export type MismatchReason =
+	| { field: 'province'; expected: Province; actual: Province }
+	| { field: 'payFrequency'; expected: PayGroupPayFrequency; actual: PayFrequency }
+	| { field: 'employmentType'; expected: PayGroupEmploymentType; actual: EmploymentType }
+	| { field: 'compensationType'; expected: PayGroupCompensationType; actual: PayGroupCompensationType };
+
+/**
+ * Result of checking if an employee matches a pay group
+ */
+export interface EmployeeMatchResult {
+	employee: Employee;
+	isMatch: boolean;
+	mismatchReasons: MismatchReason[];
+}
+
+/**
+ * Get the compensation type from an employee (inferred from annualSalary/hourlyRate)
+ * Priority: hourly rate takes precedence (even if 0), otherwise salaried
+ */
+export function getEmployeeCompensationType(employee: Employee): PayGroupCompensationType {
+	// Use != null to check for both null and undefined, but allow 0 as valid hourly rate
+	return employee.hourlyRate != null ? 'hourly' : 'salary';
+}
+
+/**
+ * Format a mismatch reason for display
+ */
+export function formatMismatchReason(reason: MismatchReason): string {
+	const fieldLabels: Record<MismatchReason['field'], string> = {
+		province: 'Province',
+		payFrequency: 'Pay Frequency',
+		employmentType: 'Employment Type',
+		compensationType: 'Compensation Type'
+	};
+
+	const formatValue = (field: MismatchReason['field'], value: string): string => {
+		switch (field) {
+			case 'province':
+				return PROVINCE_LABELS[value as Province] || value;
+			case 'payFrequency':
+				return PAY_FREQUENCY_LABELS[value as PayFrequency] || value;
+			case 'employmentType':
+				return EMPLOYMENT_TYPE_LABELS[value as EmploymentType] || value;
+			case 'compensationType':
+				return value === 'salary' ? 'Salary' : 'Hourly';
+			default:
+				return value;
+		}
+	};
+
+	return `${fieldLabels[reason.field]}: ${formatValue(reason.field, reason.actual)} (expected ${formatValue(reason.field, reason.expected)})`;
 }
