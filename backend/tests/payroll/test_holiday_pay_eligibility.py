@@ -10,6 +10,7 @@ Tests:
 
 from datetime import date, timedelta
 from decimal import Decimal
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -19,6 +20,7 @@ from tests.payroll.conftest import (
     make_ab_config,
     make_bc_config,
     make_on_config,
+    make_pe_config,
     make_qc_config,
     make_sk_config,
 )
@@ -217,8 +219,23 @@ class TestNewEmployeeFallback:
             config_loader=on_loader,
         )
 
-        # Mock empty historical data
-        mock_supabase.table.return_value.select.return_value.eq.return_value.neq.return_value.gte.return_value.lt.return_value.in_.return_value.execute.return_value.data = []
+        holiday_date = date.today()
+
+        # Mock Supabase queries - need to handle both payroll_records AND timesheet_entries
+        def mock_table(table_name):
+            mock = MagicMock()
+            if table_name == "timesheet_entries":
+                # Return work entries before and after holiday for last_first_rule
+                mock.select.return_value.eq.return_value.gte.return_value.lte.return_value.execute.return_value.data = [
+                    {"work_date": (holiday_date - timedelta(days=1)).isoformat(), "regular_hours": 8, "overtime_hours": 0},
+                    {"work_date": (holiday_date + timedelta(days=1)).isoformat(), "regular_hours": 8, "overtime_hours": 0},
+                ]
+            else:
+                # Return empty historical payroll data
+                mock.select.return_value.eq.return_value.neq.return_value.gte.return_value.lt.return_value.in_.return_value.execute.return_value.data = []
+            return mock
+
+        mock_supabase.table.side_effect = mock_table
 
         new_hire = {
             "id": "emp-on-new",
@@ -228,7 +245,6 @@ class TestNewEmployeeFallback:
             "hire_date": (date.today() - timedelta(days=5)).isoformat(),
         }
 
-        holiday_date = date.today()
         holidays = [{"holiday_date": holiday_date.isoformat(), "name": "Test Holiday", "province": "ON"}]
 
         result = calculator.calculate_holiday_pay(
@@ -436,3 +452,253 @@ class TestNBEligibility:
         # NB: exactly 90 days → eligible
         assert result.regular_holiday_pay == Decimal("160")  # 8h × $20
         assert result.calculation_details["holidays"][0]["eligible"] is True
+
+
+class TestLastFirstRule:
+    """Tests for require_last_first_rule eligibility check."""
+
+    def test_on_passes_with_work_before_and_after(self, holiday_calculator):
+        """ON: Employee who worked before and after holiday is eligible."""
+        config = make_on_config()
+        holiday_date = date(2025, 12, 25)
+
+        employee = {
+            "id": "emp-on-pass",
+            "hire_date": "2024-01-01",
+        }
+
+        # Worked on Dec 24 (before) and Dec 26 (after)
+        timesheet_entries = [
+            {"work_date": "2025-12-24", "regular_hours": 8, "overtime_hours": 0},
+            {"work_date": "2025-12-26", "regular_hours": 8, "overtime_hours": 0},
+        ]
+
+        result = holiday_calculator._is_eligible_for_holiday_pay(
+            employee, holiday_date, config, timesheet_entries
+        )
+
+        assert result is True
+
+    def test_on_fails_with_only_work_before(self, holiday_calculator):
+        """ON: Employee who only worked before holiday is ineligible."""
+        config = make_on_config()
+        holiday_date = date(2025, 12, 25)
+
+        employee = {
+            "id": "emp-on-fail-before",
+            "hire_date": "2024-01-01",
+        }
+
+        # Worked on Dec 24 (before) but not after
+        timesheet_entries = [
+            {"work_date": "2025-12-24", "regular_hours": 8, "overtime_hours": 0},
+        ]
+
+        result = holiday_calculator._is_eligible_for_holiday_pay(
+            employee, holiday_date, config, timesheet_entries
+        )
+
+        assert result is False
+
+    def test_on_fails_with_only_work_after(self, holiday_calculator):
+        """ON: Employee who only worked after holiday is ineligible."""
+        config = make_on_config()
+        holiday_date = date(2025, 12, 25)
+
+        employee = {
+            "id": "emp-on-fail-after",
+            "hire_date": "2024-01-01",
+        }
+
+        # Worked on Dec 26 (after) but not before
+        timesheet_entries = [
+            {"work_date": "2025-12-26", "regular_hours": 8, "overtime_hours": 0},
+        ]
+
+        result = holiday_calculator._is_eligible_for_holiday_pay(
+            employee, holiday_date, config, timesheet_entries
+        )
+
+        assert result is False
+
+    def test_on_eligible_when_no_timesheet_data(self, holiday_calculator):
+        """ON: Without timesheet data, default to eligible (graceful fallback)."""
+        config = make_on_config()
+        holiday_date = date(2025, 12, 25)
+
+        employee = {
+            "id": "emp-on-no-ts",
+            "hire_date": "2024-01-01",
+        }
+
+        # No timesheet entries provided
+        result = holiday_calculator._is_eligible_for_holiday_pay(
+            employee, holiday_date, config, None
+        )
+
+        assert result is True
+
+    def test_bc_skips_rule_check(self, holiday_calculator):
+        """BC: require_last_first_rule=False means rule is skipped."""
+        config = make_bc_config()
+        holiday_date = date(2025, 7, 1)
+
+        # Employee with >30 days employment
+        employee = {
+            "id": "emp-bc-skip",
+            "hire_date": "2025-05-01",
+        }
+
+        # Even without any work entries, should be eligible (BC doesn't require rule)
+        timesheet_entries = []
+
+        result = holiday_calculator._is_eligible_for_holiday_pay(
+            employee, holiday_date, config, timesheet_entries
+        )
+
+        assert result is True
+
+
+class TestMinDaysWorkedInPeriod:
+    """Tests for min_days_worked_in_period eligibility check (PE)."""
+
+    def test_pe_eligible_with_15_days(self, holiday_calculator):
+        """PE: Employee with 15 days worked in 30-day period is eligible."""
+        config = make_pe_config()
+        holiday_date = date(2025, 7, 1)
+
+        employee = {
+            "id": "emp-pe-15",
+            "hire_date": "2025-05-01",  # >30 days
+        }
+
+        # 15 days of work in past 30 days
+        timesheet_entries = [
+            {"work_date": (holiday_date - timedelta(days=i)).isoformat(), "regular_hours": 8, "overtime_hours": 0}
+            for i in range(1, 16)  # 15 days before holiday
+        ]
+        # Also add work after holiday for last/first rule
+        timesheet_entries.append({"work_date": "2025-07-02", "regular_hours": 8, "overtime_hours": 0})
+
+        result = holiday_calculator._is_eligible_for_holiday_pay(
+            employee, holiday_date, config, timesheet_entries
+        )
+
+        assert result is True
+
+    def test_pe_ineligible_with_14_days(self, holiday_calculator):
+        """PE: Employee with only 14 days worked in 30-day period is ineligible."""
+        config = make_pe_config()
+        holiday_date = date(2025, 7, 1)
+
+        employee = {
+            "id": "emp-pe-14",
+            "hire_date": "2025-05-01",  # >30 days
+        }
+
+        # Only 14 days of work in past 30 days
+        timesheet_entries = [
+            {"work_date": (holiday_date - timedelta(days=i)).isoformat(), "regular_hours": 8, "overtime_hours": 0}
+            for i in range(1, 15)  # 14 days before holiday
+        ]
+        # Also add work after holiday for last/first rule
+        timesheet_entries.append({"work_date": "2025-07-02", "regular_hours": 8, "overtime_hours": 0})
+
+        result = holiday_calculator._is_eligible_for_holiday_pay(
+            employee, holiday_date, config, timesheet_entries
+        )
+
+        assert result is False
+
+    def test_pe_eligible_when_no_timesheet_data(self, holiday_calculator):
+        """PE: Without timesheet data, default to eligible (graceful fallback)."""
+        config = make_pe_config()
+        holiday_date = date(2025, 7, 1)
+
+        employee = {
+            "id": "emp-pe-no-ts",
+            "hire_date": "2025-05-01",
+        }
+
+        result = holiday_calculator._is_eligible_for_holiday_pay(
+            employee, holiday_date, config, None
+        )
+
+        assert result is True
+
+    def test_on_skips_days_worked_check(self, holiday_calculator):
+        """ON: min_days_worked_in_period not set, so rule is skipped."""
+        config = make_on_config()
+        holiday_date = date(2025, 12, 25)
+
+        employee = {
+            "id": "emp-on-skip",
+            "hire_date": "2024-01-01",
+        }
+
+        # Only 5 days worked, but ON doesn't have min_days_worked_in_period
+        timesheet_entries = [
+            {"work_date": "2025-12-24", "regular_hours": 8, "overtime_hours": 0},
+            {"work_date": "2025-12-23", "regular_hours": 8, "overtime_hours": 0},
+            {"work_date": "2025-12-22", "regular_hours": 8, "overtime_hours": 0},
+            {"work_date": "2025-12-21", "regular_hours": 8, "overtime_hours": 0},
+            {"work_date": "2025-12-20", "regular_hours": 8, "overtime_hours": 0},
+            {"work_date": "2025-12-26", "regular_hours": 8, "overtime_hours": 0},  # After holiday
+        ]
+
+        result = holiday_calculator._is_eligible_for_holiday_pay(
+            employee, holiday_date, config, timesheet_entries
+        )
+
+        assert result is True
+
+
+class TestIneligibilityReasons:
+    """Tests for _get_ineligibility_reason with new checks."""
+
+    def test_reason_for_last_first_rule_failure(self, holiday_calculator):
+        """Returns correct reason for last/first rule failure."""
+        config = make_on_config()
+        holiday_date = date(2025, 12, 25)
+
+        employee = {
+            "id": "emp-on-reason",
+            "hire_date": "2024-01-01",
+        }
+
+        # Only work before, not after
+        timesheet_entries = [
+            {"work_date": "2025-12-24", "regular_hours": 8, "overtime_hours": 0},
+        ]
+
+        reason = holiday_calculator._get_ineligibility_reason(
+            employee, holiday_date, config, timesheet_entries
+        )
+
+        assert "before/after" in reason.lower()
+
+    def test_reason_for_min_days_worked_failure(self, holiday_calculator):
+        """Returns correct reason for min_days_worked_in_period failure."""
+        config = make_pe_config()
+        holiday_date = date(2025, 7, 1)
+
+        employee = {
+            "id": "emp-pe-reason",
+            "hire_date": "2025-05-01",
+        }
+
+        # 10 days worked (less than 15 required)
+        timesheet_entries = [
+            {"work_date": (holiday_date - timedelta(days=i)).isoformat(), "regular_hours": 8, "overtime_hours": 0}
+            for i in range(1, 11)
+        ]
+        # Add work after for last/first rule
+        timesheet_entries.append({"work_date": "2025-07-02", "regular_hours": 8, "overtime_hours": 0})
+
+        reason = holiday_calculator._get_ineligibility_reason(
+            employee, holiday_date, config, timesheet_entries
+        )
+
+        assert "10 days worked" in reason
+        assert "need 15" in reason
+

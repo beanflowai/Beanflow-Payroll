@@ -17,6 +17,7 @@ class HolidayPayEligibility:
 
     min_employment_days: int
     require_last_first_rule: bool
+    min_days_worked_in_period: int | None = None  # PE requires 15 days worked in 30-day period
     notes: str | None = None
 
 

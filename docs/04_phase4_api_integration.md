@@ -151,6 +151,42 @@ Database (Supabase PostgreSQL)
 | GET | `/payroll/remittances/summary` | Monthly remittance summary |
 | GET | `/payroll/stats` | Dashboard statistics |
 
+### Overtime Calculation Endpoints (Added 2026-01-08)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/overtime/calculate` | Calculate regular/overtime split for daily hours |
+
+**Request Model**:
+```typescript
+interface OvertimeCalculateRequest {
+  province: string;                    // Province code (e.g., 'ON', 'BC')
+  entries: DailyHoursEntry[];
+}
+
+interface DailyHoursEntry {
+  date: string;                        // ISO date (YYYY-MM-DD)
+  totalHours: number;                  // Total hours (0-24)
+  isHoliday?: boolean;                 // Whether this day is a holiday
+}
+```
+
+**Response Model**:
+```typescript
+interface OvertimeCalculateResponse {
+  regularHours: number;                // Total regular hours
+  overtimeHours: number;               // Total overtime hours (1.5x rate)
+  doubleTimeHours: number;             // Total double-time hours (2x rate, BC only)
+}
+```
+
+**Province-Specific Rules**:
+- **ON, QC, MB, etc.**: Weekly threshold only (typically 44h or 40h/week)
+- **AB, BC, NT, NU, YT**: Daily threshold (8h/day) + weekly threshold
+- **BC Special**: Double-time for hours > 12/day
+
+**Service**: `backend/app/services/overtime_calculator.py`
+
 ### API Field Naming
 
 All API request/response models use **camelCase** (project standard):
@@ -273,6 +309,9 @@ When creating payroll records, the system stores a snapshot of employee data at 
 - [ ] Beancount transactions formatted correctly
 - [ ] Transactions use proper account naming
 - [ ] Payroll run workflow works (draft → calculate → approve)
+- [ ] Overtime calculation API works with province-specific rules
+- [ ] Timesheet entries can be created and retrieved
+- [ ] Timesheet modal UI allows daily hours entry
 
 ---
 

@@ -14,6 +14,7 @@
 	} from '$lib/types/payroll';
 	import type { CustomDeduction } from '$lib/types/pay-group';
 	import { formatCurrency } from '$lib/utils/formatUtils';
+	import TimesheetModal from '$lib/components/payroll/TimesheetModal.svelte';
 
 	// Adjustment type options for dropdown menus
 	const EARNINGS_TYPES: AdjustmentType[] = [
@@ -57,6 +58,23 @@
 
 	// Local input state for editing
 	let localInputMap = $state<Map<string, Partial<EmployeePayrollInput>>>(new Map());
+
+	// Timesheet modal state
+	let timesheetModalState = $state<{
+		isOpen: boolean;
+		recordId: string | null;
+		employeeName: string;
+		payrollRecordId: string;
+		periodStart: string;
+		periodEnd: string;
+	}>({
+		isOpen: false,
+		recordId: null,
+		employeeName: '',
+		payrollRecordId: '',
+		periodStart: '',
+		periodEnd: ''
+	});
 
 	function formatPeriod(start: string, end: string): string {
 		// Parse date strings as local dates (not UTC) to avoid timezone shift
@@ -320,6 +338,46 @@
 	function handleHolidayPayExemptChange(record: PayrollRecord, exempt: boolean) {
 		onUpdateRecord(record.id, record.employeeId, { holidayPayExempt: exempt });
 	}
+
+	/**
+	 * Open the timesheet modal for a record
+	 */
+	function openTimesheetModal(record: PayrollRecord) {
+		timesheetModalState = {
+			isOpen: true,
+			recordId: record.id,
+			employeeName: record.employeeName,
+			payrollRecordId: record.id,
+			periodStart: payGroup.periodStart,
+			periodEnd: payGroup.periodEnd
+		};
+	}
+
+	/**
+	 * Handle timesheet save - update regular and overtime hours
+	 */
+	function handleTimesheetSave(totals: { regularHours: number; overtimeHours: number }) {
+		// Find the record
+		const record = payGroup.records.find((r) => r.id === timesheetModalState.recordId);
+		if (record) {
+			// Update local state for both fields to ensure immediate UI response
+			const current = getLocalInput(record.id);
+			const updated = {
+				...current,
+				regularHours: totals.regularHours,
+				overtimeHours: totals.overtimeHours
+			};
+			localInputMap = new Map(localInputMap).set(record.id, updated);
+
+			// Send both updates in a single call to prevent race conditions in the backend
+			onUpdateRecord(record.id, record.employeeId, {
+				regularHours: totals.regularHours,
+				overtimeHours: totals.overtimeHours
+			});
+		}
+		// Close modal
+		timesheetModalState.isOpen = false;
+	}
 </script>
 
 <div class="bg-white rounded-xl shadow-md3-1 overflow-hidden mb-4 border-2 border-neutral-200">
@@ -531,11 +589,25 @@
 										<div class="grid grid-cols-3 gap-5">
 											<!-- EARNINGS Column -->
 											<div class="flex flex-col gap-3">
-												<h4
-													class="text-caption font-semibold text-surface-600 uppercase tracking-wider m-0 pb-2 border-b border-surface-200"
-												>
-													Earnings
-												</h4>
+												<div class="flex items-center justify-between pb-2 border-b border-surface-200">
+													<h4
+														class="text-caption font-semibold text-surface-600 uppercase tracking-wider m-0"
+													>
+														Earnings
+													</h4>
+													{#if record.compensationType === 'hourly'}
+														<button
+															class="px-2 py-1 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded cursor-pointer transition-colors"
+															onclick={(e) => {
+																e.stopPropagation();
+																openTimesheetModal(record);
+															}}
+															title="Enter detailed daily hours"
+														>
+															Timesheet
+														</button>
+													{/if}
+												</div>
 												<div class="flex flex-col gap-2">
 													<!-- Regular Pay -->
 													<div class="flex flex-col gap-1">
@@ -558,7 +630,7 @@
 																	<input
 																		type="number"
 																		class="amount-input w-16 py-1 px-2 border border-surface-300 rounded text-body-small text-center focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
-																		value={record.regularHoursWorked ?? 0}
+																		value={record.inputData?.regularHours ?? record.regularHoursWorked ?? 0}
 																		min="0"
 																		step="0.5"
 																		onchange={(e) => {
@@ -605,7 +677,7 @@
 																<input
 																	type="number"
 																	class="amount-input w-16 py-1 px-2 border border-surface-300 rounded text-body-small text-center focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
-																	value={record.overtimeHoursWorked ?? 0}
+																	value={record.inputData?.overtimeHours ?? record.overtimeHoursWorked ?? 0}
 																	min="0"
 																	step="0.5"
 																	onchange={(e) => {
@@ -1202,6 +1274,19 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Timesheet Modal -->
+<TimesheetModal
+	isOpen={timesheetModalState.isOpen}
+	employeeName={timesheetModalState.employeeName}
+	payrollRecordId={timesheetModalState.payrollRecordId}
+	periodStart={timesheetModalState.periodStart}
+	periodEnd={timesheetModalState.periodEnd}
+	holidays={payGroupHolidays}
+	province={payGroup.province}
+	onClose={() => (timesheetModalState.isOpen = false)}
+	onSave={handleTimesheetSave}
+/>
 
 <style>
 	/* Hide number input spinners */

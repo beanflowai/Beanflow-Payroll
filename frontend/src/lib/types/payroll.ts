@@ -840,3 +840,25 @@ export function getDefaultRegularHours(
 			return 80;
 	}
 }
+
+// ===========================================
+// Timesheet Types
+// ===========================================
+
+export interface TimesheetEntry {
+	id?: string;
+	workDate: string; // ISO date: "2025-01-06"
+	regularHours: number;
+	overtimeHours: number;
+}
+
+export interface TimesheetSummary {
+	totalRegularHours: number;
+	totalOvertimeHours: number;
+	daysWorked: number;
+}
+
+export interface TimesheetResponse {
+	entries: TimesheetEntry[];
+	summary: TimesheetSummary;
+}

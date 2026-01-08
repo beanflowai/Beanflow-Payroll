@@ -427,6 +427,26 @@ def make_qc_config() -> HolidayPayConfig:
     )
 
 
+def make_pe_config() -> HolidayPayConfig:
+    """Create PEI test config with min_days_worked_in_period."""
+    return HolidayPayConfig(
+        province_code="PE",
+        formula_type="30_day_average",
+        formula_params=HolidayPayFormulaParams(
+            lookback_days=30,
+            method="total_wages_div_days",
+            default_daily_hours=Decimal("8"),
+            new_employee_fallback="ineligible",
+        ),
+        eligibility=HolidayPayEligibility(
+            min_employment_days=30,
+            require_last_first_rule=True,
+            min_days_worked_in_period=15,
+        ),
+        premium_rate=Decimal("1.5"),
+    )
+
+
 class MockConfigLoader:
     """Mock config loader for testing."""
 

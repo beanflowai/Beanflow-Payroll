@@ -488,6 +488,8 @@ payroll-frontend/src/lib/components/payroll/
 ├── PayrollRecordRow.svelte           # Employee row in run
 ├── PayrollRecordExpanded.svelte      # Expanded breakdown
 ├── HolidayWorkModal.svelte           # Holiday hours entry
+├── TimesheetModal.svelte            # Daily hours entry for overtime calc
+├── TimesheetSummary.svelte          # Summary display for timesheet
 ├── PayrollSummaryCards.svelte        # Summary statistics
 ├── PayrollStatusBadge.svelte         # Status indicator
 ├── DraftPayrollView.svelte           # Draft state main view with Recalculate/Finalize
@@ -1339,7 +1341,168 @@ Step 7: Mark as Paid
 
 ---
 
-## 13. Vacation Payout
+## 13. Timesheet Entry Modal (Added 2026-01-08)
+
+> **Purpose**: Allow daily time entry for hourly employees to support overtime calculation
+> **Trigger**: Row menu → "Enter Timesheet" or click on hours input field
+
+### 13.1 Timesheet Modal Layout
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Timesheet Entry - Michael Chen                        [X]   │
+├─────────────────────────────────────────────────────────────┤
+│ Pay Period: Dec 1 - Dec 14, 2025  (Bi-weekly)               │
+│ Hourly Rate: $25.00/hr                                      │
+├─────────────────────────────────────────────────────────────┤
+│ Daily Hours Entry                                           │
+│ ┌──────────┬──────────┬────────────┬──────────┬──────────┐ │
+│ │ Date     │ Total    │ Regular     │ Overtime │ Holiday? │ │
+│ │          │ Hours    │ Hours       │ Hours    │          │ │
+│ ├──────────┼──────────┼────────────┼──────────┼──────────┤ │
+│ │ Mon Dec 1│ [8.0]    │ Auto-calc  │ Auto     │ ☐        │ │
+│ │ Tue Dec 2│ [8.0]    │ Auto-calc  │ Auto     │ ☐        │ │
+│ │ Wed Dec 3│ [9.5]    │ Auto-calc  │ Auto     │ ☐        │ │
+│ │ Thu Dec 4│ [8.0]    │ Auto-calc  │ Auto     │ ☐        │
+│ │ Fri Dec 5│ [8.0]    │ Auto-calc  │ Auto     │ ☐        │
+│ │ Sat Dec 6│ [0.0]    │ Auto-calc  │ Auto     │ ☐        │ │
+│ │ Sun Dec 7│ [0.0]    │ Auto-calc  │ Auto     │ ☐        │ │
+│ │ Mon Dec 8│ [8.0]    │ Auto-calc  │ Auto     │ ☐        │ │
+│ │ ...      │ ...      │ ...         │ ...      │ ...      │ │
+│ │ Sun Dec14│ [0.0]    │ Auto-calc  │ Auto     │ ☐        │ │
+│ └──────────┴──────────┴────────────┴──────────┴──────────┘ │
+├─────────────────────────────────────────────────────────────┤
+│ Summary (Province: Ontario)                                  │
+│ ┌──────────────┬──────────────┬──────────────┐              │
+│ │ Total Hours  │ Regular      │ Overtime     │              │
+│ │ 80.0         │ 80.0         │ 0.0          │              │
+│ └──────────────┴──────────────┴──────────────┘              │
+│                                                             │
+│ ℹ️ Regular/overtime split calculated based on provincial    │
+│    overtime rules (ON: OT after 44 hrs/week)                │
+├─────────────────────────────────────────────────────────────┤
+│           [Cancel]                      [Save Timesheet]    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 13.2 Provincial Overtime Rules
+
+The modal automatically calculates regular/overtime split based on province rules:
+
+| Province | Daily Threshold | Weekly Threshold | Double-Time |
+|----------|-----------------|------------------|-------------|
+| AB, BC, NT, NU, YT | 8 hours/day | 40-44 hours/week | BC: >12h/day = 2x |
+| ON, QC, MB, NB, NL, NS, PE, SK | None | 40-48 hours/week | None |
+
+**Example**:
+- **Ontario**: No daily overtime, weekly threshold is 44 hours
+  - Employee works Mon-Fri 8h/day, Sat 4h = 44h total → No OT
+  - Employee works Mon-Fri 8h/day, Sat 8h = 48h total → 4h OT
+
+- **British Columbia**: Daily threshold 8h, weekly 40h, double-time after 12h
+  - Employee works 10h Mon → 2h OT (daily)
+  - Employee works 13h Mon → 4h OT (daily), 1h DT (>12h)
+
+### 13.3 Component Interface
+
+```typescript
+// TimesheetModal.svelte
+interface TimesheetModalProps {
+  employeeId: string;
+  employeeName: string;
+  hourlyRate: number;
+  province: string;
+  periodStart: string;
+  periodEnd: string;
+  onClose: () => void;
+  onSave: (entries: DailyHoursEntry[]) => void;
+}
+```
+
+### 13.4 TypeScript Types
+
+```typescript
+// Add to payroll-frontend/src/lib/types/payroll.ts
+
+export interface DailyHoursEntry {
+  date: string;           // ISO date (YYYY-MM-DD)
+  totalHours: number;     // Total hours worked (0-24)
+  isHoliday: boolean;     // Whether this date is a statutory holiday
+}
+
+export interface TimesheetSummary {
+  totalHours: number;
+  regularHours: number;
+  overtimeHours: number;
+  doubleTimeHours: number; // BC only
+}
+
+export interface OvertimeCalculateRequest {
+  province: string;
+  entries: DailyHoursEntry[];
+}
+
+export interface OvertimeCalculateResponse {
+  regularHours: number;
+  overtimeHours: number;
+  doubleTimeHours: number;
+}
+```
+
+### 13.5 Auto-Calculation Behavior
+
+When user enters `totalHours` for a day:
+1. System calls `/api/v1/overtime/calculate` with all daily entries
+2. Backend calculates split based on provincial rules
+3. Regular/Overtime columns update automatically
+4. Summary updates
+
+**Holiday Handling**:
+- When user checks "Holiday?" for a date:
+  - That day's hours are excluded from overtime calculation
+  - Holiday pay is calculated separately (based on provincial rules)
+
+### 13.6 Entry Points
+
+| Entry Point | Location | When to Use |
+|-------------|----------|-------------|
+| Row menu | PayrollRecordTable | For existing employee entries |
+| Hours input | Before Run row | Quick entry for all employees |
+| Auto-prompt | Before Run state | When starting payroll with hourly employees |
+
+### 13.7 Component Files
+
+```
+frontend/src/lib/components/payroll/
+├── TimesheetModal.svelte        # NEW: Daily hours entry modal
+└── TimesheetSummary.svelte      # NEW: Summary display component
+```
+
+### 13.8 Service Layer
+
+```typescript
+// frontend/src/lib/services/timesheetService.ts
+
+export const timesheetService = {
+  async calculateOvertime(
+    province: string,
+    entries: DailyHoursEntry[]
+  ): Promise<TimesheetSummary> {
+    return api.post('/overtime/calculate', { province, entries });
+  },
+
+  async saveTimesheetEntries(
+    payrollRecordId: string,
+    entries: DailyHoursEntry[]
+  ): Promise<void> {
+    return api.post(`/timesheet-entries/${payrollRecordId}`, { entries });
+  }
+};
+```
+
+---
+
+## 14. Vacation Payout
 
 ### 13.1 Overview
 

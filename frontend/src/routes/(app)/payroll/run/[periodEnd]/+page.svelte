@@ -377,6 +377,8 @@
 				console.error('Failed to update record:', result.error);
 				return;
 			}
+			// Update local state with updated data
+			payrollRun = result.data;
 			// Mark that we have modified records
 			hasModifiedRecords = true;
 		} catch (err) {

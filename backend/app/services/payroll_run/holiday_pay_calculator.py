@@ -157,6 +157,27 @@ class HolidayPayCalculator:
 
         is_hourly = bool(employee.get("hourly_rate"))
 
+        # Fetch timesheet entries for eligibility checks if config requires them
+        # This is needed for require_last_first_rule and min_days_worked_in_period
+        timesheet_entries: list[dict[str, Any]] | None = None
+        if (
+            config.eligibility.require_last_first_rule
+            or config.eligibility.min_days_worked_in_period is not None
+        ):
+            # Calculate date range: 30 days before first holiday to 7 days after last holiday
+            holiday_dates = []
+            for h in holidays_in_period:
+                try:
+                    holiday_dates.append(date.fromisoformat(h.get("holiday_date", "")))
+                except (ValueError, TypeError):
+                    pass
+            if holiday_dates:
+                earliest = min(holiday_dates) - timedelta(days=30)
+                latest = max(holiday_dates) + timedelta(days=7)
+                timesheet_entries = self._get_timesheet_entries_for_eligibility(
+                    employee["id"], earliest, latest
+                )
+
         # Build lookup for hours worked per holiday
         hours_worked_by_date: dict[str, Decimal] = {}
         for entry in holiday_work_entries or []:
@@ -205,11 +226,15 @@ class HolidayPayCalculator:
                     holiday_name,
                 )
             else:
-                is_eligible = self._is_eligible_for_holiday_pay(employee, holiday_date, config)
+                is_eligible = self._is_eligible_for_holiday_pay(
+                    employee, holiday_date, config, timesheet_entries
+                )
                 holiday_detail["eligible"] = is_eligible
 
             if not is_eligible and not holiday_pay_exempt:
-                reason = self._get_ineligibility_reason(employee, holiday_date, config)
+                reason = self._get_ineligibility_reason(
+                    employee, holiday_date, config, timesheet_entries
+                )
                 logger.debug(
                     "Employee %s %s not eligible for Regular holiday pay on %s (%s)",
                     employee.get("first_name"),
@@ -270,18 +295,24 @@ class HolidayPayCalculator:
         )
 
     def _is_eligible_for_holiday_pay(
-        self, employee: dict[str, Any], holiday_date: date, config: HolidayPayConfig
+        self,
+        employee: dict[str, Any],
+        holiday_date: date,
+        config: HolidayPayConfig,
+        timesheet_entries: list[dict[str, Any]] | None = None,
     ) -> bool:
         """Check if employee is eligible for holiday pay based on config.
 
         Eligibility rules are loaded from configuration:
         - min_employment_days: Minimum days of employment required
         - require_last_first_rule: Must work last shift before and first shift after holiday
+        - min_days_worked_in_period: Minimum days worked in 30-day period (PE)
 
         Args:
             employee: Employee data dict (must contain hire_date)
             holiday_date: The date of the statutory holiday
             config: HolidayPayConfig for the province
+            timesheet_entries: Optional timesheet entries for eligibility checks
 
         Returns:
             True if employee is eligible for holiday pay
@@ -305,21 +336,59 @@ class HolidayPayCalculator:
             )
             return False
 
-        # Check minimum employment days
+        # Check 1: minimum employment days
         days_employed = (holiday_date - hire_date).days
         min_days = config.eligibility.min_employment_days
 
         if days_employed < min_days:
             return False
 
-        # Note: Last and First Rule is tracked separately but not enforced here
-        # as it requires shift/attendance data which may not be available during payroll calc
-        # The rule is documented in the config for reference
+        # Check 2: require_last_first_rule (work before and after holiday)
+        if config.eligibility.require_last_first_rule and timesheet_entries is not None:
+            has_work_before = self._has_work_in_range(
+                timesheet_entries,
+                holiday_date - timedelta(days=7),
+                holiday_date - timedelta(days=1),
+            )
+            has_work_after = self._has_work_in_range(
+                timesheet_entries,
+                holiday_date + timedelta(days=1),
+                holiday_date + timedelta(days=7),
+            )
+            if not (has_work_before and has_work_after):
+                logger.debug(
+                    "Employee %s failed last/first rule: before=%s, after=%s",
+                    employee.get("id"),
+                    has_work_before,
+                    has_work_after,
+                )
+                return False
+
+        # Check 3: min_days_worked_in_period (PE requires 15 days in 30-day period)
+        min_days_worked = config.eligibility.min_days_worked_in_period
+        if min_days_worked is not None and timesheet_entries is not None:
+            days_worked = self._count_days_worked_in_period(
+                timesheet_entries,
+                holiday_date - timedelta(days=30),
+                holiday_date,
+            )
+            if days_worked < min_days_worked:
+                logger.debug(
+                    "Employee %s failed min_days_worked check: %d < %d",
+                    employee.get("id"),
+                    days_worked,
+                    min_days_worked,
+                )
+                return False
 
         return True
 
     def _get_ineligibility_reason(
-        self, employee: dict[str, Any], holiday_date: date, config: HolidayPayConfig
+        self,
+        employee: dict[str, Any],
+        holiday_date: date,
+        config: HolidayPayConfig,
+        timesheet_entries: list[dict[str, Any]] | None = None,
     ) -> str:
         """Get the reason for ineligibility.
 
@@ -327,6 +396,7 @@ class HolidayPayCalculator:
             employee: Employee data
             holiday_date: Holiday date
             config: HolidayPayConfig
+            timesheet_entries: Optional timesheet entries for eligibility checks
 
         Returns:
             Reason string
@@ -346,7 +416,128 @@ class HolidayPayCalculator:
         if days_employed < min_days:
             return f"< {min_days} days employed ({days_employed} days)"
 
+        # Check last/first rule
+        if config.eligibility.require_last_first_rule and timesheet_entries is not None:
+            has_work_before = self._has_work_in_range(
+                timesheet_entries,
+                holiday_date - timedelta(days=7),
+                holiday_date - timedelta(days=1),
+            )
+            has_work_after = self._has_work_in_range(
+                timesheet_entries,
+                holiday_date + timedelta(days=1),
+                holiday_date + timedelta(days=7),
+            )
+            if not (has_work_before and has_work_after):
+                return "did not work before/after holiday"
+
+        # Check min_days_worked_in_period
+        min_days_worked = config.eligibility.min_days_worked_in_period
+        if min_days_worked is not None and timesheet_entries is not None:
+            days_worked = self._count_days_worked_in_period(
+                timesheet_entries,
+                holiday_date - timedelta(days=30),
+                holiday_date,
+            )
+            if days_worked < min_days_worked:
+                return f"only {days_worked} days worked in 30-day period (need {min_days_worked})"
+
         return "unknown"
+
+    def _has_work_in_range(
+        self,
+        entries: list[dict[str, Any]],
+        start_date: date,
+        end_date: date,
+    ) -> bool:
+        """Check if employee worked in date range.
+
+        Args:
+            entries: List of timesheet entries
+            start_date: Start of date range (inclusive)
+            end_date: End of date range (inclusive)
+
+        Returns:
+            True if any work entry exists with hours > 0 in range
+        """
+        for entry in entries:
+            work_date_str = entry.get("work_date")
+            if not work_date_str:
+                continue
+            try:
+                work_date = date.fromisoformat(work_date_str)
+            except (ValueError, TypeError):
+                continue
+            if start_date <= work_date <= end_date:
+                regular = Decimal(str(entry.get("regular_hours", 0) or 0))
+                overtime = Decimal(str(entry.get("overtime_hours", 0) or 0))
+                if regular + overtime > 0:
+                    return True
+        return False
+
+    def _count_days_worked_in_period(
+        self,
+        entries: list[dict[str, Any]],
+        start_date: date,
+        end_date: date,
+    ) -> int:
+        """Count unique days with work in date range.
+
+        Args:
+            entries: List of timesheet entries
+            start_date: Start of date range (inclusive)
+            end_date: End of date range (inclusive)
+
+        Returns:
+            Number of unique days with hours > 0
+        """
+        days_with_work: set[date] = set()
+        for entry in entries:
+            work_date_str = entry.get("work_date")
+            if not work_date_str:
+                continue
+            try:
+                work_date = date.fromisoformat(work_date_str)
+            except (ValueError, TypeError):
+                continue
+            if start_date <= work_date <= end_date:
+                regular = Decimal(str(entry.get("regular_hours", 0) or 0))
+                overtime = Decimal(str(entry.get("overtime_hours", 0) or 0))
+                if regular + overtime > 0:
+                    days_with_work.add(work_date)
+        return len(days_with_work)
+
+    def _get_timesheet_entries_for_eligibility(
+        self,
+        employee_id: str,
+        start_date: date,
+        end_date: date,
+    ) -> list[dict[str, Any]] | None:
+        """Query timesheet_entries for eligibility checks.
+
+        Args:
+            employee_id: Employee ID
+            start_date: Start of date range
+            end_date: End of date range
+
+        Returns:
+            List of timesheet entries, or None if query fails.
+            None triggers fallback (default eligible), [] means no work found.
+        """
+        try:
+            result = (
+                self.supabase.table("timesheet_entries")
+                .select("work_date, regular_hours, overtime_hours")
+                .eq("employee_id", employee_id)
+                .gte("work_date", start_date.isoformat())
+                .lte("work_date", end_date.isoformat())
+                .execute()
+            )
+            return result.data if result.data is not None else []
+        except Exception as e:
+            logger.warning("Failed to query timesheet entries: %s", e)
+            # Return None to indicate query failure - triggers fallback (default eligible)
+            return None
 
     def _calculate_regular_holiday_pay(
         self,

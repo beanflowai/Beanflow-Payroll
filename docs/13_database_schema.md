@@ -695,6 +695,101 @@ Stores the original input data used for payroll calculation, enabling recalculat
 
 ---
 
+## Table: timesheet_entries (Added 2026-01-08)
+
+Stores daily time tracking entries for hourly employees, used for overtime calculation and audit purposes.
+
+### Schema
+
+```sql
+CREATE TABLE IF NOT EXISTS timesheet_entries (
+    -- Primary Key
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    -- Foreign Keys
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    payroll_record_id UUID REFERENCES payroll_records(id) ON DELETE SET NULL,
+
+    -- Work Date and Hours
+    work_date DATE NOT NULL,
+    regular_hours NUMERIC(5, 2) NOT NULL DEFAULT 0 CHECK (regular_hours >= 0),
+    overtime_hours NUMERIC(5, 2) NOT NULL DEFAULT 0 CHECK (overtime_hours >= 0),
+
+    -- Audit Fields
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by UUID REFERENCES auth.users(id),
+
+    -- Constraints
+    CONSTRAINT unique_timesheet_entry UNIQUE (employee_id, payroll_record_id, work_date)
+);
+```
+
+### Indexes
+
+```sql
+-- Employee lookup
+CREATE INDEX IF NOT EXISTS idx_timesheet_entries_employee
+    ON timesheet_entries(employee_id);
+
+-- Payroll record lookup
+CREATE INDEX IF NOT EXISTS idx_timesheet_entries_payroll_record
+    ON timesheet_entries(payroll_record_id);
+
+-- Date range queries
+CREATE INDEX IF NOT EXISTS idx_timesheet_entries_work_date
+    ON timesheet_entries(work_date);
+
+-- Company queries
+CREATE INDEX IF NOT EXISTS idx_timesheet_entries_company
+    ON timesheet_entries(company_id);
+```
+
+### RLS Policy
+
+```sql
+ALTER TABLE timesheet_entries ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own company timesheet entries"
+    ON timesheet_entries FOR SELECT
+    USING (company_id IN (SELECT id FROM companies WHERE user_id = auth.uid()::text));
+
+CREATE POLICY "Users can insert own company timesheet entries"
+    ON timesheet_entries FOR INSERT
+    WITH CHECK (company_id IN (SELECT id FROM companies WHERE user_id = auth.uid()::text));
+
+CREATE POLICY "Users can update own company timesheet entries"
+    ON timesheet_entries FOR UPDATE
+    USING (company_id IN (SELECT id FROM companies WHERE user_id = auth.uid()::text));
+
+CREATE POLICY "Users can delete own company timesheet entries"
+    ON timesheet_entries FOR DELETE
+    USING (company_id IN (SELECT id FROM companies WHERE user_id = auth.uid()::text));
+```
+
+### Purpose
+
+This table serves three main purposes:
+
+1. **Audit Trail**: Stores daily regular/overtime hours for compliance and historical reference
+2. **Overtime Calculation**: Backend uses this data to calculate overtime based on provincial rules
+3. **Holiday Pay**: Future support for holiday pay calculations based on actual hours worked
+
+### Overtime Calculation Logic
+
+The system supports two types of overtime rules by province:
+
+| Province Type | Daily Threshold | Weekly Threshold | Example |
+|---------------|-----------------|------------------|---------|
+| AB, BC, NT, NU, YT | 8 hours/day | 40-44 hours/week | OT after 8h/day OR weekly threshold |
+| ON, QC, MB, etc. | None | 40-48 hours/week | OT only after weekly threshold |
+| BC Special | Double-time after 12h/day | - | Hours > 12/day are 2x rate |
+
+**Reference**: `backend/app/services/overtime_calculator.py`
+
+---
+
 ## Helper Function: updated_at Trigger
 
 ```sql
@@ -1075,6 +1170,19 @@ ALTER TABLE employees
 ├─────────────────┤         │
 │ employee_id (FK)├─────────┘
 │ payroll_run_id  │
+└────────┬────────┘
+         │ 1:N
+         ▼
+┌─────────────────┐
+│timesheet_entries│
+├─────────────────┤
+│ id (PK)         │
+│ employee_id (FK)│
+│ payroll_record  │
+│ _id (FK)        │
+│ work_date       │
+│ regular_hours   │
+│ overtime_hours  │
 └─────────────────┘
 ```
 

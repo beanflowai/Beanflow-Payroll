@@ -189,6 +189,7 @@ def _dict_to_config(province_data: dict[str, Any]) -> HolidayPayConfig:
     eligibility = HolidayPayEligibility(
         min_employment_days=eligibility_dict.get("min_employment_days", 30),
         require_last_first_rule=eligibility_dict.get("require_last_first_rule", False),
+        min_days_worked_in_period=eligibility_dict.get("min_days_worked_in_period"),
         notes=eligibility_dict.get("notes"),
     )
 
