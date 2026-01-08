@@ -39,6 +39,7 @@ export interface DbPayGroup {
 	description: string | null;
 	pay_frequency: PayFrequency;
 	employment_type: EmploymentType;
+	province: string;
 	next_period_end: string;
 	period_start_day: PeriodStartDay;
 	leave_enabled: boolean;
@@ -62,6 +63,7 @@ export interface PayGroupCreateInput {
 	description?: string;
 	pay_frequency: PayFrequency;
 	employment_type?: EmploymentType;
+	province?: string; // Defaults to company province via DB trigger
 	next_period_end: string;
 	period_start_day?: PeriodStartDay;
 	leave_enabled?: boolean;
@@ -82,6 +84,7 @@ export interface PayGroupUpdateInput {
 	description?: string;
 	pay_frequency?: PayFrequency;
 	employment_type?: EmploymentType;
+	province?: string;
 	next_period_end?: string;
 	period_start_day?: PeriodStartDay;
 	leave_enabled?: boolean;
@@ -105,6 +108,7 @@ export function dbPayGroupToUi(db: DbPayGroup): PayGroup {
 		description: db.description ?? undefined,
 		payFrequency: db.pay_frequency,
 		employmentType: db.employment_type,
+		province: db.province as PayGroup['province'],
 		nextPeriodEnd: db.next_period_end,
 		periodStartDay: db.period_start_day,
 		leaveEnabled: db.leave_enabled,
@@ -269,7 +273,8 @@ export async function createPayGroup(
 	try {
 		getCurrentUserId(); // Verify authenticated
 
-		const record = {
+		// Build record - province is optional (DB trigger will default from company)
+		const record: Record<string, unknown> = {
 			company_id: input.company_id,
 			name: input.name,
 			description: input.description ?? null,
@@ -312,6 +317,11 @@ export async function createPayGroup(
 			deductions_config: input.deductions_config ?? DEFAULT_DEDUCTIONS_CONFIG
 		};
 
+		// Add province if provided (otherwise DB trigger will default from company)
+		if (input.province) {
+			record.province = input.province;
+		}
+
 		const { data, error } = await supabase.from(TABLE_NAME).insert(record).select().single();
 
 		if (error) {
@@ -346,6 +356,7 @@ export async function updatePayGroup(
 		if (input.description !== undefined) updateData.description = input.description;
 		if (input.pay_frequency !== undefined) updateData.pay_frequency = input.pay_frequency;
 		if (input.employment_type !== undefined) updateData.employment_type = input.employment_type;
+		if (input.province !== undefined) updateData.province = input.province;
 		if (input.next_period_end !== undefined) updateData.next_period_end = input.next_period_end;
 		if (input.period_start_day !== undefined) updateData.period_start_day = input.period_start_day;
 		if (input.leave_enabled !== undefined) updateData.leave_enabled = input.leave_enabled;
@@ -479,6 +490,7 @@ export async function duplicatePayGroup(
 			description: original.description,
 			pay_frequency: original.payFrequency,
 			employment_type: original.employmentType,
+			province: original.province,
 			next_period_end: original.nextPeriodEnd,
 			period_start_day: original.periodStartDay,
 			leave_enabled: original.leaveEnabled,

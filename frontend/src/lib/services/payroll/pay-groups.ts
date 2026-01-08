@@ -73,7 +73,8 @@ export async function getPayGroupsForPeriodEnd(
 				employeeCount: pg.employee_count ?? 0,
 				estimatedGross: 0,
 				periodStart: periodStart.toISOString().split('T')[0],
-				periodEnd
+				periodEnd,
+				province: pg.province ?? 'SK'
 			})),
 			totalEmployees: payGroups.reduce((sum, pg) => sum + (pg.employee_count ?? 0), 0),
 			totalEstimatedGross: 0

@@ -266,6 +266,7 @@ export interface PayGroupSummary {
 	name: string;
 	payFrequency: 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly';
 	employmentType: 'full_time' | 'part_time';
+	province: string;
 	employeeCount: number;
 	estimatedGross: number;
 	periodStart: string;
@@ -309,6 +310,7 @@ export interface PayrollRunPayGroup {
 	payGroupName: string;
 	payFrequency: 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly';
 	employmentType: 'full_time' | 'part_time';
+	province: string;
 	periodStart: string;
 	periodEnd: string;
 	// Aggregated totals for this pay group
@@ -319,6 +321,8 @@ export interface PayrollRunPayGroup {
 	totalEmployerCost: number;
 	// Employee records for this pay group
 	records: PayrollRecord[];
+	// Holidays for this pay group's province
+	holidays?: Holiday[];
 	// Structured configurations from pay group
 	earningsConfig?: EarningsConfig;
 	taxableBenefitsConfig?: TaxableBenefitsConfig;

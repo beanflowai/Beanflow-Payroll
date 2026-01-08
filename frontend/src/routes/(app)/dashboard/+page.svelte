@@ -3,14 +3,19 @@
 	import { companyState } from '$lib/stores/company.svelte';
 	import { listEmployees } from '$lib/services/employeeService';
 	import { getRecentCompletedRuns, getUpcomingPeriods } from '$lib/services/payroll';
+	import { listRemittancePeriods } from '$lib/services/remittanceService';
 	import { formatShortDate } from '$lib/utils/dateUtils';
 	import { formatCurrency } from '$lib/utils/formatUtils';
-	import { Skeleton, AlertBanner } from '$lib/components/shared';
+	import { Skeleton, AlertBanner, EmptyState } from '$lib/components/shared';
+	import type { PayrollRunWithGroups } from '$lib/types/payroll';
+	import type { RemittancePeriod } from '$lib/types/remittance';
 
 	// State
 	let employeeCount = $state(0);
 	let lastPayrollAmount = $state(0);
 	let nextPayDate = $state<string | null>(null);
+	let recentPayrollRuns = $state<PayrollRunWithGroups[]>([]);
+	let nextRemittance = $state<RemittancePeriod | null>(null);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 
@@ -19,11 +24,18 @@
 		isLoading = true;
 		error = null;
 		try {
-			const [employeesResult, recentRunsResult, upcomingResult] = await Promise.all([
-				listEmployees(),
-				getRecentCompletedRuns(1),
-				getUpcomingPeriods()
-			]);
+			const company = companyState.currentCompany;
+			if (!company) return;
+
+			const currentYear = new Date().getFullYear();
+
+			const [employeesResult, recentRunsResult, upcomingResult, remittancesResult] =
+				await Promise.all([
+					listEmployees(),
+					getRecentCompletedRuns(5),
+					getUpcomingPeriods(),
+					listRemittancePeriods(company.id, { year: currentYear, limit: 100 })
+				]);
 
 			if (employeesResult.error) {
 				error = employeesResult.error;
@@ -33,6 +45,15 @@
 			employeeCount = employeesResult.data?.length ?? 0;
 			lastPayrollAmount = recentRunsResult.data?.[0]?.totalNetPay ?? 0;
 			nextPayDate = upcomingResult.data?.[0]?.payDate ?? null;
+			recentPayrollRuns = recentRunsResult.data ?? [];
+
+			// Find the first pending/due_soon/overdue remittance
+			const pendingRemittances = remittancesResult.data.filter(
+				(r) => r.status === 'pending' || r.status === 'due_soon' || r.status === 'overdue'
+			);
+			// Sort by due_date ascending to get the earliest upcoming remittance
+			pendingRemittances.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+			nextRemittance = pendingRemittances.length > 0 ? pendingRemittances[0] : null;
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load dashboard data';
 		} finally {
@@ -50,6 +71,16 @@
 			isLoading = false;
 		}
 	});
+
+	// Helper to format activity date
+	function formatActivityDate(dateStr: string): string {
+		const date = new Date(dateStr);
+		return date.toLocaleDateString('en-CA', {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric'
+		});
+	}
 </script>
 
 <svelte:head>
@@ -133,14 +164,26 @@
 				</div>
 			</div>
 
-			<!-- TODO: Fetch actual CRA remittance due amount from remittance service -->
+			<!-- CRA Remittance Due -->
 			<div class="stat-card">
 				<div class="stat-icon remittance">
 					<i class="fas fa-file-invoice-dollar"></i>
 				</div>
 				<div class="stat-content">
-					<span class="stat-value">—</span>
-					<span class="stat-label">CRA Remittance Due</span>
+					{#if nextRemittance}
+						<a
+							href="/remittance"
+							class="stat-value-link"
+							title="View remittance details"
+							style="text-decoration: none;"
+						>
+							<span class="stat-value">{formatCurrency(nextRemittance.totalAmount)}</span>
+						</a>
+						<span class="stat-label">Due {formatShortDate(nextRemittance.dueDate)}</span>
+					{:else}
+						<span class="stat-value">—</span>
+						<span class="stat-label">No pending remittances</span>
+					{/if}
 				</div>
 			</div>
 		</div>
@@ -172,50 +215,31 @@
 		<section class="section">
 			<h2 class="section-title">Recent Activity</h2>
 			<div class="activity-card">
-				<div class="activity-list">
-					<div class="activity-item">
-						<div class="activity-icon success">
-							<i class="fas fa-check"></i>
-						</div>
-						<div class="activity-content">
-							<span class="activity-title">Payroll completed</span>
-							<span class="activity-meta">December 1, 2025 - 12 employees</span>
-						</div>
-						<span class="activity-amount">$45,230.00</span>
+				{#if recentPayrollRuns.length === 0}
+					<EmptyState
+						icon="fa-history"
+						title="No Recent Activity"
+						description="Your recent payroll runs and activities will appear here."
+						variant="card"
+					/>
+				{:else}
+					<div class="activity-list">
+						{#each recentPayrollRuns as run (run.id)}
+							<div class="activity-item">
+								<div class="activity-icon success">
+									<i class="fas fa-check"></i>
+								</div>
+								<div class="activity-content">
+									<span class="activity-title">Payroll completed</span>
+									<span class="activity-meta"
+										>{formatActivityDate(run.periodEnd)} - {run.totalEmployees} employees</span
+									>
+								</div>
+								<span class="activity-amount">{formatCurrency(run.totalNetPay)}</span>
+							</div>
+						{/each}
 					</div>
-
-					<div class="activity-item">
-						<div class="activity-icon info">
-							<i class="fas fa-user-plus"></i>
-						</div>
-						<div class="activity-content">
-							<span class="activity-title">New employee added</span>
-							<span class="activity-meta">November 28, 2025 - Sarah Johnson</span>
-						</div>
-					</div>
-
-					<div class="activity-item">
-						<div class="activity-icon warning">
-							<i class="fas fa-file-upload"></i>
-						</div>
-						<div class="activity-content">
-							<span class="activity-title">CRA remittance submitted</span>
-							<span class="activity-meta">November 15, 2025</span>
-						</div>
-						<span class="activity-amount">$7,890.00</span>
-					</div>
-
-					<div class="activity-item">
-						<div class="activity-icon success">
-							<i class="fas fa-check"></i>
-						</div>
-						<div class="activity-content">
-							<span class="activity-title">Payroll completed</span>
-							<span class="activity-meta">November 15, 2025 - 11 employees</span>
-						</div>
-						<span class="activity-amount">$42,150.00</span>
-					</div>
-				</div>
+				{/if}
 			</div>
 		</section>
 	</div>
@@ -301,6 +325,14 @@
 		font-size: var(--font-size-title-large);
 		font-weight: var(--font-weight-semibold);
 		color: var(--color-surface-800);
+	}
+
+	.stat-value-link {
+		transition: var(--transition-fast);
+	}
+
+	.stat-value-link:hover {
+		opacity: 0.8;
 	}
 
 	.stat-label {

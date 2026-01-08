@@ -33,10 +33,11 @@
 		updatedAt: now
 	});
 
-	// Update payGroup with companyId when company changes
+	// Update payGroup with companyId and province when company changes
 	$effect(() => {
 		if (currentCompany && payGroup.companyId !== currentCompany.id) {
 			payGroup.companyId = currentCompany.id;
+			payGroup.province = currentCompany.province;
 		}
 	});
 
@@ -88,6 +89,7 @@
 			description: payGroup.description,
 			pay_frequency: payGroup.payFrequency,
 			employment_type: payGroup.employmentType,
+			province: payGroup.province,
 			next_period_end: payGroup.nextPeriodEnd,
 			period_start_day: payGroup.periodStartDay,
 			leave_enabled: payGroup.leaveEnabled,
@@ -173,7 +175,12 @@
 
 		<!-- Sections -->
 		<div class="sections">
-			<PayGroupBasicInfoSection {payGroup} onUpdate={handleUpdate} startInEditMode={true} />
+			<PayGroupBasicInfoSection
+				{payGroup}
+				companyProvince={currentCompany?.province}
+				onUpdate={handleUpdate}
+				startInEditMode={true}
+			/>
 
 			<PayGroupOvertimeSection {payGroup} onUpdate={handleUpdate} />
 

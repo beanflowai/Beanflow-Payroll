@@ -302,10 +302,15 @@
 	}
 
 	/**
+	 * Get holidays for this pay group (prefer pay group's holidays, fallback to prop)
+	 */
+	const payGroupHolidays = $derived(payGroup.holidays ?? holidays);
+
+	/**
 	 * Check if there's a holiday for this employee's province in the current pay period
 	 */
 	function hasHolidayForEmployee(record: PayrollRecord): boolean {
-		return holidays.some((h) => h.province === record.employeeProvince);
+		return payGroupHolidays.some((h) => h.province === record.employeeProvince);
 	}
 
 	/**
@@ -334,7 +339,7 @@
 				<h3 class="text-body-content font-semibold text-surface-800 m-0">
 					{payGroup.payGroupName}
 				</h3>
-				<div class="flex items-center gap-2">
+				<div class="flex items-center gap-2 flex-wrap">
 					<span class="text-caption text-surface-600">
 						{PAY_FREQUENCY_LABELS[payGroup.payFrequency] || payGroup.payFrequency}
 					</span>
@@ -346,6 +351,16 @@
 					<span class="text-caption text-surface-600">
 						{formatPeriod(payGroup.periodStart, payGroup.periodEnd)}
 					</span>
+					{#if payGroupHolidays.length > 0}
+						<span class="w-1 h-1 rounded-full bg-surface-300"></span>
+						<span
+							class="inline-flex items-center gap-1 px-2 py-0.5 bg-warning-100 text-warning-700 rounded-full text-caption font-medium"
+							title={payGroupHolidays.map((h) => h.name).join(', ')}
+						>
+							<i class="fas fa-gift text-xs"></i>
+							{payGroupHolidays.length} Holiday{payGroupHolidays.length > 1 ? 's' : ''}
+						</span>
+					{/if}
 				</div>
 			</div>
 		</div>

@@ -144,6 +144,7 @@ class PayrollRunService:
                 cpp2_exempt,
                 vacation_config,
                 vacation_balance,
+                hire_date,
                 pay_group_id,
                 pay_groups (
                     id,

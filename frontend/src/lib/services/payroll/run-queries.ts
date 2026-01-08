@@ -92,6 +92,12 @@ async function buildPayrollRunWithGroups(
 		// Fallback to joined data for records created before snapshots were added
 		const payGroupId = record.pay_group_id_snapshot ?? payGroup?.id ?? 'unknown';
 		const payGroupName = record.pay_group_name_snapshot ?? payGroup?.name ?? 'Unknown Pay Group';
+		// Get province from pay group (employees in same pay group must have same province)
+		const payGroupProvince =
+			(payGroup as { province?: string })?.province ??
+			record.province_snapshot ??
+			record.employees.province_of_employment ??
+			'SK';
 
 		const existing = payGroupMap.get(payGroupId);
 		const uiRecord = dbPayrollRecordToUi(record);
@@ -113,6 +119,7 @@ async function buildPayrollRunWithGroups(
 					| 'semi_monthly'
 					| 'monthly',
 				employmentType: (payGroup?.employment_type ?? 'full_time') as 'full_time' | 'part_time',
+				province: payGroupProvince,
 				periodStart: runData.period_start,
 				periodEnd: runData.period_end,
 				totalEmployees: 1,
@@ -145,28 +152,36 @@ async function buildPayrollRunWithGroups(
 	const totalProvincialTax = Number(runData.total_provincial_tax);
 	const totalEmployerCost = Number(runData.total_employer_cost);
 
-	// Collect unique provinces from employee records
+	// Collect unique provinces from pay groups
 	const provinces = new Set<string>();
-	for (const record of recordsData) {
-		const province = record.province_snapshot ?? record.employees.province_of_employment;
-		if (province) {
-			provinces.add(province);
+	for (const pg of payGroupMap.values()) {
+		if (pg.province) {
+			provinces.add(pg.province);
 		}
 	}
 
-	// Query holidays for this pay period
-	const holidays = await queryHolidaysForPeriod(
+	// Query holidays for this pay period (all provinces)
+	const allHolidays = await queryHolidaysForPeriod(
 		runData.period_start,
 		runData.period_end,
 		Array.from(provinces)
 	);
+
+	// Attach holidays to each pay group based on province
+	const payGroups = Array.from(payGroupMap.values()).map((pg) => ({
+		...pg,
+		holidays: allHolidays.filter((h) => h.province === pg.province)
+	}));
+
+	// Also keep all holidays at run level for backward compatibility
+	const holidays = allHolidays;
 
 	return {
 		id: runData.id,
 		periodEnd: runData.period_end,
 		payDate: runData.pay_date,
 		status: runData.status,
-		payGroups: Array.from(payGroupMap.values()),
+		payGroups,
 		totalEmployees: runData.total_employees,
 		totalGross,
 		totalCppEmployee,
@@ -251,6 +266,7 @@ export async function getPayrollRunByPayDate(
 						name,
 						pay_frequency,
 						employment_type,
+						province,
 						earnings_config,
 						taxable_benefits_config,
 						deductions_config,
@@ -332,6 +348,7 @@ export async function getPayrollRunByPeriodEnd(
 						name,
 						pay_frequency,
 						employment_type,
+						province,
 						earnings_config,
 						taxable_benefits_config,
 						deductions_config,

@@ -194,7 +194,7 @@
 	<title>T4 Management - BeanFlow Payroll</title>
 </svelte:head>
 
-<div class="max-w-[1000px]">
+<div class="max-w-[1000px] mx-auto">
 	<header class="flex justify-between items-start mb-6 max-md:flex-col max-md:gap-4">
 		<div>
 			<div class="flex items-center gap-3 mb-1">

@@ -15,11 +15,13 @@
 		TAX_CALCULATION_METHOD_INFO,
 		calculatePayDate
 	} from '$lib/types/pay-group';
+	import type { Province } from '$lib/types/employee';
+	import { PROVINCES } from '$lib/types/company';
 	import { formatLongDate } from '$lib/utils/dateUtils';
 
 	interface Props {
 		payGroup: PayGroup;
-		companyProvince?: string;
+		companyProvince?: Province;
 		onUpdate: (payGroup: PayGroup) => void;
 		startInEditMode?: boolean;
 	}
@@ -36,6 +38,7 @@
 			description: editMode ? (pg.description ?? '') : '',
 			payFrequency: (editMode ? pg.payFrequency : 'bi_weekly') as PayFrequency,
 			employmentType: (editMode ? pg.employmentType : 'full_time') as EmploymentType,
+			province: (editMode ? pg.province : companyProvince) as Province,
 			nextPeriodEnd: editMode ? pg.nextPeriodEnd : '',
 			periodStartDay: (editMode ? pg.periodStartDay : 'monday') as PeriodStartDay,
 			leaveEnabled: editMode ? pg.leaveEnabled : true,
@@ -53,6 +56,7 @@
 	let editDescription = $state(initialEditValues.description);
 	let editPayFrequency = $state<PayFrequency>(initialEditValues.payFrequency);
 	let editEmploymentType = $state<EmploymentType>(initialEditValues.employmentType);
+	let editProvince = $state<Province>(initialEditValues.province);
 	let editNextPeriodEnd = $state(initialEditValues.nextPeriodEnd);
 	let editPeriodStartDay = $state<PeriodStartDay>(initialEditValues.periodStartDay);
 	let editLeaveEnabled = $state(initialEditValues.leaveEnabled);
@@ -66,6 +70,7 @@
 		editDescription = payGroup.description ?? '';
 		editPayFrequency = payGroup.payFrequency;
 		editEmploymentType = payGroup.employmentType;
+		editProvince = payGroup.province;
 		editNextPeriodEnd = payGroup.nextPeriodEnd;
 		editPeriodStartDay = payGroup.periodStartDay;
 		editLeaveEnabled = payGroup.leaveEnabled;
@@ -73,14 +78,14 @@
 		isEditing = true;
 	}
 
-	// Computed pay date (auto-calculated from period end based on company province)
+	// Computed pay date (auto-calculated from period end based on pay group province)
 	const computedPayDate = $derived(
-		editNextPeriodEnd ? calculatePayDate(editNextPeriodEnd, companyProvince) : ''
+		editNextPeriodEnd ? calculatePayDate(editNextPeriodEnd, editProvince) : ''
 	);
 
 	// Display pay date for view mode
 	const displayPayDate = $derived(
-		payGroup.nextPeriodEnd ? calculatePayDate(payGroup.nextPeriodEnd, companyProvince) : ''
+		payGroup.nextPeriodEnd ? calculatePayDate(payGroup.nextPeriodEnd, payGroup.province) : ''
 	);
 
 	// Cancel edit mode
@@ -96,6 +101,7 @@
 			description: editDescription.trim() || undefined,
 			payFrequency: editPayFrequency,
 			employmentType: editEmploymentType,
+			province: editProvince,
 			nextPeriodEnd: editNextPeriodEnd,
 			periodStartDay: editPeriodStartDay,
 			leaveEnabled: editLeaveEnabled,
@@ -126,6 +132,7 @@
 			const desc = editDescription;
 			const freq = editPayFrequency;
 			const empType = editEmploymentType;
+			const prov = editProvince;
 			const nextPeriodEnd = editNextPeriodEnd;
 			const startDay = editPeriodStartDay;
 			const leave = editLeaveEnabled;
@@ -139,6 +146,7 @@
 					description: desc.trim() || undefined,
 					payFrequency: freq,
 					employmentType: empType,
+					province: prov,
 					nextPeriodEnd: nextPeriodEnd,
 					periodStartDay: startDay,
 					leaveEnabled: leave,
@@ -216,6 +224,16 @@
 				</div>
 
 				<div class="form-group">
+					<label for="province">Province *</label>
+					<select id="province" bind:value={editProvince}>
+						{#each PROVINCES as prov (prov.code)}
+							<option value={prov.code}>{prov.name}</option>
+						{/each}
+					</select>
+					<p class="field-hint">Determines statutory holidays for this pay group</p>
+				</div>
+
+				<div class="form-group">
 					<label for="nextPeriodEnd">Next Period End *</label>
 					<input type="date" id="nextPeriodEnd" bind:value={editNextPeriodEnd} />
 				</div>
@@ -229,7 +247,7 @@
 						readonly
 						class="readonly-field"
 					/>
-					<p class="field-hint">Saskatchewan law: pay within 6 days of period end</p>
+					<p class="field-hint">Auto-calculated based on provincial pay delay regulations</p>
 				</div>
 
 				<div class="form-group">
@@ -306,6 +324,13 @@
 				<div class="info-item">
 					<span class="info-label">Employment Type</span>
 					<span class="info-value">{EMPLOYMENT_TYPE_INFO[payGroup.employmentType].label}</span>
+				</div>
+
+				<div class="info-item">
+					<span class="info-label">Province</span>
+					<span class="info-value"
+						>{PROVINCES.find((p) => p.code === payGroup.province)?.name ?? payGroup.province}</span
+					>
 				</div>
 
 				<div class="info-item">

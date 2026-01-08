@@ -167,6 +167,13 @@ class HolidayPayCalculator:
 
         # Process each holiday
         for holiday in holidays_in_period:
+            logger.debug(
+                "HOLIDAY CALC DEBUG: Processing holiday %s for %s %s (province=%s)",
+                holiday.get("name"),
+                employee.get("first_name"),
+                employee.get("last_name"),
+                province,
+            )
             holiday_date_str = holiday.get("holiday_date", "")
             holiday_name = holiday.get("name", "Unknown")
 
@@ -191,7 +198,7 @@ class HolidayPayCalculator:
                 is_eligible = False
                 holiday_detail["eligible"] = False
                 holiday_detail["exempt_by_hr"] = True
-                logger.info(
+                logger.debug(
                     "Employee %s %s exempt from Regular holiday pay on %s (HR override)",
                     employee.get("first_name"),
                     employee.get("last_name"),
@@ -203,7 +210,7 @@ class HolidayPayCalculator:
 
             if not is_eligible and not holiday_pay_exempt:
                 reason = self._get_ineligibility_reason(employee, holiday_date, config)
-                logger.info(
+                logger.debug(
                     "Employee %s %s not eligible for Regular holiday pay on %s (%s)",
                     employee.get("first_name"),
                     employee.get("last_name"),
@@ -246,7 +253,7 @@ class HolidayPayCalculator:
 
         total_holiday_pay = regular_holiday_pay + premium_holiday_pay
 
-        logger.info(
+        logger.debug(
             "Holiday pay for %s %s: regular=$%.2f, premium=$%.2f, total=$%.2f",
             employee.get("first_name"),
             employee.get("last_name"),

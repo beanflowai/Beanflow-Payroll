@@ -272,7 +272,6 @@ async def create_tax_claim(
         result = (
             supabase.table("employee_tax_claims")
             .insert(record)
-            .select()
             .execute()
         )
 
@@ -377,7 +376,6 @@ async def update_tax_claim(
             .eq("user_id", current_user.id)
             .eq("company_id", company_id)
             .eq("tax_year", tax_year)
-            .select()
             .execute()
         )
 

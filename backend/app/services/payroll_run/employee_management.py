@@ -98,7 +98,7 @@ class EmployeeManagement:
         employees_result = self.supabase.table("employees").select(
             "id, first_name, last_name, province_of_employment, pay_group_id, "
             "annual_salary, hourly_rate, federal_additional_claims, provincial_additional_claims, "
-            "is_cpp_exempt, is_ei_exempt, cpp2_exempt, vacation_config"
+            "is_cpp_exempt, is_ei_exempt, cpp2_exempt, vacation_config, hire_date"
         ).eq("user_id", self.user_id).eq("company_id", self.company_id).in_(
             "pay_group_id", pay_group_ids
         ).is_("termination_date", "null").execute()
@@ -200,7 +200,7 @@ class EmployeeManagement:
         employee_result = self.supabase.table("employees").select(
             "id, first_name, last_name, province_of_employment, pay_group_id, "
             "annual_salary, hourly_rate, federal_additional_claims, provincial_additional_claims, "
-            "is_cpp_exempt, is_ei_exempt, cpp2_exempt, vacation_config"
+            "is_cpp_exempt, is_ei_exempt, cpp2_exempt, vacation_config, hire_date"
         ).eq("id", employee_id).eq("user_id", self.user_id).eq(
             "company_id", self.company_id
         ).single().execute()

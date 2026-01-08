@@ -304,7 +304,7 @@ class PayrollInputPreparer:
             if employee.get("annual_salary") and not employee.get("hourly_rate"):
                 unpaid_sick_deduction = unpaid_sick_hours * hourly_rate
                 gross_regular -= unpaid_sick_deduction
-                logger.info(
+                logger.debug(
                     "SICK LEAVE: Employee %s %s (salaried) - "
                     "sick_hours=%s, balance_days=%s, balance_hours=%s, paid=%s, unpaid=%s, "
                     "hourly_rate=%s, deduction=%s, new_gross=%s",
@@ -316,7 +316,7 @@ class PayrollInputPreparer:
             # For hourly employees: add only paid sick hours
             elif employee.get("hourly_rate"):
                 gross_regular += sick_pay
-                logger.info(
+                logger.debug(
                     "SICK LEAVE: Employee %s %s (hourly) - "
                     "sick_hours=%s, balance_days=%s, balance_hours=%s, paid=%s, unpaid=%s, sick_pay=%s",
                     employee.get('first_name'), employee.get('last_name'),
@@ -356,6 +356,17 @@ class PayrollInputPreparer:
             h for h in holidays_in_period
             if h.get("province") == province_code
         ]
+
+        # Debug logging to track holidays count
+        logger.debug(
+            "HOLIDAY DEBUG: Employee %s %s (province=%s): "
+            "total_holidays_in_period=%d, employee_holidays=%d",
+            employee.get("first_name"),
+            employee.get("last_name"),
+            province_code,
+            len(holidays_in_period),
+            len(employee_holidays),
+        )
 
         holiday_result = self.holiday_calculator.calculate_holiday_pay(
             employee=employee,
@@ -408,7 +419,7 @@ class PayrollInputPreparer:
         provincial_bpa = get_provincial_bpa(province_code, tax_year, pay_date)
         provincial_claim = provincial_bpa + provincial_additional
 
-        logger.info(
+        logger.debug(
             "PAYROLL DEBUG: Employee %s %s (province=%s): "
             "federal_bpa=%s, additional=%s -> %s, "
             "provincial_bpa=%s, additional=%s -> %s, gross=%s",

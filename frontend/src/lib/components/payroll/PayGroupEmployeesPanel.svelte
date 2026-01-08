@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PayGroupSummary } from '$lib/types/payroll';
-	import type { Employee } from '$lib/types/employee';
+	import type { Employee, Province } from '$lib/types/employee';
 	import { PROVINCE_LABELS } from '$lib/types/employee';
 	import SlideOverPanel from '$lib/components/ui/SlideOverPanel.svelte';
 	import {
@@ -18,6 +18,9 @@
 	}
 
 	let { payGroup, isOpen, onClose, onEmployeesChanged }: Props = $props();
+
+	// Pay group province for filtering (default to SK if not set)
+	const payGroupProvince = $derived((payGroup.province ?? 'SK') as Province);
 
 	// State
 	let assignedEmployees = $state<Employee[]>([]);
@@ -42,9 +45,10 @@
 		selectedIds = new Set();
 
 		try {
+			// Filter unassigned employees by pay group province
 			const [assignedResult, unassignedResult] = await Promise.all([
 				getEmployeesByPayGroup(payGroup.id),
-				getUnassignedEmployees()
+				getUnassignedEmployees({ province: payGroupProvince })
 			]);
 
 			if (assignedResult.error) {
@@ -90,7 +94,12 @@
 		error = null;
 
 		try {
-			const result = await assignEmployeesToPayGroup(Array.from(selectedIds), payGroup.id);
+			// Pass pay group province for validation
+			const result = await assignEmployeesToPayGroup(
+				Array.from(selectedIds),
+				payGroup.id,
+				payGroupProvince
+			);
 			if (result.error) {
 				error = result.error;
 				return;
@@ -145,7 +154,12 @@
 	}
 </script>
 
-<SlideOverPanel {isOpen} title="{payGroup.name} Employees" width="md" onClose={handleClose}>
+<SlideOverPanel
+	{isOpen}
+	title="{payGroup.name} Employees ({PROVINCE_LABELS[payGroupProvince] ?? payGroupProvince})"
+	width="md"
+	onClose={handleClose}
+>
 	{#if error}
 		<div class="flex items-center gap-2 p-3 bg-error-50 text-error-700 rounded-lg mb-4">
 			<i class="fas fa-exclamation-circle"></i>
@@ -234,7 +248,8 @@
 					Add Employees
 					{#if unassignedEmployees.length > 0}
 						<span class="text-auxiliary-text font-normal text-surface-500"
-							>({unassignedEmployees.length} available)</span
+							>({unassignedEmployees.length} in {PROVINCE_LABELS[payGroupProvince] ??
+								payGroupProvince})</span
 						>
 					{/if}
 				</span>
@@ -246,9 +261,11 @@
 					{#if unassignedEmployees.length === 0}
 						<div class="flex flex-col items-center py-8 px-4 text-center">
 							<i class="fas fa-info-circle text-2xl text-surface-400 mb-3"></i>
-							<p class="text-surface-600 m-0 mb-1">No unassigned employees available.</p>
+							<p class="text-surface-600 m-0 mb-1">
+								No unassigned employees in {PROVINCE_LABELS[payGroupProvince] ?? payGroupProvince}.
+							</p>
 							<p class="text-auxiliary-text text-surface-500 m-0">
-								All employees are already assigned to a pay group.
+								Only employees in the same province as the pay group can be added.
 							</p>
 							<a
 								href="/employees"

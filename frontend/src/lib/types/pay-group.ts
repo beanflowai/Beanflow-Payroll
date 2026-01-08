@@ -3,6 +3,7 @@
  *
  * Pay Groups are "Policy Templates" that define payroll configuration including:
  * - Pay schedule (frequency, dates)
+ * - Province (defaults to company province, determines holidays)
  * - Statutory deduction defaults (CPP/EI exemptions)
  * - Overtime & bank time policies
  * - WCB/workers compensation configuration
@@ -11,6 +12,8 @@
  * - Taxable benefits configuration (automobile, housing)
  * - Deductions configuration (RRSP, union dues, custom)
  */
+
+import type { Province } from './employee';
 
 // Pay frequency options
 export type PayFrequency = 'weekly' | 'bi_weekly' | 'semi_monthly' | 'monthly';
@@ -415,6 +418,9 @@ export interface PayGroup {
 	payFrequency: PayFrequency;
 	employmentType: EmploymentType;
 
+	// Province (defaults to company province, determines holidays)
+	province: Province;
+
 	// Pay Schedule
 	nextPeriodEnd: string; // ISO date string (period end, NOT pay date)
 	periodStartDay: PeriodStartDay;
@@ -460,6 +466,7 @@ export interface PayGroupFormData {
 	description?: string;
 	payFrequency: PayFrequency;
 	employmentType: EmploymentType;
+	province: Province;
 	nextPeriodEnd: string;
 	periodStartDay: PeriodStartDay;
 	leaveEnabled: boolean;
@@ -655,15 +662,19 @@ export const DEFAULT_DEDUCTIONS_CONFIG: DeductionsConfig = {
 
 /**
  * Create a new PayGroup with default values
+ * @param companyId - The company ID
+ * @param companyProvince - The company's province (used as default for pay group)
  */
 export function createDefaultPayGroup(
-	companyId: string
+	companyId: string,
+	companyProvince: Province = 'SK'
 ): Omit<PayGroup, 'id' | 'createdAt' | 'updatedAt'> {
 	return {
 		companyId,
 		name: '',
 		payFrequency: 'bi_weekly',
 		employmentType: 'full_time',
+		province: companyProvince,
 		nextPeriodEnd: '',
 		periodStartDay: 'monday',
 		leaveEnabled: true,

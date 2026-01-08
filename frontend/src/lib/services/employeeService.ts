@@ -461,6 +461,7 @@ export async function getEmployeesByPayGroup(payGroupId: string): Promise<Employ
 export interface UnassignedEmployeeFilters {
 	employmentType?: EmploymentType;
 	payFrequency?: PayFrequency;
+	province?: Province;
 }
 
 /**
@@ -489,6 +490,9 @@ export async function getUnassignedEmployees(
 		if (filters?.payFrequency) {
 			query = query.eq('pay_frequency', filters.payFrequency);
 		}
+		if (filters?.province) {
+			query = query.eq('province_of_employment', filters.province);
+		}
 
 		const { data, error, count } = await query.order('last_name').order('first_name');
 
@@ -510,14 +514,46 @@ export async function getUnassignedEmployees(
 
 /**
  * Assign multiple employees to a pay group
+ * @param employeeIds - List of employee IDs to assign
+ * @param payGroupId - Pay group ID to assign to
+ * @param payGroupProvince - Province of the pay group (for validation)
  */
 export async function assignEmployeesToPayGroup(
 	employeeIds: string[],
-	payGroupId: string
-): Promise<{ error: string | null }> {
+	payGroupId: string,
+	payGroupProvince?: Province
+): Promise<{ error: string | null; mismatchedEmployees?: string[] }> {
 	try {
 		const userId = getCurrentUserId();
 		const companyId = getCurrentCompanyId();
+
+		// If pay group province is provided, validate employee provinces match
+		if (payGroupProvince) {
+			const { data: employees, error: fetchError } = await supabase
+				.from(TABLE_NAME)
+				.select('id, first_name, last_name, province_of_employment')
+				.eq('user_id', userId)
+				.eq('company_id', companyId)
+				.in('id', employeeIds);
+
+			if (fetchError) {
+				console.error('Failed to fetch employees for validation:', fetchError);
+				return { error: fetchError.message };
+			}
+
+			// Check for province mismatches
+			const mismatched = (employees ?? []).filter(
+				(e) => e.province_of_employment !== payGroupProvince
+			);
+
+			if (mismatched.length > 0) {
+				const names = mismatched.map((e) => `${e.first_name} ${e.last_name}`);
+				return {
+					error: `Cannot assign employees from different provinces. The following employees are not in ${payGroupProvince}: ${names.join(', ')}`,
+					mismatchedEmployees: mismatched.map((e) => e.id)
+				};
+			}
+		}
 
 		const { error } = await supabase
 			.from(TABLE_NAME)

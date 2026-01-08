@@ -21,11 +21,21 @@ from app.core.exceptions import (
 )
 from app.core.supabase_client import SupabaseClient
 
+# Get config first to set log level
+_config = get_config()
+_log_level = getattr(logging, _config.log_level.upper(), logging.INFO)
+
 # Configure logging
+# Set root logger to INFO to suppress third-party DEBUG logs
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
+
+# Set DEBUG level only for our app
+if _log_level == logging.DEBUG:
+    logging.getLogger("app").setLevel(logging.DEBUG)
+
 logger = logging.getLogger(__name__)
 
 
@@ -33,9 +43,8 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan events"""
     # Startup
-    config = get_config()
-    logger.info(f"Starting {config.app_name} v{__version__}")
-    logger.info(f"Debug mode: {config.debug}")
+    logger.info(f"Starting {_config.app_name} v{__version__}")
+    logger.info(f"Debug mode: {_config.debug}")
 
     # Initialize Supabase client
     SupabaseClient.get_client()

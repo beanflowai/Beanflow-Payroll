@@ -101,6 +101,29 @@
 		totalPayrollCost: 'Total Gross + Total Employer Cost',
 		totalRemittance: 'Amount to remit to CRA: Employee & Employer CPP/EI + Income Taxes'
 	});
+
+	// Validation disabled condition
+	const isValidationDisabled = $derived(
+		payrollRun.totalGross === 0 || payrollRun.totalRemittance === 0
+	);
+
+	// Combined disabled state for button
+	const isFinalizeDisabled = $derived(isFinalizing || hasModifiedRecords || isValidationDisabled);
+
+	// Dynamic tooltip message based on disabled reason
+	const finalizeTooltip = $derived(
+		isFinalizing
+			? 'Finalizing...'
+			: hasModifiedRecords
+				? 'Calculate first to save changes'
+				: payrollRun.totalGross === 0 && payrollRun.totalRemittance === 0
+					? 'Cannot finalize: No earnings or remittances'
+					: payrollRun.totalGross === 0
+						? 'Cannot finalize: Total gross pay is zero'
+						: payrollRun.totalRemittance === 0
+							? 'Cannot finalize: Total remittance is zero'
+							: 'Finalize payroll run'
+	);
 </script>
 
 <div class="flex flex-col gap-5">
@@ -159,8 +182,8 @@
 				<button
 					class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-base font-medium cursor-pointer transition-all bg-gradient-to-br from-blue-600 to-purple-600 border-none text-white hover:opacity-90 hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed"
 					onclick={onFinalize}
-					disabled={isFinalizing || hasModifiedRecords}
-					title={hasModifiedRecords ? 'Calculate first to save changes' : 'Finalize payroll run'}
+					disabled={isFinalizeDisabled}
+					title={finalizeTooltip}
 				>
 					{#if isFinalizing}
 						<i class="fas fa-spinner fa-spin"></i>
@@ -182,6 +205,23 @@
 				<span>
 					<strong>Unsaved Changes:</strong> You have modified employee data. Click
 					<strong>Calculate</strong> to update CPP, EI, and tax calculations.
+				</span>
+			</div>
+		{/if}
+
+		<!-- Validation Warning Banner -->
+		{#if isValidationDisabled}
+			<div
+				class="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-300 rounded-lg text-red-800 text-base"
+			>
+				<i class="fas fa-exclamation-circle text-red-600 text-lg"></i>
+				<span>
+					<strong>Cannot Finalize:</strong>
+					{payrollRun.totalGross === 0 && payrollRun.totalRemittance === 0
+						? 'Total gross pay and remittance are both zero. Add employees or earnings before finalizing.'
+						: payrollRun.totalGross === 0
+							? 'Total gross pay is zero. Add employees or earnings before finalizing.'
+							: 'Total remittance is zero. Review payroll calculations before finalizing.'}
 				</span>
 			</div>
 		{/if}

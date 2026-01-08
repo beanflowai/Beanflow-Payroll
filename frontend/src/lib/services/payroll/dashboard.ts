@@ -128,7 +128,8 @@ export async function getUpcomingPeriods(): Promise<PayrollServiceResult<Upcomin
 				employeeCount: pg.employee_count ?? 0,
 				estimatedGross: 0, // Would need salary data to estimate
 				periodStart: periodStart.toISOString().split('T')[0],
-				periodEnd: periodEnd
+				periodEnd: periodEnd,
+				province: pg.province ?? 'SK'
 			};
 
 			if (existing) {

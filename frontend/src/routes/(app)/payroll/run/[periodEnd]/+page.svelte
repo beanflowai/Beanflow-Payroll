@@ -464,7 +464,7 @@
 	<PayrollNotFound payDateFormatted={formatFullDate(periodEnd)} onBack={handleBack} />
 {:else if payrollRun && isDraft}
 	<!-- Draft View - Editable Payroll Run (includes initial setup) -->
-	<div class="max-w-[1200px]">
+	<div class="max-w-[1200px] mx-auto">
 		<DraftPayrollView
 			{payrollRun}
 			{hasModifiedRecords}
@@ -482,7 +482,7 @@
 	</div>
 {:else if payrollRun}
 	<!-- Payroll Run View (pending_approval, approved, paid) -->
-	<div class="max-w-[1200px]">
+	<div class="max-w-[1200px] mx-auto">
 		<PayrollPageHeader
 			payDateFormatted={formatFullDate(payrollRun.payDate)}
 			payGroupCount={payrollRun.payGroups.length}
@@ -592,7 +592,8 @@
 				employeeCount: payGroupData.totalEmployees,
 				estimatedGross: payGroupData.totalGross,
 				periodStart: payGroupData.periodStart,
-				periodEnd: payGroupData.periodEnd
+				periodEnd: payGroupData.periodEnd,
+				province: payGroupData.province
 			}}
 			{unassignedEmployees}
 			{isAssigning}
