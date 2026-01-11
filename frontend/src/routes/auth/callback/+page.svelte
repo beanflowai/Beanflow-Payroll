@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { supabase } from '$lib/api/supabase';
+	import { browser } from '$app/environment';
 
 	let status = $state<'loading' | 'success' | 'error'>('loading');
 	let errorMessage = $state<string | null>(null);
@@ -22,14 +23,49 @@
 			}
 
 			if (session) {
+				// Clear retry flag on successful authentication
+				if (browser) sessionStorage.removeItem('oauth_retry');
 				status = 'success';
 				goto('/dashboard');
 			} else {
-				status = 'error';
-				errorMessage = 'No session found';
-				setTimeout(() => goto('/login'), 3000);
+				// Cross-domain PKCE issue: OAuth initiated from Marketing cannot get session here
+				// Check if we've already retried (prevent infinite loop)
+				const hasRetried = browser && sessionStorage.getItem('oauth_retry');
+
+				if (hasRetried) {
+					// Already retried but still failed, show error
+					sessionStorage.removeItem('oauth_retry');
+					status = 'error';
+					errorMessage = 'Authentication failed. Please try again.';
+					setTimeout(() => goto('/login'), 3000);
+					return;
+				}
+
+				// Mark as retried before initiating OAuth
+				if (browser) sessionStorage.setItem('oauth_retry', 'true');
+
+				// Auto-retry OAuth from Payroll domain (silent authentication)
+				console.log('No session found, auto-retrying OAuth from Payroll domain...');
+
+				const { error: retryError } = await supabase.auth.signInWithOAuth({
+					provider: 'google',
+					options: {
+						redirectTo: `${window.location.origin}/auth/callback`
+						// Note: Not setting prompt parameter allows Google to pass through silently
+						// since user just selected their account moments ago
+					}
+				});
+
+				if (retryError) {
+					sessionStorage.removeItem('oauth_retry');
+					status = 'error';
+					errorMessage = retryError.message;
+					setTimeout(() => goto('/login'), 3000);
+				}
+				// If successful, browser will redirect to Google OAuth
 			}
 		} catch (err) {
+			if (browser) sessionStorage.removeItem('oauth_retry');
 			status = 'error';
 			errorMessage = err instanceof Error ? err.message : 'Authentication failed';
 			setTimeout(() => goto('/login'), 3000);

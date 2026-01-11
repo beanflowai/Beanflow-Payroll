@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import type { Employee } from '$lib/types/employee';
 	import EmployeeForm from '$lib/components/employees/EmployeeForm.svelte';
+	import { markStepComplete } from '$lib/stores/onboarding.svelte';
 
 	// State
 	let formRef = $state<EmployeeForm | null>(null);
@@ -18,7 +19,12 @@
 	}
 
 	// Handle successful creation
-	function handleSuccess(employee: Employee) {
+	async function handleSuccess(employee: Employee) {
+		// Mark onboarding steps as complete
+		await markStepComplete('employees');
+		if (employee.payGroupId) {
+			await markStepComplete('employee_assignment');
+		}
 		goto(`/employees/${employee.id}`);
 	}
 

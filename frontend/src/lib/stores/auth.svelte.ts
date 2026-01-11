@@ -108,6 +108,9 @@ export async function logout(): Promise<void> {
 			_isAuthenticated = false;
 			// Clear company context on logout
 			clearCompanyContext();
+			// Redirect to marketing homepage after logout
+			const marketingUrl = import.meta.env.VITE_MARKETING_URL || 'https://www.beanflow.ai';
+			window.location.href = marketingUrl;
 		}
 	} catch (err) {
 		_error = err instanceof Error ? err.message : 'Failed to logout';

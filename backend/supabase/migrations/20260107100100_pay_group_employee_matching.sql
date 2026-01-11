@@ -77,7 +77,7 @@ CREATE INDEX IF NOT EXISTS idx_pay_groups_compensation_type ON pay_groups(compen
 
 DROP VIEW IF EXISTS pay_groups_with_counts;
 
-CREATE VIEW pay_groups_with_counts AS
+CREATE VIEW pay_groups_with_counts WITH (security_invoker = on) AS
 SELECT
     pg.id,
     pg.company_id,
@@ -107,6 +107,9 @@ LEFT JOIN (
     WHERE termination_date IS NULL
     GROUP BY pay_group_id
 ) employee_counts ON pg.id = employee_counts.pay_group_id;
+
+COMMENT ON VIEW pay_groups_with_counts IS
+    'Pay groups with employee count. Uses security_invoker to enforce RLS.';
 
 -- ============================================================================
 -- 4. Update v_pay_group_summary view to include compensation_type

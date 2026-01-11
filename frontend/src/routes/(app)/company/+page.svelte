@@ -1,6 +1,7 @@
 <script lang="ts">
 	// Company page - Tab-based layout for company settings
 	// Phase 0 static UI prototype with 3 tabs: Profile, Pay Groups, Integration
+	import { page } from '$app/stores';
 	import ProfileTab from '$lib/components/company/ProfileTab.svelte';
 	import PayGroupsTab from '$lib/components/company/PayGroupsTab.svelte';
 	import IntegrationTab from '$lib/components/company/IntegrationTab.svelte';
@@ -20,11 +21,29 @@
 		{ id: 'integration', label: 'Integration', icon: 'fa-link' }
 	];
 
-	// Active tab state
-	let activeTab = $state<TabId>('profile');
+	// Valid tabs for validation
+	const validTabs: TabId[] = ['profile', 'pay-groups', 'integration'];
+
+	// Read initial tab from URL query parameter
+	function getTabFromUrl(): TabId {
+		const tabParam = $page.url.searchParams.get('tab') as TabId | null;
+		return tabParam && validTabs.includes(tabParam) ? tabParam : 'profile';
+	}
+
+	// Active tab state - initialized from URL
+	let activeTab = $state<TabId>(getTabFromUrl());
+
+	// Sync with URL changes (e.g., back/forward navigation)
+	$effect(() => {
+		activeTab = getTabFromUrl();
+	});
 
 	function handleTabClick(tabId: TabId) {
 		activeTab = tabId;
+		// Update URL without full navigation
+		const url = new URL(window.location.href);
+		url.searchParams.set('tab', tabId);
+		window.history.replaceState({}, '', url.toString());
 	}
 </script>
 

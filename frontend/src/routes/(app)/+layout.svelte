@@ -6,6 +6,7 @@
 	import AddCompanyModal from '$lib/components/company/AddCompanyModal.svelte';
 	import { initializeAuth, logout, authState } from '$lib/stores/auth.svelte';
 	import { initializeCompanyContext, companyState } from '$lib/stores/company.svelte';
+	import { refreshOnboardingStatus } from '$lib/stores/onboarding.svelte';
 
 	interface Props {
 		children: Snippet;
@@ -30,6 +31,10 @@
 
 		// Initialize company context after auth
 		await initializeCompanyContext();
+
+		// Refresh onboarding status to auto-detect completed steps
+		// This works even without a company (returns empty progress)
+		await refreshOnboardingStatus();
 
 		// If no companies exist, show the add company modal
 		if (!companyState.hasCompanies) {

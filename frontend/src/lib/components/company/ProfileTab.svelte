@@ -15,6 +15,7 @@
 		type CompanyCreateInput
 	} from '$lib/services/companyService';
 	import { companyState, refreshCompanies } from '$lib/stores/company.svelte';
+	import { markStepComplete } from '$lib/stores/onboarding.svelte';
 
 	interface Props {
 		onSave?: () => void;
@@ -160,6 +161,8 @@
 			}
 			// Refresh companies list to update CompanySwitcher
 			await refreshCompanies();
+			// Mark onboarding step as complete
+			await markStepComplete('company_profile');
 			onSave?.();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to save company';

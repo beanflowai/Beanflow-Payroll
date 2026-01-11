@@ -6,6 +6,7 @@
 	import { getEmployee, deleteEmployee } from '$lib/services/employeeService';
 	import EmployeeForm from '$lib/components/employees/EmployeeForm.svelte';
 	import { Skeleton, AlertBanner } from '$lib/components/shared';
+	import { markStepComplete } from '$lib/stores/onboarding.svelte';
 
 	// Get employee ID from route params
 	const employeeId = $derived($page.params.id);
@@ -66,8 +67,12 @@
 	}
 
 	// Handle successful update
-	function handleSuccess(updatedEmployee: Employee) {
+	async function handleSuccess(updatedEmployee: Employee) {
 		employee = updatedEmployee;
+		// Mark onboarding step as complete if employee was assigned to a pay group
+		if (updatedEmployee.payGroupId) {
+			await markStepComplete('employee_assignment');
+		}
 		// Show success toast or notification
 		goto('/employees');
 	}

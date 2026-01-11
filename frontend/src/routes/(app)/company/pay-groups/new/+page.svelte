@@ -5,6 +5,7 @@
 	import { createDefaultPayGroup } from '$lib/types/pay-group';
 	import { createPayGroup, type PayGroupCreateInput } from '$lib/services/payGroupService';
 	import { companyState } from '$lib/stores/company.svelte';
+	import { markStepComplete } from '$lib/stores/onboarding.svelte';
 	import PayGroupDetailHeader from '$lib/components/company/pay-group-detail/PayGroupDetailHeader.svelte';
 	import PayGroupBasicInfoSection from '$lib/components/company/pay-group-detail/PayGroupBasicInfoSection.svelte';
 	import PayGroupOvertimeSection from '$lib/components/company/pay-group-detail/PayGroupOvertimeSection.svelte';
@@ -109,6 +110,8 @@
 				return;
 			}
 			if (result.data) {
+				// Mark onboarding step as complete
+				await markStepComplete('pay_groups');
 				// Navigate to the detail page
 				goto(`/company/pay-groups/${result.data.id}`);
 			}
