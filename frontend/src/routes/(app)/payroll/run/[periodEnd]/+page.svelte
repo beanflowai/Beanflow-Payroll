@@ -39,6 +39,7 @@
 	} from '$lib/services/payroll';
 	import { getUnassignedEmployees, assignEmployeesToPayGroup } from '$lib/services/employeeService';
 	import { formatFullDate } from '$lib/utils/dateUtils';
+	import { markStepComplete } from '$lib/stores/onboarding.svelte';
 	// formatCurrency available if needed for payroll display
 
 	// ===========================================
@@ -182,6 +183,9 @@
 				...payrollRun,
 				status: 'approved'
 			};
+
+			// Mark onboarding step as complete
+			await markStepComplete('payroll_run');
 		} catch (err) {
 			alert(`Failed to approve: ${err instanceof Error ? err.message : 'Unknown error'}`);
 		} finally {

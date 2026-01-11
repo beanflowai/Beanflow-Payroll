@@ -9,6 +9,10 @@
 	import { Skeleton, AlertBanner, EmptyState } from '$lib/components/shared';
 	import type { PayrollRunWithGroups } from '$lib/types/payroll';
 	import type { RemittancePeriod } from '$lib/types/remittance';
+	import { onboardingState, loadOnboardingProgress, dismissOnboarding } from '$lib/stores/onboarding.svelte';
+	import { OnboardingBanner, OnboardingProgressCard, GettingStartedSection } from '$lib/components/onboarding';
+	import { ONBOARDING_STEPS } from '$lib/config/onboardingSteps';
+	import { goto } from '$app/navigation';
 
 	// State
 	let employeeCount = $state(0);
@@ -18,6 +22,9 @@
 	let nextRemittance = $state<RemittancePeriod | null>(null);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
+	const showOnboarding = $derived(() =>
+		!!onboardingState.progress && !onboardingState.isCompleted && !onboardingState.isDismissed
+	);
 
 	// Load dashboard data
 	async function loadDashboardData() {
@@ -70,6 +77,8 @@
 			// No company selected and not loading - stop spinner
 			isLoading = false;
 		}
+		// Load onboarding progress (works with or without company)
+		loadOnboardingProgress();
 	});
 
 	// Helper to format activity date
@@ -93,17 +102,29 @@
 			<h1 class="page-title">Dashboard</h1>
 			<p class="page-subtitle">Welcome to BeanFlow Payroll</p>
 		</header>
-		<!-- Skeleton Stats Grid -->
+		<!-- Skeleton Stats Grid - conditional based on onboarding -->
 		<div class="stats-grid">
-			{#each Array(4) as _unused, idx (idx)}
+			{#if onboardingState.isCompleted || onboardingState.isDismissed || !onboardingState.progress}
+				<!-- Post-onboarding: show 4 regular stat skeletons -->
+				{#each Array(4) as _unused, idx (idx)}
+					<div class="stat-card">
+						<Skeleton variant="circular" width="48px" height="48px" />
+						<div class="stat-content" style="flex:1">
+							<Skeleton variant="text" width="60%" height="28px" />
+							<Skeleton variant="text" width="80%" height="14px" />
+						</div>
+					</div>
+				{/each}
+			{:else}
+				<!-- During onboarding: show only onboarding card skeleton -->
 				<div class="stat-card">
 					<Skeleton variant="circular" width="48px" height="48px" />
 					<div class="stat-content" style="flex:1">
-						<Skeleton variant="text" width="60%" height="28px" />
-						<Skeleton variant="text" width="80%" height="14px" />
+						<Skeleton variant="text" width="40%" height="28px" />
+						<Skeleton variant="text" width="70%" height="14px" />
 					</div>
 				</div>
-			{/each}
+			{/if}
 		</div>
 	</div>
 {:else if error}
@@ -128,88 +149,117 @@
 			<p class="page-subtitle">Welcome to BeanFlow Payroll</p>
 		</header>
 
+		{#if showOnboarding && !onboardingState.isDismissed && onboardingState.progress}
+			<OnboardingBanner
+				progress={onboardingState.progress}
+				onDismiss={() => dismissOnboarding()}
+				onContinue={() => {
+					const nextStep = ONBOARDING_STEPS.find(s => !onboardingState.progress?.completedSteps.includes(s.id));
+					if (nextStep) goto(nextStep.route);
+				}}
+			/>
+		{/if}
+
 		<!-- Stats Grid -->
 		<div class="stats-grid">
-			<div class="stat-card">
-				<div class="stat-icon employees">
-					<i class="fas fa-users"></i>
+			{#if showOnboarding && onboardingState.progress}
+				<!-- During onboarding: show only onboarding progress card -->
+				<OnboardingProgressCard
+					progress={onboardingState.progress}
+					onStepClick={(stepId) => {
+						const step = ONBOARDING_STEPS.find(s => s.id === stepId);
+						if (step) goto(step.route);
+					}}
+				/>
+			{:else}
+				<!-- After onboarding: show regular stat cards -->
+				<div class="stat-card">
+					<div class="stat-icon employees">
+						<i class="fas fa-users"></i>
+					</div>
+					<div class="stat-content">
+						<span class="stat-value">{employeeCount}</span>
+						<span class="stat-label">Active Employees</span>
+					</div>
 				</div>
-				<div class="stat-content">
-					<span class="stat-value">{employeeCount}</span>
-					<span class="stat-label">Active Employees</span>
-				</div>
-			</div>
 
-			<div class="stat-card">
-				<div class="stat-icon payroll">
-					<i class="fas fa-dollar-sign"></i>
-				</div>
-				<div class="stat-content">
-					<span class="stat-value"
-						>{lastPayrollAmount > 0
-							? formatCurrency(lastPayrollAmount, { maximumFractionDigits: 0 })
-							: '—'}</span
-					>
-					<span class="stat-label">Last Payroll</span>
-				</div>
-			</div>
-
-			<div class="stat-card">
-				<div class="stat-icon next-run">
-					<i class="fas fa-calendar-alt"></i>
-				</div>
-				<div class="stat-content">
-					<span class="stat-value">{nextPayDate ? formatShortDate(nextPayDate) : '—'}</span>
-					<span class="stat-label">Next Pay Date</span>
-				</div>
-			</div>
-
-			<!-- CRA Remittance Due -->
-			<div class="stat-card">
-				<div class="stat-icon remittance">
-					<i class="fas fa-file-invoice-dollar"></i>
-				</div>
-				<div class="stat-content">
-					{#if nextRemittance}
-						<a
-							href="/remittance"
-							class="stat-value-link"
-							title="View remittance details"
-							style="text-decoration: none;"
+				<div class="stat-card">
+					<div class="stat-icon payroll">
+						<i class="fas fa-dollar-sign"></i>
+					</div>
+					<div class="stat-content">
+						<span class="stat-value"
+							>{lastPayrollAmount > 0
+								? formatCurrency(lastPayrollAmount, { maximumFractionDigits: 0 })
+								: '—'}</span
 						>
-							<span class="stat-value">{formatCurrency(nextRemittance.totalAmount)}</span>
-						</a>
-						<span class="stat-label">Due {formatShortDate(nextRemittance.dueDate)}</span>
-					{:else}
-						<span class="stat-value">—</span>
-						<span class="stat-label">No pending remittances</span>
-					{/if}
+						<span class="stat-label">Last Payroll</span>
+					</div>
 				</div>
-			</div>
+
+				<div class="stat-card">
+					<div class="stat-icon next-run">
+						<i class="fas fa-calendar-alt"></i>
+					</div>
+					<div class="stat-content">
+						<span class="stat-value">{nextPayDate ? formatShortDate(nextPayDate) : '—'}</span>
+						<span class="stat-label">Next Pay Date</span>
+					</div>
+				</div>
+
+				<!-- CRA Remittance Due -->
+				<div class="stat-card">
+					<div class="stat-icon remittance">
+						<i class="fas fa-file-invoice-dollar"></i>
+					</div>
+					<div class="stat-content">
+						{#if nextRemittance}
+							<a
+								href="/remittance"
+								class="stat-value-link"
+								title="View remittance details"
+								style="text-decoration: none;"
+							>
+								<span class="stat-value">{formatCurrency(nextRemittance.totalAmount)}</span>
+							</a>
+							<span class="stat-label">Due {formatShortDate(nextRemittance.dueDate)}</span>
+						{:else}
+							<span class="stat-value">—</span>
+							<span class="stat-label">No pending remittances</span>
+						{/if}
+					</div>
+				</div>
+			{/if}
 		</div>
 
-		<!-- Quick Actions -->
-		<section class="section">
-			<h2 class="section-title">Quick Actions</h2>
-			<div class="actions-grid">
-				<a href="/payroll" class="action-card primary">
-					<i class="fas fa-play-circle"></i>
-					<span>Run Payroll</span>
-				</a>
-				<a href="/employees" class="action-card">
-					<i class="fas fa-user-plus"></i>
-					<span>Add Employee</span>
-				</a>
-				<a href="/reports" class="action-card">
-					<i class="fas fa-chart-bar"></i>
-					<span>View Reports</span>
-				</a>
-				<a href="/company" class="action-card">
-					<i class="fas fa-building"></i>
-					<span>Company</span>
-				</a>
-			</div>
-		</section>
+		<!-- Quick Actions / Getting Started -->
+		{#if showOnboarding && onboardingState.progress}
+			<!-- During onboarding: show video guides -->
+			<GettingStartedSection progress={onboardingState.progress} />
+		{:else}
+			<!-- After onboarding: show quick actions -->
+			<section class="section">
+				<h2 class="section-title">Quick Actions</h2>
+				<div class="actions-grid">
+					<a href="/payroll" class="action-card primary">
+						<i class="fas fa-play-circle"></i>
+						<span>Run Payroll</span>
+					</a>
+					<a href="/employees" class="action-card">
+						<i class="fas fa-user-plus"></i>
+						<span>Add Employee</span>
+					</a>
+					<a href="/reports" class="action-card">
+						<i class="fas fa-chart-bar"></i>
+						<span>View Reports</span>
+					</a>
+					<a href="/company" class="action-card">
+						<i class="fas fa-building"></i>
+						<span>Company</span>
+					</a>
+				</div>
+			</section>
+		{/if}
 
 		<!-- Recent Activity -->
 		<section class="section">

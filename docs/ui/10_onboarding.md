@@ -1,5 +1,7 @@
 # In-Dashboard Onboarding Experience Implementation Plan
 
+> **Status**: NOT IMPLEMENTED - This is a specification document for future implementation.
+
 ## Overview
 
 Implement a step-by-step onboarding experience integrated directly into the dashboard (no separate onboarding flow). The system will track 5 essential setup steps with persistent progress storage in the database.
@@ -19,6 +21,18 @@ Implement a step-by-step onboarding experience integrated directly into the dash
 | **Detection Method** | Completion-based (check database state) | No explicit flag needed, auto-detects progress |
 | **Dismissal** | Always dismissible, reappears on next visit | User choice with persistent reminder |
 | **Dashboard Placement** | Hybrid: AlertBanner + Progress Card | Banner for visibility, Card for detailed progress |
+
+---
+
+## Phase 0: Prerequisites
+
+### 0.1 Create Config Directory
+
+The config directory doesn't exist yet and needs to be created:
+
+```bash
+mkdir -p frontend/src/lib/config
+```
 
 ---
 
@@ -467,7 +481,7 @@ export { default as OnboardingProgressCard } from './OnboardingProgressCard.svel
 
 **File:** `frontend/src/routes/(app)/dashboard/+page.svelte`
 
-Add after line 9:
+**Add imports** (at end of import block, before `// State` comment):
 ```typescript
 import { onboardingState, loadOnboardingProgress, dismissOnboarding } from '$lib/stores/onboarding.svelte';
 import { OnboardingBanner, OnboardingProgressCard } from '$lib/components/onboarding';
@@ -475,12 +489,12 @@ import { ONBOARDING_STEPS } from '$lib/config/onboardingSteps';
 import { goto } from '$app/navigation';
 ```
 
-Add in state section (after line 20):
+**Add state** (in state section, with other `$state` variables):
 ```typescript
 let showOnboarding = $state(false);
 ```
 
-Add in `$effect` block (after line 68):
+**Add in `$effect` block** (inside the existing `$effect`, after `loadDashboardData()` call):
 ```typescript
 if (company) {
   loadOnboardingProgress();
@@ -488,7 +502,7 @@ if (company) {
 }
 ```
 
-Add banner after page header (after line 129):
+**Add banner** (after `</header>` closing tag, before `<!-- Stats Grid -->` comment):
 ```svelte
 {#if showOnboarding && !onboardingState.isDismissed && onboardingState.progress}
   <OnboardingBanner
@@ -502,7 +516,7 @@ Add banner after page header (after line 129):
 {/if}
 ```
 
-Add onboarding card as 5th stat card (after line 189):
+**Add onboarding card** (inside `.stats-grid` div as 5th stat card, before the closing `</div>` of stats-grid):
 ```svelte
 {#if showOnboarding && onboardingState.progress}
   <OnboardingProgressCard
