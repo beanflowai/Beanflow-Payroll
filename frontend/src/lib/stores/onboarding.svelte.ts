@@ -49,6 +49,11 @@ export async function loadOnboardingProgress(): Promise<void> {
 
     if (error) throw error;
     _progress = normalizeProgress(data?.onboarding_progress);
+
+    // Auto-dismiss if all 5 steps are complete
+    if (_progress.completedSteps.length === 5) {
+      _isDismissed = true;
+    }
   } catch (err) {
     _error = err instanceof Error ? err.message : 'Failed to load onboarding progress';
     _progress = _progress ?? { ...EMPTY_PROGRESS };
@@ -79,6 +84,11 @@ export async function markStepComplete(stepId: OnboardingStep): Promise<void> {
 
     if (error) throw error;
     _progress = updatedProgress;
+
+    // If all 5 steps are complete, auto-dismiss the banner
+    if (updatedProgress.completedSteps.length === 5) {
+      _isDismissed = true;
+    }
   } catch (err) {
     _error = err instanceof Error ? err.message : 'Failed to update onboarding progress';
   }
@@ -133,6 +143,11 @@ export async function refreshOnboardingStatus(): Promise<void> {
 
     if (updateError) throw updateError;
     _progress = newProgress;
+
+    // Auto-dismiss if all 5 steps are complete
+    if (newProgress.completedSteps.length === 5) {
+      _isDismissed = true;
+    }
   } catch (err) {
     _error = err instanceof Error ? err.message : 'Failed to refresh onboarding status';
   }

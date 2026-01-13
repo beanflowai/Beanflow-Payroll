@@ -22,7 +22,7 @@
 	let nextRemittance = $state<RemittancePeriod | null>(null);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
-	const showOnboarding = $derived(() =>
+	const showOnboarding = $derived(
 		!!onboardingState.progress && !onboardingState.isCompleted && !onboardingState.isDismissed
 	);
 
@@ -104,7 +104,7 @@
 		</header>
 		<!-- Skeleton Stats Grid - conditional based on onboarding -->
 		<div class="stats-grid">
-			{#if onboardingState.isCompleted || onboardingState.isDismissed || !onboardingState.progress}
+			{#if !showOnboarding}
 				<!-- Post-onboarding: show 4 regular stat skeletons -->
 				{#each Array(4) as _unused, idx (idx)}
 					<div class="stat-card">
@@ -149,12 +149,14 @@
 			<p class="page-subtitle">Welcome to BeanFlow Payroll</p>
 		</header>
 
-		{#if showOnboarding && !onboardingState.isDismissed && onboardingState.progress}
+		{#if showOnboarding}
 			<OnboardingBanner
 				progress={onboardingState.progress}
 				onDismiss={() => dismissOnboarding()}
 				onContinue={() => {
-					const nextStep = ONBOARDING_STEPS.find(s => !onboardingState.progress?.completedSteps.includes(s.id));
+					const nextStep = ONBOARDING_STEPS.find(
+						(s) => !onboardingState.progress?.completedSteps.includes(s.id)
+					);
 					if (nextStep) goto(nextStep.route);
 				}}
 			/>
@@ -162,12 +164,12 @@
 
 		<!-- Stats Grid -->
 		<div class="stats-grid">
-			{#if showOnboarding && onboardingState.progress}
+			{#if showOnboarding}
 				<!-- During onboarding: show only onboarding progress card -->
 				<OnboardingProgressCard
 					progress={onboardingState.progress}
 					onStepClick={(stepId) => {
-						const step = ONBOARDING_STEPS.find(s => s.id === stepId);
+						const step = ONBOARDING_STEPS.find((s) => s.id === stepId);
 						if (step) goto(step.route);
 					}}
 				/>
@@ -233,7 +235,7 @@
 		</div>
 
 		<!-- Quick Actions / Getting Started -->
-		{#if showOnboarding && onboardingState.progress}
+		{#if showOnboarding}
 			<!-- During onboarding: show video guides -->
 			<GettingStartedSection progress={onboardingState.progress} />
 		{:else}

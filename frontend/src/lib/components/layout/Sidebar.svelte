@@ -25,12 +25,14 @@
 <aside class="sidebar" class:collapsed>
 	<!-- Brand Section -->
 	<div class="sidebar-brand">
-		<div class="brand-logo">
-			<i class="fas fa-money-check-alt"></i>
-		</div>
-		{#if !collapsed}
-			<span class="brand-text">BeanFlow Payroll</span>
-		{/if}
+		<a href={import.meta.env.VITE_MARKETING_URL || 'https://www.beanflow.ai'} class="brand-link">
+			<div class="brand-logo">
+				<i class="fas fa-money-check-alt"></i>
+			</div>
+			{#if !collapsed}
+				<span class="brand-text">BeanFlow Payroll</span>
+			{/if}
+		</a>
 	</div>
 
 	<!-- Company Switcher -->
@@ -76,13 +78,21 @@
 		width: 72px;
 	}
 
-	/* Brand Section */
 	.sidebar-brand {
+		padding: var(--spacing-4);
+		border-bottom: 1px solid var(--color-surface-200);
+	}
+
+	.brand-link {
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-3);
-		padding: var(--spacing-4);
-		border-bottom: 1px solid var(--color-surface-200);
+		text-decoration: none;
+		transition: opacity var(--transition-fast);
+	}
+
+	.brand-link:hover {
+		opacity: 0.8;
 	}
 
 	.brand-logo {
