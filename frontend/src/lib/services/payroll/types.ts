@@ -42,6 +42,14 @@ export interface PayrollRunListOptions {
 	offset?: number;
 }
 
+export interface PayrollRunListOptionsExt extends PayrollRunListOptions {
+	excludeStatuses?: string[];
+	payGroupId?: string; // Filter by pay group
+	employeeId?: string; // Filter by employee
+	startDate?: string; // ISO date string (period_end >= startDate)
+	endDate?: string; // ISO date string (period_end <= endDate)
+}
+
 export interface PayrollRunListResult {
 	data: PayrollRunWithGroups[];
 	count: number;

@@ -536,6 +536,7 @@ class PayrollRunOperations:
             "period_end": period_end,
             "pay_date": pay_date_obj.strftime("%Y-%m-%d"),
             "status": "draft",
+            "pay_group_ids": pay_group_ids,
             "total_employees": len(employees),
             "total_gross": 0,
             "total_cpp_employee": 0,

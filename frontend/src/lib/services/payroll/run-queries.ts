@@ -9,10 +9,11 @@ import type {
 	PayrollRunPayGroup,
 	PayrollRunStatus,
 	DbPayrollRun,
+	DbPayrollRecord,
 	DbPayrollRecordWithEmployee,
 	Holiday
 } from '$lib/types/payroll';
-import { dbPayrollRecordToUi } from '$lib/types/payroll';
+import { dbPayrollRecordToUi, dbPayrollRunToUi } from '$lib/types/payroll';
 import {
 	DEFAULT_EARNINGS_CONFIG,
 	DEFAULT_TAXABLE_BENEFITS_CONFIG,
@@ -24,7 +25,12 @@ import {
 	type GroupBenefits
 } from '$lib/types/pay-group';
 import { getCurrentUserId, getCurrentCompanyId } from './helpers';
-import type { PayrollServiceResult, PayrollRunListOptions, PayrollRunListResult } from './types';
+import type {
+	PayrollServiceResult,
+	PayrollRunListOptions,
+	PayrollRunListOptionsExt,
+	PayrollRunListResult
+} from './types';
 
 // ===========================================
 // Helper: Query Holidays for Period
@@ -119,11 +125,11 @@ async function buildPayrollRunWithGroups(
 					| 'semi_monthly'
 					| 'monthly',
 				employmentType: (payGroup?.employment_type ?? 'full_time') as
-				| 'full_time'
-				| 'part_time'
-				| 'seasonal'
-				| 'contract'
-				| 'casual',
+					| 'full_time'
+					| 'part_time'
+					| 'seasonal'
+					| 'contract'
+					| 'casual',
 				province: payGroupProvince,
 				periodStart: runData.period_start,
 				periodEnd: runData.period_end,
@@ -423,19 +429,23 @@ export async function getPayrollRunById(
 // ===========================================
 
 /**
- * Extended options for listing payroll runs
- */
-export interface PayrollRunListOptionsExt extends PayrollRunListOptions {
-	excludeStatuses?: string[];
-}
-
-/**
  * List payroll runs with pagination via Supabase direct query
  */
 export async function listPayrollRuns(
 	options: PayrollRunListOptionsExt = {}
 ): Promise<PayrollRunListResult> {
-	const { status, excludeStatuses, limit = 20, offset = 0 } = options;
+	const {
+		status,
+		excludeStatuses,
+		payGroupId,
+		employeeId,
+		startDate,
+		endDate,
+		limit = 20,
+		offset = 0
+	} = options;
+
+
 
 	try {
 		const userId = getCurrentUserId();
@@ -456,37 +466,64 @@ export async function listPayrollRuns(
 			query = query.not('status', 'in', `(${excludeStatuses.join(',')})`);
 		}
 
+		// Pay group filter
+		if (payGroupId && payGroupId !== 'all') {
+			query = query.contains('pay_group_ids', [payGroupId]);
+		}
+
+		// Employee filter (通过 payroll_records join)
+		if (employeeId && employeeId !== 'all') {
+			// 先查该员工的所有 payroll_run_id
+			const { data: records, error: recordsError } = await supabase
+				.from('payroll_records')
+				.select('payroll_run_id')
+				.eq('employee_id', employeeId)
+				.returns<{ payroll_run_id: string }[]>();
+
+			if (recordsError) {
+				console.error('Failed to query employee runs:', {
+					employeeId,
+					error: recordsError
+				});
+				return { data: [], count: 0, error: recordsError.message };
+			}
+
+			const runIds = records?.map((r) => r.payroll_run_id) ?? [];
+
+			if (runIds.length === 0) {
+				// 员工没有任何工资单
+				return { data: [], count: 0, error: null };
+			}
+
+			// 用 run_ids 过滤
+			query = query.in('id', runIds);
+		}
+
+		// Date range filter (by period_end - matches pay period being filtered)
+		// Using period_end instead of pay_date to filter by the payroll period itself
+		if (startDate) {
+			query = query.gte('period_end', startDate);
+		}
+		if (endDate) {
+			query = query.lte('period_end', endDate);
+		}
+
 		const { data, error, count } = await query
 			.order('pay_date', { ascending: false })
 			.range(offset, offset + limit - 1);
+
+
 
 		if (error) throw error;
 
 		// Convert snake_case DB fields to camelCase PayrollRunWithGroups
 		const runs: PayrollRunWithGroups[] = (data || []).map((run) => {
-			const totalGross = run.total_gross ?? 0;
-			const totalNetPay = run.total_net_pay ?? 0;
-			const totalEmployerCost = run.total_employer_cost ?? 0;
+			const uiRun = dbPayrollRunToUi(run as unknown as DbPayrollRun);
 
 			return {
-				id: run.id,
-				periodEnd: run.period_end,
-				payDate: run.pay_date,
-				status: run.status as PayrollRunStatus,
+				...uiRun,
 				payGroups: [],
-				totalEmployees: run.total_employees ?? 0,
-				totalGross,
-				totalCppEmployee: 0,
-				totalCppEmployer: 0,
-				totalEiEmployee: 0,
-				totalEiEmployer: 0,
-				totalFederalTax: 0,
-				totalProvincialTax: 0,
-				totalDeductions: totalGross - totalNetPay,
-				totalNetPay,
-				totalEmployerCost,
-				totalPayrollCost: totalGross + totalEmployerCost,
-				totalRemittance: 0
+				totalPayrollCost: uiRun.totalGross + uiRun.totalEmployerCost
 			};
 		});
 

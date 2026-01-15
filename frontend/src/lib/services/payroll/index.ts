@@ -12,6 +12,7 @@ export type {
 	PayrollServiceResult,
 	PayrollDashboardStats,
 	PayrollRunListOptions,
+	PayrollRunListOptionsExt,
 	PayrollRunListResult,
 	EmployeeCompensationType,
 	EmployeeForPayroll,
@@ -38,8 +39,7 @@ export {
 	getPayrollRunByPayDate,
 	getPayrollRunByPeriodEnd,
 	getPayrollRunById,
-	listPayrollRuns,
-	type PayrollRunListOptionsExt
+	listPayrollRuns
 } from './run-queries';
 
 // Re-export payroll run status functions
