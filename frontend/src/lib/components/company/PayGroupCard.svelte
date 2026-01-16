@@ -1,5 +1,6 @@
 <script lang="ts">
 	// PayGroupCard - Individual pay group display card with policy badges
+	// Supports both active and inactive pay groups with appropriate UI
 	import type { PayGroup } from '$lib/types/pay-group';
 	import {
 		PAY_FREQUENCY_INFO,
@@ -15,9 +16,18 @@
 		companyProvince?: string;
 		onView: (payGroup: PayGroup) => void;
 		onDelete: (payGroup: PayGroup) => void;
+		onActivate?: (payGroup: PayGroup) => void;
+		isInactive?: boolean;
 	}
 
-	let { payGroup, companyProvince = 'SK', onView, onDelete }: Props = $props();
+	let {
+		payGroup,
+		companyProvince = 'SK',
+		onView,
+		onDelete,
+		onActivate,
+		isInactive = false
+	}: Props = $props();
 
 	// Get policy summary for badges
 	const policySummary = $derived(getPayGroupPolicySummary(payGroup));
@@ -48,10 +58,18 @@
 		event.stopPropagation();
 		onDelete(payGroup);
 	}
+
+	function handleActivateClick(event: MouseEvent) {
+		event.stopPropagation();
+		if (onActivate) {
+			onActivate(payGroup);
+		}
+	}
 </script>
 
 <div
 	class="pay-group-card"
+	class:inactive={isInactive}
 	onclick={handleCardClick}
 	onkeydown={handleKeyDown}
 	tabindex="0"
@@ -62,7 +80,12 @@
 		<div class="header-content">
 			<i class="fas fa-clipboard-list card-icon"></i>
 			<div class="title-group">
-				<h3 class="card-title">{payGroup.name}</h3>
+				<div class="title-row">
+					<h3 class="card-title">{payGroup.name}</h3>
+					{#if isInactive}
+						<span class="status-badge inactive">Inactive</span>
+					{/if}
+				</div>
 				{#if payGroup.description}
 					<p class="card-description">{payGroup.description}</p>
 				{/if}
@@ -125,9 +148,26 @@
 			<span>View Details</span>
 			<i class="fas fa-arrow-right"></i>
 		</button>
-		<button class="btn-delete" onclick={handleDeleteClick} aria-label="Delete pay group">
-			<i class="fas fa-trash"></i>
-		</button>
+		<div class="action-buttons">
+			{#if isInactive && onActivate}
+				<button
+					class="btn-activate"
+					onclick={handleActivateClick}
+					aria-label="Activate pay group"
+				>
+					<i class="fas fa-check-circle"></i>
+					<span>Activate</span>
+				</button>
+			{/if}
+			<button
+				class="btn-delete"
+				onclick={handleDeleteClick}
+				aria-label={isInactive ? 'Delete pay group' : 'Deactivate pay group'}
+				title={isInactive ? 'Delete permanently' : 'Deactivate'}
+			>
+				<i class="fas fa-{isInactive ? 'trash' : 'archive'}"></i>
+			</button>
+		</div>
 	</div>
 </div>
 
@@ -151,6 +191,16 @@
 		outline-offset: 2px;
 	}
 
+	/* Inactive card styling */
+	.pay-group-card.inactive {
+		opacity: 0.75;
+		background: var(--color-surface-50);
+	}
+
+	.pay-group-card.inactive:hover {
+		opacity: 1;
+	}
+
 	.card-header {
 		display: flex;
 		align-items: center;
@@ -172,10 +222,20 @@
 		margin-top: 2px;
 	}
 
+	.inactive .card-icon {
+		color: var(--color-surface-400);
+	}
+
 	.title-group {
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-1);
+	}
+
+	.title-row {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
 	}
 
 	.card-title {
@@ -183,6 +243,22 @@
 		font-weight: var(--font-weight-semibold);
 		color: var(--color-surface-800);
 		margin: 0;
+	}
+
+	.status-badge {
+		display: inline-flex;
+		align-items: center;
+		padding: var(--spacing-1) var(--spacing-2);
+		border-radius: var(--radius-full);
+		font-size: 11px;
+		font-weight: var(--font-weight-medium);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.status-badge.inactive {
+		background: var(--color-surface-200);
+		color: var(--color-surface-600);
 	}
 
 	.card-description {
@@ -284,6 +360,11 @@
 		background: var(--color-surface-50);
 	}
 
+	.action-buttons {
+		display: flex;
+		gap: var(--spacing-2);
+	}
+
 	.btn-view {
 		display: inline-flex;
 		align-items: center;
@@ -309,6 +390,25 @@
 
 	.btn-view:hover i {
 		transform: translateX(4px);
+	}
+
+	.btn-activate {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--spacing-2);
+		padding: var(--spacing-2) var(--spacing-3);
+		background: var(--color-success-500);
+		color: white;
+		border: none;
+		border-radius: var(--radius-md);
+		font-size: var(--font-size-auxiliary-text);
+		font-weight: var(--font-weight-medium);
+		cursor: pointer;
+		transition: var(--transition-fast);
+	}
+
+	.btn-activate:hover {
+		background: var(--color-success-600);
 	}
 
 	.btn-delete {
@@ -350,8 +450,17 @@
 			justify-content: center;
 		}
 
-		.btn-delete {
+		.action-buttons {
 			width: 100%;
+		}
+
+		.btn-activate {
+			flex: 1;
+		}
+
+		.btn-delete {
+			width: auto;
+			flex-shrink: 0;
 		}
 	}
 </style>

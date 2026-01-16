@@ -7,6 +7,7 @@
 		getPayGroup,
 		updatePayGroup,
 		deletePayGroup,
+		setPayGroupStatus,
 		type PayGroupUpdateInput
 	} from '$lib/services/payGroupService';
 	import PayGroupDetailHeader from '$lib/components/company/pay-group-detail/PayGroupDetailHeader.svelte';
@@ -16,6 +17,7 @@
 	import PayGroupWcbSection from '$lib/components/company/pay-group-detail/PayGroupWcbSection.svelte';
 	import PayGroupBenefitsSection from '$lib/components/company/pay-group-detail/PayGroupBenefitsSection.svelte';
 	import PayGroupDeductionsSection from '$lib/components/company/pay-group-detail/PayGroupDeductionsSection.svelte';
+	import PayGroupDeleteModal from '$lib/components/company/PayGroupDeleteModal.svelte';
 	import { companyState } from '$lib/stores/company.svelte';
 	import { Skeleton, AlertBanner } from '$lib/components/shared';
 
@@ -26,8 +28,10 @@
 	let payGroup = $state<PayGroup | null>(null);
 	let isLoading = $state(true);
 	let isSaving = $state(false);
-	let _isDeleting = $state(false);
 	let error = $state<string | null>(null);
+
+	// Delete modal state
+	let showDeleteModal = $state(false);
 
 	// Load pay group when company changes or ID changes
 	$effect(() => {
@@ -63,23 +67,42 @@
 		goto('/company?tab=pay-groups');
 	}
 
-	// Handle delete
-	async function handleDelete() {
+	// Handle delete button click - show modal
+	function handleDelete() {
 		if (!payGroup) return;
-		if (!confirm(`Delete "${payGroup.name}"? This action cannot be undone.`)) return;
+		showDeleteModal = true;
+	}
 
-		_isDeleting = true;
+	// Handle modal close
+	function handleDeleteModalClose() {
+		showDeleteModal = false;
+	}
+
+	// Handle delete confirmation from modal
+	async function handleDeleteConfirm(action: 'hard_delete' | 'soft_delete') {
+		if (!payGroup) return;
+
 		try {
-			const result = await deletePayGroup(payGroup.id);
-			if (result.error) {
-				error = result.error;
+			if (action === 'hard_delete') {
+				const result = await deletePayGroup(payGroup.id);
+				if (result.error) {
+					error = result.error;
+				} else {
+					goto('/company?tab=pay-groups');
+				}
 			} else {
-				goto('/company?tab=pay-groups');
+				// soft_delete = set as inactive
+				const result = await setPayGroupStatus(payGroup.id, false);
+				if (result.error) {
+					error = result.error;
+				} else {
+					goto('/company?tab=pay-groups');
+				}
 			}
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to delete pay group';
+			error = err instanceof Error ? err.message : 'Failed to process pay group';
 		} finally {
-			_isDeleting = false;
+			handleDeleteModalClose();
 		}
 	}
 
@@ -191,6 +214,15 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Delete/Deactivate Confirmation Modal -->
+{#if showDeleteModal && payGroup}
+	<PayGroupDeleteModal
+		{payGroup}
+		onClose={handleDeleteModalClose}
+		onConfirm={handleDeleteConfirm}
+	/>
+{/if}
 
 <style>
 	.pay-group-detail-page {

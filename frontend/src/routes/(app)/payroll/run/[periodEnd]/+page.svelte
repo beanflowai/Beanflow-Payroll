@@ -20,7 +20,8 @@
 		PayrollErrorState,
 		PayrollNotFound,
 		PayrollPageHeader,
-		DraftPayrollView
+		DraftPayrollView,
+		DeleteDraftModal
 	} from '$lib/components/payroll';
 	import {
 		approvePayrollRun,
@@ -68,6 +69,7 @@
 	let isFinalizing = $state(false);
 	let isReverting = $state(false);
 	let isDeletingDraft = $state(false);
+	let showDeleteModal = $state(false);
 
 	// Approved State Variables
 	let isApproving = $state(false);
@@ -337,16 +339,13 @@
 		}
 	}
 
-	async function handleDeleteDraft() {
+	function handleDeleteDraft() {
 		if (!payrollRun) return;
+		showDeleteModal = true;
+	}
 
-		if (
-			!confirm(
-				'Are you sure you want to delete this draft payroll run? This action cannot be undone.'
-			)
-		) {
-			return;
-		}
+	async function confirmDeleteDraft() {
+		if (!payrollRun) return;
 
 		isDeletingDraft = true;
 		try {
@@ -362,6 +361,7 @@
 			alert(`Failed to delete draft: ${err instanceof Error ? err.message : 'Unknown error'}`);
 		} finally {
 			isDeletingDraft = false;
+			showDeleteModal = false;
 		}
 	}
 
@@ -607,4 +607,13 @@
 			onAssign={handleAssignEmployeesFromModal}
 		/>
 	{/if}
+{/if}
+
+{#if showDeleteModal && payrollRun}
+	<DeleteDraftModal
+		payDate={payrollRun.payDate}
+		onClose={() => (showDeleteModal = false)}
+		onConfirm={confirmDeleteDraft}
+		isDeleting={isDeletingDraft}
+	/>
 {/if}

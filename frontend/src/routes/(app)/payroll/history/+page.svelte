@@ -38,7 +38,6 @@
 	let activeTab = $state<FilterTab>('all');
 	let currentPage = $state(1);
 	let totalCount = $state(0);
-	let isLoading = $state(false);
 
 	// Constants
 	const PAGE_SIZE = 20;
@@ -112,7 +111,6 @@
 
 	// Load payroll runs
 	async function loadRuns() {
-		loading = true;
 		error = null;
 
 		const options = getFilterOptions();
@@ -126,35 +124,44 @@
 			runs = result.data;
 			totalCount = result.count;
 		}
-
-		loading = false;
 	}
+
+	// Track previous company to avoid reloading same company
+	let previousCompanyId: string | null = null;
 
 	// Load when company changes
 	$effect(() => {
 		const company = companyState.currentCompany;
+		const currentCompanyId = company?.id ?? null;
 
-		if (isLoading) return;
+		// Only reload if company changed
+		if (currentCompanyId !== previousCompanyId) {
+			previousCompanyId = currentCompanyId;
 
-		if (company) {
-			isLoading = true;
-			loadAllData();
-		} else if (!companyState.isLoading) {
-			loading = false;
-			runs = [];
-			payGroups = [];
-			employees = [];
-			totalCount = 0;
+			if (company) {
+				loadAllData();
+			} else if (!companyState.isLoading) {
+				// Company cleared
+				loading = false;
+				runs = [];
+				payGroups = [];
+				employees = [];
+				totalCount = 0;
+			}
 		}
 	});
 
 	// Load all data (employees, pay groups, runs)
 	async function loadAllData() {
 		try {
+			loading = true;
+			error = null;
 			await Promise.all([loadEmployees(), loadPayGroups()]);
 			await loadRuns();
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to load data';
 		} finally {
-			isLoading = false;
+			loading = false;
 		}
 	}
 

@@ -483,10 +483,10 @@ class PayrollRunOperations:
                 "records_count": 0,
             }
 
-        # Get pay groups with matching next_period_end
+        # Get pay groups with matching next_period_end for this company
         pay_groups_result = self.supabase.table("pay_groups").select(
             "id, name, pay_frequency, employment_type, group_benefits"
-        ).eq("next_period_end", period_end).execute()
+        ).eq("company_id", self.company_id).eq("next_period_end", period_end).eq("is_active", True).execute()
 
         pay_groups = pay_groups_result.data or []
         if not pay_groups:

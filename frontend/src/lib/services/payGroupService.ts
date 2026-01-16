@@ -51,6 +51,7 @@ export interface DbPayGroup {
 	earnings_config: EarningsConfig;
 	taxable_benefits_config: TaxableBenefitsConfig;
 	deductions_config: DeductionsConfig;
+	is_active: boolean;
 	created_at: string;
 	updated_at: string;
 }
@@ -123,6 +124,7 @@ export function dbPayGroupToUi(db: DbPayGroup): PayGroup {
 		earningsConfig: db.earnings_config ?? DEFAULT_EARNINGS_CONFIG,
 		taxableBenefitsConfig: db.taxable_benefits_config ?? DEFAULT_TAXABLE_BENEFITS_CONFIG,
 		deductionsConfig: db.deductions_config ?? DEFAULT_DEDUCTIONS_CONFIG,
+		isActive: db.is_active ?? true,
 		createdAt: db.created_at,
 		updatedAt: db.updated_at
 	};
@@ -510,6 +512,89 @@ export async function duplicatePayGroup(
 		});
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Failed to duplicate pay group';
+		return { data: null, error: message };
+	}
+}
+
+/**
+ * Result type for checking pay group associated data
+ */
+export interface PayGroupAssociatedDataResult {
+	hasData: boolean;
+	employeeCount: number;
+	payrollRunCount: number;
+	error: string | null;
+}
+
+/**
+ * Check if a pay group has associated employees or payroll runs
+ * Used to determine if hard delete is allowed
+ */
+export async function checkPayGroupHasAssociatedData(
+	payGroupId: string
+): Promise<PayGroupAssociatedDataResult> {
+	try {
+		getCurrentUserId(); // Verify authenticated
+
+		// Check employees (including terminated ones - they still reference the pay group in history)
+		const { count: employeeCount, error: empError } = await supabase
+			.from('employees')
+			.select('id', { count: 'exact', head: true })
+			.eq('pay_group_id', payGroupId);
+
+		if (empError) {
+			console.error('Failed to check employees for pay group:', empError);
+			return { hasData: false, employeeCount: 0, payrollRunCount: 0, error: empError.message };
+		}
+
+		// Check payroll runs that contain this pay group
+		const { count: payrollRunCount, error: runError } = await supabase
+			.from('payroll_runs')
+			.select('id', { count: 'exact', head: true })
+			.contains('pay_group_ids', [payGroupId]);
+
+		if (runError) {
+			console.error('Failed to check payroll runs for pay group:', runError);
+			return { hasData: false, employeeCount: 0, payrollRunCount: 0, error: runError.message };
+		}
+		const actualEmployeeCount = employeeCount ?? 0;
+		const hasData = actualEmployeeCount > 0 || payrollRunCount > 0;
+
+		return { hasData, employeeCount: actualEmployeeCount, payrollRunCount, error: null };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to check pay group data';
+		return { hasData: false, employeeCount: 0, payrollRunCount: 0, error: message };
+	}
+}
+
+/**
+ * Set pay group active/inactive status (soft delete/restore)
+ */
+export async function setPayGroupStatus(
+	payGroupId: string,
+	isActive: boolean
+): Promise<PayGroupServiceResult<PayGroup>> {
+	try {
+		getCurrentUserId(); // Verify authenticated
+
+		const { data, error } = await supabase
+			.from(TABLE_NAME)
+			.update({ is_active: isActive })
+			.eq('id', payGroupId)
+			.select()
+			.single();
+
+		if (error) {
+			console.error('Failed to update pay group status:', error);
+			return { data: null, error: error.message };
+		}
+
+		return {
+			data: dbPayGroupToUi(data as DbPayGroup),
+			error: null
+		};
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to update pay group status';
 		return { data: null, error: message };
 	}
 }
