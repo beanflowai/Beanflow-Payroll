@@ -291,6 +291,19 @@ class PaystubDataBuilder:
                 )
             )
 
+        # Bonus earnings
+        if record.bonus_earnings > 0:
+            ytd_bonus = sum(r.bonus_earnings for r in ytd_records) + record.bonus_earnings
+            earnings.append(
+                EarningLine(
+                    description="Bonus",
+                    qty=None,
+                    rate=None,
+                    current=record.bonus_earnings,
+                    ytd=ytd_bonus,
+                )
+            )
+
         return earnings
 
     def _build_taxes(self, record: PayrollRecord) -> list[TaxLine]:
