@@ -138,6 +138,7 @@ class TestBuildEarnings:
         record.holiday_premium_pay = Decimal("0")
         record.vacation_pay_paid = Decimal("0")
         record.other_earnings = Decimal("0")
+        record.bonus_earnings = Decimal("0")
         return record
 
     def test_regular_earnings_only(
@@ -212,6 +213,7 @@ class TestBuildEarnings:
         hist_record.holiday_premium_pay = Decimal("0")
         hist_record.vacation_pay_paid = Decimal("0")
         hist_record.other_earnings = Decimal("0")
+        hist_record.bonus_earnings = Decimal("0")
 
         base_record.gross_overtime = Decimal("200")
 
@@ -644,6 +646,7 @@ class TestBuildFullPaystub:
         record.holiday_premium_pay = Decimal("0")
         record.vacation_pay_paid = Decimal("0")
         record.other_earnings = Decimal("0")
+        record.bonus_earnings = Decimal("0")
         record.cpp_employee = Decimal("100")
         record.cpp_additional = Decimal("10")
         record.ei_employee = Decimal("50")
