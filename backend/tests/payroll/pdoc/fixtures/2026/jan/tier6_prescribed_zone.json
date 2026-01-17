@@ -1,0 +1,60 @@
+{
+  "tier": 6,
+  "category": "prescribed_zone",
+  "name": "Prescribed Zone Deduction Tests",
+  "description": "Tests for prescribed zone deductions (TD1 form field - Northern living allowance)",
+  "version": "2026-01",
+  "collected_date": "PENDING",
+  "pdoc_version": "T4127 - Version 2026-01",
+  "tolerance": "0.05",
+  "test_cases": [
+    {
+      "id": "NT_60K_PRESCRIBED_ZONE",
+      "tier": 6,
+      "description": "Northwest Territories $60k with prescribed zone deduction $1000",
+      "status": "PENDING",
+      "category": "prescribed_zone",
+      "input": {
+        "province": "NT",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_date": "2026-01-17",
+        "federal_claim": "16129.00",
+        "provincial_claim": "18465.00",
+        "prescribed_zone_deduction": "1000.00"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "Prescribed zone deduction for Northern residents"
+    },
+    {
+      "id": "YT_60K_PRESCRIBED_ZONE",
+      "tier": 6,
+      "description": "Yukon $60k with prescribed zone deduction $800",
+      "status": "PENDING",
+      "category": "prescribed_zone",
+      "input": {
+        "province": "YT",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_date": "2026-01-17",
+        "federal_claim": "16129.00",
+        "provincial_claim": "15653.00",
+        "prescribed_zone_deduction": "800.00"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "Prescribed zone deduction for Yukon residents"
+    }
+  ]
+}

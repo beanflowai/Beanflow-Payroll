@@ -1,0 +1,84 @@
+{
+  "tier": 6,
+  "category": "annual_deductions",
+  "name": "Other Annual Deductions Tests",
+  "description": "Tests for other annual deductions - child care, medical expenses, charitable donations (TD1 form fields)",
+  "version": "2026-01",
+  "collected_date": "PENDING",
+  "pdoc_version": "T4127 - Version 2026-01",
+  "tolerance": "0.05",
+  "test_cases": [
+    {
+      "id": "ON_60K_CHILD_CARE",
+      "tier": 6,
+      "description": "Ontario $60k with child care expenses $200 per month ($2400 annual)",
+      "status": "PENDING",
+      "category": "annual_deductions",
+      "input": {
+        "province": "ON",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_date": "2026-01-17",
+        "federal_claim": "16129.00",
+        "provincial_claim": "12747.00",
+        "child_care_expenses_annual": "2400.00"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "Child care expenses - claimed annually on TD1"
+    },
+    {
+      "id": "ON_60K_MEDICAL_EXPENSES",
+      "tier": 6,
+      "description": "Ontario $60k with medical expenses $1000 annual",
+      "status": "PENDING",
+      "category": "annual_deductions",
+      "input": {
+        "province": "ON",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_date": "2026-01-17",
+        "federal_claim": "16129.00",
+        "provincial_claim": "12747.00",
+        "medical_expenses_annual": "1000.00"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "Medical expenses - claimed annually on TD1"
+    },
+    {
+      "id": "ON_60K_CHARITABLE_DONATIONS",
+      "tier": 6,
+      "description": "Ontario $60k with charitable donations $500 annual",
+      "status": "PENDING",
+      "category": "annual_deductions",
+      "input": {
+        "province": "ON",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_date": "2026-01-17",
+        "federal_claim": "16129.00",
+        "provincial_claim": "12747.00",
+        "charitable_donations_annual": "500.00"
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "Charitable donations - claimed annually on TD1"
+    }
+  ]
+}

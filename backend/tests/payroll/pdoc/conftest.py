@@ -100,7 +100,7 @@ def load_tier_fixture(
     """Load fixture data for a specific tier, year, and edition.
 
     Args:
-        tier: Test tier (1-5)
+        tier: Test tier (1-6)
         year: Tax year (default: 2025)
         edition: Tax edition ("jan" for 120th/15%, "jul" for 121st/14%)
                  Defaults to DEFAULT_EDITION if not specified.
@@ -114,6 +114,7 @@ def load_tier_fixture(
         3: "tier3_cpp_ei_boundary.json",
         4: "tier4_special_conditions.json",
         5: "tier5_federal_rate_change.json",
+        # Note: Tier 6 uses split fixtures by category (see load_tier6_category_fixture)
     }
 
     filename = tier_files.get(tier)
@@ -203,7 +204,7 @@ def get_cases_by_category(
     """Get verified test cases filtered by category.
 
     Args:
-        tier: Test tier (1-5)
+        tier: Test tier (1-6)
         category: Category to filter by (e.g., "cpp2", "low_income")
         year: Tax year
         edition: Tax edition
@@ -211,8 +212,70 @@ def get_cases_by_category(
     Returns:
         List of verified test cases matching the category
     """
-    cases = load_tier_cases(tier, year, edition)
+    if tier == 6:
+        # Tier 6 uses split fixtures by category
+        fixture_data = load_tier6_category_fixture(category, year, edition)
+    else:
+        fixture_data = load_tier_fixture(tier, year, edition)
+
+    cases = [PDOCTestCase.from_dict(case) for case in fixture_data.get("test_cases", [])]
     return [c for c in cases if c.category == category and c.is_verified]
+
+
+# =============================================================================
+# Tier 6 Split Fixture Loading
+# =============================================================================
+
+
+# Tier 6 categories (TD1 form fields)
+TIER6_CATEGORIES = [
+    "employer_rrsp",
+    "retroactive_pay",
+    "prescribed_zone",
+    "alimony",
+    "reserve_income",
+    "annual_deductions",
+    "rpp_prpp",
+]
+
+
+def load_tier6_category_fixture(
+    category: str,
+    year: int = DEFAULT_TAX_YEAR,
+    edition: str | None = None,
+) -> dict:
+    """Load Tier 6 fixture for a specific category.
+
+    Tier 6 uses split fixtures by category for easier fixture collection
+    and management. Each TD1 form field has its own fixture file.
+
+    Args:
+        category: One of TIER6_CATEGORIES
+        year: Tax year (default: 2025)
+        edition: Tax edition ("jan" or "jul")
+
+    Returns:
+        Dictionary containing fixture data
+    """
+    if category not in TIER6_CATEGORIES:
+        raise ValueError(f"Invalid Tier 6 category: {category}")
+
+    effective_edition = edition or DEFAULT_EDITION
+
+    # Validate edition
+    if effective_edition not in VALID_EDITIONS:
+        raise ValueError(
+            f"Invalid edition: {effective_edition}. Must be one of {VALID_EDITIONS}"
+        )
+
+    filename = f"tier6_{category}.json"
+    filepath = FIXTURES_BASE_DIR / str(year) / effective_edition / filename
+
+    if not filepath.exists():
+        pytest.skip(f"Tier 6 fixture file not found: {filepath}")
+
+    with open(filepath) as f:
+        return json.load(f)
 
 
 # =============================================================================
@@ -248,6 +311,34 @@ def build_payroll_input(case: PDOCTestCase) -> EmployeePayrollInput:
     # Parse taxable benefits (used for both pensionable and insurable)
     taxable_benefits = Decimal(inp.get("taxable_benefits", "0"))
 
+    # Tier 6: TD1 Form Fields
+    # Employer RRSP contributions
+    employer_rrsp = Decimal(inp.get("employer_rrsp_per_period", "0"))
+    employer_rrsp_restricted = inp.get("employer_rrsp_withdrawal_restricted", False)
+
+    # Retroactive payments
+    retroactive_amount = Decimal(inp.get("retroactive_pay_amount", "0"))
+    retroactive_periods = inp.get("retroactive_pay_periods", 1)
+
+    # Prescribed zone deductions
+    prescribed_zone = Decimal(inp.get("prescribed_zone_deduction", "0"))
+
+    # Alimony/maintenance
+    alimony = Decimal(inp.get("alimony_per_period", "0"))
+
+    # Reserve income
+    reserve_exempt = Decimal(inp.get("reserve_income_exempt", "0"))
+    reserve_pensionable = inp.get("reserve_income_pensionable", False)
+
+    # Annual deductions
+    child_care = Decimal(inp.get("child_care_expenses_annual", "0"))
+    medical = Decimal(inp.get("medical_expenses_annual", "0"))
+    charitable = Decimal(inp.get("charitable_donations_annual", "0"))
+
+    # RPP/PRPP
+    rpp = Decimal(inp.get("rpp_per_period", "0"))
+    prpp = Decimal(inp.get("prpp_per_period", "0"))
+
     return EmployeePayrollInput(
         employee_id=f"pdoc_{case.id.lower()}",
         province=Province[inp["province"]],
@@ -272,6 +363,20 @@ def build_payroll_input(case: PDOCTestCase) -> EmployeePayrollInput:
         # Taxable benefits (pensionable and insurable)
         taxable_benefits_pensionable=taxable_benefits,
         taxable_benefits_insurable=taxable_benefits,
+        # Tier 6: TD1 Form Fields
+        employer_rrsp_per_period=employer_rrsp,
+        employer_rrsp_withdrawal_restricted=employer_rrsp_restricted,
+        retroactive_pay_amount=retroactive_amount,
+        retroactive_pay_periods=retroactive_periods,
+        prescribed_zone_deduction_annual=prescribed_zone,
+        alimony_per_period=alimony,
+        reserve_income_exempt=reserve_exempt,
+        reserve_income_pensionable=reserve_pensionable,
+        child_care_expenses_annual=child_care,
+        medical_expenses_annual=medical,
+        charitable_donations_annual=charitable,
+        rpp_per_period=rpp,
+        prpp_per_period=prpp,
     )
 
 

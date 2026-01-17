@@ -1,0 +1,62 @@
+{
+  "tier": 6,
+  "category": "employer_rrsp",
+  "name": "Employer RRSP Contribution Tests",
+  "description": "Tests for employer RRSP contributions (TD1 form field) - affects EI insurability",
+  "version": "2026-01",
+  "collected_date": "PENDING",
+  "pdoc_version": "T4127 - Version 2026-01",
+  "tolerance": "0.05",
+  "test_cases": [
+    {
+      "id": "ON_60K_EMPLOYER_RRSP",
+      "tier": 6,
+      "description": "Ontario $60k with employer RRSP contribution $100",
+      "status": "PENDING",
+      "category": "employer_rrsp",
+      "input": {
+        "province": "ON",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_date": "2026-01-17",
+        "federal_claim": "16129.00",
+        "provincial_claim": "12747.00",
+        "employer_rrsp_per_period": "100.00",
+        "employer_rrsp_withdrawal_restricted": false
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "Employer RRSP contributions may affect EI insurability depending on withdrawal restrictions"
+    },
+    {
+      "id": "ON_60K_EMPLOYER_RRSP_RESTRICTED",
+      "tier": 6,
+      "description": "Ontario $60k with employer RRSP contribution $100 (withdrawal restricted - non-insurable)",
+      "status": "PENDING",
+      "category": "employer_rrsp",
+      "input": {
+        "province": "ON",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_date": "2026-01-17",
+        "federal_claim": "16129.00",
+        "provincial_claim": "12747.00",
+        "employer_rrsp_per_period": "100.00",
+        "employer_rrsp_withdrawal_restricted": true
+      },
+      "pdoc_expected": {
+        "cpp_total": "TO_BE_VERIFIED",
+        "ei": "TO_BE_VERIFIED",
+        "federal_tax": "TO_BE_VERIFIED",
+        "provincial_tax": "TO_BE_VERIFIED",
+        "net_pay": "TO_BE_VERIFIED"
+      },
+      "notes": "Withdrawal-restricted employer RRSP is NOT EI insurable"
+    }
+  ]
+}
