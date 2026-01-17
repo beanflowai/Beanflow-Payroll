@@ -39,6 +39,7 @@
 		createEmployeeTaxClaimViaApi,
 		updateEmployeeTaxClaimViaApi
 	} from '$lib/services/employeeService';
+	import { getCurrentCompensation } from '$lib/services/compensationService';
 
 	// Import section components
 	import {
@@ -141,6 +142,9 @@
 	let compensationType = $state<'salaried' | 'hourly'>(initialValues.compensationType);
 	let annualSalary = $state(initialValues.annualSalary);
 	let hourlyRate = $state(initialValues.hourlyRate);
+	// Effective date from compensation history (for edit mode only)
+	// Falls back to hireDate if no compensation history exists
+	let currentCompensationEffectiveDate = $state<string | undefined>(employee?.hireDate);
 
 	// Tax - Multi-year TD1 claims state
 	const currentTaxYearForClaims = new Date().getFullYear();
@@ -285,6 +289,21 @@
 			loadTaxClaims(employee.id);
 		} else if (mode === 'create') {
 			initializeNewClaims();
+		}
+	});
+
+	// Fetch current compensation effective date for edit mode
+	$effect(() => {
+		if (mode === 'edit' && employee?.id) {
+			getCurrentCompensation(employee.id)
+				.then((result) => {
+					if (result.data?.effectiveDate) {
+						currentCompensationEffectiveDate = result.data.effectiveDate;
+					}
+				})
+				.catch(() => {
+					// Fallback to hire date on error
+				});
 		}
 	});
 
@@ -905,9 +924,12 @@
 	/>
 
 	<CompensationSection
+		{mode}
+		employeeId={employee?.id}
 		{compensationType}
 		{annualSalary}
 		{hourlyRate}
+		effectiveDate={currentCompensationEffectiveDate}
 		{errors}
 		onCompensationTypeChange={(v) => (compensationType = v)}
 		onAnnualSalaryChange={(v) => (annualSalary = v)}
