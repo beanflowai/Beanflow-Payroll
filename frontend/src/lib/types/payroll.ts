@@ -153,6 +153,11 @@ export interface PayrollRecord {
 	eiEmployee: number;
 	federalTax: number;
 	provincialTax: number;
+	// Tax breakdown (income vs bonus) for PDOC-style display
+	federalTaxOnIncome?: number;
+	provincialTaxOnIncome?: number;
+	federalTaxOnBonus?: number;
+	provincialTaxOnBonus?: number;
 	rrsp: number;
 	unionDues: number;
 	garnishments: number;
@@ -452,6 +457,11 @@ export interface DbPayrollRecord {
 	ei_employee: number;
 	federal_tax: number;
 	provincial_tax: number;
+	// Tax breakdown (income vs bonus)
+	federal_tax_on_income?: number;
+	provincial_tax_on_income?: number;
+	federal_tax_on_bonus?: number;
+	provincial_tax_on_bonus?: number;
 	rrsp: number;
 	union_dues: number;
 	garnishments: number;
@@ -623,6 +633,11 @@ export function dbPayrollRecordToUi(db: DbPayrollRecordWithEmployee): PayrollRec
 		eiEmployee: Number(db.ei_employee),
 		federalTax: Number(db.federal_tax),
 		provincialTax: Number(db.provincial_tax),
+		// Tax breakdown (income vs bonus)
+		federalTaxOnIncome: db.federal_tax_on_income != null ? Number(db.federal_tax_on_income) : undefined,
+		provincialTaxOnIncome: db.provincial_tax_on_income != null ? Number(db.provincial_tax_on_income) : undefined,
+		federalTaxOnBonus: db.federal_tax_on_bonus != null ? Number(db.federal_tax_on_bonus) : undefined,
+		provincialTaxOnBonus: db.provincial_tax_on_bonus != null ? Number(db.provincial_tax_on_bonus) : undefined,
 		rrsp: Number(db.rrsp),
 		unionDues: Number(db.union_dues),
 		garnishments: Number(db.garnishments),

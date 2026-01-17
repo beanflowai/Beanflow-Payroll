@@ -70,6 +70,7 @@ export interface EmployeeListOptions {
 export interface EmployeeServiceResult<T> {
 	data: T | null;
 	error: string | null;
+	warning?: string | null;
 }
 
 export interface EmployeeListResult {
@@ -159,10 +160,44 @@ export async function getEmployee(employeeId: string): Promise<EmployeeServiceRe
 }
 
 /**
+ * Create initial compensation history record for a new employee
+ * This ensures compensation history is tracked from day one.
+ */
+export async function createInitialCompensation(
+	employeeId: string,
+	data: {
+		compensationType: 'salary' | 'hourly';
+		annualSalary?: number | null;
+		hourlyRate?: number | null;
+		hireDate: string;
+	}
+): Promise<{ error: string | null }> {
+	try {
+		await api.post(`/employees/${employeeId}/compensation/initial`, {
+			compensationType: data.compensationType,
+			annualSalary: data.annualSalary ?? null,
+			hourlyRate: data.hourlyRate ?? null,
+			hireDate: data.hireDate
+		});
+		return { error: null };
+	} catch (err) {
+		if (err instanceof APIError) {
+			console.error('Failed to create initial compensation:', err);
+			return { error: err.message };
+		}
+		const message = err instanceof Error ? err.message : 'Failed to create initial compensation';
+		return { error: message };
+	}
+}
+
+/**
  * Create a new employee
  *
  * Note: In production, SIN encryption should be handled by the backend
  * For now, we're storing it as-is (the backend API should encrypt it)
+ *
+ * This function also creates an initial compensation history record to
+ * ensure compensation changes are tracked from hire date.
  */
 export async function createEmployee(
 	input: EmployeeCreateInput
@@ -211,9 +246,28 @@ export async function createEmployee(
 		}
 
 		const db = data as DbEmployee;
+		const employee = dbEmployeeToUi(db, maskSin(db.sin_encrypted));
+
+		// Create initial compensation history record
+		const compensationType = input.hourly_rate ? 'hourly' : 'salary';
+		const { error: compError } = await createInitialCompensation(employee.id, {
+			compensationType,
+			annualSalary: input.annual_salary,
+			hourlyRate: input.hourly_rate,
+			hireDate: input.hire_date
+		});
+
+		if (compError) {
+			// Log warning and surface to caller
+			console.warn('Failed to create initial compensation history:', compError);
+		}
+
 		return {
-			data: dbEmployeeToUi(db, maskSin(db.sin_encrypted)),
-			error: null
+			data: employee,
+			error: null,
+			warning: compError
+				? 'Compensation history could not be created. Please add via Adjust Compensation.'
+				: null
 		};
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Failed to create employee';
@@ -248,8 +302,9 @@ export async function updateEmployee(
 			updateData.province_of_employment = input.province_of_employment;
 		if (input.pay_frequency !== undefined) updateData.pay_frequency = input.pay_frequency;
 		if (input.employment_type !== undefined) updateData.employment_type = input.employment_type;
-		if (input.annual_salary !== undefined) updateData.annual_salary = input.annual_salary;
-		if (input.hourly_rate !== undefined) updateData.hourly_rate = input.hourly_rate;
+		// NOTE: annual_salary and hourly_rate are intentionally excluded from updateEmployee
+		// Compensation changes MUST go through the dedicated /compensation endpoint
+		// to ensure proper history tracking. See: create_initial_compensation()
 		if (input.federal_additional_claims !== undefined)
 			updateData.federal_additional_claims = input.federal_additional_claims;
 		if (input.provincial_additional_claims !== undefined)

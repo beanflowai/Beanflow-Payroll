@@ -29,7 +29,10 @@ import type {
 	PayrollServiceResult,
 	PayrollRunListOptions,
 	PayrollRunListOptionsExt,
-	PayrollRunListResult
+	PayrollRunListResult,
+	PayrollRecordListOptions,
+	PayrollRecordListResult,
+	PayrollRecordWithPeriod
 } from './types';
 
 // ===========================================
@@ -530,6 +533,116 @@ export async function listPayrollRuns(
 		return { data: runs, count: count ?? 0, error: null };
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Failed to list payroll runs';
+		return { data: [], count: 0, error: message };
+	}
+}
+
+// ===========================================
+// List Employee Payroll Records
+// ===========================================
+
+/**
+ * List payroll records for a specific employee with period info
+ * Used for employee-level payroll history view
+ */
+export async function listPayrollRecordsForEmployee(
+	employeeId: string,
+	options: PayrollRecordListOptions = {}
+): Promise<PayrollRecordListResult> {
+	const { startDate, endDate, status, excludeStatuses, limit = 20, offset = 0 } = options;
+
+	try {
+		const userId = getCurrentUserId();
+		const companyId = getCurrentCompanyId();
+
+		// Query payroll_records with joins to payroll_runs and employees
+		let query = supabase
+			.from('payroll_records')
+			.select(
+				`
+				*,
+				employees!inner (
+					id,
+					first_name,
+					last_name,
+					province_of_employment,
+					pay_group_id,
+					email,
+					hourly_rate,
+					annual_salary,
+					vacation_balance,
+					sick_balance,
+					pay_groups (
+						id,
+						name,
+						pay_frequency,
+						employment_type,
+						province,
+						earnings_config,
+						taxable_benefits_config,
+						deductions_config,
+						group_benefits
+					)
+				),
+				payroll_runs!inner (
+					id,
+					period_end,
+					pay_date,
+					status
+				)
+			`,
+				{ count: 'exact' }
+			)
+			.eq('employee_id', employeeId)
+			.eq('user_id', userId)
+			.eq('company_id', companyId);
+
+		// Apply date range filters on payroll_runs.period_end
+		if (startDate) {
+			query = query.gte('payroll_runs.period_end', startDate);
+		}
+		if (endDate) {
+			query = query.lte('payroll_runs.period_end', endDate);
+		}
+
+		// Apply status filters
+		if (status) {
+			query = query.eq('payroll_runs.status', status);
+		}
+		if (excludeStatuses && excludeStatuses.length > 0) {
+			query = query.not('payroll_runs.status', 'in', `(${excludeStatuses.join(',')})`);
+		}
+
+		// Order by period_end descending and paginate
+		const { data, error, count } = await query
+			.order('payroll_runs(period_end)', { ascending: false })
+			.range(offset, offset + limit - 1);
+
+		if (error) throw error;
+
+		// Convert to UI records with period info
+		const records: PayrollRecordWithPeriod[] = (data || []).map((record) => {
+			const baseRecord = dbPayrollRecordToUi(record as DbPayrollRecordWithEmployee);
+			const runData = record.payroll_runs as unknown as {
+				id: string;
+				period_end: string;
+				pay_date: string;
+				status: PayrollRunStatus;
+			};
+
+			return {
+				...baseRecord,
+				periodEnd: runData.period_end,
+				payDate: runData.pay_date,
+				runStatus: runData.status,
+				runId: runData.id
+			};
+		});
+
+		return { data: records, count: count ?? 0, error: null };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to list employee records';
+		console.error('listPayrollRecordsForEmployee error:', message);
 		return { data: [], count: 0, error: message };
 	}
 }
