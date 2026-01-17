@@ -5,7 +5,12 @@
 	import type { PayGroup } from '$lib/types/pay-group';
 	import type { Employee } from '$lib/types/employee';
 	import { PAYROLL_STATUS_LABELS } from '$lib/types/payroll';
-	import { listPayrollRuns, type PayrollRunListOptionsExt } from '$lib/services/payroll';
+	import {
+		listPayrollRuns,
+		listPayrollRecordsForEmployee,
+		type PayrollRunListOptionsExt,
+		type PayrollRecordWithPeriod
+	} from '$lib/services/payroll';
 	import { listPayGroups } from '$lib/services/payGroupService';
 	import { listEmployees } from '$lib/services/employeeService';
 	import { formatShortDate } from '$lib/utils/dateUtils';
@@ -13,6 +18,7 @@
 	import { companyState } from '$lib/stores/company.svelte';
 	import { TableSkeleton, AlertBanner, EmptyState } from '$lib/components/shared';
 	import PayrollHistoryFiltersComponent from '$lib/components/payroll/PayrollHistoryFilters.svelte';
+	import PayrollHistorySummary from '$lib/components/payroll/PayrollHistorySummary.svelte';
 	import type { PayrollHistoryFilters } from '$lib/types/payroll-filters';
 	import { DEFAULT_PAYROLL_HISTORY_FILTERS } from '$lib/types/payroll-filters';
 
@@ -30,6 +36,7 @@
 
 	// State
 	let runs = $state<PayrollRunWithGroups[]>([]);
+	let employeeRecords = $state<PayrollRecordWithPeriod[]>([]); // For employee detail view
 	let payGroups = $state<PayGroup[]>([]);
 	let employees = $state<Employee[]>([]);
 	let filters = $state<PayrollHistoryFilters>(DEFAULT_PAYROLL_HISTORY_FILTERS);
@@ -38,6 +45,9 @@
 	let activeTab = $state<FilterTab>('all');
 	let currentPage = $state(1);
 	let totalCount = $state(0);
+
+	// Derived: are we in employee detail view?
+	const isEmployeeView = $derived(filters.employeeId !== 'all' && filters.employeeId !== '');
 
 	// Constants
 	const PAGE_SIZE = 20;
@@ -88,7 +98,10 @@
 
 	// Load pay groups
 	async function loadPayGroups(): Promise<void> {
-		const result = await listPayGroups();
+		const companyId = companyState.currentCompany?.id;
+		if (!companyId) return;
+
+		const result = await listPayGroups({ company_id: companyId });
 		if (result.data) {
 			payGroups = result.data;
 		}
@@ -109,21 +122,70 @@
 		loadRuns();
 	}
 
-	// Load payroll runs
+	// Load payroll runs or employee records (based on view mode)
 	async function loadRuns() {
 		error = null;
 
-		const options = getFilterOptions();
-		const result = await listPayrollRuns(options);
+		// Check if we should use employee view (specific employee selected)
+		const shouldUseEmployeeView = filters.employeeId !== 'all' && filters.employeeId !== '';
 
-		if (result.error) {
-			error = result.error;
-			runs = [];
-			totalCount = 0;
+		if (shouldUseEmployeeView) {
+			// Employee detail view: query payroll_records for this employee
+			const result = await listPayrollRecordsForEmployee(filters.employeeId, {
+				startDate: filters.dateRange?.from,
+				endDate: filters.dateRange?.to,
+				status: getStatusFromTab(activeTab),
+				excludeStatuses: getExcludeStatusesFromTab(activeTab),
+				limit: PAGE_SIZE,
+				offset: (currentPage - 1) * PAGE_SIZE
+			});
+
+			if (result.error) {
+				error = result.error;
+				employeeRecords = [];
+				totalCount = 0;
+			} else {
+				employeeRecords = result.data;
+				totalCount = result.count;
+				runs = []; // Clear runs when in employee view
+			}
 		} else {
-			runs = result.data;
-			totalCount = result.count;
+			// Pay Run summary view: existing logic
+			const options = getFilterOptions();
+			const result = await listPayrollRuns(options);
+
+			if (result.error) {
+				error = result.error;
+				runs = [];
+				totalCount = 0;
+			} else {
+				runs = result.data;
+				totalCount = result.count;
+				employeeRecords = []; // Clear employee records when in summary view
+			}
 		}
+	}
+
+	// Helper: get status from active tab
+	function getStatusFromTab(tab: FilterTab): PayrollRunStatus | undefined {
+		switch (tab) {
+			case 'draft':
+				return 'draft';
+			case 'pending':
+				return 'pending_approval';
+			case 'cancelled':
+				return 'cancelled';
+			default:
+				return undefined;
+		}
+	}
+
+	// Helper: get exclude statuses from active tab
+	function getExcludeStatusesFromTab(tab: FilterTab): string[] | undefined {
+		if (tab === 'completed') {
+			return ['draft', 'pending_approval', 'cancelled'];
+		}
+		return undefined;
 	}
 
 	// Track previous company to avoid reloading same company
@@ -186,9 +248,19 @@
 		goto(`/payroll/run/${run.periodEnd}`);
 	}
 
+	// Select an employee record to navigate to payroll run page
+	function selectEmployeeRecord(record: PayrollRecordWithPeriod) {
+		goto(`/payroll/run/${record.periodEnd}`);
+	}
+
 	// Computed
 	const totalPages = $derived(Math.ceil(totalCount / PAGE_SIZE));
-	const ytdTotalPaid = $derived(runs.reduce((sum, run) => sum + run.totalNetPay, 0));
+	// Calculate total net pay based on view mode
+	const ytdTotalPaid = $derived(
+		isEmployeeView
+			? employeeRecords.reduce((sum, r) => sum + r.netPay, 0)
+			: runs.reduce((sum, run) => sum + run.totalNetPay, 0)
+	);
 	const showingStart = $derived((currentPage - 1) * PAGE_SIZE + 1);
 	const showingEnd = $derived(Math.min(currentPage * PAGE_SIZE, totalCount));
 
@@ -299,49 +371,30 @@
 					Try Again
 				</button>
 			</AlertBanner>
-		{:else if runs.length === 0}
+		{:else if (isEmployeeView && employeeRecords.length === 0) || (!isEmployeeView && runs.length === 0)}
 			<EmptyState
 				icon="fa-history"
-				title="No Payroll Runs Found"
-				description={activeTab === 'all'
-					? "You haven't created any payroll runs yet."
-					: activeTab === 'draft'
-						? 'No draft payroll runs.'
-						: activeTab === 'pending'
-							? 'No payroll runs are pending approval.'
-							: activeTab === 'completed'
-								? 'No completed payroll runs.'
-								: 'No cancelled payroll runs.'}
+				title={isEmployeeView ? 'No Payroll Records Found' : 'No Payroll Runs Found'}
+				description={isEmployeeView
+					? 'No payroll records found for this employee.'
+					: activeTab === 'all'
+						? "You haven't created any payroll runs yet."
+						: activeTab === 'draft'
+							? 'No draft payroll runs.'
+							: activeTab === 'pending'
+								? 'No payroll runs are pending approval.'
+								: activeTab === 'completed'
+									? 'No completed payroll runs.'
+									: 'No cancelled payroll runs.'}
 				variant="card"
 			/>
 		{:else}
 			<!-- Summary Stats -->
-			<div class="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4 mb-6">
-				<div class="flex items-center gap-4 p-5 bg-white rounded-xl shadow-md3-1">
-					<div
-						class="w-12 h-12 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center text-xl"
-					>
-						<i class="fas fa-calendar-check"></i>
-					</div>
-					<div class="flex flex-col">
-						<span class="text-title-large font-semibold text-surface-800">{totalCount}</span>
-						<span class="text-auxiliary-text text-surface-600">Payroll Runs</span>
-					</div>
-				</div>
-				<div class="flex items-center gap-4 p-5 bg-white rounded-xl shadow-md3-1">
-					<div
-						class="w-12 h-12 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center text-xl"
-					>
-						<i class="fas fa-dollar-sign"></i>
-					</div>
-					<div class="flex flex-col">
-						<span class="text-title-large font-semibold text-surface-800"
-							>{formatCurrency(ytdTotalPaid)}</span
-						>
-						<span class="text-auxiliary-text text-surface-600">Total Net Pay (This Page)</span>
-					</div>
-				</div>
-			</div>
+			<PayrollHistorySummary
+				count={totalCount}
+				{isEmployeeView}
+				records={isEmployeeView ? employeeRecords : runs}
+			/>
 
 			<!-- History Table -->
 			<div class="bg-surface-50 rounded-xl overflow-hidden mb-4">
@@ -355,11 +408,13 @@
 									class="border-b border-r border-surface-300 text-center py-3 px-4 text-xs font-semibold text-surface-600 uppercase tracking-wider"
 									>Period End</th
 								>
-								<th
-									rowspan="2"
-									class="border-b border-r border-surface-300 text-center py-3 px-4 text-xs font-semibold text-surface-600 uppercase tracking-wider"
-									>Emp</th
-								>
+								{#if !isEmployeeView}
+									<th
+										rowspan="2"
+										class="border-b border-r border-surface-300 text-center py-3 px-4 text-xs font-semibold text-surface-600 uppercase tracking-wider"
+										>Emp</th
+									>
+								{/if}
 								<th
 									rowspan="2"
 									class="border-b border-r border-surface-300 text-center py-3 px-4 text-xs font-semibold text-surface-600 uppercase tracking-wider"
@@ -444,118 +499,241 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each runs as run (run.id)}
-								<tr
-									class="cursor-pointer transition-[150ms] hover:bg-white"
-									onclick={() => selectRun(run)}
-									role="button"
-									tabindex="0"
-									onkeydown={(e) => e.key === 'Enter' && selectRun(run)}
-								>
-									<!-- Period End -->
-									<td
-										class="border-b border-surface-200 py-4 px-5 text-sm text-surface-700 font-medium text-left"
-										>{formatShortDate(run.periodEnd)}</td
+							{#if isEmployeeView}
+								<!-- Employee Records View -->
+								{#each employeeRecords as record (record.id)}
+									<tr
+										class="cursor-pointer transition-[150ms] hover:bg-white"
+										onclick={() => selectEmployeeRecord(record)}
+										role="button"
+										tabindex="0"
+										onkeydown={(e) => e.key === 'Enter' && selectEmployeeRecord(record)}
 									>
-
-									<!-- Employees -->
-									<td
-										class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 text-right"
-										>{run.totalEmployees}</td
-									>
-
-									<!-- Gross Pay -->
-									<td
-										class="border-b border-surface-200 py-4 px-5 text-sm text-surface-700 font-mono text-right"
-										>{formatTableCellValue(run.totalGross)}</td
-									>
-
-									<!-- Employee Deductions: CPP -->
-									<td
-										class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 font-mono text-right"
-										>{formatTableCellValue(run.totalCppEmployee)}</td
-									>
-
-									<!-- Employee Deductions: EI -->
-									<td
-										class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 font-mono text-right"
-										>{formatTableCellValue(run.totalEiEmployee)}</td
-									>
-
-									<!-- Employee Deductions: Tax -->
-									<td
-										class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 font-mono text-right"
-										>{formatTableCellValue(
-											(run.totalFederalTax || 0) + (run.totalProvincialTax || 0)
-										)}</td
-									>
-
-									<!-- Employee Deductions: Net Pay -->
-									<td
-										class="border-b border-surface-200 py-4 px-5 text-sm text-surface-700 font-mono font-semibold text-right"
-										>{formatTableCellValue(run.totalNetPay)}</td
-									>
-
-									<!-- Employer Contributions: CPP -->
-									<td
-										class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 font-mono text-right"
-										>{formatTableCellValue(run.totalCppEmployer)}</td
-									>
-
-									<!-- Employer Contributions: EI -->
-									<td
-										class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 font-mono text-right"
-										>{formatTableCellValue(run.totalEiEmployer)}</td
-									>
-
-									<!-- Remittance: Total CPP -->
-									<td
-										class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 font-mono text-right"
-										>{formatTableCellValue(
-											(run.totalCppEmployee || 0) + (run.totalCppEmployer || 0)
-										)}</td
-									>
-
-									<!-- Remittance: Total EI -->
-									<td
-										class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 font-mono text-right"
-										>{formatTableCellValue(
-											(run.totalEiEmployee || 0) + (run.totalEiEmployer || 0)
-										)}</td
-									>
-
-									<!-- Remittance: Remit -->
-									<td
-										class="border-b border-surface-200 py-4 px-5 text-sm text-surface-700 font-mono font-semibold text-primary-600 text-right"
-										>{formatTableCellValue(run.totalRemittance)}</td
-									>
-
-									<!-- Status -->
-									<td class="border-b border-surface-200 py-4 px-5 text-center">
-										<span
-											class="inline-flex items-center gap-2 py-1 px-3 rounded-full text-xs font-medium {getStatusBadgeClass(
-												run.status
-											)}"
+										<!-- Period End -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-700 font-medium text-left"
+											>{formatShortDate(record.periodEnd)}</td
 										>
-											{PAYROLL_STATUS_LABELS[run.status]}
-										</span>
-									</td>
 
-									<!-- Action -->
-									<td class="border-b border-surface-200 py-4 px-5">
-										<button
-											class="p-2 bg-transparent border-none rounded-md text-surface-400 cursor-pointer transition-[150ms] hover:bg-surface-200 hover:text-primary-600"
-											title="View details"
-											onclick={(e) => {
-												e.stopPropagation();
-												selectRun(run);
-											}}
+										<!-- No Employees column in employee view -->
+
+										<!-- Gross Pay -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-700 font-mono text-right"
+											>{formatTableCellValue(record.totalGross)}</td
 										>
-											<i class="fas fa-chevron-right"></i>
-										</button>
-									</td>
-								</tr>
-							{/each}
+
+										<!-- Employee Deductions: CPP -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 font-mono text-right"
+											>{formatTableCellValue(record.cppEmployee + record.cppAdditional)}</td
+										>
+
+										<!-- Employee Deductions: EI -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 font-mono text-right"
+											>{formatTableCellValue(record.eiEmployee)}</td
+										>
+
+										<!-- Employee Deductions: Tax -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 font-mono text-right"
+											>{formatTableCellValue(
+												(record.federalTax || 0) + (record.provincialTax || 0)
+											)}</td
+										>
+
+										<!-- Employee Deductions: Net Pay -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-700 font-mono font-semibold text-right"
+											>{formatTableCellValue(record.netPay)}</td
+										>
+
+										<!-- Employer Contributions: CPP -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 font-mono text-right"
+											>{formatTableCellValue(record.cppEmployer)}</td
+										>
+
+										<!-- Employer Contributions: EI -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 font-mono text-right"
+											>{formatTableCellValue(record.eiEmployer)}</td
+										>
+
+										<!-- Remittance: Total CPP -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 font-mono text-right"
+											>{formatTableCellValue(
+												(record.cppEmployee || 0) +
+													(record.cppAdditional || 0) +
+													(record.cppEmployer || 0)
+											)}</td
+										>
+
+										<!-- Remittance: Total EI -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 font-mono text-right"
+											>{formatTableCellValue(
+												(record.eiEmployee || 0) + (record.eiEmployer || 0)
+											)}</td
+										>
+
+										<!-- Remittance: Remit (Total CPP + Total EI + Tax) -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-700 font-mono font-semibold text-primary-600 text-right"
+											>{formatTableCellValue(
+												(record.cppEmployee || 0) +
+													(record.cppAdditional || 0) +
+													(record.cppEmployer || 0) +
+													(record.eiEmployee || 0) +
+													(record.eiEmployer || 0) +
+													(record.federalTax || 0) +
+													(record.provincialTax || 0)
+											)}</td
+										>
+
+										<!-- Status -->
+										<td class="border-b border-surface-200 py-4 px-5 text-center">
+											<span
+												class="inline-flex items-center gap-2 py-1 px-3 rounded-full text-xs font-medium {getStatusBadgeClass(
+													record.runStatus
+												)}"
+											>
+												{PAYROLL_STATUS_LABELS[record.runStatus]}
+											</span>
+										</td>
+
+										<!-- Action -->
+										<td class="border-b border-surface-200 py-4 px-5">
+											<button
+												class="p-2 bg-transparent border-none rounded-md text-surface-400 cursor-pointer transition-[150ms] hover:bg-surface-200 hover:text-primary-600"
+												title="View details"
+												onclick={(e) => {
+													e.stopPropagation();
+													selectEmployeeRecord(record);
+												}}
+											>
+												<i class="fas fa-chevron-right"></i>
+											</button>
+										</td>
+									</tr>
+								{/each}
+							{:else}
+								<!-- Pay Run Summary View -->
+								{#each runs as run (run.id)}
+									<tr
+										class="cursor-pointer transition-[150ms] hover:bg-white"
+										onclick={() => selectRun(run)}
+										role="button"
+										tabindex="0"
+										onkeydown={(e) => e.key === 'Enter' && selectRun(run)}
+									>
+										<!-- Period End -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-700 font-medium text-left"
+											>{formatShortDate(run.periodEnd)}</td
+										>
+
+										<!-- Employees -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 text-right"
+											>{run.totalEmployees}</td
+										>
+
+										<!-- Gross Pay -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-700 font-mono text-right"
+											>{formatTableCellValue(run.totalGross)}</td
+										>
+
+										<!-- Employee Deductions: CPP -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 font-mono text-right"
+											>{formatTableCellValue(run.totalCppEmployee)}</td
+										>
+
+										<!-- Employee Deductions: EI -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 font-mono text-right"
+											>{formatTableCellValue(run.totalEiEmployee)}</td
+										>
+
+										<!-- Employee Deductions: Tax -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 font-mono text-right"
+											>{formatTableCellValue(
+												(run.totalFederalTax || 0) + (run.totalProvincialTax || 0)
+											)}</td
+										>
+
+										<!-- Employee Deductions: Net Pay -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-700 font-mono font-semibold text-right"
+											>{formatTableCellValue(run.totalNetPay)}</td
+										>
+
+										<!-- Employer Contributions: CPP -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 font-mono text-right"
+											>{formatTableCellValue(run.totalCppEmployer)}</td
+										>
+
+										<!-- Employer Contributions: EI -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 font-mono text-right"
+											>{formatTableCellValue(run.totalEiEmployer)}</td
+										>
+
+										<!-- Remittance: Total CPP -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 font-mono text-right"
+											>{formatTableCellValue(
+												(run.totalCppEmployee || 0) + (run.totalCppEmployer || 0)
+											)}</td
+										>
+
+										<!-- Remittance: Total EI -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-600 font-mono text-right"
+											>{formatTableCellValue(
+												(run.totalEiEmployee || 0) + (run.totalEiEmployer || 0)
+											)}</td
+										>
+
+										<!-- Remittance: Remit -->
+										<td
+											class="border-b border-surface-200 py-4 px-5 text-sm text-surface-700 font-mono font-semibold text-primary-600 text-right"
+											>{formatTableCellValue(run.totalRemittance)}</td
+										>
+
+										<!-- Status -->
+										<td class="border-b border-surface-200 py-4 px-5 text-center">
+											<span
+												class="inline-flex items-center gap-2 py-1 px-3 rounded-full text-xs font-medium {getStatusBadgeClass(
+													run.status
+												)}"
+											>
+												{PAYROLL_STATUS_LABELS[run.status]}
+											</span>
+										</td>
+
+										<!-- Action -->
+										<td class="border-b border-surface-200 py-4 px-5">
+											<button
+												class="p-2 bg-transparent border-none rounded-md text-surface-400 cursor-pointer transition-[150ms] hover:bg-surface-200 hover:text-primary-600"
+												title="View details"
+												onclick={(e) => {
+													e.stopPropagation();
+													selectRun(run);
+												}}
+											>
+												<i class="fas fa-chevron-right"></i>
+											</button>
+										</td>
+									</tr>
+								{/each}
+							{/if}
 						</tbody>
 					</table>
 				</div>
