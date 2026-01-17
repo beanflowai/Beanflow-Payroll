@@ -32,6 +32,7 @@ class EmployeeCalculationRequest(BaseModel):
     )
     vacation_pay: Decimal = Field(default=Decimal("0"), description="Vacation pay")
     other_earnings: Decimal = Field(default=Decimal("0"), description="Other earnings")
+    bonus_earnings: Decimal = Field(default=Decimal("0"), description="Bonus/lump-sum earnings taxed using bonus method")
 
     # TD1 Claims
     federal_claim_amount: Decimal = Field(
@@ -94,6 +95,7 @@ class CalculationResponse(BaseModel):
     holiday_premium_pay: Decimal
     vacation_pay: Decimal
     other_earnings: Decimal
+    bonus_earnings: Decimal
     total_gross: Decimal
 
     # Employee Deductions

@@ -17,6 +17,7 @@ from app.core.supabase_client import get_supabase_client
 from app.models.compensation import (
     CompensationHistory,
     CompensationHistoryCreate,
+    InitialCompensationCreate,
 )
 from app.models.payroll import (
     EmployeeTaxClaim,
@@ -93,6 +94,75 @@ async def update_compensation(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal error updating compensation",
+        )
+
+
+@router.post(
+    "/{employee_id}/compensation/initial",
+    response_model=CompensationHistory,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create initial compensation history",
+    description="Create initial compensation history record for a new employee.",
+)
+async def create_initial_compensation(
+    employee_id: UUID,
+    request: InitialCompensationCreate,
+    current_user: CurrentUser,
+    x_company_id: str | None = Header(None, alias="X-Company-Id"),
+) -> CompensationHistory:
+    """
+    Create initial compensation history for a new employee.
+
+    This endpoint is called after employee creation to establish the first
+    compensation history record with:
+    - effective_date = hire_date
+    - change_reason = "Initial hire"
+    - end_date = NULL (currently active)
+    """
+    try:
+        company_id = await get_user_company_id(current_user.id, x_company_id)
+        service = CompensationService(current_user.id, company_id)
+
+        # Verify employee belongs to user
+        supabase = get_supabase_client()
+        employee_result = (
+            supabase.table("employees")
+            .select("id")
+            .eq("id", str(employee_id))
+            .eq("user_id", current_user.id)
+            .execute()
+        )
+
+        if not employee_result.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Employee not found",
+            )
+
+        # Create initial compensation history
+        result = await service.create_initial_compensation(
+            employee_id=employee_id,
+            compensation_type=request.compensationType,
+            annual_salary=float(request.annualSalary) if request.annualSalary else None,
+            hourly_rate=float(request.hourlyRate) if request.hourlyRate else None,
+            hire_date=request.hireDate.isoformat(),
+        )
+
+        return result
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"Initial compensation creation error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception:
+        logger.exception("Unexpected error creating initial compensation")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal error creating initial compensation",
         )
 
 
