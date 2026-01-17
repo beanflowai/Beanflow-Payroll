@@ -449,6 +449,7 @@ class PayrollRecordBase(BaseModel):
     """Base payroll record fields (earnings)."""
     gross_regular: Decimal
     gross_overtime: Decimal = Decimal("0")
+    bonus_earnings: Decimal = Decimal("0")  # Lump-sum payments (e.g., bonuses, commissions)
     holiday_pay: Decimal = Decimal("0")
     holiday_premium_pay: Decimal = Decimal("0")
     vacation_pay_paid: Decimal = Decimal("0")

@@ -43,6 +43,24 @@ class CompensationHistoryCreate(BaseModel):
         return self
 
 
+class InitialCompensationCreate(BaseModel):
+    """Request model for creating initial compensation history on employee creation."""
+
+    compensationType: CompensationType  # noqa: N815 - camelCase data field
+    annualSalary: Decimal | None = None  # noqa: N815
+    hourlyRate: Decimal | None = None  # noqa: N815
+    hireDate: date  # noqa: N815
+
+    @model_validator(mode="after")
+    def validate_compensation(self) -> "InitialCompensationCreate":
+        """Validate that the correct field is provided based on compensation type."""
+        if self.compensationType == "salary" and self.annualSalary is None:
+            raise ValueError("annualSalary is required for salary compensation type")
+        if self.compensationType == "hourly" and self.hourlyRate is None:
+            raise ValueError("hourlyRate is required for hourly compensation type")
+        return self
+
+
 class CompensationHistory(BaseModel):
     """Complete compensation history record from database."""
 
