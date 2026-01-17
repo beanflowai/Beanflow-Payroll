@@ -111,6 +111,83 @@ class CompensationService:
             logger.exception("RPC error updating compensation")
             raise ValueError(f"Database error: {error_msg}") from e
 
+    async def create_initial_compensation(
+        self,
+        employee_id: UUID,
+        compensation_type: str,
+        annual_salary: float | None,
+        hourly_rate: float | None,
+        hire_date: str,
+    ) -> CompensationHistory:
+        """Create initial compensation history record for a new employee.
+
+        This creates the first compensation history record with:
+        - effective_date = hire_date
+        - change_reason = "Initial hire"
+        - end_date = NULL (currently active)
+
+        Also updates the employee table's current compensation fields.
+
+        Args:
+            employee_id: The employee's UUID
+            compensation_type: 'salary' or 'hourly'
+            annual_salary: Annual salary amount (if salaried)
+            hourly_rate: Hourly rate (if hourly)
+            hire_date: Hire date (ISO format string)
+
+        Returns:
+            The newly created compensation history record
+
+        Raises:
+            ValueError: If validation fails or database error occurs
+        """
+        logger.info(
+            "Creating initial compensation record",
+            extra={
+                "employee_id": str(employee_id),
+                "compensation_type": compensation_type,
+                "hire_date": hire_date,
+            },
+        )
+
+        try:
+            # Insert into compensation history table
+            history_result = (
+                self.supabase.table("employee_compensation_history")
+                .insert(
+                    {
+                        "employee_id": str(employee_id),
+                        "compensation_type": compensation_type,
+                        "annual_salary": annual_salary,
+                        "hourly_rate": hourly_rate,
+                        "effective_date": hire_date,
+                        "change_reason": "Initial hire",
+                        "end_date": None,
+                    }
+                )
+                .execute()
+            )
+
+            if not history_result.data:
+                raise ValueError("Failed to create initial compensation history")
+
+            new_record = from_db_record(history_result.data[0])
+
+            logger.info(
+                "Initial compensation created successfully",
+                extra={
+                    "employee_id": str(employee_id),
+                    "record_id": str(new_record.id),
+                },
+            )
+
+            return new_record
+
+        except APIError as e:
+            logger.exception("Error creating initial compensation")
+            error_msg = str(e)
+            raise ValueError(f"Database error: {error_msg}") from e
+
     async def get_current_compensation(
         self,
         employee_id: UUID,
