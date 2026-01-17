@@ -28,6 +28,8 @@ from ._models import (
     PayrollRunResponse,
     RemoveEmployeeResponse,
     SyncEmployeesResponse,
+    UpdatePayDateRequest,
+    UpdatePayDateResponse,
     UpdatePayrollRecordRequest,
 )
 
@@ -320,11 +322,17 @@ async def create_or_get_run(
 
     The run is automatically populated with employees from pay groups that have
     this date as their next_period_end.
+
+    An optional pay_date can be provided to override the auto-calculated date,
+    subject to compliance with provincial labour standards.
     """
     try:
         company_id = await get_user_company_id(current_user.id, x_company_id)
         service = get_payroll_run_service(current_user.id, company_id)
-        result = await service.create_or_get_run_by_period_end(request.periodEnd)
+        result = await service.create_or_get_run_by_period_end(
+            request.periodEnd,
+            request.payDate
+        )
 
         run_data = result["run"]
         return CreateOrGetRunResponse(
@@ -355,6 +363,59 @@ async def create_or_get_run(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal error creating/getting payroll run",
+        )
+
+
+@router.patch(
+    "/runs/{run_id}/pay-date",
+    response_model=UpdatePayDateResponse,
+    summary="Update payroll run pay date",
+    description="Update the pay date of a draft payroll run.",
+)
+async def update_pay_date(
+    run_id: UUID,
+    request: UpdatePayDateRequest,
+    current_user: CurrentUser,
+    x_company_id: str | None = Header(None, alias="X-Company-Id"),
+) -> UpdatePayDateResponse:
+    """
+    Update the pay date of a draft payroll run.
+
+    This allows adjusting the pay date within legal limits defined by provincial
+    labour standards. Only works on runs in 'draft' status.
+
+    The pay date must be:
+    - At least 10 days before the period_end date
+    - On or before the legal deadline for the province
+
+    For example, Saskatchewan requires paying employees within 6 days of period end,
+    but we allow payment up to 10 days before period end for flexibility.
+
+    After updating the pay date, the run will be marked as needing recalculation.
+    """
+    try:
+        company_id = await get_user_company_id(current_user.id, x_company_id)
+        service = get_payroll_run_service(current_user.id, company_id)
+        result = await service.update_pay_date(run_id, request.payDate)
+
+        return UpdatePayDateResponse(
+            id=result["id"],
+            payDate=result["pay_date"],
+            status=result["status"],
+            totalEmployees=result.get("total_employees", 0),
+            totalGross=float(result.get("total_gross", 0)),
+            totalNetPay=float(result.get("total_net_pay", 0)),
+            needsRecalculation=result.get("needs_recalculation", False),
+        )
+
+    except ValueError as e:
+        logger.error(f"Update pay date error: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception:
+        logger.exception("Unexpected error updating pay date")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal error updating pay date",
         )
 
 
