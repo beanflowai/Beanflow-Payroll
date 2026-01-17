@@ -76,6 +76,7 @@ class YtdCalculator:
             holiday_premium_pay,
             vacation_pay_paid,
             other_earnings,
+            bonus_earnings,
             cpp_employee,
             cpp_additional,
             ei_employee,
@@ -105,6 +106,7 @@ class YtdCalculator:
             init = initial_ytd.get(emp_id, {})
             ytd_data[emp_id] = {
                 "ytd_gross": Decimal("0"),
+                "ytd_bonus_earnings": Decimal("0"),
                 # Include initial YTD from previous employer
                 "ytd_cpp": init.get("initial_ytd_cpp", Decimal("0")),
                 "ytd_cpp_additional": init.get("initial_ytd_cpp2", Decimal("0")),
@@ -131,6 +133,9 @@ class YtdCalculator:
             )
 
             ytd_data[emp_id]["ytd_gross"] += total_gross
+            ytd_data[emp_id]["ytd_bonus_earnings"] += Decimal(
+                str(record.get("bonus_earnings", 0))
+            )
             # Track CPP base and additional (CPP2) separately
             ytd_data[emp_id]["ytd_cpp"] += Decimal(str(record.get("cpp_employee", 0)))
             ytd_data[emp_id]["ytd_cpp_additional"] += Decimal(

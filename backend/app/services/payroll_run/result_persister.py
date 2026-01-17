@@ -24,6 +24,7 @@ class PayrollResult(Protocol):
     holiday_premium_pay: Decimal
     vacation_pay: Decimal
     other_earnings: Decimal
+    bonus_earnings: Decimal
     cpp_base: Decimal
     cpp_additional: Decimal
     cpp_total: Decimal
@@ -32,6 +33,10 @@ class PayrollResult(Protocol):
     ei_employer: Decimal
     federal_tax: Decimal
     provincial_tax: Decimal
+    federal_tax_on_income: Decimal
+    provincial_tax_on_income: Decimal
+    federal_tax_on_bonus: Decimal
+    provincial_tax_on_bonus: Decimal
     other_deductions: Decimal
     net_pay: Decimal
     total_gross: Decimal
@@ -105,11 +110,16 @@ class PayrollResultPersister:
             "sick_hours_taken": float(sick_hours_taken),
             "sick_pay_paid": float(sick_pay),
             "other_earnings": float(result.other_earnings),
+            "bonus_earnings": float(result.bonus_earnings),
             "cpp_employee": float(result.cpp_base),
             "cpp_additional": float(result.cpp_additional),
             "ei_employee": float(result.ei_employee),
             "federal_tax": float(result.federal_tax),
             "provincial_tax": float(result.provincial_tax),
+            "federal_tax_on_income": float(result.federal_tax_on_income),
+            "provincial_tax_on_income": float(result.provincial_tax_on_income),
+            "federal_tax_on_bonus": float(result.federal_tax_on_bonus),
+            "provincial_tax_on_bonus": float(result.provincial_tax_on_bonus),
             "other_deductions": float(result.other_deductions),
             "cpp_employer": float(result.cpp_employer),
             "ei_employer": float(result.ei_employer),

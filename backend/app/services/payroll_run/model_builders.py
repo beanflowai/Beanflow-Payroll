@@ -239,6 +239,7 @@ class ModelBuilder:
             holiday_premium_pay=Decimal(str(data.get("holiday_premium_pay", 0))),
             vacation_pay_paid=Decimal(str(data.get("vacation_pay_paid", 0))),
             other_earnings=Decimal(str(data.get("other_earnings", 0))),
+            bonus_earnings=Decimal(str(data.get("bonus_earnings", 0))),
             cpp_employee=Decimal(str(data.get("cpp_employee", 0))),
             cpp_additional=Decimal(str(data.get("cpp_additional", 0))),
             ei_employee=Decimal(str(data.get("ei_employee", 0))),
