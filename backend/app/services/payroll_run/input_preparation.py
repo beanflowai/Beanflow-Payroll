@@ -221,6 +221,14 @@ class PayrollInputPreparer:
             pay_date=pay_date,
             ytd_gross=emp_prior_ytd.get("ytd_gross", Decimal("0")),
             ytd_bonus_earnings=emp_prior_ytd.get("ytd_bonus_earnings", Decimal("0")),
+            ytd_pensionable_earnings=emp_prior_ytd.get(
+                "ytd_pensionable_earnings",
+                emp_prior_ytd.get("ytd_gross", Decimal("0")),
+            ),
+            ytd_insurable_earnings=emp_prior_ytd.get(
+                "ytd_insurable_earnings",
+                emp_prior_ytd.get("ytd_gross", Decimal("0")),
+            ),
             ytd_cpp_base=emp_prior_ytd.get("ytd_cpp", Decimal("0")),
             ytd_cpp_additional=emp_prior_ytd.get("ytd_cpp_additional", Decimal("0")),
             ytd_ei=emp_prior_ytd.get("ytd_ei", Decimal("0")),

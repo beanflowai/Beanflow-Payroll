@@ -11,6 +11,7 @@ Tests:
 
 from datetime import date, timedelta
 from decimal import Decimal
+from unittest.mock import MagicMock
 
 from app.models.holiday_pay_config import HolidayPayConfig, HolidayPayEligibility
 from app.services.payroll_run.holiday_pay_calculator import HolidayPayCalculator
@@ -163,8 +164,8 @@ class TestCalculateHolidayPay:
         assert result.premium_holiday_pay == Decimal("240")
         assert result.total_holiday_pay == Decimal("240")
 
-    def test_ontario_new_hire_eligible(self, mock_supabase):
-        """Ontario: New hire IS eligible (no 30-day requirement)."""
+    def test_ontario_new_hire_eligible_with_last_first_rule(self, mock_supabase):
+        """Ontario: New hire with last/first rule - eligible when work before/after holiday."""
         # Create calculator with Ontario config
         on_config_loader = MockConfigLoader({"ON": make_on_config()})
         calculator = HolidayPayCalculator(
@@ -173,9 +174,6 @@ class TestCalculateHolidayPay:
             company_id="test-company",
             config_loader=on_config_loader,
         )
-
-        # Mock empty historical data (will fall back to 30-day avg)
-        mock_supabase.table.return_value.select.return_value.eq.return_value.neq.return_value.gte.return_value.lt.return_value.in_.return_value.execute.return_value.data = []
 
         recent_date = (date.today() - timedelta(days=10)).isoformat()
         new_hire = {
@@ -189,6 +187,32 @@ class TestCalculateHolidayPay:
         holiday_date = date.today()
         holidays = [{"holiday_date": holiday_date.isoformat(), "name": "Test Holiday", "province": "ON"}]
 
+        # Create different mock chain for different table queries
+        # Historical payroll data (paystub_earnings table)
+        historical_mock = MagicMock()
+        historical_mock.data = []
+
+        # Timesheet entries for last/first rule - COMPLIES (has work before AND after)
+        timesheet_mock = MagicMock()
+        timesheet_mock.data = [
+            {"work_date": (holiday_date - timedelta(days=2)).isoformat(), "regular_hours": 8, "overtime_hours": 0},
+            {"work_date": (holiday_date + timedelta(days=2)).isoformat(), "regular_hours": 8, "overtime_hours": 0},
+        ]
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "paystub_earnings":
+                result = MagicMock()
+                result.execute.return_value = historical_mock
+                mock_table.select.return_value.eq.return_value.neq.return_value.gte.return_value.lt.return_value.in_.return_value = result
+            elif table_name == "timesheet_entries":
+                result = MagicMock()
+                result.execute.return_value = timesheet_mock
+                mock_table.select.return_value.eq.return_value.gte.return_value.lte.return_value = result
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
+
         result = calculator.calculate_holiday_pay(
             employee=new_hire,
             province="ON",
@@ -201,10 +225,75 @@ class TestCalculateHolidayPay:
             current_run_id="run-001",
         )
 
-        # Ontario: New hire IS eligible (no min days requirement)
+        # Ontario: New hire IS eligible (complies with last/first rule)
         # Regular: 8h × $20 = $160 (fallback to 30-day avg since no history)
         assert result.regular_holiday_pay == Decimal("160")
         assert result.premium_holiday_pay == Decimal("0")
+
+    def test_ontario_new_hire_ineligible_no_last_first_rule_work(self, mock_supabase):
+        """Ontario: New hire ineligible when no work before/after holiday (last/first rule)."""
+        # Create calculator with Ontario config
+        on_config_loader = MockConfigLoader({"ON": make_on_config()})
+        calculator = HolidayPayCalculator(
+            supabase=mock_supabase,
+            user_id="test-user",
+            company_id="test-company",
+            config_loader=on_config_loader,
+        )
+
+        recent_date = (date.today() - timedelta(days=10)).isoformat()
+        new_hire = {
+            "id": "emp-on-new-no-work",
+            "first_name": "No",
+            "last_name": "Work",
+            "hourly_rate": 20.00,
+            "hire_date": recent_date,
+        }
+
+        holiday_date = date.today()
+        holidays = [{"holiday_date": holiday_date.isoformat(), "name": "Test Holiday", "province": "ON"}]
+
+        # Create different mock chain for different table queries
+        # Historical payroll data (paystub_earnings table)
+        historical_mock = MagicMock()
+        historical_mock.data = []
+
+        # Timesheet entries for last/first rule - DOES NOT COMPLY (no work before or after)
+        timesheet_mock = MagicMock()
+        timesheet_mock.data = []
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "paystub_earnings":
+                result = MagicMock()
+                result.execute.return_value = historical_mock
+                mock_table.select.return_value.eq.return_value.neq.return_value.gte.return_value.lt.return_value.in_.return_value = result
+            elif table_name == "timesheet_entries":
+                result = MagicMock()
+                result.execute.return_value = timesheet_mock
+                mock_table.select.return_value.eq.return_value.gte.return_value.lte.return_value = result
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
+
+        result = calculator.calculate_holiday_pay(
+            employee=new_hire,
+            province="ON",
+            pay_frequency="bi_weekly",
+            period_start=holiday_date - timedelta(days=7),
+            period_end=holiday_date + timedelta(days=7),
+            holidays_in_period=holidays,
+            holiday_work_entries=[],
+            current_period_gross=Decimal("1600"),
+            current_run_id="run-001",
+        )
+
+        # Ontario: New hire NOT eligible (fails last/first rule - no work before/after)
+        assert result.regular_holiday_pay == Decimal("0")
+        assert result.premium_holiday_pay == Decimal("0")
+        # Verify ineligibility reason
+        assert result.calculation_details["holidays"][0]["eligible"] is False
+        assert result.calculation_details["holidays"][0]["ineligibility_reason"] == "did not work before/after holiday"
 
     def test_no_holidays_in_period(self, holiday_calculator, hourly_employee):
         """No holidays in the pay period."""

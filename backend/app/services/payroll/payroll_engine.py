@@ -390,12 +390,23 @@ class PayrollEngine:
                     input_data.ytd_ei,
                 )
 
+            total_pensionable = input_data.pensionable_earnings
+            bonus_pensionable = input_data.bonus_earnings
+            if total_pensionable > Decimal("0"):
+                f5a = self._round(
+                    cpp_result.f5 * ((total_pensionable - bonus_pensionable) / total_pensionable)
+                )
+                f5b = self._round(cpp_result.f5 * (bonus_pensionable / total_pensionable))
+            else:
+                f5a = Decimal("0")
+                f5b = Decimal("0")
+
             # For annualization, calculate regular income's annual taxable
             annual_taxable_regular = federal_calc.calculate_annual_taxable_income(
                 regular_gross,
                 input_data.rrsp_per_period,
                 input_data.union_dues_per_period,
-                regular_cpp_result.f5,
+                f5a,
             )
             per_period_taxable_regular = self._round(annual_taxable_regular / Decimal(str(pay_periods)))
 
@@ -414,6 +425,8 @@ class PayrollEngine:
                 "rrsp_per_period": str(input_data.rrsp_per_period),
                 "union_dues_per_period": str(input_data.union_dues_per_period),
                 "cpp_f5_per_period": str(regular_cpp_result.f5),
+                "cpp_f5a_per_period": str(f5a),
+                "cpp_f5b_per_period": str(f5b),
             }
         else:
             # No bonus - use traditional annualization for all income
@@ -460,6 +473,14 @@ class PayrollEngine:
                 pensionable_months=input_data.pensionable_months,
                 rrsp_per_period=input_data.rrsp_per_period,
                 union_dues_per_period=input_data.union_dues_per_period,
+                regular_gross_per_period=regular_gross,
+                ytd_bonus_earnings=input_data.ytd_bonus_earnings,
+                total_cpp_base_per_period=cpp_result.base,
+                regular_cpp_base_per_period=regular_cpp_result.base,
+                total_ei_per_period=ei_result.employee,
+                regular_ei_per_period=regular_ei_result.employee,
+                f5a_per_period=f5a,
+                f5b_per_period=f5b,
             )
 
             federal_tax_per_period = federal_result_regular.tax_per_period + bonus_result.federal_tax

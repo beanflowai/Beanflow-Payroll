@@ -71,10 +71,13 @@ class TestSecurityManager:
     def test_verify_supabase_jwt_valid_token(self):
         """Test that verify_supabase_jwt returns payload for valid token."""
         test_payload = {"sub": "user-123", "email": "test@example.com"}
+        test_header = {"alg": "HS256", "typ": "JWT"}
 
         with patch("app.core.security.get_config") as mock_config, \
+             patch("app.core.security.jwt.get_unverified_header") as mock_header, \
              patch("app.core.security.jwt.decode") as mock_decode:
             mock_config.return_value = MagicMock(supabase_jwt_secret="test-secret")
+            mock_header.return_value = test_header
             mock_decode.return_value = test_payload
 
             result = SecurityManager.verify_supabase_jwt("valid-token")

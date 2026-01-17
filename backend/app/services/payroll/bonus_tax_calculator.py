@@ -15,10 +15,11 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from app.services.payroll.federal_tax_calculator import FederalTaxCalculator
 from app.services.payroll.provincial_tax_calculator import ProvincialTaxCalculator
+from app.services.payroll.tax_tables import find_tax_bracket
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +94,102 @@ class BonusTaxCalculator:
             year=year,
             pay_date=pay_date,
         )
+        self._cpp_config = self.federal_calc._cpp_config
+        self._ei_config = self.federal_calc._ei_config
+
+    def _round(self, value: Decimal) -> Decimal:
+        """Round to 2 decimal places using CRA rounding rules."""
+        return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    def _calculate_k2_from_annual(
+        self,
+        annual_cpp_base: Decimal,
+        annual_ei: Decimal,
+        is_federal: bool,
+        pensionable_months: int | None = None,
+    ) -> Decimal:
+        """
+        Calculate K2/K2P from annual CPP/EI amounts (bonus method).
+        """
+        if is_federal:
+            rate = self.federal_calc.k2_rate
+            max_cpp = self.federal_calc.max_cpp_credit
+            max_ei = self.federal_calc.max_ei_credit
+            cpp_ratio = self.federal_calc.cpp_credit_ratio
+        else:
+            rate = self.provincial_calc.lowest_rate
+            max_cpp = self.provincial_calc.max_cpp_credit
+            max_ei = self.provincial_calc.max_ei_credit
+            cpp_ratio = self.provincial_calc.cpp_credit_ratio
+
+        pm = Decimal(str(pensionable_months)) if pensionable_months else Decimal("12")
+        max_cpp_credit = max_cpp * cpp_ratio * pm / Decimal("12")
+        # T4127: EI maximum is NOT prorated by PM (only CPP is)
+        max_ei_credit = max_ei
+
+        cpp_credit = min(annual_cpp_base * cpp_ratio, max_cpp_credit)
+        cpp_credit = self._round(cpp_credit)
+        ei_credit = min(annual_ei, max_ei_credit)
+        ei_credit = self._round(ei_credit)
+
+        return self._round(rate * (cpp_credit + ei_credit))
+
+    def _calculate_federal_tax_raw_with_k2(
+        self,
+        annual_taxable_income: Decimal,
+        total_claim_amount: Decimal,
+        k2_override: Decimal,
+        k3: Decimal = Decimal("0"),
+    ) -> Decimal:
+        """
+        Calculate annual federal tax (raw, unrounded T1) with K2 override.
+        """
+        rate, constant = find_tax_bracket(annual_taxable_income, self.federal_calc.brackets)
+        k1 = self.federal_calc.calculate_k1(total_claim_amount)
+        k4 = self.federal_calc.calculate_k4(annual_taxable_income)
+
+        t3_raw = (rate * annual_taxable_income) - constant - k1 - k2_override - k3 - k4
+        return max(t3_raw, Decimal("0"))
+
+    def _calculate_provincial_tax_raw_with_k2(
+        self,
+        annual_taxable_income: Decimal,
+        total_claim_amount: Decimal,
+        k2_override: Decimal,
+        net_income: Decimal | None = None,
+    ) -> Decimal:
+        """
+        Calculate annual provincial tax (raw, unrounded T2) with K2 override.
+        """
+        rate, constant = find_tax_bracket(annual_taxable_income, self.provincial_calc.brackets)
+        k1p = self.provincial_calc.calculate_k1p(total_claim_amount)
+        k4p = self.provincial_calc.calculate_k4p(annual_taxable_income)
+        k5p = self.provincial_calc.calculate_k5p_alberta(k1p, k2_override)
+
+        t4_raw = (
+            (rate * annual_taxable_income)
+            - constant
+            - k1p
+            - k2_override
+            - k4p
+            - k5p
+        )
+        t4_raw = max(t4_raw, Decimal("0"))
+
+        if self.province_code == "ON" and self.provincial_calc.has_surtax:
+            surtax = self.provincial_calc._calculate_ontario_surtax(t4_raw)
+            health = self.provincial_calc._calculate_ontario_health_premium(annual_taxable_income)
+            t2_raw = t4_raw + surtax + health
+        elif self.province_code == "BC" and self.provincial_calc.has_tax_reduction:
+            reduction = self.provincial_calc._calculate_bc_tax_reduction(annual_taxable_income)
+            t2_raw = t4_raw - reduction
+        elif self.province_code == "PE" and self.provincial_calc.has_surtax:
+            surtax = self.provincial_calc._calculate_pe_surtax(t4_raw)
+            t2_raw = t4_raw + surtax
+        else:
+            t2_raw = t4_raw
+
+        return max(t2_raw, Decimal("0"))
 
     def _calculate_annual_tax_for_gross(
         self,
@@ -182,19 +279,37 @@ class BonusTaxCalculator:
         pensionable_months: int | None = None,
         rrsp_per_period: Decimal = Decimal("0"),
         union_dues_per_period: Decimal = Decimal("0"),
+        regular_gross_per_period: Decimal | None = None,
+        ytd_bonus_earnings: Decimal | None = None,
+        total_cpp_base_per_period: Decimal | None = None,
+        regular_cpp_base_per_period: Decimal | None = None,
+        total_ei_per_period: Decimal | None = None,
+        regular_ei_per_period: Decimal | None = None,
+        f5a_per_period: Decimal | None = None,
+        f5b_per_period: Decimal | None = None,
+        f5b_ytd: Decimal = Decimal("0"),
     ) -> BonusTaxResult:
         """
         Calculate federal and provincial tax on a bonus payment.
 
         Uses marginal rate method: Tax(Annual Gross + Bonus) - Tax(Annual Gross)
         """
+        if bonus_amount <= Decimal("0"):
+            return BonusTaxResult(
+                bonus_amount=bonus_amount,
+                ytd_taxable_income=ytd_taxable_income,
+                federal_tax=Decimal("0"),
+                provincial_tax=Decimal("0"),
+                total_tax=Decimal("0"),
+                federal_tax_on_ytd=Decimal("0"),
+                federal_tax_on_total=Decimal("0"),
+                provincial_tax_on_ytd=Decimal("0"),
+                provincial_tax_on_total=Decimal("0"),
+            )
+
         # Note: ytd_taxable_income passed from engine is actually the base ANNUAL GROSS
         # (annualized regular + prior bonuses)
         base_annual_gross = ytd_taxable_income
-
-        # Annualize deductions
-        annual_rrsp = rrsp_per_period * Decimal(str(self.pay_periods))
-        annual_union_dues = union_dues_per_period * Decimal(str(self.pay_periods))
 
         # Use current claims for YTD if not specified
         if federal_claim_amount_ytd is None:
@@ -202,47 +317,165 @@ class BonusTaxCalculator:
         if provincial_claim_amount_ytd is None:
             provincial_claim_amount_ytd = provincial_claim_amount
 
-        # Step 1: Calculate tax on base annual income (A without current bonus)
-        federal_tax_on_ytd = self._calculate_annual_tax_for_gross(
-            annual_gross=base_annual_gross,
-            total_claim_amount=federal_claim_amount_ytd,
-            is_federal=True,
-            pensionable_months=pensionable_months,
-            annual_rrsp=annual_rrsp,
-            annual_union_dues=annual_union_dues,
-        )
-        provincial_tax_on_ytd = self._calculate_annual_tax_for_gross(
-            annual_gross=base_annual_gross,
-            total_claim_amount=provincial_claim_amount_ytd,
-            is_federal=False,
-            pensionable_months=pensionable_months,
-            annual_rrsp=annual_rrsp,
-            annual_union_dues=annual_union_dues,
+        use_t4127 = all(
+            value is not None
+            for value in [
+                regular_gross_per_period,
+                total_cpp_base_per_period,
+                regular_cpp_base_per_period,
+                total_ei_per_period,
+                regular_ei_per_period,
+                f5a_per_period,
+                f5b_per_period,
+            ]
         )
 
-        # Step 2: Calculate tax on (A + current bonus B)
-        total_annual_gross = base_annual_gross + bonus_amount
-        federal_tax_on_total = self._calculate_annual_tax_for_gross(
-            annual_gross=total_annual_gross,
-            total_claim_amount=federal_claim_amount,
-            is_federal=True,
-            pensionable_months=pensionable_months,
-            annual_rrsp=annual_rrsp,
-            annual_union_dues=annual_union_dues,
-        )
-        provincial_tax_on_total = self._calculate_annual_tax_for_gross(
-            annual_gross=total_annual_gross,
-            total_claim_amount=provincial_claim_amount,
-            is_federal=False,
-            pensionable_months=pensionable_months,
-            annual_rrsp=annual_rrsp,
-            annual_union_dues=annual_union_dues,
-        )
+        if use_t4127:
+            if ytd_bonus_earnings is None:
+                ytd_bonus_earnings = Decimal("0")
 
-        # Step 3: Bonus tax = difference (marginal tax)
-        federal_tax = max(federal_tax_on_total - federal_tax_on_ytd, Decimal("0"))
-        provincial_tax = max(provincial_tax_on_total - provincial_tax_on_ytd, Decimal("0"))
-        total_tax = federal_tax + provincial_tax
+            periods = Decimal(str(self.pay_periods))
+            regular_annual = periods * (
+                regular_gross_per_period
+                - rrsp_per_period
+                - union_dues_per_period
+                - f5a_per_period
+            )
+            regular_annual = max(regular_annual, Decimal("0"))
+
+            bonus_net = max(bonus_amount - f5b_per_period, Decimal("0"))
+            bonus_ytd_net = max(ytd_bonus_earnings - f5b_ytd, Decimal("0"))
+
+            annual_with_bonus = self._round(regular_annual + bonus_net + bonus_ytd_net)
+            annual_without_bonus = self._round(regular_annual + bonus_ytd_net)
+
+            bonus_cpp_base = max(
+                total_cpp_base_per_period - regular_cpp_base_per_period,
+                Decimal("0"),
+            )
+            bonus_ei = max(
+                total_ei_per_period - regular_ei_per_period,
+                Decimal("0"),
+            )
+
+            cpp_base_rate = Decimal(str(self._cpp_config["base_rate"]))
+            ei_rate = Decimal(str(self._ei_config["employee_rate"]))
+            ytd_bonus_cpp = self._round(cpp_base_rate * ytd_bonus_earnings)
+            ytd_bonus_ei = self._round(ei_rate * ytd_bonus_earnings)
+
+            annual_cpp_no_bonus = self._round((periods * regular_cpp_base_per_period) + ytd_bonus_cpp)
+            annual_cpp_with_bonus = self._round(
+                (periods * regular_cpp_base_per_period) + bonus_cpp_base + ytd_bonus_cpp
+            )
+            annual_ei_no_bonus = self._round((periods * regular_ei_per_period) + ytd_bonus_ei)
+            annual_ei_with_bonus = self._round(
+                (periods * regular_ei_per_period) + bonus_ei + ytd_bonus_ei
+            )
+
+            federal_k2_ytd = self._calculate_k2_from_annual(
+                annual_cpp_no_bonus,
+                annual_ei_no_bonus,
+                is_federal=True,
+                pensionable_months=pensionable_months,
+            )
+            federal_k2_total = self._calculate_k2_from_annual(
+                annual_cpp_with_bonus,
+                annual_ei_with_bonus,
+                is_federal=True,
+                pensionable_months=pensionable_months,
+            )
+            provincial_k2_ytd = self._calculate_k2_from_annual(
+                annual_cpp_no_bonus,
+                annual_ei_no_bonus,
+                is_federal=False,
+                pensionable_months=pensionable_months,
+            )
+            provincial_k2_total = self._calculate_k2_from_annual(
+                annual_cpp_with_bonus,
+                annual_ei_with_bonus,
+                is_federal=False,
+                pensionable_months=pensionable_months,
+            )
+
+            federal_tax_on_ytd_raw = self._calculate_federal_tax_raw_with_k2(
+                annual_without_bonus,
+                federal_claim_amount_ytd,
+                federal_k2_ytd,
+            )
+            federal_tax_on_total_raw = self._calculate_federal_tax_raw_with_k2(
+                annual_with_bonus,
+                federal_claim_amount,
+                federal_k2_total,
+            )
+            provincial_tax_on_ytd_raw = self._calculate_provincial_tax_raw_with_k2(
+                annual_without_bonus,
+                provincial_claim_amount_ytd,
+                provincial_k2_ytd,
+            )
+            provincial_tax_on_total_raw = self._calculate_provincial_tax_raw_with_k2(
+                annual_with_bonus,
+                provincial_claim_amount,
+                provincial_k2_total,
+            )
+
+            federal_tax = self._round(
+                max(federal_tax_on_total_raw - federal_tax_on_ytd_raw, Decimal("0"))
+            )
+            provincial_tax = self._round(
+                max(provincial_tax_on_total_raw - provincial_tax_on_ytd_raw, Decimal("0"))
+            )
+            total_tax = federal_tax + provincial_tax
+
+            federal_tax_on_ytd = self._round(federal_tax_on_ytd_raw)
+            federal_tax_on_total = self._round(federal_tax_on_ytd + federal_tax)
+            provincial_tax_on_ytd = self._round(provincial_tax_on_ytd_raw)
+            provincial_tax_on_total = self._round(provincial_tax_on_ytd + provincial_tax)
+        else:
+            # Annualize deductions for legacy method
+            annual_rrsp = rrsp_per_period * Decimal(str(self.pay_periods))
+            annual_union_dues = union_dues_per_period * Decimal(str(self.pay_periods))
+
+            # Step 1: Calculate tax on base annual income (A without current bonus)
+            federal_tax_on_ytd = self._calculate_annual_tax_for_gross(
+                annual_gross=base_annual_gross,
+                total_claim_amount=federal_claim_amount_ytd,
+                is_federal=True,
+                pensionable_months=pensionable_months,
+                annual_rrsp=annual_rrsp,
+                annual_union_dues=annual_union_dues,
+            )
+            provincial_tax_on_ytd = self._calculate_annual_tax_for_gross(
+                annual_gross=base_annual_gross,
+                total_claim_amount=provincial_claim_amount_ytd,
+                is_federal=False,
+                pensionable_months=pensionable_months,
+                annual_rrsp=annual_rrsp,
+                annual_union_dues=annual_union_dues,
+            )
+
+            # Step 2: Calculate tax on (A + current bonus B)
+            total_annual_gross = base_annual_gross + bonus_amount
+            federal_tax_on_total = self._calculate_annual_tax_for_gross(
+                annual_gross=total_annual_gross,
+                total_claim_amount=federal_claim_amount,
+                is_federal=True,
+                pensionable_months=pensionable_months,
+                annual_rrsp=annual_rrsp,
+                annual_union_dues=annual_union_dues,
+            )
+            provincial_tax_on_total = self._calculate_annual_tax_for_gross(
+                annual_gross=total_annual_gross,
+                total_claim_amount=provincial_claim_amount,
+                is_federal=False,
+                pensionable_months=pensionable_months,
+                annual_rrsp=annual_rrsp,
+                annual_union_dues=annual_union_dues,
+            )
+
+            # Step 3: Bonus tax = difference (marginal tax)
+            federal_tax = max(federal_tax_on_total - federal_tax_on_ytd, Decimal("0"))
+            provincial_tax = max(provincial_tax_on_total - provincial_tax_on_ytd, Decimal("0"))
+            total_tax = federal_tax + provincial_tax
 
         return BonusTaxResult(
             bonus_amount=bonus_amount,
