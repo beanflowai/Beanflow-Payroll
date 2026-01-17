@@ -116,6 +116,7 @@ export interface PayrollRun {
 	totalPayrollCost: number; // totalGross + totalEmployerCost
 	totalRemittance: number; // CPP (employee+employer) + EI (employee+employer) + federal tax + provincial tax
 	holidays?: Holiday[];
+	needsRecalculation?: boolean; // Flag indicating if pay date changed and recalculation is needed
 }
 
 // Compensation type for determining how gross pay is calculated
@@ -363,6 +364,8 @@ export interface PayrollRunWithGroups {
 	totalRemittance: number; // CPP (employee+employer) + EI (employee+employer) + federal tax + provincial tax
 	// Holidays applicable to this pay date
 	holidays?: Holiday[];
+	// Flag indicating if pay date changed and recalculation is needed
+	needsRecalculation?: boolean;
 }
 
 // Pay frequency labels for display

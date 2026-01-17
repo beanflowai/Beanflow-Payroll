@@ -646,3 +646,46 @@ export async function listPayrollRecordsForEmployee(
 		return { data: [], count: 0, error: message };
 	}
 }
+
+// ===========================================
+// Update Pay Date
+// ===========================================
+
+/**
+ * Update the pay date of an existing payroll run using the backend API
+ * @param runId Payroll run ID
+ * @param payDate New pay date (YYYY-MM-DD format)
+ * @returns Result with updated payroll run data
+ */
+export async function updatePayDate(
+	runId: string,
+	payDate: string
+): Promise<{
+	data: { id: string; payDate: string; status: string; needsRecalculation: boolean } | null;
+	error: string | null;
+}> {
+	try {
+		const { api } = await import('$lib/api/client');
+
+		const response = await api.patch<{
+			id: string;
+			pay_date: string;
+			status: string;
+			needs_recalculation: boolean;
+		}>(`/payroll/runs/${runId}/pay-date`, { payDate });
+
+		return {
+			data: {
+				id: response.id,
+				payDate: response.pay_date,
+				status: response.status,
+				needsRecalculation: response.needs_recalculation
+			},
+			error: null
+		};
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to update pay date';
+		console.error('updatePayDate error:', message);
+		return { data: null, error: message };
+	}
+}

@@ -43,7 +43,8 @@ export {
 	getPayrollRunByPeriodEnd,
 	getPayrollRunById,
 	listPayrollRuns,
-	listPayrollRecordsForEmployee
+	listPayrollRecordsForEmployee,
+	updatePayDate
 } from './run-queries';
 
 // Re-export payroll run status functions
