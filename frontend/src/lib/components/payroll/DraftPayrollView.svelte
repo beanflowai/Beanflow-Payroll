@@ -5,6 +5,7 @@
 		HolidayWorkEntry
 	} from '$lib/types/payroll';
 	import { DraftPayGroupSection, HolidayAlert, HolidayWorkModal } from '$lib/components/payroll';
+	import PayDatePicker from './PayDatePicker.svelte';
 	import Tooltip from '$lib/components/shared/Tooltip.svelte';
 	import { formatShortDate } from '$lib/utils/dateUtils';
 	import { formatCurrency } from '$lib/utils';
@@ -26,6 +27,7 @@
 		onRemoveEmployee?: (employeeId: string) => void;
 		onDeleteDraft?: () => void;
 		onBack?: () => void;
+		onPayDateChange?: (newPayDate: string) => Promise<void>;
 	}
 
 	let {
@@ -40,11 +42,13 @@
 		onAddEmployee,
 		onRemoveEmployee,
 		onDeleteDraft,
-		onBack
+		onBack,
+		onPayDateChange
 	}: Props = $props();
 
 	let expandedRecordId = $state<string | null>(null);
 	let showHolidayModal = $state(false);
+	let isUpdatingPayDate = $state(false);
 
 	function handleToggleExpand(id: string) {
 		expandedRecordId = expandedRecordId === id ? null : id;
@@ -56,6 +60,18 @@
 
 	function closeHolidayModal() {
 		showHolidayModal = false;
+	}
+
+	// Handle pay date update
+	async function handlePayDateSave(newPayDate: string) {
+		if (onPayDateChange) {
+			isUpdatingPayDate = true;
+			try {
+				await onPayDateChange(newPayDate);
+			} finally {
+				isUpdatingPayDate = false;
+			}
+		}
 	}
 
 	function handleHolidayWorkSave(entries: HolidayWorkEntry[]) {
@@ -124,6 +140,11 @@
 							? 'Cannot finalize: Total remittance is zero'
 							: 'Finalize payroll run'
 	);
+
+	// Get province from first pay group (for pay date editing)
+	const province = $derived(
+		payrollRun.payGroups[0]?.province ?? 'SK'
+	);
 </script>
 
 <div class="flex flex-col gap-5">
@@ -137,9 +158,14 @@
 					<i class="fas fa-edit"></i>
 					Draft
 				</div>
-				<h1 class="text-2xl font-bold text-gray-800 m-0">
-					Pay Date: {formatShortDate(payrollRun.payDate)}
-				</h1>
+				<PayDatePicker
+					value={payrollRun.payDate}
+					periodEnd={payrollRun.payGroups[0]?.periodEnd ?? payrollRun.periodEnd}
+					province={province}
+					onValueChange={() => {}}
+					onSave={handlePayDateSave}
+					onCancel={() => {}}
+				/>
 			</div>
 			<div class="flex gap-3">
 				{#if onBack}

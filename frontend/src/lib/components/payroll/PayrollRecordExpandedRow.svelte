@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { PayrollRecord } from '$lib/types/payroll';
 	import type { GroupBenefits } from '$lib/types/pay-group';
-	import { LEAVE_TYPE_LABELS } from '$lib/types/payroll';
+	import { LEAVE_TYPE_LABELS, ADJUSTMENT_TYPE_LABELS } from '$lib/types/payroll';
 	import { formatCurrency } from '$lib/utils/formatUtils';
 
 	interface Props {
@@ -16,6 +16,23 @@
 
 	const totalLeavePay = $derived(
 		record.leaveEntries?.reduce((sum, entry) => sum + entry.leavePay, 0) ?? 0
+	);
+
+	// Derived: earnings adjustments from inputData (for Other Earnings breakdown)
+	const earningsAdjustments = $derived(
+		(record.inputData?.adjustments ?? [])
+			.filter((adj) => adj.type !== 'deduction' && adj.amount > 0)
+			.sort((a, b) => b.amount - a.amount)
+	);
+
+	const hasEarningsAdjustments = $derived(earningsAdjustments.length > 0);
+	const otherEarningsTotal = $derived(
+		earningsAdjustments.reduce((sum, adj) => sum + adj.amount, 0)
+	);
+
+	// Derived: check if tax breakdown exists (bonus tax calculated separately)
+	const hasTaxBreakdown = $derived(
+		(record.federalTaxOnBonus ?? 0) > 0 || (record.provincialTaxOnBonus ?? 0) > 0
 	);
 </script>
 
@@ -73,6 +90,29 @@
 							<span class="item-value">{formatCurrency(record.vacationPayPaid)}</span>
 						</div>
 					{/if}
+					<!-- Other Earnings breakdown (Bonus, Retroactive Pay, etc.) -->
+					{#if hasEarningsAdjustments}
+						<div class="breakdown-item other-earnings-item">
+							<span class="item-label">Other Earnings</span>
+							<span class="item-value">{formatCurrency(otherEarningsTotal)}</span>
+						</div>
+						<!-- Breakdown items (max 4) -->
+						{#each earningsAdjustments.slice(0, 4) as adj (adj.id)}
+							<div class="breakdown-subitem">
+								<span class="subitem-prefix">└─</span>
+								<span class="subitem-label"
+									>{ADJUSTMENT_TYPE_LABELS[adj.type]?.label ?? adj.type}:</span
+								>
+								<span class="subitem-value">{formatCurrency(adj.amount)}</span>
+							</div>
+						{/each}
+						{#if earningsAdjustments.length > 4}
+							<div class="breakdown-subitem more-items">
+								<span class="subitem-prefix">└─</span>
+								<span class="subitem-label">+{earningsAdjustments.length - 4} more items</span>
+							</div>
+						{/if}
+					{/if}
 					<div class="breakdown-item total">
 						<span class="item-label">Total Gross</span>
 						<span class="item-value">{formatCurrency(record.totalGross)}</span>
@@ -107,20 +147,62 @@
 							<span class="tag">auto</span>
 						</span>
 					</div>
-					<div class="breakdown-item">
-						<span class="item-label">Federal Tax</span>
-						<span class="item-value auto-tag">
-							{formatCurrency(record.federalTax)}
-							<span class="tag">auto</span>
-						</span>
-					</div>
-					<div class="breakdown-item">
-						<span class="item-label">Provincial Tax</span>
-						<span class="item-value auto-tag">
-							{formatCurrency(record.provincialTax)}
-							<span class="tag">auto</span>
-						</span>
-					</div>
+					<!-- Federal Tax with breakdown when bonus exists -->
+					{#if hasTaxBreakdown}
+						<div class="breakdown-item">
+							<span class="item-label">Federal Tax</span>
+							<span class="item-value auto-tag">
+								{formatCurrency(record.federalTax)}
+								<span class="tag">auto</span>
+							</span>
+						</div>
+						<div class="breakdown-subitem">
+							<span class="subitem-prefix">└─</span>
+							<span class="subitem-label">On Income:</span>
+							<span class="subitem-value">{formatCurrency(record.federalTaxOnIncome ?? 0)}</span>
+						</div>
+						<div class="breakdown-subitem">
+							<span class="subitem-prefix">└─</span>
+							<span class="subitem-label">On Bonus:</span>
+							<span class="subitem-value">{formatCurrency(record.federalTaxOnBonus ?? 0)}</span>
+						</div>
+					{:else}
+						<div class="breakdown-item">
+							<span class="item-label">Federal Tax</span>
+							<span class="item-value auto-tag">
+								{formatCurrency(record.federalTax)}
+								<span class="tag">auto</span>
+							</span>
+						</div>
+					{/if}
+					<!-- Provincial Tax with breakdown when bonus exists -->
+					{#if hasTaxBreakdown}
+						<div class="breakdown-item">
+							<span class="item-label">Provincial Tax</span>
+							<span class="item-value auto-tag">
+								{formatCurrency(record.provincialTax)}
+								<span class="tag">auto</span>
+							</span>
+						</div>
+						<div class="breakdown-subitem">
+							<span class="subitem-prefix">└─</span>
+							<span class="subitem-label">On Income:</span>
+							<span class="subitem-value">{formatCurrency(record.provincialTaxOnIncome ?? 0)}</span>
+						</div>
+						<div class="breakdown-subitem">
+							<span class="subitem-prefix">└─</span>
+							<span class="subitem-label">On Bonus:</span>
+							<span class="subitem-value">{formatCurrency(record.provincialTaxOnBonus ?? 0)}</span>
+						</div>
+					{:else}
+						<div class="breakdown-item">
+							<span class="item-label">Provincial Tax</span>
+							<span class="item-value auto-tag">
+								{formatCurrency(record.provincialTax)}
+								<span class="tag">auto</span>
+							</span>
+						</div>
+					{/if}
 					{#if record.rrsp > 0}
 						<div class="breakdown-item">
 							<span class="item-label">RRSP</span>
@@ -414,6 +496,55 @@
 
 	.item-value.deductions {
 		color: var(--color-error-600);
+	}
+
+	/* Breakdown sub-items (for Other Earnings and Tax breakdown) */
+	.breakdown-subitem {
+		display: flex;
+		align-items: center;
+		padding: var(--spacing-1) 0;
+		padding-left: var(--spacing-4);
+	}
+
+	.subitem-prefix {
+		color: var(--color-surface-400);
+		margin-right: var(--spacing-1);
+		font-family: monospace;
+		font-size: var(--font-size-body-content);
+	}
+
+	.subitem-label {
+		font-size: var(--font-size-body-content);
+		color: var(--color-surface-500);
+	}
+
+	.subitem-value {
+		font-size: var(--font-size-body-content);
+		font-family: monospace;
+		color: var(--color-surface-600);
+		margin-left: auto;
+	}
+
+	.breakdown-subitem.more-items .subitem-label {
+		font-style: italic;
+		color: var(--color-surface-400);
+	}
+
+	/* Other Earnings highlight */
+	.other-earnings-item {
+		background: var(--color-success-50);
+		border-radius: var(--radius-md);
+		padding: var(--spacing-2) !important;
+		margin: var(--spacing-1) 0;
+	}
+
+	.other-earnings-item .item-label {
+		color: var(--color-success-700);
+	}
+
+	.other-earnings-item .item-value {
+		color: var(--color-success-700);
+		font-weight: var(--font-weight-medium);
 	}
 
 	/* Overtime styling */

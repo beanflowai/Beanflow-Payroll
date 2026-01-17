@@ -36,7 +36,8 @@
 		removeEmployeeFromRun,
 		deletePayrollRun,
 		getPaystubDownloadUrl,
-		sendPaystubs
+		sendPaystubs,
+		updatePayDate
 	} from '$lib/services/payroll';
 	import { getUnassignedEmployees, assignEmployeesToPayGroup } from '$lib/services/employeeService';
 	import { formatFullDate } from '$lib/utils/dateUtils';
@@ -153,7 +154,8 @@
 					totalEmployerCost: payrollRun.totalEmployerCost,
 					totalPayrollCost: payrollRun.totalPayrollCost,
 					totalRemittance: payrollRun.totalRemittance,
-					holidays: payrollRun.holidays
+					holidays: payrollRun.holidays,
+					needsRecalculation: payrollRun.needsRecalculation
 				}
 			: null
 	);
@@ -454,8 +456,42 @@
 		}
 	}
 
+	// ===========================================
+	// Pay Date Edit Handler
+	// ===========================================
+	async function handlePayDateChange(newPayDate: string) {
+		if (!payrollRun || payrollRun.status !== 'draft') return;
+
+		try {
+			const result = await updatePayDate(payrollRun.id, newPayDate);
+			if (result.error) {
+				alert(`Failed to update pay date: ${result.error}`);
+				return;
+			}
+			// Update local state with new pay date
+			if (result.data) {
+				payrollRun = {
+					...payrollRun,
+					payDate: result.data.payDate,
+					needsRecalculation: result.data.needsRecalculation
+				};
+				// If backend returns needsRecalculation, mark as modified to disable Finalize
+				if (result.data.needsRecalculation) {
+					hasModifiedRecords = true;
+				}
+			}
+		} catch (err) {
+			alert(`Failed to update pay date: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		}
+	}
+
 	// Check if payroll run is in draft state
 	const isDraft = $derived(payrollRun?.status === 'draft');
+
+	// Get province from first pay group (default to SK if not available)
+	const province = $derived(
+		payrollRun?.payGroups[0]?.province ?? 'SK'
+	);
 </script>
 
 <svelte:head>
@@ -484,17 +520,22 @@
 			onRemoveEmployee={handleRemoveEmployee}
 			onDeleteDraft={handleDeleteDraft}
 			onBack={handleBack}
+			onPayDateChange={handlePayDateChange}
 		/>
 	</div>
 {:else if payrollRun}
 	<!-- Payroll Run View (pending_approval, approved, paid) -->
 	<div class="max-w-[1200px] mx-auto">
 		<PayrollPageHeader
-			payDateFormatted={formatFullDate(payrollRun.payDate)}
-			payGroupCount={payrollRun.payGroups.length}
-			employeeCount={payrollRun.totalEmployees}
-			onBack={handleBack}
-		>
+		payDate={payrollRun.payDate}
+		periodEnd={payrollRun.periodEnd}
+		province={province}
+		payDateFormatted={formatFullDate(payrollRun.payDate)}
+		payGroupCount={payrollRun.payGroups.length}
+		employeeCount={payrollRun.totalEmployees}
+		onBack={handleBack}
+		onPayDateChange={handlePayDateChange}
+	>
 			{#snippet actions()}
 				{@const run = payrollRun!}
 				<StatusBadge status={PAYROLL_STATUS_LABELS[run.status]} variant="pill" />
