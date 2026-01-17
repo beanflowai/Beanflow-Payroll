@@ -249,13 +249,21 @@ class PayrollRunService:
         """Create a new draft payroll run or get existing one for a pay date."""
         return await self._run_ops.create_or_get_run(pay_date)
 
-    async def create_or_get_run_by_period_end(self, period_end: str) -> dict[str, Any]:
+    async def create_or_get_run_by_period_end(
+        self, period_end: str, pay_date: str | None = None
+    ) -> dict[str, Any]:
         """Create a new draft payroll run or get existing one for a period end.
 
         This is the new entry point that uses period_end as the primary identifier.
-        The pay_date is auto-calculated based on province regulations.
+        The pay_date is auto-calculated based on province regulations, or can be provided.
+
+        Args:
+            period_end: The pay period end date (YYYY-MM-DD)
+            pay_date: Optional pay date (YYYY-MM-DD). If not provided, calculated from
+                     period_end + province delay. If provided, must be compliant with
+                     province regulations.
         """
-        return await self._run_ops.create_or_get_run_by_period_end(period_end)
+        return await self._run_ops.create_or_get_run_by_period_end(period_end, pay_date)
 
     async def recalculate_run(self, run_id: UUID) -> dict[str, Any]:
         """Recalculate all records in a draft payroll run."""
@@ -274,6 +282,21 @@ class PayrollRunService:
     async def send_paystubs(self, run_id: UUID) -> dict[str, Any]:
         """Send paystub emails to all employees."""
         return await self._run_ops.send_paystubs(run_id)
+
+    async def update_pay_date(self, run_id: UUID, pay_date: str) -> dict[str, Any]:
+        """Update the pay date of an existing payroll run.
+
+        Args:
+            run_id: The payroll run ID
+            pay_date: New pay date (YYYY-MM-DD)
+
+        Returns:
+            Updated payroll run data
+
+        Raises:
+            ValueError: If run not found, not in draft status, or pay_date is not compliant
+        """
+        return await self._run_ops.update_pay_date(run_id, pay_date)
 
     # =========================================================================
     # Delegated Operations - Employee Management

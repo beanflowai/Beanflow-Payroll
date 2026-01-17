@@ -52,6 +52,34 @@ class EmployeePayrollInput:
     rrsp_per_period: Decimal = Decimal("0")
     union_dues_per_period: Decimal = Decimal("0")
 
+    # Tier 6: TD1 Form Fields
+    # Employer RRSP contributions (affects EI insurability)
+    employer_rrsp_per_period: Decimal = Decimal("0")
+    employer_rrsp_withdrawal_restricted: bool = False  # If true, NOT EI insurable
+
+    # Retroactive payments
+    retroactive_pay_amount: Decimal = Decimal("0")
+    retroactive_pay_periods: int = 1  # Number of periods to spread payment
+
+    # Prescribed zone deductions (Northern living allowance)
+    prescribed_zone_deduction_annual: Decimal = Decimal("0")
+
+    # Alimony/maintenance payments (court-ordered)
+    alimony_per_period: Decimal = Decimal("0")
+
+    # Tax-exempt reserve income (military/RCMP)
+    reserve_income_exempt: Decimal = Decimal("0")
+    reserve_income_pensionable: bool = False  # If true, included in CPP pensionable
+
+    # Other annual deductions (claimed on TD1)
+    child_care_expenses_annual: Decimal = Decimal("0")
+    medical_expenses_annual: Decimal = Decimal("0")
+    charitable_donations_annual: Decimal = Decimal("0")
+
+    # RPP/PRPP contributions (deducted at source)
+    rpp_per_period: Decimal = Decimal("0")  # Registered Pension Plan
+    prpp_per_period: Decimal = Decimal("0")  # Pooled Registered Pension Plan
+
     # Post-tax Deductions (not affecting tax calculation)
     garnishments: Decimal = Decimal("0")
     other_deductions: Decimal = Decimal("0")
