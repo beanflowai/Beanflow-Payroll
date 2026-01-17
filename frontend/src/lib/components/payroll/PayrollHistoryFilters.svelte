@@ -57,18 +57,11 @@
 			: employees.filter((e) => e.payGroupId === filters.payGroupId)
 	);
 
-	// Employee 下拉框显示标签
+	// Employee 下拉框显示标签 - always shows "All" label to avoid duplicate names in dropdown
 	const employeeFilterLabel = $derived(
-		filters.employeeId === 'all'
-			? filters.payGroupId === 'all'
-				? 'All Employees'
-				: `All in ${payGroups.find((pg) => pg.id === filters.payGroupId)?.name || 'Group'}`
-			: (() => {
-					const employee = filteredEmployees.find((e) => e.id === filters.employeeId);
-					return employee
-						? `${employee.firstName} ${employee.lastName}`.trim() || 'Select Employee'
-						: 'Select Employee';
-				})()
+		filters.payGroupId === 'all'
+			? 'All Employees'
+			: `All in ${payGroups.find((pg) => pg.id === filters.payGroupId)?.name || 'Group'}`
 	);
 
 	// Active filter count
@@ -148,7 +141,10 @@
 		<!-- Pay Group Filter -->
 		{#if payGroups.length > 0}
 			<div class="flex-1 min-w-[200px]">
-				<label for="pay-group-filter" class="flex items-center gap-2 text-sm font-medium text-surface-700 mb-1.5">
+				<label
+					for="pay-group-filter"
+					class="flex items-center gap-2 text-sm font-medium text-surface-700 mb-1.5"
+				>
 					<i class="fas fa-users text-surface-400"></i>
 					Pay Group
 				</label>
@@ -164,7 +160,9 @@
 							<option value={pg.id}>{pg.name}</option>
 						{/each}
 					</select>
-					<div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-surface-400">
+					<div
+						class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-surface-400"
+					>
 						<i class="fas fa-chevron-down text-xs"></i>
 					</div>
 				</div>
@@ -174,7 +172,10 @@
 		<!-- Employee Filter -->
 		{#if employees.length > 0}
 			<div class="flex-1 min-w-[220px]">
-				<label for="employee-filter" class="flex items-center gap-2 text-sm font-medium text-surface-700 mb-1.5">
+				<label
+					for="employee-filter"
+					class="flex items-center gap-2 text-sm font-medium text-surface-700 mb-1.5"
+				>
 					<i class="fas fa-user text-surface-400"></i>
 					Employee
 				</label>
@@ -190,7 +191,9 @@
 							<option value={employee.id}>{employee.firstName} {employee.lastName}</option>
 						{/each}
 					</select>
-					<div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-surface-400">
+					<div
+						class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-surface-400"
+					>
 						<i class="fas fa-chevron-down text-xs"></i>
 					</div>
 				</div>
@@ -199,7 +202,10 @@
 
 		<!-- Date Range Selector -->
 		<div class="flex-1 min-w-[200px]">
-			<label for="date-range-filter" class="flex items-center gap-2 text-sm font-medium text-surface-700 mb-1.5">
+			<label
+				for="date-range-filter"
+				class="flex items-center gap-2 text-sm font-medium text-surface-700 mb-1.5"
+			>
 				<i class="fas fa-calendar-alt text-surface-400"></i>
 				Date Range
 			</label>
@@ -207,7 +213,17 @@
 				<select
 					id="date-range-filter"
 					class="w-full h-10 pl-3 pr-10 border border-surface-200 rounded-lg text-body-content bg-white appearance-none cursor-pointer hover:border-primary-400 transition-colors focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none"
-					value={isCustomDate ? 'custom' : (filters.dateRange ? dateRangeOptions.find(opt => opt.key !== 'all' && opt.key !== 'custom' && JSON.stringify(getDateRange(opt.key as DateRangePeriod)) === JSON.stringify(filters.dateRange))?.key || 'all' : 'all')}
+					value={isCustomDate
+						? 'custom'
+						: filters.dateRange
+							? dateRangeOptions.find(
+									(opt) =>
+										opt.key !== 'all' &&
+										opt.key !== 'custom' &&
+										JSON.stringify(getDateRange(opt.key as DateRangePeriod)) ===
+											JSON.stringify(filters.dateRange)
+								)?.key || 'all'
+							: 'all'}
 					onchange={(e) => {
 						const selectedKey = e.currentTarget.value as DateRangePeriod | 'all' | 'custom';
 						handleDateRangeChange(selectedKey);
@@ -227,7 +243,11 @@
 		{#if isCustomDate}
 			<div class="flex items-end gap-2 animate-in fade-in slide-in-from-left-2 duration-200">
 				<div class="flex flex-col">
-					<label for="custom-from" class="text-[11px] font-semibold text-surface-500 uppercase tracking-wider mb-1 px-1">From</label>
+					<label
+						for="custom-from"
+						class="text-[11px] font-semibold text-surface-500 uppercase tracking-wider mb-1 px-1"
+						>From</label
+					>
 					<input
 						id="custom-from"
 						type="date"
@@ -237,7 +257,11 @@
 					/>
 				</div>
 				<div class="flex flex-col">
-					<label for="custom-to" class="text-[11px] font-semibold text-surface-500 uppercase tracking-wider mb-1 px-1">To</label>
+					<label
+						for="custom-to"
+						class="text-[11px] font-semibold text-surface-500 uppercase tracking-wider mb-1 px-1"
+						>To</label
+					>
 					<input
 						id="custom-to"
 						type="date"

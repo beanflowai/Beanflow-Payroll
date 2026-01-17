@@ -876,21 +876,51 @@
 														>
 													</div>
 
-													<!-- Federal Tax -->
-													<div class="flex justify-between items-center">
-														<span class="text-body-content text-surface-600">Federal Tax</span>
-														<span class="text-body-content text-surface-800"
-															>{formatCurrency(record.federalTax)}</span
-														>
-													</div>
+													<!-- Federal Tax (show breakdown when bonus exists) -->
+													{#if record.federalTaxOnBonus && record.federalTaxOnBonus > 0}
+														<div class="flex justify-between items-center">
+															<span class="text-body-content text-surface-600">Federal Tax on Income</span>
+															<span class="text-body-content text-surface-800"
+																>{formatCurrency(record.federalTaxOnIncome ?? 0)}</span
+															>
+														</div>
+														<div class="flex justify-between items-center">
+															<span class="text-body-content text-surface-600">Federal Tax on Bonus</span>
+															<span class="text-body-content text-surface-800"
+																>{formatCurrency(record.federalTaxOnBonus)}</span
+															>
+														</div>
+													{:else}
+														<div class="flex justify-between items-center">
+															<span class="text-body-content text-surface-600">Federal Tax</span>
+															<span class="text-body-content text-surface-800"
+																>{formatCurrency(record.federalTax)}</span
+															>
+														</div>
+													{/if}
 
-													<!-- Provincial Tax -->
-													<div class="flex justify-between items-center">
-														<span class="text-body-content text-surface-600">Provincial Tax</span>
-														<span class="text-body-content text-surface-800"
-															>{formatCurrency(record.provincialTax)}</span
-														>
-													</div>
+													<!-- Provincial Tax (show breakdown when bonus exists) -->
+													{#if record.provincialTaxOnBonus && record.provincialTaxOnBonus > 0}
+														<div class="flex justify-between items-center">
+															<span class="text-body-content text-surface-600">Provincial Tax on Income</span>
+															<span class="text-body-content text-surface-800"
+																>{formatCurrency(record.provincialTaxOnIncome ?? 0)}</span
+															>
+														</div>
+														<div class="flex justify-between items-center">
+															<span class="text-body-content text-surface-600">Provincial Tax on Bonus</span>
+															<span class="text-body-content text-surface-800"
+																>{formatCurrency(record.provincialTaxOnBonus)}</span
+															>
+														</div>
+													{:else}
+														<div class="flex justify-between items-center">
+															<span class="text-body-content text-surface-600">Provincial Tax</span>
+															<span class="text-body-content text-surface-800"
+																>{formatCurrency(record.provincialTax)}</span
+															>
+														</div>
+													{/if}
 
 													<!-- Benefits (from Pay Group group_benefits) -->
 													{#if payGroup.groupBenefits?.enabled}
