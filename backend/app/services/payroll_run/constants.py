@@ -9,14 +9,68 @@ Contains:
 
 from __future__ import annotations
 
+import json
 import logging
 from calendar import monthrange
 from datetime import date, timedelta
 from decimal import Decimal
+from pathlib import Path
+from typing import Any
 
 from app.services.payroll.tax_tables import get_federal_config, get_province_config
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Pay Date Configuration - Loaded from JSON file
+# =============================================================================
+
+# Config file path
+PAY_DATE_CONFIG_PATH = (
+    Path(__file__).parent.parent.parent.parent / "config" / "payroll_rules" / "pay_date_delays.json"
+)
+
+
+def _load_pay_date_config() -> dict[str, dict[str, Any]]:
+    """Load pay date delay configuration from JSON file.
+
+    Returns:
+        Dict mapping province codes to their pay date info
+    """
+    if not PAY_DATE_CONFIG_PATH.exists():
+        logger.warning("Pay date config file not found at %s, using hardcoded fallback", PAY_DATE_CONFIG_PATH)
+        return _get_fallback_config()
+
+    try:
+        with open(PAY_DATE_CONFIG_PATH) as f:
+            config = json.load(f)
+        return config.get("provinces", {})
+    except (json.JSONDecodeError, KeyError) as e:
+        logger.error("Failed to parse pay date config: %s, using fallback", e)
+        return _get_fallback_config()
+
+
+def _get_fallback_config() -> dict[str, dict[str, Any]]:
+    """Fallback configuration if config file is missing or invalid."""
+    return {
+        "SK": {"delay_days": 6, "name": "Saskatchewan"},
+        "ON": {"delay_days": 7, "name": "Ontario"},
+        "BC": {"delay_days": 8, "name": "British Columbia"},
+        "AB": {"delay_days": 10, "name": "Alberta"},
+        "MB": {"delay_days": 10, "name": "Manitoba"},
+        "QC": {"delay_days": 16, "name": "Quebec"},
+        "NB": {"delay_days": 5, "name": "New Brunswick"},
+        "NS": {"delay_days": 5, "name": "Nova Scotia"},
+        "PE": {"delay_days": 7, "name": "Prince Edward Island"},
+        "NL": {"delay_days": 7, "name": "Newfoundland and Labrador"},
+        "NT": {"delay_days": 10, "name": "Northwest Territories"},
+        "NU": {"delay_days": 10, "name": "Nunavut"},
+        "YT": {"delay_days": 10, "name": "Yukon"},
+    }
+
+
+# Load configuration at module import
+_PAY_DATE_CONFIG = _load_pay_date_config()
 
 # Fallback Federal BPA when tax table lookup fails
 DEFAULT_FEDERAL_BPA_FALLBACK = Decimal("16129")
@@ -110,24 +164,42 @@ def get_provincial_bpa(
         return Decimal("12747")
 
 
-# Maximum days after period end to pay employees (by province)
-# Saskatchewan: must pay within 6 days of period end
-PAY_DATE_DELAY_DAYS = {
-    "SK": 6,
-    "ON": 7,  # Ontario
-    "BC": 8,  # British Columbia
-    "AB": 10,  # Alberta
-    "MB": 10,  # Manitoba
-    "QC": 16,  # Quebec (can be longer based on contract)
-    "NB": 5,  # New Brunswick
-    "NS": 5,  # Nova Scotia
-    "PE": 7,  # Prince Edward Island
-    "NL": 7,  # Newfoundland and Labrador
-    "NT": 10,  # Northwest Territories
-    "NU": 10,  # Nunavut
-    "YT": 10,  # Yukon
+# =============================================================================
+# Pay Date Delay Constants - Backward Compatible Interface
+# =============================================================================
+
+# Public interface: PAY_DATE_DELAY_DAYS (backward compatible)
+# Generated from loaded config
+PAY_DATE_DELAY_DAYS: dict[str, int] = {
+    code: data.get("delay_days", 7) for code, data in _PAY_DATE_CONFIG.items()
 }
 DEFAULT_PAY_DATE_DELAY = 7  # Default to 7 days if province not specified
+
+
+def get_province_pay_date_info(province: str) -> dict[str, Any]:
+    """Get full pay date information for a province.
+
+    Args:
+        province: Two-letter province code
+
+    Returns:
+        Dict with keys: delay_days, name, reference (if available)
+        Returns empty dict if province not found
+    """
+    return _PAY_DATE_CONFIG.get(province, {})
+
+
+def get_province_name(province: str) -> str:
+    """Get full province name from code.
+
+    Args:
+        province: Two-letter province code
+
+    Returns:
+        Full province name, or the province code if not found
+    """
+    info = get_province_pay_date_info(province)
+    return info.get("name", province)
 
 
 def calculate_pay_date(period_end: date, province: str = "SK") -> date:
@@ -145,6 +217,78 @@ def calculate_pay_date(period_end: date, province: str = "SK") -> date:
     """
     delay_days = PAY_DATE_DELAY_DAYS.get(province, DEFAULT_PAY_DATE_DELAY)
     return period_end + timedelta(days=delay_days)
+
+
+# =============================================================================
+# Pay Date Validation Functions
+# =============================================================================
+
+def get_pay_date_range(
+    period_end: date,
+    province: str = "SK"
+) -> tuple[date, date, date]:
+    """Get the valid range for pay date.
+
+    Args:
+        period_end: The pay period end date
+        province: Two-letter province code (default: "SK")
+
+    Returns:
+        Tuple of (earliest_date, recommended_date, latest_date)
+        - earliest_date: Period end (cannot be earlier than period end)
+        - recommended_date: Period end + standard delay
+        - latest_date: Period end + maximum legal delay
+    """
+    recommended_date = calculate_pay_date(period_end, province)
+    latest_date = period_end + timedelta(days=PAY_DATE_DELAY_DAYS.get(province, DEFAULT_PAY_DATE_DELAY))
+    earliest_date = period_end  # Cannot be earlier than period end
+
+    return earliest_date, recommended_date, latest_date
+
+
+def is_pay_date_compliant(
+    pay_date: date,
+    period_end: date,
+    province: str = "SK",
+    allow_early_days: int = 10
+) -> bool:
+    """Check if pay date is within legal limits.
+
+    A pay date is compliant if:
+    1. It is on or after the earliest allowed date (period end - allow_early_days)
+    2. It is on or before the legal deadline for the province
+
+    Args:
+        pay_date: The proposed pay date
+        period_end: The pay period end date
+        province: Two-letter province code (default: "SK")
+        allow_early_days: Days before period end that payment is allowed (default: 10)
+
+    Returns:
+        True if pay_date is within legal limits, False otherwise
+    """
+    # Cannot pay earlier than allow_early_days before period end
+    earliest_date = period_end - timedelta(days=allow_early_days)
+    if pay_date < earliest_date:
+        return False
+
+    _, _, latest_date = get_pay_date_range(period_end, province)
+    return pay_date <= latest_date
+
+
+def get_tax_year(pay_date: date) -> int:
+    """Get the tax year for a given pay date.
+
+    December pay dates may affect which tax year income is reported.
+    The tax year is determined by the pay date's calendar year.
+
+    Args:
+        pay_date: The pay date
+
+    Returns:
+        The tax year as an integer
+    """
+    return pay_date.year
 
 
 def calculate_next_period_end(current_period_end: date, pay_frequency: str) -> date:
