@@ -20,17 +20,17 @@
         "pay_frequency": "biweekly",
         "pay_date": "2026-01-17",
         "federal_claim": "16129.00",
-        "provincial_claim": "12747.00",
+        "provincial_claim": "12989.00",
         "child_care_expenses_annual": "2400.00"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "cpp_total": "129.30",
+        "ei": "37.62",
+        "federal_tax": "207.06",
+        "provincial_tax": "114.68",
+        "net_pay": "1819.03"
       },
-      "notes": "Child care expenses - claimed annually on TD1"
+      "notes": "Child care expenses - claimed annually on TD1. Provincial claim adjusted to 12989.00 (CRA minimum)."
     },
     {
       "id": "ON_60K_MEDICAL_EXPENSES",
@@ -44,17 +44,17 @@
         "pay_frequency": "biweekly",
         "pay_date": "2026-01-17",
         "federal_claim": "16129.00",
-        "provincial_claim": "12747.00",
+        "provincial_claim": "12989.00",
         "medical_expenses_annual": "1000.00"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "cpp_total": "129.30",
+        "ei": "37.62",
+        "federal_tax": "207.06",
+        "provincial_tax": "114.68",
+        "net_pay": "1819.03"
       },
-      "notes": "Medical expenses - claimed annually on TD1"
+      "notes": "Medical expenses - claimed annually on TD1. Provincial claim adjusted to 12989.00 (CRA minimum)."
     },
     {
       "id": "ON_60K_CHARITABLE_DONATIONS",
@@ -68,17 +68,17 @@
         "pay_frequency": "biweekly",
         "pay_date": "2026-01-17",
         "federal_claim": "16129.00",
-        "provincial_claim": "12747.00",
+        "provincial_claim": "12989.00",
         "charitable_donations_annual": "500.00"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "cpp_total": "129.30",
+        "ei": "37.62",
+        "federal_tax": "207.06",
+        "provincial_tax": "114.68",
+        "net_pay": "1819.03"
       },
-      "notes": "Charitable donations - claimed annually on TD1"
+      "notes": "Charitable donations - claimed annually on TD1. Provincial claim adjusted to 12989.00 (CRA minimum)."
     }
   ]
 }

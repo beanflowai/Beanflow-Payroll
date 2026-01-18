@@ -24,11 +24,11 @@
         "alimony_per_period": "200.00"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "cpp_total": "129.30",
+        "ei": "37.62",
+        "federal_tax": "176.78",
+        "provincial_tax": "96.38",
+        "net_pay": "1667.61"
       },
       "notes": "Court-ordered alimony payments are tax-deductible"
     }

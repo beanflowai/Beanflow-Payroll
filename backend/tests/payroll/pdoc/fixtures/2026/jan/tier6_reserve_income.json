@@ -20,18 +20,18 @@
         "pay_frequency": "biweekly",
         "pay_date": "2026-01-17",
         "federal_claim": "16129.00",
-        "provincial_claim": "12747.00",
+        "provincial_claim": "12989.00",
         "reserve_income_exempt": "300.00",
         "reserve_income_pensionable": false
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "cpp_total": "111.45",
+        "ei": "37.62",
+        "federal_tax": "165.28",
+        "provincial_tax": "91.71",
+        "net_pay": "1901.63"
       },
-      "notes": "Tax-exempt reserve income (military/ RCMP) - election for pensionable"
+      "notes": "Tax-exempt reserve income (military/RCMP) - NOT pensionable. CPP based on 2007.69 earnings (2307.69 - 300). Provincial claim adjusted to 12989.00 (CRA minimum)."
     },
     {
       "id": "ON_60K_RESERVE_INCOME_PENSIONABLE",
@@ -45,18 +45,18 @@
         "pay_frequency": "biweekly",
         "pay_date": "2026-01-17",
         "federal_claim": "16129.00",
-        "provincial_claim": "12747.00",
+        "provincial_claim": "12989.00",
         "reserve_income_exempt": "300.00",
         "reserve_income_pensionable": true
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "cpp_total": "129.30",
+        "ei": "37.62",
+        "federal_tax": "162.78",
+        "provincial_tax": "90.81",
+        "net_pay": "1887.18"
       },
-      "notes": "Tax-exempt reserve income elected as pensionable for CPP"
+      "notes": "Tax-exempt reserve income elected as pensionable for CPP. CPP based on full 2307.69 earnings. Provincial claim adjusted to 12989.00 (CRA minimum)."
     }
   ]
 }

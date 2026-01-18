@@ -171,8 +171,20 @@ def get_case_by_id(
     edition: str | None = None,
 ) -> PDOCTestCase | None:
     """Get a specific test case by ID."""
-    cases = load_tier_cases(tier, year, edition)
-    return next((c for c in cases if c.id == case_id), None)
+    if tier == 6:
+        # Tier 6 uses split fixtures by category - need to search all categories
+        for category in TIER6_CATEGORIES:
+            fixture_data = load_tier6_category_fixture(category, year, edition)
+            if fixture_data is None:
+                continue
+            cases = [PDOCTestCase.from_dict(case) for case in fixture_data.get("test_cases", [])]
+            case = next((c for c in cases if c.id == case_id), None)
+            if case is not None:
+                return case
+        return None
+    else:
+        cases = load_tier_cases(tier, year, edition)
+        return next((c for c in cases if c.id == case_id), None)
 
 
 def get_all_case_ids(
@@ -215,6 +227,8 @@ def get_cases_by_category(
     if tier == 6:
         # Tier 6 uses split fixtures by category
         fixture_data = load_tier6_category_fixture(category, year, edition)
+        if fixture_data is None:
+            return []
     else:
         fixture_data = load_tier_fixture(tier, year, edition)
 
@@ -243,7 +257,8 @@ def load_tier6_category_fixture(
     category: str,
     year: int = DEFAULT_TAX_YEAR,
     edition: str | None = None,
-) -> dict:
+    skip_on_missing: bool = False,
+) -> dict | None:
     """Load Tier 6 fixture for a specific category.
 
     Tier 6 uses split fixtures by category for easier fixture collection
@@ -253,9 +268,11 @@ def load_tier6_category_fixture(
         category: One of TIER6_CATEGORIES
         year: Tax year (default: 2025)
         edition: Tax edition ("jan" or "jul")
+        skip_on_missing: If True, call pytest.skip when file not found.
+                         If False, return None when file not found.
 
     Returns:
-        Dictionary containing fixture data
+        Dictionary containing fixture data, or None if file not found
     """
     if category not in TIER6_CATEGORIES:
         raise ValueError(f"Invalid Tier 6 category: {category}")
@@ -272,7 +289,9 @@ def load_tier6_category_fixture(
     filepath = FIXTURES_BASE_DIR / str(year) / effective_edition / filename
 
     if not filepath.exists():
-        pytest.skip(f"Tier 6 fixture file not found: {filepath}")
+        if skip_on_missing:
+            pytest.skip(f"Tier 6 fixture file not found: {filepath}")
+        return None
 
     with open(filepath) as f:
         return json.load(f)

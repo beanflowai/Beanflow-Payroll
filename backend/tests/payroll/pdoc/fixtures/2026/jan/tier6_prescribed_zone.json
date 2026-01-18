@@ -20,17 +20,17 @@
         "pay_frequency": "biweekly",
         "pay_date": "2026-01-17",
         "federal_claim": "16129.00",
-        "provincial_claim": "18465.00",
+        "provincial_claim": "18198.00",
         "prescribed_zone_deduction": "1000.00"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "cpp_total": "129.30",
+        "ei": "37.62",
+        "federal_tax": "199.39",
+        "provincial_tax": "88.39",
+        "net_pay": "1852.99"
       },
-      "notes": "Prescribed zone deduction for Northern residents"
+      "notes": "Prescribed zone deduction reduces taxable income. Provincial claim updated to 18198.00 (CRA Basic Personal Amount)"
     },
     {
       "id": "YT_60K_PRESCRIBED_ZONE",
@@ -48,13 +48,13 @@
         "prescribed_zone_deduction": "800.00"
       },
       "pdoc_expected": {
-        "cpp_total": "TO_BE_VERIFIED",
-        "ei": "TO_BE_VERIFIED",
-        "federal_tax": "TO_BE_VERIFIED",
-        "provincial_tax": "TO_BE_VERIFIED",
-        "net_pay": "TO_BE_VERIFIED"
+        "cpp_total": "129.30",
+        "ei": "37.62",
+        "federal_tax": "200.75",
+        "provincial_tax": "92.91",
+        "net_pay": "1847.11"
       },
-      "notes": "Prescribed zone deduction for Yukon residents"
+      "notes": "Prescribed zone deduction for Yukon residents. PDOC verified 2025-01-17."
     }
   ]
 }
