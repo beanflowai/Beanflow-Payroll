@@ -337,7 +337,7 @@ def build_payroll_input(case: PDOCTestCase) -> EmployeePayrollInput:
 
     # Retroactive payments
     retroactive_amount = Decimal(inp.get("retroactive_pay_amount", "0"))
-    retroactive_periods = inp.get("retroactive_pay_periods", 1)
+    retroactive_periods = int(inp.get("retroactive_pay_periods", 1))
 
     # Prescribed zone deductions
     prescribed_zone = Decimal(inp.get("prescribed_zone_deduction", "0"))
@@ -479,6 +479,28 @@ def validate_all_components(
                 "Provincial Tax",
                 result.provincial_tax,
                 Decimal(expected["provincial_tax"]),
+                tolerance,
+            )
+        )
+
+    # Federal Tax on Retroactive Pay
+    if "federal_tax_on_retroactive" in expected:
+        validations.append(
+            validate_component(
+                "Federal Tax (Retroactive)",
+                result.federal_tax_on_retroactive,
+                Decimal(expected["federal_tax_on_retroactive"]),
+                tolerance,
+            )
+        )
+
+    # Provincial Tax on Retroactive Pay
+    if "provincial_tax_on_retroactive" in expected:
+        validations.append(
+            validate_component(
+                "Provincial Tax (Retroactive)",
+                result.provincial_tax_on_retroactive,
+                Decimal(expected["provincial_tax_on_retroactive"]),
                 tolerance,
             )
         )

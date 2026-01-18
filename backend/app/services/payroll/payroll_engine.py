@@ -23,6 +23,7 @@ from app.services.payroll.federal_tax_calculator import FederalTaxCalculator
 from app.services.payroll.provincial_tax_calculator import (
     ProvincialTaxCalculator,
 )
+from app.services.payroll.retroactive_tax_calculator import RetroactiveTaxCalculator
 
 logger = logging.getLogger(__name__)
 
@@ -128,13 +129,13 @@ class EmployeePayrollInput:
 
     @property
     def pensionable_earnings(self) -> Decimal:
-        """Earnings subject to CPP (includes pensionable taxable benefits)."""
-        return self.total_gross + self.taxable_benefits_pensionable
+        """Earnings subject to CPP (includes pensionable taxable benefits and retroactive pay)."""
+        return self.total_gross + self.taxable_benefits_pensionable + self.retroactive_pay_amount
 
     @property
     def insurable_earnings(self) -> Decimal:
-        """Earnings subject to EI (includes insurable taxable benefits)."""
-        return self.total_gross + self.taxable_benefits_insurable
+        """Earnings subject to EI (includes insurable taxable benefits and retroactive pay)."""
+        return self.total_gross + self.taxable_benefits_insurable + self.retroactive_pay_amount
 
     @property
     def taxable_income_per_period(self) -> Decimal:
@@ -192,6 +193,10 @@ class PayrollCalculationResult:
     provincial_tax_on_income: Decimal = Decimal("0")
     federal_tax_on_bonus: Decimal = Decimal("0")
     provincial_tax_on_bonus: Decimal = Decimal("0")
+
+    # Tax breakdown for retroactive pay (same marginal method as bonus)
+    federal_tax_on_retroactive: Decimal = Decimal("0")
+    provincial_tax_on_retroactive: Decimal = Decimal("0")
 
     # Calculation Details (for audit/debugging)
     calculation_details: dict[str, Any] = field(default_factory=dict)
@@ -365,7 +370,7 @@ class PayrollEngine:
         }
 
         # =========================================================================
-        # Step 3: Calculate Annual Taxable Income & Split Regular vs Bonus
+        # Step 3: Calculate Annual Taxable Income & Split Regular vs Bonus/Retro
         # Per CRA T4127: A = P × (I - F - F5 - U1)
         # where F5 = F2 + C2 (CPP enhancement + CPP2)
         # taxable_income_per_period includes taxable benefits (e.g., life insurance
@@ -374,23 +379,23 @@ class PayrollEngine:
         # IMPORTANT: Bonus income uses marginal rate method, not annualization.
         # =========================================================================
         has_bonus = input_data.bonus_earnings > Decimal("0")
+        has_retroactive = input_data.retroactive_pay_amount > Decimal("0")
 
-        # Split income: regular (annualized) vs bonus (marginal method)
-        if has_bonus:
-            # Regular income = everything except bonus
-            regular_earnings = (
-                input_data.gross_regular
-                + input_data.gross_overtime
-                + input_data.holiday_pay
-                + input_data.holiday_premium_pay
-                + input_data.vacation_pay
-                + input_data.other_earnings
-            )
-            regular_gross = regular_earnings + input_data.taxable_benefits_pensionable
+        regular_earnings = (
+            input_data.gross_regular
+            + input_data.gross_overtime
+            + input_data.holiday_pay
+            + input_data.holiday_premium_pay
+            + input_data.vacation_pay
+            + input_data.other_earnings
+        )
+        regular_gross = regular_earnings + input_data.taxable_benefits_pensionable
+        regular_pensionable_earnings = regular_gross
+        regular_insurable_earnings = regular_earnings + input_data.taxable_benefits_insurable
 
-            regular_pensionable_earnings = regular_gross
-            regular_insurable_earnings = regular_earnings + input_data.taxable_benefits_insurable
-
+        regular_cpp_result = cpp_result
+        regular_ei_result = ei_result
+        if has_bonus or has_retroactive:
             if input_data.is_cpp_exempt:
                 regular_cpp_result = CppContribution(
                     base=Decimal("0"),
@@ -418,6 +423,23 @@ class PayrollEngine:
                     input_data.ytd_ei,
                 )
 
+        retro_f5a = None
+        retro_f5b = None
+        if has_retroactive:
+            retro_periods = max(1, input_data.retroactive_pay_periods)
+            retro_per_period = self._round(
+                input_data.retroactive_pay_amount / Decimal(str(retro_periods))
+            )
+            pi = regular_pensionable_earnings + retro_per_period
+            if pi > Decimal("0"):
+                retro_f5a = self._round(cpp_result.f5 * ((pi - retro_per_period) / pi))
+                retro_f5b = self._round(cpp_result.f5 * (retro_per_period / pi))
+            else:
+                retro_f5a = Decimal("0")
+                retro_f5b = Decimal("0")
+
+        # Split income: regular (annualized) vs bonus (marginal method)
+        if has_bonus:
             total_pensionable = input_data.pensionable_earnings
             bonus_pensionable = input_data.bonus_earnings
             if total_pensionable > Decimal("0"):
@@ -457,23 +479,29 @@ class PayrollEngine:
                 "cpp_f5b_per_period": str(f5b),
             }
         else:
+            f5_for_regular = cpp_result.f5
+            if has_retroactive and retro_f5a is not None:
+                f5_for_regular = retro_f5a
             # No bonus - use traditional annualization for all income
             annual_taxable_regular = federal_calc.calculate_annual_taxable_income(
-                input_data.taxable_income_per_period,
+                regular_gross,
                 input_data.rrsp_per_period,
                 input_data.union_dues_per_period,
-                cpp_result.f5,
+                f5_for_regular,
             )
             calculation_details["income"] = {
                 "has_bonus": False,
-                "gross_per_period": str(input_data.total_gross),
+                "gross_per_period": str(regular_gross),
                 "taxable_benefits_pensionable": str(input_data.taxable_benefits_pensionable),
-                "taxable_income_per_period": str(input_data.taxable_income_per_period),
+                "taxable_income_per_period": str(regular_gross),
                 "rrsp_per_period": str(input_data.rrsp_per_period),
                 "union_dues_per_period": str(input_data.union_dues_per_period),
-                "cpp_f5_per_period": str(cpp_result.f5),
+                "cpp_f5_per_period": str(f5_for_regular),
                 "annual_taxable_income": str(annual_taxable_regular),
             }
+            if has_retroactive and retro_f5b is not None:
+                calculation_details["income"]["retro_f5a_per_period"] = str(retro_f5a)
+                calculation_details["income"]["retro_f5b_per_period"] = str(retro_f5b)
 
         # =========================================================================
         # Step 4: Calculate Federal Tax
@@ -530,8 +558,8 @@ class PayrollEngine:
             federal_result_regular = federal_calc.calculate_federal_tax(
                 annual_taxable_regular,
                 input_data.federal_claim_amount,
-                cpp_result.base,
-                ei_result.employee,
+                regular_cpp_result.base,
+                regular_ei_result.employee,
                 ytd_cpp_base=input_data.ytd_cpp_base,
                 ytd_ei=input_data.ytd_ei,
                 pensionable_months=input_data.pensionable_months,
@@ -584,8 +612,8 @@ class PayrollEngine:
             provincial_result_regular = provincial_calc.calculate_provincial_tax(
                 annual_taxable_regular,
                 input_data.provincial_claim_amount,
-                cpp_result.base,
-                ei_result.employee,
+                regular_cpp_result.base,
+                regular_ei_result.employee,
                 ytd_cpp_base=input_data.ytd_cpp_base,
                 ytd_ei=input_data.ytd_ei,
                 pensionable_months=input_data.pensionable_months,
@@ -611,23 +639,80 @@ class PayrollEngine:
             }
 
         # =========================================================================
+        # Step 5.5: Calculate Retroactive Tax (before totals)
+        # Uses marginal rate method: Tax(YTD + Retro) - Tax(YTD)
+        # =========================================================================
+        federal_tax_regular = federal_tax_per_period
+        provincial_tax_regular = provincial_tax_per_period
+        federal_tax_total = federal_tax_per_period
+        provincial_tax_total = provincial_tax_per_period
+
+        if has_retroactive:
+            retro_calc = RetroactiveTaxCalculator(
+                province_code=province_code,
+                pay_periods_per_year=pay_periods,
+                year=self.year,
+                pay_date=input_data.pay_date,
+            )
+
+            # Calculate retroactive tax using dedicated calculator
+            retro_result = retro_calc.calculate_retroactive_tax(
+                retroactive_amount=input_data.retroactive_pay_amount,
+                retroactive_periods=input_data.retroactive_pay_periods,
+                gross_regular=regular_gross,
+                cpp_per_period=cpp_result.base,
+                ei_per_period=ei_result.employee,
+                f5_per_period=cpp_result.f5,
+                regular_cpp_per_period=regular_cpp_result.base,
+                regular_ei_per_period=regular_ei_result.employee,
+                f5a_per_period=retro_f5a,
+                f5b_per_period=retro_f5b,
+                federal_claim_amount=input_data.federal_claim_amount,
+                provincial_claim_amount=input_data.provincial_claim_amount,
+                rrsp_per_period=input_data.rrsp_per_period,
+                union_dues_per_period=input_data.union_dues_per_period,
+                pensionable_months=input_data.pensionable_months or 12,
+            )
+            federal_tax_on_retroactive = self._round(retro_result.federal_tax)
+            provincial_tax_on_retroactive = self._round(retro_result.provincial_tax)
+
+            calculation_details["retroactive_tax"] = {
+                "retroactive_amount": str(input_data.retroactive_pay_amount),
+                "retroactive_periods": input_data.retroactive_pay_periods,
+                "federal_tax": str(federal_tax_on_retroactive),
+                "provincial_tax": str(provincial_tax_on_retroactive),
+                "federal_tax_on_regular": str(retro_result.federal_tax_on_regular),
+                "federal_tax_on_total": str(retro_result.federal_tax_on_total),
+            }
+
+            # Add retroactive tax to total tax per period
+            federal_tax_total = federal_tax_total + federal_tax_on_retroactive
+            provincial_tax_total = provincial_tax_total + provincial_tax_on_retroactive
+        else:
+            federal_tax_on_retroactive = Decimal("0")
+            provincial_tax_on_retroactive = Decimal("0")
+
+        # =========================================================================
         # Step 6: Calculate Totals
         # =========================================================================
         total_employee_deductions = (
             cpp_result.total
             + ei_result.employee
-            + federal_tax_per_period
-            + provincial_tax_per_period
+            + federal_tax_total
+            + provincial_tax_total
             + input_data.rrsp_per_period
             + input_data.union_dues_per_period
             + input_data.garnishments
             + input_data.other_deductions
         )
 
-        # PDOC includes taxable benefits in "Total cash income" for net pay calculation
-        # Net amount = Total cash income - Total deductions
-        # where Total cash income = Salary + Taxable benefits (verified with PDOC 2025 & 2026)
-        net_pay = input_data.taxable_income_per_period - total_employee_deductions
+        # PDOC: Net = Total cash income - Total deductions
+        # Total cash income = Regular + Taxable benefits + Retroactive pay
+        net_pay = (
+            input_data.taxable_income_per_period
+            + input_data.retroactive_pay_amount
+            - total_employee_deductions
+        )
 
         total_employer_costs = cpp_result.employer + ei_result.employer
 
@@ -639,7 +724,7 @@ class PayrollEngine:
         new_ytd_ei = input_data.ytd_ei + ei_result.employee
 
         # =========================================================================
-        # Step 8: Calculate Tax Breakdown (income vs bonus)
+        # Step 8: Calculate Tax Breakdown (income vs bonus vs retroactive)
         # =========================================================================
         if has_bonus:
             # Split: regular income uses annualization, bonus uses marginal rate
@@ -648,10 +733,10 @@ class PayrollEngine:
             provincial_tax_on_income = self._round(provincial_result_regular.tax_per_period)
             provincial_tax_on_bonus = self._round(bonus_result.provincial_tax)
         else:
-            # All tax is on income, no bonus
-            federal_tax_on_income = self._round(federal_tax_per_period)
+            # No bonus: income tax = regular tax (without retroactive)
+            federal_tax_on_income = self._round(federal_tax_regular)
             federal_tax_on_bonus = Decimal("0")
-            provincial_tax_on_income = self._round(provincial_tax_per_period)
+            provincial_tax_on_income = self._round(provincial_tax_regular)
             provincial_tax_on_bonus = Decimal("0")
 
         return PayrollCalculationResult(
@@ -671,8 +756,8 @@ class PayrollEngine:
             cpp_additional=cpp_result.additional,
             cpp_total=cpp_result.total,
             ei_employee=ei_result.employee,
-            federal_tax=self._round(federal_tax_per_period),
-            provincial_tax=self._round(provincial_tax_per_period),
+            federal_tax=self._round(federal_tax_regular),
+            provincial_tax=self._round(provincial_tax_regular),
             rrsp=input_data.rrsp_per_period,
             union_dues=input_data.union_dues_per_period,
             garnishments=input_data.garnishments,
@@ -688,13 +773,15 @@ class PayrollEngine:
             new_ytd_gross=new_ytd_gross,
             new_ytd_cpp=new_ytd_cpp,
             new_ytd_ei=new_ytd_ei,
-            new_ytd_federal_tax=input_data.ytd_federal_tax + federal_tax_per_period,
-            new_ytd_provincial_tax=input_data.ytd_provincial_tax + provincial_tax_per_period,
-            # Tax breakdown (income vs bonus)
+            new_ytd_federal_tax=input_data.ytd_federal_tax + federal_tax_total,
+            new_ytd_provincial_tax=input_data.ytd_provincial_tax + provincial_tax_total,
+            # Tax breakdown (income vs bonus vs retroactive)
             federal_tax_on_income=federal_tax_on_income,
             provincial_tax_on_income=provincial_tax_on_income,
             federal_tax_on_bonus=federal_tax_on_bonus,
             provincial_tax_on_bonus=provincial_tax_on_bonus,
+            federal_tax_on_retroactive=federal_tax_on_retroactive,
+            provincial_tax_on_retroactive=provincial_tax_on_retroactive,
             # Details
             calculation_details=calculation_details,
         )
