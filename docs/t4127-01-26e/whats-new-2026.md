@@ -183,7 +183,7 @@ For 2026, the Nova Scotia Basic Personal Amount formula (BPANS) should be remove
 | $150,000 and over | 21.00% |
 
 **Nova Scotia Basic Personal Amount (BPANS):**
-- Fixed at **$29,590** for all employees in 2026
+- Fixed at **$11,932** for all employees in 2026
 
 ---
 
@@ -338,7 +338,7 @@ The following amounts are increasing by $500 in each of the next four taxation y
 |:---------|:--------------------|
 | Alberta | Lowest bracket: 8% |
 | Manitoba | No indexing, BPA fixed at $15,780 |
-| Nova Scotia | BPANS fixed at $29,590 (no formula) |
+| Nova Scotia | BPANS fixed at $11,932 (no formula) |
 | Ontario | BPA fixed at $12,989 (with phase-out) |
 | PEI | BPA increased to $15,000 |
 | Saskatchewan | BPA increased to $20,381 |

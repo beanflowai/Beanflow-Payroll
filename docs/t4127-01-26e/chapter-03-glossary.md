@@ -22,7 +22,7 @@ This chapter provides definitions for all variables, symbols, and terms used in 
 | **BPAF** | Federal Basic Personal Amount | The basic personal amount for federal tax purposes ($16,452 for 2026, subject to phase-out) |
 | **BPAMB** | Manitoba Basic Personal Amount | The basic personal amount for Manitoba tax purposes ($15,780 for 2026, not indexed) |
 | **BPAON** | Ontario Basic Personal Amount | The basic personal amount for Ontario tax purposes ($12,989 for 2026) |
-| **BPANS** | Nova Scotia Basic Personal Amount | The basic personal amount for Nova Scotia tax purposes ($29,590 for 2026) |
+| **BPANS** | Nova Scotia Basic Personal Amount | The basic personal amount for Nova Scotia tax purposes ($11,932 for 2026) |
 | **C** | CPP contributions for the pay period | Canada Pension Plan contributions deducted from the employee's pay for the current pay period |
 | **C1** | Year-to-date CPP contributions | Total CPP contributions deducted from the employee's pay in the current year |
 | **C2** | Second additional CPP contributions for the pay period | CPP2 contributions deducted from the employee's pay for the current pay period (4% on earnings between YMPE and YAMPE) |

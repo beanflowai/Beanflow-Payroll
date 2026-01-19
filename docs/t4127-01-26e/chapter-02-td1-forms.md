@@ -271,7 +271,7 @@ BPAON = $9,813
 
 #### Fixed Amount
 ```
-BPANS = $29,590 (for all employees)
+BPANS = $11,932 (for all employees)
 ```
 
 ---

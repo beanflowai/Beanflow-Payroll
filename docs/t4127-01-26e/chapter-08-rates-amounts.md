@@ -58,7 +58,7 @@ This chapter provides a comprehensive reference of all rates, brackets, constant
 | **4th** | $237,230 to $355,845 | 0.1400 | $7,117 |
 | **5th** | Over $355,845 | 0.1500 | $10,676 |
 
-**Basic Personal Amount:** $21,885
+**Basic Personal Amount:** $22,769
 
 ---
 
@@ -74,7 +74,7 @@ This chapter provides a comprehensive reference of all rates, brackets, constant
 | **6th** | $181,882 to $259,244 | 0.1680 | $13,111 |
 | **7th** | Over $259,244 | 0.2050 | $22,713 |
 
-**Basic Personal Amount:** $12,580
+**Basic Personal Amount:** $13,216
 
 ---
 
@@ -101,7 +101,7 @@ This chapter provides a comprehensive reference of all rates, brackets, constant
 | **3rd** | $100,866 to $177,722 | 0.1600 | $4,340 |
 | **4th** | Over $177,722 | 0.1950 | $10,632 |
 
-**Basic Personal Amount:** $14,025
+**Basic Personal Amount:** $13,664
 
 ---
 
@@ -118,7 +118,7 @@ This chapter provides a comprehensive reference of all rates, brackets, constant
 | **7th** | $616,666 to $1,000,000 | 0.2130 | $17,440 |
 | **8th** | Over $1,000,000 | 0.2180 | $22,440 |
 
-**Basic Personal Amount:** $11,482
+**Basic Personal Amount:** $11,188
 
 ---
 
@@ -131,7 +131,7 @@ This chapter provides a comprehensive reference of all rates, brackets, constant
 | **3rd** | $101,754 to $164,754 | 0.1220 | $5,037 |
 | **4th** | Over $164,754 | 0.1405 | $8,087 |
 
-**Basic Personal Amount:** $17,799
+**Basic Personal Amount:** $18,198
 
 ---
 
@@ -145,7 +145,7 @@ This chapter provides a comprehensive reference of all rates, brackets, constant
 | **4th** | $93,000 to $150,000 | 0.1750 | $3,611 |
 | **5th** | Over $150,000 | 0.2100 | $8,861 |
 
-**Basic Personal Amount (BPANS):** $29,590 (fixed, no formula for 2026)
+**Basic Personal Amount (BPANS):** $11,932 (fixed, no formula for 2026)
 
 ---
 
@@ -158,7 +158,7 @@ This chapter provides a comprehensive reference of all rates, brackets, constant
 | **3rd** | $111,216 to $179,623 | 0.0900 | $3,903 |
 | **4th** | Over $179,623 | 0.1150 | $8,395 |
 
-**Basic Personal Amount:** $20,621
+**Basic Personal Amount:** $19,659
 
 ---
 
@@ -213,7 +213,7 @@ This chapter provides a comprehensive reference of all rates, brackets, constant
 | **4th** | $182,623 to $500,000 | 0.1280 | $7,034 |
 | **5th** | Over $500,000 | 0.1500 | $18,034 |
 
-**Basic Personal Amount:** $15,679
+**Basic Personal Amount:** $16,452
 
 ---
 
@@ -291,19 +291,19 @@ EI_Employer = EI × 1.4
 | Province/Territory | Basic Personal Amount | Formula/Notes |
 |:-------------------|:---------------------|:--------------|
 | **Federal** | $16,452 | Phase-out starts at $181,440 |
-| **Alberta** | $21,885 | Fixed amount |
-| **British Columbia** | $12,580 | Fixed amount |
+| **Alberta** | $22,769 | Fixed amount |
+| **British Columbia** | $13,216 | Fixed amount |
 | **Manitoba** | $15,780 | Not indexed |
-| **New Brunswick** | $14,025 | Fixed amount |
-| **Newfoundland and Labrador** | $11,482 | Fixed amount |
-| **Northwest Territories** | $17,799 | Fixed amount |
-| **Nova Scotia** | $29,590 | Fixed amount (no formula) |
-| **Nunavut** | $20,621 | Fixed amount |
+| **New Brunswick** | $13,664 | Fixed amount |
+| **Newfoundland and Labrador** | $11,188 | Fixed amount |
+| **Northwest Territories** | $18,198 | Fixed amount |
+| **Nova Scotia** | $11,932 | Fixed amount (no formula) |
+| **Nunavut** | $19,659 | Fixed amount |
 | **Ontario** | $12,989 | Phase-out starts at $247,882 |
 | **Prince Edward Island** | $15,000 | Increased from $14,650 |
 | **Quebec** | See QPP | Separate system |
 | **Saskatchewan** | $20,381 | Increased by $500 + indexation |
-| **Yukon** | $15,679 | Fixed amount |
+| **Yukon** | $16,452 | Fixed amount |
 
 ---
 
