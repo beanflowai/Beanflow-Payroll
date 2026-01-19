@@ -1,0 +1,146 @@
+{
+  "tier": 4,
+  "name": "Bonus Taxation - 2026 Jan Edition",
+  "description": "Tests for bonus payment taxation using CRA T4127 marginal rate method",
+  "version": "2026-01",
+  "collected_date": "2025-12-30",
+  "pdoc_version": "T4127 - 122nd Edition (January 2026)",
+  "tolerance": "0.05",
+  "notes": "2026 Jan edition: Federal rate 14%, BPAF $16,452. Bonus taxation uses marginal rate method: Tax(YTD + Bonus) - Tax(YTD).",
+  "test_cases": [
+    {
+      "id": "ON_BONUS_10K",
+      "tier": 4,
+      "description": "Ontario $10,000 bonus with $60K YTD - standard bonus scenario",
+      "status": "VERIFIED",
+      "category": "bonus",
+      "special_rules": [
+        "Bonus taxation",
+        "Marginal rate method"
+      ],
+      "input": {
+        "province": "ON",
+        "pay_frequency": "biweekly",
+        "pay_periods": "26",
+        "salary_per_period": "2307.69",
+        "bonus_amount": "10000.00",
+        "pay_date": "2026-01-16",
+        "federal_claim": "16452.00",
+        "provincial_claim": "12989.00",
+        "ytd_gross": "60000.00",
+        "ytd_pensionable_earnings": "60000.00",
+        "ytd_insurable_earnings": "60000.00",
+        "ytd_cpp_base": "3118.50",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "854.00",
+        "pensionable_months": "12"
+      },
+      "pdoc_expected": {
+        "income_federal_tax": "205.09",
+        "income_provincial_tax": "114.58",
+        "income_total_tax": "319.67",
+        "bonus_federal_tax": "1940.11",
+        "bonus_provincial_tax": "873.62",
+        "bonus_total_tax": "2813.73",
+        "cpp_deductions": "724.30",
+        "cpp2_deductions": "0.00",
+        "cpp_additional_deductions": "121.73",
+        "ei_deductions": "200.62",
+        "total_deductions": "4058.32",
+        "net_amount": "8249.37",
+        "taxable_income_per_period": "12185.96",
+        "pensionable_earnings_per_period": "12307.69",
+        "insurable_earnings_per_period": "8900.00"
+      },
+      "notes": "VERIFIED from PDOC 2026-01-16: Ontario, $10K bonus, $60K YTD, biweekly pay. PDOC separates income tax ($319.67) from bonus tax ($2,813.73). Bonus federal tax $1,940.11, provincial $873.62."
+    },
+    {
+      "id": "BC_BONUS_60K",
+      "tier": 4,
+      "description": "BC $60,000 bonus with $76,333 YTD - high-value bonus edge case",
+      "status": "VERIFIED",
+      "category": "bonus",
+      "special_rules": [
+        "Bonus taxation",
+        "High-value bonus",
+        "BC tax reduction"
+      ],
+      "input": {
+        "province": "BC",
+        "pay_frequency": "biweekly",
+        "pay_periods": "26",
+        "salary_per_period": "2935.88",
+        "bonus_amount": "60000.00",
+        "pay_date": "2026-01-16",
+        "federal_claim": "16452.00",
+        "provincial_claim": "13521.00",
+        "ytd_gross": "76333.00",
+        "ytd_pensionable_earnings": "76333.00",
+        "ytd_insurable_earnings": "68900.00",
+        "ytd_cpp_base": "3118.50",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "854.00",
+        "pensionable_months": "12"
+      },
+      "pdoc_expected": {
+        "income_federal_tax": "328.12",
+        "income_provincial_tax": "137.40",
+        "income_total_tax": "465.52",
+        "bonus_federal_tax": "13171.66",
+        "bonus_provincial_tax": "5883.48",
+        "bonus_total_tax": "19055.14",
+        "cpp_deductions": "1111.95",
+        "cpp2_deductions": "416.00",
+        "cpp_additional_deductions": "602.88",
+        "ei_deductions": "269.07",
+        "total_deductions": "21317.68",
+        "net_amount": "41618.20"
+      },
+      "notes": "VERIFIED from PDOC 2026-01-18: BC, $60K bonus, $76,333 YTD pensionable. NOTE: ytd_insurable_earnings capped at 68,900 (EI max for 2026). PDOC separated income tax ($465.52) from bonus tax ($19,055.14). Bonus federal: $13,171.66, provincial: $5,883.48, CPP: $1,111.95, CPP2: $416.00, EI: $269.07."
+    },
+    {
+      "id": "AB_BONUS_5K",
+      "tier": 4,
+      "description": "Alberta $5,000 bonus with $50K YTD - small bonus scenario",
+      "status": "VERIFIED",
+      "category": "bonus",
+      "special_rules": [
+        "Bonus taxation",
+        "Small bonus",
+        "Alberta flat 10%"
+      ],
+      "input": {
+        "province": "AB",
+        "pay_frequency": "biweekly",
+        "pay_periods": "26",
+        "salary_per_period": "1923.08",
+        "bonus_amount": "5000.00",
+        "pay_date": "2026-01-16",
+        "federal_claim": "16452.00",
+        "provincial_claim": "22769.00",
+        "ytd_gross": "50000.00",
+        "ytd_pensionable_earnings": "50000.00",
+        "ytd_insurable_earnings": "50000.00",
+        "ytd_cpp_base": "2600.00",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "710.00",
+        "pensionable_months": "12"
+      },
+      "pdoc_expected": {
+        "income_federal_tax": "153.14",
+        "income_provincial_tax": "72.69",
+        "income_total_tax": "225.83",
+        "bonus_federal_tax": "647.08",
+        "bonus_provincial_tax": "369.76",
+        "bonus_total_tax": "1016.84",
+        "cpp_deductions": "403.91",
+        "cpp2_deductions": "0.00",
+        "cpp_additional_deductions": "67.88",
+        "ei_deductions": "112.85",
+        "total_deductions": "1759.43",
+        "net_amount": "5163.65"
+      },
+      "notes": "VERIFIED from PDOC 2026-01-18: Alberta, $5K bonus, $50K YTD. NOTE: provincial_claim adjusted to 22,769.00 (minimum for Alberta 2026, original 22323.00 was below minimum). PDOC separated income tax ($225.83) from bonus tax ($1,016.84). Bonus federal: $647.08, provincial: $369.76, CPP: $403.91, EI: $112.85."
+    }
+  ]
+}

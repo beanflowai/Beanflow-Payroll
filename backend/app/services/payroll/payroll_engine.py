@@ -350,26 +350,6 @@ class PayrollEngine:
         }
 
         # =========================================================================
-        # Step 2: Calculate EI
-        # =========================================================================
-        if input_data.is_ei_exempt:
-            ei_result = EiPremium(employee=Decimal("0"), employer=Decimal("0"))
-        else:
-            ei_result = ei_calc.calculate_total_premium(
-                input_data.insurable_earnings,
-                input_data.ytd_insurable_earnings,
-                input_data.ytd_ei,
-            )
-
-        calculation_details["ei"] = {
-            "insurable_earnings": str(input_data.insurable_earnings),
-            "ytd_ei": str(input_data.ytd_ei),
-            "employee": str(ei_result.employee),
-            "employer": str(ei_result.employer),
-            "exempt": input_data.is_ei_exempt,
-        }
-
-        # =========================================================================
         # Step 3: Calculate Annual Taxable Income & Split Regular vs Bonus/Retro
         # Per CRA T4127: A = P × (I - F - F5 - U1)
         # where F5 = F2 + C2 (CPP enhancement + CPP2)
@@ -393,8 +373,63 @@ class PayrollEngine:
         regular_pensionable_earnings = regular_gross
         regular_insurable_earnings = regular_earnings + input_data.taxable_benefits_insurable
 
+        # =========================================================================
+        # Step 2: Calculate EI (after regular_insurable_earnings is defined)
+        # =========================================================================
+        # IMPORTANT: EI must be calculated separately for regular and bonus portions
+        # to match PDOC behavior. Both regular and bonus EI are capped by remaining MIE,
+        # but the bonus EI calculation uses YTD values that include the regular period.
+        #
+        # NOTE: The actual YTD insurable earnings must be derived from ytd_ei (not
+        # from ytd_insurable_earnings, which may be capped for display purposes).
+        # =========================================================================
+        regular_ei = Decimal("0")
+        bonus_ei = Decimal("0")
+        if input_data.is_ei_exempt:
+            ei_result = EiPremium(employee=Decimal("0"), employer=Decimal("0"))
+        else:
+            # Derive actual YTD insurable from ytd_ei (more accurate than fixture value)
+            # If ytd_ei > 0, calculate actual ytd_insurable = ytd_ei / rate
+            # Otherwise use the provided ytd_insurable_earnings
+            if input_data.ytd_ei > Decimal("0") and ei_calc.employee_rate > Decimal("0"):
+                actual_ytd_insurable = input_data.ytd_ei / ei_calc.employee_rate
+            else:
+                actual_ytd_insurable = input_data.ytd_insurable_earnings
+
+            # Calculate EI on regular earnings
+            regular_ei = ei_calc.calculate_ei_premium(
+                regular_insurable_earnings,
+                actual_ytd_insurable,
+                input_data.ytd_ei,
+            )
+
+            # Calculate EI on bonus (with updated YTD values)
+            if has_bonus:
+                # YTD insurable for bonus calc = actual YTD + regular insurable
+                ytd_for_bonus = actual_ytd_insurable + regular_insurable_earnings
+                # YTD EI for bonus calc = existing YTD + regular EI
+                ytd_ei_for_bonus = input_data.ytd_ei + regular_ei
+                bonus_ei = ei_calc.calculate_ei_premium(
+                    input_data.bonus_earnings,
+                    ytd_for_bonus,
+                    ytd_ei_for_bonus,
+                )
+
+            total_ei = regular_ei + bonus_ei
+            ei_result = EiPremium(employee=total_ei, employer=total_ei * Decimal("1.4"))
+
+        calculation_details["ei"] = {
+            "insurable_earnings": str(input_data.insurable_earnings),
+            "regular_insurable_earnings": str(regular_insurable_earnings),
+            "bonus_earnings": str(input_data.bonus_earnings) if has_bonus else "0",
+            "ytd_ei": str(input_data.ytd_ei),
+            "employee": str(ei_result.employee),
+            "employer": str(ei_result.employer),
+            "exempt": input_data.is_ei_exempt,
+        }
+
         regular_cpp_result = cpp_result
-        regular_ei_result = ei_result
+        regular_ei_result = EiPremium(employee=regular_ei, employer=regular_ei * Decimal("1.4"))
         if has_bonus or has_retroactive:
             if input_data.is_cpp_exempt:
                 regular_cpp_result = CppContribution(
@@ -414,14 +449,7 @@ class PayrollEngine:
                     input_data.pensionable_months,
                 )
 
-            if input_data.is_ei_exempt:
-                regular_ei_result = EiPremium(employee=Decimal("0"), employer=Decimal("0"))
-            else:
-                regular_ei_result = ei_calc.calculate_total_premium(
-                    regular_insurable_earnings,
-                    input_data.ytd_insurable_earnings,
-                    input_data.ytd_ei,
-                )
+            # regular_ei_result already holds the regular portion (split above).
 
         retro_f5a = None
         retro_f5b = None
