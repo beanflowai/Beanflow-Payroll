@@ -376,7 +376,7 @@ Where:
 
 **Scenario:**
 - Annual taxable income (A) = $75,000
-- Total Ontario claim (TC) = $12,398 (basic personal only)
+- Total Ontario claim (TC) = $12,989 (basic personal only)
 
 **Step 1: Determine Tax Bracket**
 - A = $75,000 falls in 2nd bracket ($53,891 to $107,785)
@@ -387,7 +387,7 @@ Where:
 
 **KP1 (Basic Personal):**
 ```
-KP1 = 0.05 × $12,398 = $619.90
+KP1 = 0.05 × $12,989 = $619.90
 ```
 
 **Step 3: Calculate T4**

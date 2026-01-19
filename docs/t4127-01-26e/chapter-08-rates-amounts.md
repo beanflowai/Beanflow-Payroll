@@ -173,8 +173,8 @@ This chapter provides a comprehensive reference of all rates, brackets, constant
 | **5th** | Over $220,000 | 0.1316 | $8,076 |
 
 **Basic Personal Amount (BPAON):**
-- NI ≤ $247,882: **$12,398**
-- NI > $247,882: $12,398 - [(NI - $247,882) × ($12,398 / $250,000)]
+- NI ≤ $247,882: **$12,989**
+- NI > $247,882: $12,989 - [(NI - $247,882) × ($12,989 / $250,000)]
 
 ---
 
@@ -299,7 +299,7 @@ EI_Employer = EI × 1.4
 | **Northwest Territories** | $17,799 | Fixed amount |
 | **Nova Scotia** | $29,590 | Fixed amount (no formula) |
 | **Nunavut** | $20,621 | Fixed amount |
-| **Ontario** | $12,398 | Phase-out starts at $247,882 |
+| **Ontario** | $12,989 | Phase-out starts at $247,882 |
 | **Prince Edward Island** | $15,000 | Increased from $14,650 |
 | **Quebec** | See QPP | Separate system |
 | **Saskatchewan** | $20,381 | Increased by $500 + indexation |

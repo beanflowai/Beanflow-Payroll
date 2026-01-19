@@ -88,8 +88,8 @@ Use the appropriate claim code based on the employee's total claim amount.
 - If NI* ≥ $400,000: **BPAMB = $0**
 
 ### 2.5 Ontario Basic Personal Amount (BPAON) Formula
-- If NI ≤ $247,882: **BPAON = $12,398**
-- If NI > $247,882: **BPAON = $12,398 - [(NI - $247,882) × ($12,398 / $250,000)]**
+- If NI ≤ $247,882: **BPAON = $12,989**
+- If NI > $247,882: **BPAON = $12,989 - [(NI - $247,882) × ($12,989 / $250,000)]**
 
 ---
 
