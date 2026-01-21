@@ -131,13 +131,14 @@ export interface Employee {
 	id: string;
 	firstName: string;
 	lastName: string;
-	sin: string; // For UI display (masked or full)
+	sin: string; // For UI display (masked or empty if not provided)
 	email?: string;
 	provinceOfEmployment: Province; // Determines provincial tax & holiday rules
 	payFrequency: PayFrequency;
 	employmentType: EmploymentType;
 	status: EmployeeStatus;
 	hireDate: string;
+	dateOfBirth?: string | null; // For CPP calculations
 	terminationDate?: string | null;
 	// Address fields (for paystub)
 	addressStreet?: string | null;
@@ -410,7 +411,7 @@ export interface DbEmployee {
 	user_id: string;
 	first_name: string;
 	last_name: string;
-	sin_encrypted: string;
+	sin_encrypted: string | null;
 	email: string | null;
 	province_of_employment: Province;
 	pay_frequency: PayFrequency;
@@ -429,6 +430,7 @@ export interface DbEmployee {
 	is_ei_exempt: boolean;
 	cpp2_exempt: boolean;
 	hire_date: string;
+	date_of_birth: string | null;
 	termination_date: string | null;
 	vacation_config: {
 		payout_method: VacationPayoutMethod;
@@ -457,7 +459,7 @@ export interface DbEmployee {
 export interface EmployeeCreateInput {
 	first_name: string;
 	last_name: string;
-	sin: string; // Raw SIN - will be encrypted on backend
+	sin?: string | null; // Raw SIN - will be encrypted on backend, now optional
 	email?: string | null;
 	province_of_employment: Province;
 	pay_frequency: PayFrequency;
@@ -475,6 +477,7 @@ export interface EmployeeCreateInput {
 	is_cpp_exempt?: boolean;
 	is_ei_exempt?: boolean;
 	cpp2_exempt?: boolean;
+	date_of_birth?: string | null;
 	hire_date: string;
 	termination_date?: string | null;
 	vacation_config?: {
@@ -492,7 +495,7 @@ export interface EmployeeCreateInput {
 /**
  * Input type for updating an employee (all fields optional)
  */
-export type EmployeeUpdateInput = Partial<Omit<EmployeeCreateInput, 'sin'>>;
+export type EmployeeUpdateInput = Partial<EmployeeCreateInput>;
 
 /**
  * Convert database employee to UI employee
@@ -509,6 +512,7 @@ export function dbEmployeeToUi(db: DbEmployee, maskedSin: string): Employee {
 		employmentType: db.employment_type,
 		status: db.termination_date ? 'terminated' : 'active',
 		hireDate: db.hire_date,
+		dateOfBirth: db.date_of_birth,
 		terminationDate: db.termination_date,
 		// Address fields
 		addressStreet: db.address_street,
@@ -547,12 +551,12 @@ export function dbEmployeeToUi(db: DbEmployee, maskedSin: string): Employee {
  * Convert UI employee to database input for create
  */
 export function uiEmployeeToDbCreate(
-	ui: Omit<Employee, 'id' | 'status' | 'vacationBalance'> & { sin: string }
+	ui: Omit<Employee, 'id' | 'status' | 'vacationBalance'> & { sin?: string | null }
 ): EmployeeCreateInput {
 	return {
 		first_name: ui.firstName,
 		last_name: ui.lastName,
-		sin: ui.sin,
+		sin: ui.sin ?? null,
 		email: ui.email ?? null,
 		province_of_employment: ui.provinceOfEmployment,
 		pay_frequency: ui.payFrequency,
@@ -570,6 +574,7 @@ export function uiEmployeeToDbCreate(
 		is_cpp_exempt: ui.isCppExempt,
 		is_ei_exempt: ui.isEiExempt,
 		cpp2_exempt: ui.cpp2Exempt,
+		date_of_birth: ui.dateOfBirth ?? null,
 		hire_date: ui.hireDate,
 		termination_date: ui.terminationDate ?? null,
 		vacation_config: {

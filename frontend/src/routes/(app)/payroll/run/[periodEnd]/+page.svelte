@@ -10,7 +10,7 @@
 	} from '$lib/types/payroll';
 	import type { Employee } from '$lib/types/employee';
 	import { PAYROLL_STATUS_LABELS } from '$lib/types/payroll';
-	import { StatusBadge } from '$lib/components/shared';
+	import { AlertBanner, StatusBadge } from '$lib/components/shared';
 	import {
 		PayGroupSection,
 		PayrollSummaryCards,
@@ -57,6 +57,8 @@
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let expandedRecordId = $state<string | null>(null);
+	let syncAddedCount = $state(0);
+	let showSyncNotice = $state(false);
 
 	// Add Employees Modal State
 	let showAddEmployeesModal = $state(false);
@@ -84,6 +86,8 @@
 
 		isLoading = true;
 		error = null;
+		syncAddedCount = 0;
+		showSyncNotice = false;
 
 		try {
 			// First, get pay groups for this period end (for display info)
@@ -101,6 +105,9 @@
 				return;
 			}
 
+			const addedCount = result.data?.addedCount ?? 0;
+			syncAddedCount = addedCount;
+			showSyncNotice = addedCount > 0;
 			payrollRun = result.data;
 
 			// For draft runs: check for modified records
@@ -507,6 +514,16 @@
 {:else if payrollRun && isDraft}
 	<!-- Draft View - Editable Payroll Run (includes initial setup) -->
 	<div class="max-w-[1200px] mx-auto">
+		{#if showSyncNotice && syncAddedCount > 0}
+			<AlertBanner
+				type="info"
+				title="Employees updated"
+				message={`${syncAddedCount} new employee${syncAddedCount === 1 ? '' : 's'} added to this payroll run.`}
+				dismissible
+				class="mb-4"
+				onDismiss={() => (showSyncNotice = false)}
+			/>
+		{/if}
 		<DraftPayrollView
 			{payrollRun}
 			{hasModifiedRecords}

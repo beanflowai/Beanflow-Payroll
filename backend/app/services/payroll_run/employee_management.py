@@ -54,10 +54,11 @@ class EmployeeManagement:
         self._get_run = get_run_func
 
     async def sync_employees(self, run_id: UUID) -> dict[str, Any]:
-        """Sync new employees to a draft payroll run.
+        """Sync employees to a draft payroll run.
 
-        When loading a draft payroll run, employees may have been added to pay groups
-        after the run was created. This method finds and adds any missing employees.
+        When loading a draft payroll run, employees may have been added to or removed
+        from pay groups after the run was created. This method syncs changes by
+        adding missing employees and removing those who are no longer eligible.
 
         Returns:
             Dict with added_count, added_employees, and updated run data
@@ -73,6 +74,7 @@ class EmployeeManagement:
             return {
                 "added_count": 0,
                 "added_employees": [],
+                "removed_count": 0,
                 "run": run,
             }
 
@@ -88,6 +90,7 @@ class EmployeeManagement:
             return {
                 "added_count": 0,
                 "added_employees": [],
+                "removed_count": 0,
                 "run": run,
             }
 
@@ -104,6 +107,7 @@ class EmployeeManagement:
         ).is_("termination_date", "null").execute()
 
         all_employees = employees_result.data or []
+        current_employee_ids = {emp["id"] for emp in all_employees}
 
         # Get existing employee IDs in this run
         existing_records_result = self.supabase.table("payroll_records").select(
@@ -114,6 +118,124 @@ class EmployeeManagement:
             r["employee_id"] for r in (existing_records_result.data or [])
         }
 
+        # Remove employees who are no longer in the pay group
+        removed_employee_ids = existing_employee_ids - current_employee_ids
+        removed_count = 0
+
+        if removed_employee_ids:
+            removed_records_result = self.supabase.table("payroll_records").select(
+                "id, employee_id, gross_regular, gross_overtime, holiday_pay, "
+                "holiday_premium_pay, vacation_pay_paid, other_earnings, bonus_earnings, "
+                "cpp_employee, cpp_additional, cpp_employer, ei_employee, ei_employer, "
+                "federal_tax, provincial_tax, rrsp, union_dues, garnishments, other_deductions"
+            ).eq("payroll_run_id", str(run_id)).in_(
+                "employee_id", [str(eid) for eid in removed_employee_ids]
+            ).execute()
+
+            removed_records = removed_records_result.data or []
+            if removed_records:
+                total_gross_removed = 0.0
+                total_cpp_employee_removed = 0.0
+                total_cpp_employer_removed = 0.0
+                total_ei_employee_removed = 0.0
+                total_ei_employer_removed = 0.0
+                total_federal_tax_removed = 0.0
+                total_provincial_tax_removed = 0.0
+                total_net_pay_removed = 0.0
+                total_employer_cost_removed = 0.0
+
+                for record in removed_records:
+                    gross = (
+                        float(record.get("gross_regular", 0))
+                        + float(record.get("gross_overtime", 0))
+                        + float(record.get("holiday_pay", 0))
+                        + float(record.get("holiday_premium_pay", 0))
+                        + float(record.get("vacation_pay_paid", 0))
+                        + float(record.get("other_earnings", 0))
+                        + float(record.get("bonus_earnings", 0))
+                    )
+                    cpp_employee = float(record.get("cpp_employee", 0)) + float(
+                        record.get("cpp_additional", 0)
+                    )
+                    ei_employee = float(record.get("ei_employee", 0))
+                    federal_tax = float(record.get("federal_tax", 0))
+                    provincial_tax = float(record.get("provincial_tax", 0))
+                    rrsp = float(record.get("rrsp", 0))
+                    union_dues = float(record.get("union_dues", 0))
+                    garnishments = float(record.get("garnishments", 0))
+                    other_deductions = float(record.get("other_deductions", 0))
+                    net_pay = gross - (
+                        cpp_employee
+                        + ei_employee
+                        + federal_tax
+                        + provincial_tax
+                        + rrsp
+                        + union_dues
+                        + garnishments
+                        + other_deductions
+                    )
+                    cpp_employer = float(record.get("cpp_employer", 0))
+                    ei_employer = float(record.get("ei_employer", 0))
+
+                    total_gross_removed += gross
+                    total_cpp_employee_removed += cpp_employee
+                    total_cpp_employer_removed += cpp_employer
+                    total_ei_employee_removed += ei_employee
+                    total_ei_employer_removed += ei_employer
+                    total_federal_tax_removed += federal_tax
+                    total_provincial_tax_removed += provincial_tax
+                    total_net_pay_removed += net_pay
+                    total_employer_cost_removed += cpp_employer + ei_employer
+
+                self.supabase.table("payroll_records").delete().eq(
+                    "payroll_run_id", str(run_id)
+                ).in_("employee_id", [str(eid) for eid in removed_employee_ids]).execute()
+
+                self.supabase.table("payroll_runs").update({
+                    "total_employees": max(
+                        0, (run.get("total_employees") or 0) - len(removed_records)
+                    ),
+                    "total_gross": max(
+                        0, float(run.get("total_gross", 0)) - total_gross_removed
+                    ),
+                    "total_cpp_employee": max(
+                        0,
+                        float(run.get("total_cpp_employee", 0)) - total_cpp_employee_removed,
+                    ),
+                    "total_cpp_employer": max(
+                        0,
+                        float(run.get("total_cpp_employer", 0)) - total_cpp_employer_removed,
+                    ),
+                    "total_ei_employee": max(
+                        0, float(run.get("total_ei_employee", 0)) - total_ei_employee_removed
+                    ),
+                    "total_ei_employer": max(
+                        0, float(run.get("total_ei_employer", 0)) - total_ei_employer_removed
+                    ),
+                    "total_federal_tax": max(
+                        0, float(run.get("total_federal_tax", 0)) - total_federal_tax_removed
+                    ),
+                    "total_provincial_tax": max(
+                        0,
+                        float(run.get("total_provincial_tax", 0))
+                        - total_provincial_tax_removed,
+                    ),
+                    "total_net_pay": max(
+                        0, float(run.get("total_net_pay", 0)) - total_net_pay_removed
+                    ),
+                    "total_employer_cost": max(
+                        0,
+                        float(run.get("total_employer_cost", 0))
+                        - total_employer_cost_removed,
+                    ),
+                }).eq("id", str(run_id)).execute()
+
+                removed_count = len(removed_records)
+                updated_run = await self._get_run(run_id)
+                if not updated_run:
+                    raise ValueError(f"Failed to retrieve updated run {run_id} after removing employees")
+                run = updated_run
+
         # Find missing employees
         missing_employees = [
             emp for emp in all_employees if emp["id"] not in existing_employee_ids
@@ -123,6 +245,7 @@ class EmployeeManagement:
             return {
                 "added_count": 0,
                 "added_employees": [],
+                "removed_count": removed_count,
                 "run": run,
             }
 
@@ -159,11 +282,14 @@ class EmployeeManagement:
             "total_employer_cost": float(run.get("total_employer_cost", 0)) + new_employer_cost,
         }).eq("id", str(run_id)).execute()
 
-        updated_run = await self._get_run(run_id) or run
+        updated_run = await self._get_run(run_id)
+        if not updated_run:
+            raise ValueError(f"Failed to retrieve updated run {run_id} after syncing employees")
 
         return {
             "added_count": len(added_employees),
             "added_employees": added_employees,
+            "removed_count": removed_count,
             "run": updated_run,
         }
 

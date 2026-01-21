@@ -353,6 +353,8 @@ async def create_or_get_run(
             ),
             created=result["created"],
             records_count=result["records_count"],
+            synced=result.get("synced", False),
+            added_count=result.get("added_count", 0),
         )
 
     except ValueError as e:

@@ -19,6 +19,8 @@ import type { PayrollServiceResult } from './types';
 export interface CreateOrGetRunResult {
 	created: boolean;
 	recordsCount: number;
+	synced?: boolean;
+	addedCount?: number;
 }
 
 /**
@@ -53,6 +55,8 @@ export async function createOrGetPayrollRun(
 			};
 			created: boolean;
 			recordsCount: number;
+			synced?: boolean;
+			addedCount?: number;
 		}>('/payroll/runs/create-or-get', { payDate });
 
 		// Get the full payroll run data with records
@@ -65,7 +69,9 @@ export async function createOrGetPayrollRun(
 			data: {
 				...runResult.data,
 				created: response.created,
-				recordsCount: response.recordsCount
+				recordsCount: response.recordsCount,
+				synced: response.synced,
+				addedCount: response.addedCount
 			},
 			error: null
 		};
@@ -108,6 +114,8 @@ export async function createOrGetPayrollRunByPeriodEnd(
 			};
 			created: boolean;
 			recordsCount: number;
+			synced?: boolean;
+			addedCount?: number;
 		}>('/payroll/runs/create-or-get', { periodEnd });
 
 		// Get the full payroll run data with records using period_end
@@ -120,7 +128,9 @@ export async function createOrGetPayrollRunByPeriodEnd(
 			data: {
 				...runResult.data,
 				created: response.created,
-				recordsCount: response.recordsCount
+				recordsCount: response.recordsCount,
+				synced: response.synced,
+				addedCount: response.addedCount
 			},
 			error: null
 		};
@@ -153,7 +163,13 @@ export async function createPayrollRunForDate(
 		return { data: null, error: result.error ?? 'Failed to create payroll run' };
 	}
 	// Return just the PayrollRunWithGroups portion (without created/recordsCount metadata)
-	const { created: _created, recordsCount: _recordsCount, ...runData } = result.data;
+	const {
+		created: _created,
+		recordsCount: _recordsCount,
+		synced: _synced,
+		addedCount: _addedCount,
+		...runData
+	} = result.data;
 	return { data: runData, error: null };
 }
 

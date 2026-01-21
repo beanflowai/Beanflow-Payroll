@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { browser } from '$app/environment';
 	import type {
 		Employee,
 		Province,
@@ -11,6 +12,10 @@
 		EmploymentType,
 		EmployeeTaxClaim
 	} from '$lib/types/employee';
+	import { companyState } from '$lib/stores/company.svelte';
+
+	const EMPLOYMENT_TYPE_STORAGE_KEY = 'beanflow_employee_employment_type_pref';
+
 	import {
 		FEDERAL_BPA_2025,
 		PROVINCIAL_BPA_2025,
@@ -37,7 +42,8 @@
 		checkEmployeeHasPayrollRecords,
 		getEmployeeTaxClaims,
 		createEmployeeTaxClaimViaApi,
-		updateEmployeeTaxClaimViaApi
+		updateEmployeeTaxClaimViaApi,
+		checkDuplicateNames
 	} from '$lib/services/employeeService';
 	import { getCurrentCompensation } from '$lib/services/compensationService';
 
@@ -54,7 +60,7 @@
 	interface Props {
 		employee?: Employee | null;
 		mode: 'create' | 'edit';
-		onSuccess: (employee: Employee) => void;
+		onSuccess: (employee: Employee, action?: 'save' | 'saveAndNew') => void;
 		onCancel: () => void;
 	}
 
@@ -81,9 +87,10 @@
 			addressStreet: emp?.addressStreet ?? '',
 			addressCity: emp?.addressCity ?? '',
 			addressPostalCode: emp?.addressPostalCode ?? '',
+			dateOfBirth: emp?.dateOfBirth ?? '',
 			// Employment Details
 			occupation: emp?.occupation ?? '',
-			province: (emp?.provinceOfEmployment ?? 'ON') as Province,
+			province: (emp?.provinceOfEmployment ?? companyState.currentCompany?.province ?? 'ON') as Province,
 			payFrequency: (emp?.payFrequency ?? 'bi_weekly') as PayFrequency,
 			employmentType: (emp?.employmentType ?? 'full_time') as EmploymentType,
 			hireDate: emp?.hireDate ?? '',
@@ -124,11 +131,28 @@
 	// Personal Information
 	let firstName = $state(initialValues.firstName);
 	let lastName = $state(initialValues.lastName);
-	let sin = $state(''); // Only used in create mode
+	let sin = $state(mode === 'edit' && employee?.sin ? employee.sin : '');
 	let email = $state(initialValues.email);
 	let addressStreet = $state(initialValues.addressStreet);
 	let addressCity = $state(initialValues.addressCity);
 	let addressPostalCode = $state(initialValues.addressPostalCode);
+	let dateOfBirth = $state(initialValues.dateOfBirth);
+	const canEditSin = $derived(
+		mode === 'create' || (mode === 'edit' && !employee?.sin)
+	);
+
+	// Age calculation for CPP exemption
+	const age = $derived(() => {
+		if (!dateOfBirth) return null;
+		const today = new Date();
+		const birthDate = new Date(dateOfBirth);
+		let calculatedAge = today.getFullYear() - birthDate.getFullYear();
+		const monthDiff = today.getMonth() - birthDate.getMonth();
+		if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+			calculatedAge--;
+		}
+		return calculatedAge;
+	});
 
 	// Employment Details
 	let occupation = $state(initialValues.occupation);
@@ -214,6 +238,20 @@
 	let _isSubmitting = $state(false);
 	let errors = $state<Record<string, string>>({});
 	let submitError = $state<string | null>(null);
+	let duplicateCheckVersion = 0;
+
+	// Duplicate name warning state
+	let duplicateEmployees = $state<Employee[]>([]);
+	const duplicateNamesWarning = $derived(() => {
+		if (duplicateEmployees.length === 0) return null;
+		const names = duplicateEmployees.map((e) => `${e.firstName} ${e.lastName}`);
+		const uniqueNames = [...new Set(names)];
+		return {
+			count: duplicateEmployees.length,
+			names: uniqueNames.join(', '),
+			employeeIds: duplicateEmployees.map((e) => e.id)
+		};
+	});
 
 	// Derived values
 	const yearsOfService = $derived(calculateYearsOfService(hireDate));
@@ -382,15 +420,83 @@
 		}
 	});
 
+	// Auto-check CPP exempt based on age (create mode only)
+	$effect(() => {
+		if (mode === 'create') {
+			const calculatedAge = age();
+			if (calculatedAge !== null) {
+				isCppExempt = calculatedAge < 18 || calculatedAge > 70;
+			}
+		}
+	});
+
+	// Auto-set hourly rate for part-time employees (create mode only)
+	$effect(() => {
+		if (mode === 'create' && employmentType === 'part_time') {
+			compensationType = 'hourly';
+		}
+	});
+
+	// Load employment type preference from localStorage (create mode only)
+	$effect(() => {
+		if (mode === 'create' && browser && !employee) {
+			const saved = localStorage.getItem(EMPLOYMENT_TYPE_STORAGE_KEY);
+			if (saved && saved !== employmentType) {
+				employmentType = saved as EmploymentType;
+			}
+		}
+	});
+
+	// Save employment type preference when it changes (create mode only)
+	$effect(() => {
+		if (mode === 'create' && browser) {
+			localStorage.setItem(EMPLOYMENT_TYPE_STORAGE_KEY, employmentType);
+		}
+	});
+
+	// Auto-set pay_as_you_go for hourly employees (create mode only)
+	$effect(() => {
+		if (mode === 'create' && compensationType === 'hourly') {
+			vacationPayoutMethod = 'pay_as_you_go';
+		}
+	});
+
+	// Check for duplicate names when first and last name are both provided
+	$effect(() => {
+		const trimmedFirst = firstName.trim();
+		const trimmedLast = lastName.trim();
+		const requestVersion = ++duplicateCheckVersion;
+
+		// Only check if both names have at least 2 characters
+		if (trimmedFirst.length >= 2 && trimmedLast.length >= 2) {
+			checkDuplicateNames(trimmedFirst, trimmedLast, mode === 'edit' ? employee?.id : undefined)
+				.then((result) => {
+					if (requestVersion !== duplicateCheckVersion) return;
+					if (!result.error) {
+						duplicateEmployees = result.data;
+					}
+				})
+				.catch(() => {
+					if (requestVersion !== duplicateCheckVersion) return;
+					// Silently fail on error - this is a soft warning
+					duplicateEmployees = [];
+				});
+		} else {
+			duplicateEmployees = [];
+		}
+	});
+
 	// Reset form when employee prop changes (for edit mode)
 	$effect(() => {
 		if (mode === 'edit' && employee) {
 			firstName = employee.firstName;
 			lastName = employee.lastName;
+			sin = employee.sin ?? '';
 			email = employee.email ?? '';
 			addressStreet = employee.addressStreet ?? '';
 			addressCity = employee.addressCity ?? '';
 			addressPostalCode = employee.addressPostalCode ?? '';
+			dateOfBirth = employee.dateOfBirth ?? '';
 			occupation = employee.occupation ?? '';
 			province = employee.provinceOfEmployment;
 			payFrequency = employee.payFrequency;
@@ -655,10 +761,7 @@
 		if (!lastName.trim()) newErrors.lastName = 'Last name is required';
 		if (email && !isValidEmail(email)) newErrors.email = 'Invalid email format';
 
-		if (mode === 'create') {
-			if (!sin.trim()) newErrors.sin = 'SIN is required';
-			else if (!isValidSIN(sin)) newErrors.sin = 'SIN must be 9 digits';
-		}
+		if (canEditSin() && sin.trim() && !isValidSIN(sin)) newErrors.sin = 'SIN must be 9 digits';
 
 		if (!province) newErrors.province = 'Province is required';
 		if (!hireDate) newErrors.hireDate = 'Hire date is required';
@@ -705,7 +808,7 @@
 	// SUBMIT HANDLER
 	// ============================================
 
-	async function handleSubmit() {
+	async function handleSubmit(submitAction: 'save' | 'saveAndNew' = 'save') {
 		if (!validate()) return;
 
 		_isSubmitting = true;
@@ -715,12 +818,13 @@
 			const createInput: EmployeeCreateInput = {
 				first_name: firstName.trim(),
 				last_name: lastName.trim(),
-				sin: sin.replace(/\D/g, ''),
+				sin: sin.replace(/\D/g, '') || null,
 				email: email.trim() || null,
 				province_of_employment: province,
 				pay_frequency: payFrequency,
 				employment_type: employmentType,
 				hire_date: hireDate,
+				date_of_birth: dateOfBirth || null,
 				address_street: addressStreet.trim() || null,
 				address_city: addressCity.trim() || null,
 				address_postal_code: addressPostalCode.trim() || null,
@@ -758,7 +862,7 @@
 					console.warn('Tax claim save warning:', taxClaimError);
 				}
 				_isSubmitting = false;
-				onSuccess(result.data);
+				onSuccess(result.data, submitAction);
 			}
 		} else {
 			if (!employee) return;
@@ -771,6 +875,7 @@
 				pay_frequency: payFrequency,
 				employment_type: employmentType,
 				hire_date: hireDate,
+				date_of_birth: dateOfBirth || null,
 				address_street: addressStreet.trim() || null,
 				address_city: addressCity.trim() || null,
 				address_postal_code: addressPostalCode.trim() || null,
@@ -801,6 +906,12 @@
 						}
 					: {})
 			};
+			if (canEditSin()) {
+				const sanitizedSin = sin.replace(/\D/g, '');
+				if (sanitizedSin) {
+					updateInput.sin = sanitizedSin;
+				}
+			}
 
 			const result = await updateEmployee(employee.id, updateInput);
 
@@ -864,7 +975,8 @@
 	class="employee-form flex flex-col gap-6"
 	onsubmit={(e) => {
 		e.preventDefault();
-		handleSubmit();
+		const submitAction = (e.target as any)._submitAction || 'save';
+		handleSubmit(submitAction);
 	}}
 >
 	{#if submitError}
@@ -884,6 +996,33 @@
 		</div>
 	{/if}
 
+	{#if duplicateNamesWarning()}
+		<div
+			class="flex items-start gap-3 p-4 bg-warning-50 border border-warning-200 rounded-lg text-warning-800"
+		>
+			<i class="fas fa-exclamation-triangle mt-0.5"></i>
+			<div class="flex-1">
+				<p class="font-medium mb-1">
+					Duplicate name warning: {duplicateEmployees.length} existing
+					{duplicateEmployees.length === 1 ? 'employee' : 'employees'} with the name {duplicateNamesWarning()?.names}
+					found in this company.
+				</p>
+				<p class="text-sm">
+					This is just a reminder - you can still save. Please verify that this is a new
+					employee and not a duplicate entry.
+				</p>
+			</div>
+			<button
+				type="button"
+				class="bg-transparent border-none text-warning-600 cursor-pointer p-1 opacity-70 hover:opacity-100"
+				onclick={() => (duplicateEmployees = [])}
+				aria-label="Dismiss warning"
+			>
+				<i class="fas fa-times"></i>
+			</button>
+		</div>
+	{/if}
+
 	<PersonalInfoSection
 		{firstName}
 		{lastName}
@@ -892,6 +1031,7 @@
 		{addressStreet}
 		{addressCity}
 		{addressPostalCode}
+		{dateOfBirth}
 		{mode}
 		{employee}
 		{errors}
@@ -902,6 +1042,7 @@
 		onAddressStreetChange={(v) => (addressStreet = v)}
 		onAddressCityChange={(v) => (addressCity = v)}
 		onAddressPostalCodeChange={(v) => (addressPostalCode = v)}
+		onDateOfBirthChange={(v) => (dateOfBirth = v)}
 	/>
 
 	<EmploymentDetailsSection

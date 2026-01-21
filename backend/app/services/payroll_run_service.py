@@ -57,6 +57,7 @@ class PayrollRunService:
             get_run_func=self.get_run,
             get_run_records_func=self.get_run_records,
             create_records_func=self._emp_mgmt.create_records_for_employees,
+            sync_employees_func=self._emp_mgmt.sync_employees,
         )
 
     # =========================================================================

@@ -61,6 +61,7 @@
 
 	// Helpers
 	function maskSIN(sin: string): string {
+		if (!sin) return '-';
 		const digits = sin.replace(/\D/g, '');
 		return `***-***-${digits.slice(6)}`;
 	}
@@ -102,7 +103,7 @@
 				<span class="detail-label">SIN</span>
 				<span class="detail-value">
 					<button class="sin-toggle" onclick={onToggleSIN}>
-						{showSIN ? employee.sin : maskSIN(employee.sin)}
+						{showSIN ? employee.sin || '-' : maskSIN(employee.sin)}
 						<i class="fas" class:fa-eye={!showSIN} class:fa-eye-slash={showSIN}></i>
 					</button>
 				</span>

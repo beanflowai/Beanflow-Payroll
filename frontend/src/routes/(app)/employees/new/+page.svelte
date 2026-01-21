@@ -19,20 +19,38 @@
 	}
 
 	// Handle successful creation
-	async function handleSuccess(employee: Employee) {
+	async function handleSuccess(employee: Employee, action: 'save' | 'saveAndNew' = 'save') {
 		// Mark onboarding steps as complete
 		await markStepComplete('employees');
 		if (employee.payGroupId) {
 			await markStepComplete('employee_assignment');
 		}
-		goto(`/employees/${employee.id}`);
+		if (action === 'saveAndNew') {
+			// Stay on new employee page for adding more employees
+			// Trigger a page reload to reset the form
+			location.reload();
+		} else {
+			// Go to employee list
+			goto('/employees');
+		}
 	}
 
 	// Handle save button click
 	function handleSave() {
-		// Trigger form submission
+		// Set action to 'save' and trigger form submission
 		const form = document.querySelector('.employee-form') as HTMLFormElement;
 		if (form) {
+			(form as any)._submitAction = 'save';
+			form.requestSubmit();
+		}
+	}
+
+	// Handle save & new button click
+	function handleSaveAndNew() {
+		// Set action to 'saveAndNew' and trigger form submission
+		const form = document.querySelector('.employee-form') as HTMLFormElement;
+		if (form) {
+			(form as any)._submitAction = 'saveAndNew';
 			form.requestSubmit();
 		}
 	}
@@ -68,13 +86,22 @@
 	<div class="action-bar">
 		<div class="action-bar-content">
 			<button class="btn-cancel" onclick={handleCancel} disabled={isSaving}> Cancel </button>
+			<button class="btn-save-and-new" onclick={handleSaveAndNew} disabled={isSaving}>
+				{#if isSaving}
+					<i class="fas fa-spinner fa-spin"></i>
+					<span>Creating...</span>
+				{:else}
+					<i class="fas fa-plus"></i>
+					<span>Save & New</span>
+				{/if}
+			</button>
 			<button class="btn-save" onclick={handleSave} disabled={isSaving}>
 				{#if isSaving}
 					<i class="fas fa-spinner fa-spin"></i>
 					<span>Creating...</span>
 				{:else}
 					<i class="fas fa-check"></i>
-					<span>Create Employee</span>
+					<span>Save</span>
 				{/if}
 			</button>
 		</div>
@@ -158,7 +185,8 @@
 	}
 
 	.btn-cancel,
-	.btn-save {
+	.btn-save,
+	.btn-save-and-new {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
@@ -183,6 +211,22 @@
 	}
 
 	.btn-cancel:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.btn-save-and-new {
+		background: white;
+		color: var(--color-primary-600);
+		border: 1px solid var(--color-primary-300);
+	}
+
+	.btn-save-and-new:hover:not(:disabled) {
+		background: var(--color-primary-50);
+		border-color: var(--color-primary-400);
+	}
+
+	.btn-save-and-new:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
@@ -216,7 +260,8 @@
 		}
 
 		.btn-cancel,
-		.btn-save {
+		.btn-save,
+		.btn-save-and-new {
 			width: 100%;
 		}
 	}

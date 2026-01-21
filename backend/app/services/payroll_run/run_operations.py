@@ -57,6 +57,7 @@ class PayrollRunOperations:
         get_run_func: Any,
         get_run_records_func: Any,
         create_records_func: Any,
+        sync_employees_func: Any | None = None,
     ):
         """Initialize payroll run operations.
 
@@ -68,6 +69,7 @@ class PayrollRunOperations:
             get_run_func: Function to get a payroll run by ID
             get_run_records_func: Function to get run records with employee info
             create_records_func: Function to create records for employees
+            sync_employees_func: Optional function to sync employees for a draft run
         """
         self.supabase = supabase
         self.user_id = user_id
@@ -77,6 +79,7 @@ class PayrollRunOperations:
         self._get_run = get_run_func
         self._get_run_records = get_run_records_func
         self._create_records_for_employees = create_records_func
+        self._sync_employees = sync_employees_func
 
         # Initialize sub-modules
         self.input_preparer = PayrollInputPreparer(
@@ -458,7 +461,7 @@ class PayrollRunOperations:
         and delegates to the new method.
 
         Returns:
-            Dict with 'run', 'created' bool, and 'records_count'
+            Dict with 'run', 'created' bool, 'records_count', and sync metadata
         """
         pay_date_obj = datetime.strptime(pay_date, "%Y-%m-%d").date()
         period_end = pay_date_obj - timedelta(days=6)
@@ -479,7 +482,7 @@ class PayrollRunOperations:
                      province regulations (on or after period_end, on or before legal deadline).
 
         Returns:
-            Dict with 'run', 'created' bool, and 'records_count'
+            Dict with 'run', 'created' bool, 'records_count', and sync metadata
 
         Raises:
             ValueError: If pay_date is provided but not compliant with province regulations
@@ -490,10 +493,25 @@ class PayrollRunOperations:
         ).eq("company_id", self.company_id).eq("period_end", period_end).execute()
 
         if existing_result.data and len(existing_result.data) > 0:
+            existing_run = existing_result.data[0]
+            if existing_run.get("status") == "draft" and self._sync_employees:
+                sync_result = await self._sync_employees(UUID(existing_run["id"]))
+                added_count = sync_result.get("added_count", 0)
+                removed_count = sync_result.get("removed_count", 0)
+                return {
+                    "run": sync_result.get("run", existing_run),
+                    "created": False,
+                    "records_count": 0,
+                    "synced": added_count > 0 or removed_count > 0,
+                    "added_count": added_count,
+                }
+
             return {
-                "run": existing_result.data[0],
+                "run": existing_run,
                 "created": False,
                 "records_count": 0,
+                "synced": False,
+                "added_count": 0,
             }
 
         # Get pay groups with matching next_period_end for this company
@@ -627,6 +645,8 @@ class PayrollRunOperations:
             "run": run,
             "created": True,
             "records_count": len(employees),
+            "synced": False,
+            "added_count": 0,
         }
 
     async def update_pay_date(self, run_id: UUID, pay_date: str) -> dict[str, Any]:

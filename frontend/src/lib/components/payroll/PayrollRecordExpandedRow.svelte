@@ -345,11 +345,15 @@
 									Vacation
 								</span>
 								<span class="balance-value-container">
-									<span class="balance-hours">{record.vacationBalanceHours ?? 0}h</span>
-									{#if record.vacationBalanceDollars}
-										<span class="balance-dollars"
-											>{formatCurrency(record.vacationBalanceDollars)}</span
-										>
+									{#if record.vacationPayoutMethod === 'accrual'}
+										<span class="balance-hours">{record.vacationBalanceHours ?? 0}h</span>
+										{#if record.vacationBalanceDollars}
+											<span class="balance-dollars"
+												>{formatCurrency(record.vacationBalanceDollars)}</span
+											>
+										{/if}
+									{:else}
+										<span class="balance-hours text-surface-500">—</span>
 									{/if}
 								</span>
 							</div>

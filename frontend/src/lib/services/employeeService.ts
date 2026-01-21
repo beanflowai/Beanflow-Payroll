@@ -36,9 +36,11 @@ export { dbEmployeeToUi } from '$lib/types/employee';
 const TABLE_NAME = 'employees';
 
 /**
- * Helper to mask SIN for display (***-***-XXX)
+ * Helper to mask SIN for display (***-***-XXX).
+ * Returns empty string when SIN is missing.
  */
-export function maskSin(_sinEncrypted: string): string {
+export function maskSin(sinEncrypted: string | null | undefined): string {
+	if (!sinEncrypted) return '';
 	// Since SIN is encrypted, we can't derive last 3 digits
 	// In production, this would be handled by the backend
 	return '***-***-***';
@@ -212,7 +214,7 @@ export async function createEmployee(
 			company_id: companyId,
 			first_name: input.first_name,
 			last_name: input.last_name,
-			sin_encrypted: input.sin, // In production, this should be encrypted by backend
+			sin_encrypted: input.sin || null, // SIN is now optional
 			email: input.email ?? null,
 			province_of_employment: input.province_of_employment,
 			pay_frequency: input.pay_frequency,
@@ -225,6 +227,7 @@ export async function createEmployee(
 			is_ei_exempt: input.is_ei_exempt ?? false,
 			cpp2_exempt: input.cpp2_exempt ?? false,
 			hire_date: input.hire_date,
+			date_of_birth: input.date_of_birth ?? null,
 			termination_date: input.termination_date ?? null,
 			vacation_config: input.vacation_config ?? {
 				payout_method: 'accrual',
@@ -313,6 +316,7 @@ export async function updateEmployee(
 		if (input.is_ei_exempt !== undefined) updateData.is_ei_exempt = input.is_ei_exempt;
 		if (input.cpp2_exempt !== undefined) updateData.cpp2_exempt = input.cpp2_exempt;
 		if (input.hire_date !== undefined) updateData.hire_date = input.hire_date;
+		if (input.date_of_birth !== undefined) updateData.date_of_birth = input.date_of_birth;
 		if (input.termination_date !== undefined) updateData.termination_date = input.termination_date;
 		if (input.vacation_config !== undefined) updateData.vacation_config = input.vacation_config;
 		if (input.vacation_balance !== undefined) updateData.vacation_balance = input.vacation_balance;
@@ -321,6 +325,10 @@ export async function updateEmployee(
 		if (input.initial_ytd_cpp2 !== undefined) updateData.initial_ytd_cpp2 = input.initial_ytd_cpp2;
 		if (input.initial_ytd_ei !== undefined) updateData.initial_ytd_ei = input.initial_ytd_ei;
 		if (input.initial_ytd_year !== undefined) updateData.initial_ytd_year = input.initial_ytd_year;
+		// SIN: only update when caller provides a non-empty value (UI sends when editable)
+		if (input.sin !== undefined && input.sin) {
+			updateData.sin_encrypted = input.sin;
+		}
 
 		const { data, error } = await supabase
 			.from(TABLE_NAME)
@@ -444,6 +452,50 @@ export async function getEmployeesByProvince(): Promise<Record<Province, number>
 		return counts as Record<Province, number>;
 	} catch {
 		return {} as Record<Province, number>;
+	}
+}
+
+/**
+ * Check for duplicate employee names in the same company
+ * Returns a list of employees with matching first and last name
+ */
+export async function checkDuplicateNames(
+	firstName: string,
+	lastName: string,
+	excludeEmployeeId?: string
+): Promise<EmployeeListResult> {
+	try {
+		const userId = getCurrentUserId();
+		const companyId = getCurrentCompanyId();
+
+		let query = supabase
+			.from(TABLE_NAME)
+			.select('*', { count: 'exact' })
+			.eq('user_id', userId)
+			.eq('company_id', companyId)
+			.eq('first_name', firstName.trim())
+			.eq('last_name', lastName.trim());
+
+		// Exclude the current employee when editing
+		if (excludeEmployeeId) {
+			query = query.neq('id', excludeEmployeeId);
+		}
+
+		const { data, error, count } = await query.order('last_name').order('first_name');
+
+		if (error) {
+			console.error('Failed to check duplicate names:', error);
+			return { data: [], count: 0, error: error.message };
+		}
+
+		const employees: Employee[] = (data as DbEmployee[]).map((db) =>
+			dbEmployeeToUi(db, maskSin(db.sin_encrypted))
+		);
+
+		return { data: employees, count: count ?? 0, error: null };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to check duplicate names';
+		return { data: [], count: 0, error: message };
 	}
 }
 

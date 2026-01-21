@@ -209,6 +209,7 @@ class EmployeeBase(BaseModel):
     cpp2_exempt: bool = False  # CPT30 form exemption
 
     # Dates
+    date_of_birth: date | None = None  # For CPP calculations
     hire_date: date
     termination_date: date | None = None
 
@@ -227,8 +228,8 @@ class EmployeeBase(BaseModel):
 
 class EmployeeCreate(EmployeeBase):
     """Employee creation request (API input)."""
-    sin: str = Field(
-        ...,
+    sin: str | None = Field(
+        default=None,
         min_length=9,
         max_length=9,
         description="Social Insurance Number (will be encrypted)"
@@ -256,6 +257,7 @@ class EmployeeUpdate(BaseModel):
     is_cpp_exempt: bool | None = None
     is_ei_exempt: bool | None = None
     cpp2_exempt: bool | None = None
+    date_of_birth: date | None = None
     termination_date: date | None = None
     vacation_config: VacationConfig | None = None
     # Initial YTD for transferred employees (with non-negative constraint)
@@ -315,6 +317,7 @@ class EmployeeResponse(BaseModel):
     is_cpp_exempt: bool
     is_ei_exempt: bool
     cpp2_exempt: bool
+    date_of_birth: date | None
     hire_date: date
     termination_date: date | None
     vacation_config: VacationConfig

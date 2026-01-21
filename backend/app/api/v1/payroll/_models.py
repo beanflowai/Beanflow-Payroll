@@ -314,6 +314,15 @@ class CreateOrGetRunResponse(BaseModel):
     run: PayrollRunResponse
     created: bool = Field(description="True if a new run was created, False if existing")
     recordsCount: int = Field(alias="records_count", description="Number of records created")
+    synced: bool = Field(
+        default=False,
+        description="True if employees were auto-synced when loading an existing draft",
+    )
+    addedCount: int = Field(
+        alias="added_count",
+        default=0,
+        description="Number of employees added during auto-sync",
+    )
 
     model_config = {"populate_by_name": True}
 

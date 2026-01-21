@@ -9,6 +9,7 @@
 		addressStreet: string;
 		addressCity: string;
 		addressPostalCode: string;
+		dateOfBirth: string;
 		mode: 'create' | 'edit';
 		employee: Employee | null;
 		errors: Record<string, string>;
@@ -19,6 +20,7 @@
 		onAddressStreetChange: (value: string) => void;
 		onAddressCityChange: (value: string) => void;
 		onAddressPostalCodeChange: (value: string) => void;
+		onDateOfBirthChange: (value: string) => void;
 	}
 
 	let {
@@ -29,6 +31,7 @@
 		addressStreet,
 		addressCity,
 		addressPostalCode,
+		dateOfBirth,
 		mode,
 		employee,
 		errors,
@@ -38,7 +41,8 @@
 		onEmailChange,
 		onAddressStreetChange,
 		onAddressCityChange,
-		onAddressPostalCodeChange
+		onAddressPostalCodeChange,
+		onDateOfBirthChange
 	}: Props = $props();
 </script>
 
@@ -82,10 +86,9 @@
 		</div>
 
 		<div class="flex flex-col gap-2">
-			<label for="sin" class="text-body-small font-medium text-surface-700"
-				>SIN {mode === 'create' ? '*' : ''}</label
-			>
-			{#if mode === 'create'}
+			<label for="sin" class="text-body-small font-medium text-surface-700">SIN</label>
+			{#if mode === 'create' || (mode === 'edit' && !employee?.sin)}
+				<!-- Editable: create mode OR edit mode with empty SIN -->
 				<input
 					id="sin"
 					type="text"
@@ -101,6 +104,7 @@
 					<span class="text-auxiliary-text text-error-600">{errors.sin}</span>
 				{/if}
 			{:else}
+				<!-- Read-only: edit mode with existing SIN -->
 				<input
 					id="sin"
 					type="text"
@@ -109,9 +113,25 @@
 					readonly
 					disabled
 				/>
-				<span class="text-auxiliary-text text-surface-500"
-					>SIN cannot be changed after creation</span
+			<span class="text-auxiliary-text text-surface-500"
+					>Editing SIN is disabled in this form</span
 				>
+			{/if}
+		</div>
+
+		<div class="flex flex-col gap-2">
+			<label for="dateOfBirth" class="text-body-small font-medium text-surface-700">Date of Birth</label>
+			<input
+				id="dateOfBirth"
+				type="date"
+				class="p-3 border border-surface-300 rounded-md text-body-content transition-[150ms] focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-500/10 {errors.dateOfBirth
+					? 'border-error-500'
+					: 'border-surface-300'}"
+				value={dateOfBirth}
+				oninput={(e) => onDateOfBirthChange(e.currentTarget.value)}
+			/>
+			{#if errors.dateOfBirth}
+				<span class="text-auxiliary-text text-error-600">{errors.dateOfBirth}</span>
 			{/if}
 		</div>
 

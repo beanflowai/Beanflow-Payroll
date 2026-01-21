@@ -382,6 +382,9 @@
 											class:is-weekend={entry.dayOfWeek === 0 || entry.dayOfWeek === 6}
 											title={entry.isHoliday ? getHolidayName(entry.workDate) : entry.workDate}
 										>
+											<span class="date-badge" aria-hidden="true">
+												{entry.workDate.split('-')[2]}
+											</span>
 											{#if entry.isHoliday}
 												<i class="fas fa-gift holiday-icon"></i>
 											{:else}
@@ -395,6 +398,7 @@
 													oninput={(e) =>
 														updateEntry(weekIdx, week.entries.indexOf(entry), e.currentTarget.value)}
 													placeholder=""
+													aria-label="Hours for {entry.workDate}"
 												/>
 											{/if}
 										</div>
@@ -570,6 +574,7 @@
 		border-radius: var(--radius-md);
 		background: white;
 		transition: var(--transition-fast);
+		position: relative;
 	}
 
 	.day-cell.is-weekend {
@@ -586,6 +591,35 @@
 		border-style: dashed;
 	}
 
+	/* Date Badge - Always show day of month */
+	.date-badge {
+		position: absolute;
+		top: 2px;
+		left: 4px;
+		font-size: 10px;
+		font-weight: 500;
+		color: var(--color-surface-500, #99999a);
+		line-height: 1;
+		pointer-events: none;
+		z-index: 1;
+	}
+
+	/* Holiday cells: badge matches holiday theme */
+	.day-cell.is-holiday .date-badge {
+		color: var(--color-warning-500, #ff6d24);
+		font-weight: 600;
+	}
+
+	/* Weekend cells: slightly darker for contrast */
+	.day-cell.is-weekend .date-badge {
+		color: var(--color-surface-600, #6d6d6e);
+	}
+
+	/* Empty cells: no badge */
+	.day-cell.empty .date-badge {
+		display: none;
+	}
+
 	.holiday-icon {
 		color: var(--color-warning-500);
 		font-size: var(--font-size-body-content);
@@ -594,7 +628,7 @@
 	.hours-input {
 		width: 100%;
 		height: 100%;
-		padding: var(--spacing-2);
+		padding: var(--spacing-2) var(--spacing-2) var(--spacing-2) var(--spacing-5);
 		border: none;
 		background: transparent;
 		font-size: var(--font-size-body-content);
@@ -687,5 +721,18 @@
 	.btn-secondary:hover:not(:disabled) {
 		background: var(--color-surface-50);
 		border-color: var(--color-surface-300);
+	}
+
+	/* Mobile responsive adjustments */
+	@media (max-width: 768px) {
+		.date-badge {
+			top: 1px;
+			left: 2px;
+			font-size: 9px;
+		}
+
+		.hours-input {
+			padding-left: var(--spacing-4);
+		}
 	}
 </style>
