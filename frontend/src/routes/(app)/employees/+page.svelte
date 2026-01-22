@@ -4,9 +4,14 @@
 		Employee,
 		ColumnGroup,
 		EmployeeFilters,
-		EmployeeStatusCounts
+		EmployeeStatusCounts,
+		EmployeeSortOptions
 	} from '$lib/types/employee';
-	import { PROVINCE_LABELS, DEFAULT_EMPLOYEE_FILTERS } from '$lib/types/employee';
+	import {
+		PROVINCE_LABELS,
+		DEFAULT_EMPLOYEE_FILTERS,
+		DEFAULT_SORT_OPTIONS
+	} from '$lib/types/employee';
 	import type { PayGroup } from '$lib/types/pay-group';
 	import type { EmployeeWithPortalStatus } from '$lib/types/employee-portal';
 	import {
@@ -32,6 +37,7 @@
 	let error = $state<string | null>(null);
 	let selectedIds = $state<Set<string>>(new Set());
 	let filters = $state<EmployeeFilters>({ ...DEFAULT_EMPLOYEE_FILTERS });
+	let sortOptions = $state<EmployeeSortOptions>({ ...DEFAULT_SORT_OPTIONS });
 	let activeColumnGroup = $state<ColumnGroup>('personal');
 	let selectedEmployeeId = $state<string | null>(null);
 	let showSidebarSIN = $state(false);
@@ -94,8 +100,24 @@
 	// ===========================================
 	// Computed
 	// ===========================================
+	// Sorting helper functions
+	function compareDates(a?: string | null, b?: string | null): number {
+		if (!a) return 1;
+		if (!b) return -1;
+		return new Date(a).getTime() - new Date(b).getTime();
+	}
+
+	function compareNames(a: Employee, b: Employee): number {
+		const nameA = `${a.lastName} ${a.firstName}`.toLowerCase();
+		const nameB = `${b.lastName} ${b.firstName}`.toLowerCase();
+		if (nameA < nameB) return -1;
+		if (nameA > nameB) return 1;
+		return 0;
+	}
+
 	const filteredEmployees = $derived(() => {
-		return employees.filter((emp) => {
+		// Apply filters
+		let filtered = employees.filter((emp) => {
 			// Status filter
 			if (filters.status !== 'all' && emp.status !== filters.status) return false;
 
@@ -144,6 +166,27 @@
 			}
 			return true;
 		});
+
+		// Apply sorting
+		filtered = [...filtered].sort((a, b) => {
+			const { field, direction } = sortOptions;
+			const multiplier = direction === 'asc' ? 1 : -1;
+
+			switch (field) {
+				case 'updated_at':
+					return compareDates(a.updatedAt, b.updatedAt) * multiplier;
+				case 'created_at':
+					return compareDates(a.createdAt, b.createdAt) * multiplier;
+				case 'name':
+					return compareNames(a, b) * multiplier;
+				case 'hire_date':
+					return compareDates(a.hireDate, b.hireDate) * multiplier;
+				default:
+					return 0;
+			}
+		});
+
+		return filtered;
 	});
 
 	const statusCounts = $derived<EmployeeStatusCounts>({
@@ -412,7 +455,9 @@
 				{filters}
 				{statusCounts}
 				{payGroups}
+				{sortOptions}
 				onFiltersChange={(newFilters) => (filters = newFilters)}
+				onSortChange={(newSort) => (sortOptions = newSort)}
 			/>
 
 			{#if employees.length === 0}

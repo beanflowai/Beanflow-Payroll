@@ -62,9 +62,10 @@
 		mode: 'create' | 'edit';
 		onSuccess: (employee: Employee, action?: 'save' | 'saveAndNew') => void;
 		onCancel: () => void;
+		isSubmitting?: boolean;
 	}
 
-	let { employee = null, mode, onSuccess, onCancel: _onCancel }: Props = $props();
+	let { employee = null, mode, onSuccess, onCancel: _onCancel, isSubmitting = $bindable() }: Props = $props();
 
 	// ============================================
 	// INITIAL VALUES FROM PROPS
@@ -236,6 +237,12 @@
 
 	// UI state
 	let _isSubmitting = $state(false);
+	// Sync isSubmitting prop when internal state changes
+	$effect(() => {
+		if (isSubmitting !== undefined) {
+			isSubmitting = _isSubmitting;
+		}
+	});
 	let errors = $state<Record<string, string>>({});
 	let submitError = $state<string | null>(null);
 	let duplicateCheckVersion = 0;

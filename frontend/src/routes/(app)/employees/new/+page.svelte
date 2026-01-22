@@ -8,6 +8,12 @@
 	let formRef = $state<EmployeeForm | null>(null);
 	let isSaving = $state(false);
 
+	// Sync isSaving with form's isSubmitting state
+	let formIsSubmitting = $state(false);
+	$effect(() => {
+		isSaving = formIsSubmitting;
+	});
+
 	// Handle back navigation
 	function handleBack() {
 		goto('/employees');
@@ -77,6 +83,7 @@
 		<EmployeeForm
 			bind:this={formRef}
 			mode="create"
+			bind:isSubmitting={formIsSubmitting}
 			onSuccess={handleSuccess}
 			onCancel={handleCancel}
 		/>

@@ -140,6 +140,8 @@ export interface Employee {
 	hireDate: string;
 	dateOfBirth?: string | null; // For CPP calculations
 	terminationDate?: string | null;
+	createdAt?: string; // ISO 8601 format
+	updatedAt?: string; // ISO 8601 format
 	// Address fields (for paystub)
 	addressStreet?: string | null;
 	addressCity?: string | null;
@@ -210,6 +212,31 @@ export interface EmployeeStatusCounts {
 	active: number;
 	terminated: number;
 }
+
+// ============================================================================
+// Sort Types
+// ============================================================================
+
+export type EmployeeSortField = 'updated_at' | 'created_at' | 'name' | 'hire_date';
+
+export type EmployeeSortDirection = 'asc' | 'desc';
+
+export interface EmployeeSortOptions {
+	field: EmployeeSortField;
+	direction: EmployeeSortDirection;
+}
+
+export const SORT_FIELD_LABELS: Record<EmployeeSortField, string> = {
+	updated_at: 'Last Updated',
+	created_at: 'Recently Added',
+	name: 'Name (A-Z)',
+	hire_date: 'Hire Date (Newest)'
+};
+
+export const DEFAULT_SORT_OPTIONS: EmployeeSortOptions = {
+	field: 'updated_at',
+	direction: 'desc'
+};
 
 // ============================================================================
 // BPA Constants (Fallback Values)
@@ -514,6 +541,8 @@ export function dbEmployeeToUi(db: DbEmployee, maskedSin: string): Employee {
 		hireDate: db.hire_date,
 		dateOfBirth: db.date_of_birth,
 		terminationDate: db.termination_date,
+		createdAt: db.created_at,
+		updatedAt: db.updated_at,
 		// Address fields
 		addressStreet: db.address_street,
 		addressCity: db.address_city,

@@ -6,13 +6,16 @@
 		PayFrequency,
 		EmploymentType,
 		CompensationType,
-		EmployeeStatus
+		EmployeeStatus,
+		EmployeeSortField,
+		EmployeeSortOptions
 	} from '$lib/types/employee';
 	import {
 		PROVINCE_LABELS,
 		PAY_FREQUENCY_LABELS,
 		EMPLOYMENT_TYPE_LABELS,
-		DEFAULT_EMPLOYEE_FILTERS
+		DEFAULT_EMPLOYEE_FILTERS,
+		SORT_FIELD_LABELS
 	} from '$lib/types/employee';
 	import type { PayGroup } from '$lib/types/pay-group';
 
@@ -20,10 +23,12 @@
 		filters: EmployeeFilters;
 		statusCounts: EmployeeStatusCounts;
 		payGroups?: PayGroup[]; // Available pay groups for filtering
+		sortOptions: EmployeeSortOptions;
 		onFiltersChange: (filters: EmployeeFilters) => void;
+		onSortChange: (sort: EmployeeSortOptions) => void;
 	}
 
-	let { filters, statusCounts, payGroups = [], onFiltersChange }: Props = $props();
+	let { filters, statusCounts, payGroups = [], sortOptions, onFiltersChange, onSortChange }: Props = $props();
 
 	// Province options
 	const provinces: Province[] = [
@@ -89,6 +94,19 @@
 		{ value: 'active', label: 'Active', countKey: 'active' },
 		{ value: 'terminated', label: 'Terminated', countKey: 'terminated' }
 	];
+
+	// Update individual sort field
+	function updateSort(field: 'field' | 'direction', value: EmployeeSortField | 'asc' | 'desc') {
+		onSortChange({ ...sortOptions, [field]: value });
+	}
+
+	// Toggle sort direction
+	function toggleSortDirection() {
+		onSortChange({
+			...sortOptions,
+			direction: sortOptions.direction === 'asc' ? 'desc' : 'asc'
+		});
+	}
 </script>
 
 <div class="employee-filters">
@@ -198,6 +216,29 @@
 					</select>
 				</div>
 			{/if}
+
+			<!-- Sort Dropdown -->
+			<div class="filter-dropdown sort-dropdown">
+				<label for="sort-field">Sort by</label>
+				<div class="sort-controls">
+					<select
+						id="sort-field"
+						value={sortOptions.field}
+						onchange={(e) => updateSort('field', e.currentTarget.value as EmployeeSortField)}
+					>
+						{#each Object.entries(SORT_FIELD_LABELS) as [value, label]}
+							<option value={value}>{label}</option>
+						{/each}
+					</select>
+					<button
+						class="sort-direction-btn"
+						onclick={toggleSortDirection}
+						title={sortOptions.direction === 'asc' ? 'Ascending' : 'Descending'}
+					>
+						<i class="fas {sortOptions.direction === 'asc' ? 'fa-sort-amount-up' : 'fa-sort-amount-down'}"></i>
+					</button>
+				</div>
+			</div>
 		</div>
 
 		<!-- Clear Filters Button -->
@@ -347,6 +388,42 @@
 	.clear-filters-btn:hover {
 		background: var(--color-surface-200);
 		color: var(--color-surface-800);
+	}
+
+	/* Sort Controls */
+	.sort-dropdown {
+		align-self: flex-end;
+	}
+
+	.sort-controls {
+		display: flex;
+		gap: var(--spacing-2);
+	}
+
+	.sort-dropdown select {
+		flex: 1;
+		min-width: 160px;
+	}
+
+	.sort-direction-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 36px;
+		height: 36px;
+		padding: 0;
+		border: 1px solid var(--color-surface-300);
+		background: white;
+		border-radius: var(--radius-md);
+		cursor: pointer;
+		transition: var(--transition-fast);
+		color: var(--color-surface-500);
+	}
+
+	.sort-direction-btn:hover {
+		background: var(--color-surface-50);
+		border-color: var(--color-surface-400);
+		color: var(--color-surface-700);
 	}
 
 	/* Responsive */
