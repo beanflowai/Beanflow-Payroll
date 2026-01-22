@@ -880,3 +880,39 @@ export interface TimesheetResponse {
 	entries: TimesheetEntry[];
 	summary: TimesheetSummary;
 }
+
+// ===========================================
+// Payroll Draft Filter Types
+// ===========================================
+
+/**
+ * Filters for payroll draft employee list
+ * Note: Province and compensation type are not included as they are tied to pay groups
+ */
+export interface PayrollDraftFilters {
+	searchQuery: string;
+	payGroupId: string | 'all';
+	showNoHoursEntered: boolean;
+	showZeroEarnings: boolean;
+	showNeedsHolidayPay: boolean;
+}
+
+/**
+ * Default filter values for payroll draft
+ */
+export const DEFAULT_PAYROLL_DRAFT_FILTERS: PayrollDraftFilters = {
+	searchQuery: '',
+	payGroupId: 'all',
+	showNoHoursEntered: false,
+	showZeroEarnings: false,
+	showNeedsHolidayPay: false
+};
+
+/**
+ * Statistics for filtered payroll draft view
+ */
+export interface PayrollDraftFilterStats {
+	totalEmployees: number;
+	filteredCount: number;
+	visibleCount: number;
+}

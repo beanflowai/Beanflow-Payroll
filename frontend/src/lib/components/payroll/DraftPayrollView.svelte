@@ -3,13 +3,17 @@
 		PayrollRunWithGroups,
 		EmployeePayrollInput,
 		HolidayWorkEntry,
-		CompensationType
+		CompensationType,
+		PayrollDraftFilters
 	} from '$lib/types/payroll';
+	import { DEFAULT_PAYROLL_DRAFT_FILTERS } from '$lib/types/payroll';
 	import { DraftPayGroupSection, HolidayAlert, HolidayWorkModal } from '$lib/components/payroll';
-	import PayDatePicker from './PayDatePicker.svelte';
+	import { filterPayrollRun, calculateFilterStats } from '$lib/utils/payrollFilterUtils';
+	import PayrollDatePicker from './PayDatePicker.svelte';
 	import Tooltip from '$lib/components/shared/Tooltip.svelte';
 	import { formatShortDate } from '$lib/utils/dateUtils';
 	import { formatCurrency } from '$lib/utils';
+	import PayrollDraftFiltersComponent from './PayrollDraftFilters.svelte';
 
 	interface Props {
 		payrollRun: PayrollRunWithGroups;
@@ -53,6 +57,15 @@
 	let showHolidayModal = $state(false);
 	let isUpdatingPayDate = $state(false);
 	let autoCalculateTimer = $state<ReturnType<typeof setTimeout> | null>(null);
+
+	// Filter state
+	let filters = $state<PayrollDraftFilters>(DEFAULT_PAYROLL_DRAFT_FILTERS);
+
+	// Derived: filtered pay groups
+	const filteredPayGroups = $derived(filterPayrollRun(payrollRun.payGroups, filters));
+
+	// Derived: filter stats
+	const filterStats = $derived(calculateFilterStats(payrollRun.payGroups, filteredPayGroups));
 
 	const AUTO_CALCULATE_DEBOUNCE_MS = 500;
 
@@ -178,6 +191,11 @@
 	const province = $derived(
 		payrollRun.payGroups[0]?.province ?? 'SK'
 	);
+
+	// Filter change handler
+	function handleFiltersChange(newFilters: PayrollDraftFilters) {
+		filters = newFilters;
+	}
 </script>
 
 <div class="flex flex-col gap-5">
@@ -191,7 +209,7 @@
 					<i class="fas fa-edit"></i>
 					Draft
 				</div>
-				<PayDatePicker
+				<PayrollDatePicker
 					value={payrollRun.payDate}
 					periodEnd={payrollRun.payGroups[0]?.periodEnd ?? payrollRun.periodEnd}
 					province={province}
@@ -440,9 +458,20 @@
 		</div>
 	</div>
 
+	<!-- Employee Filters -->
+	<PayrollDraftFiltersComponent
+		filters={filters}
+		payGroups={payrollRun.payGroups.map((pg) => ({
+			payGroupId: pg.payGroupId,
+			payGroupName: pg.payGroupName
+		}))}
+		stats={filterStats}
+		onFiltersChange={handleFiltersChange}
+	/>
+
 	<!-- Pay Group Sections -->
 	<div class="flex flex-col gap-4">
-		{#each payrollRun.payGroups as payGroup (payGroup.payGroupId)}
+		{#each filteredPayGroups as payGroup (payGroup.payGroupId)}
 			<DraftPayGroupSection
 				{payGroup}
 				holidays={payrollRun.holidays ?? []}
@@ -469,3 +498,4 @@
 		onSave={handleHolidayWorkSave}
 	/>
 {/if}
+
