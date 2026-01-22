@@ -60,8 +60,25 @@
 	let isCalculating = $state(false);
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-	// Day names for header
+	// Track all input elements for programmatic focus management
+	let inputRefs = $state<Map<string, HTMLInputElement>>(new Map());
+
+	// Track current focused position
+	let focusedPosition = $state<{ weekIdx: number; dayIdx: number } | null>(null);
+
+	// Local input values to prevent re-render during editing
+	let localInputValues = $state<Map<string, string>>(new Map());
+
+	// Day names for header (index 0=Mon, ..., 6=Sun)
 	const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+	/**
+	 * Convert JavaScript dayOfWeek (0=Sun, 1=Mon, ..., 6=Sat) to dayIdx (0=Mon, ..., 6=Sun)
+	 * This is the single source of truth for day index conversion.
+	 */
+	function dayOfWeekToDayIdx(dayOfWeek: number): number {
+		return dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+	}
 
 	// Initialize modal
 	$effect(() => {
@@ -249,11 +266,50 @@
 		const num = parseFloat(value) || 0;
 		if (num < 0) return;
 
-		weeklyData[weekIdx].entries[entryIdx].totalHours = Math.min(num, 24);
-		// Trigger reactivity
-		weeklyData = [...weeklyData];
+		const entry = weeklyData[weekIdx].entries[entryIdx];
+		entry.totalHours = Math.min(num, 24);
+		// Trigger reactivity by reassigning the entry (Svelte 5 $state tracks object mutations)
+		weeklyData[weekIdx].entries[entryIdx] = { ...entry };
 		// Recalculate totals via backend API
 		debouncedRecalculate();
+	}
+
+	// Commit input value from local state to actual data
+	function commitInputValue(weekIdx: number, entryIdx: number, value: string) {
+		updateEntry(weekIdx, entryIdx, value);
+	}
+
+	// Handle input focus - initialize local value
+	function handleInputFocus(weekIdx: number, entryIdx: number, currentValue: number) {
+		const key = getInputKey(weekIdx, entryIdx);
+		// Only initialize local value if not already set
+		if (!localInputValues.has(key)) {
+			localInputValues.set(key, currentValue > 0 ? String(currentValue) : '');
+		}
+	}
+
+	// Handle input change - update local value only
+	function handleInputChange(weekIdx: number, entryIdx: number, value: string) {
+		const key = getInputKey(weekIdx, entryIdx);
+		localInputValues.set(key, value);
+	}
+
+	// Handle input blur - commit the value
+	function handleInputBlur(weekIdx: number, entryIdx: number) {
+		const key = getInputKey(weekIdx, entryIdx);
+		const value = localInputValues.get(key) || '0';
+		commitInputValue(weekIdx, entryIdx, value);
+		localInputValues.delete(key);
+	}
+
+	// Get display value for input - use local value if editing, otherwise use actual value
+	function getInputDisplayValue(weekIdx: number, entryIdx: number, actualValue: number): string {
+		const key = getInputKey(weekIdx, entryIdx);
+		const localValue = localInputValues.get(key);
+		if (localValue !== undefined) {
+			return localValue;
+		}
+		return actualValue > 0 ? String(actualValue) : '';
 	}
 
 	// Handle save
@@ -323,6 +379,220 @@
 	function getHolidayName(dateStr: string): string | undefined {
 		return holidays.find((h) => h.date === dateStr)?.name;
 	}
+
+	// Generate unique key for each input
+	function getInputKey(weekIdx: number, dayIdx: number): string {
+		return `${weekIdx}-${dayIdx}`;
+	}
+
+	// Action to register input element in refs map
+	function registerInput(node: HTMLInputElement, params: { weekIdx: number; dayIdx: number }) {
+		const key = getInputKey(params.weekIdx, params.dayIdx);
+		inputRefs.set(key, node);
+		return {
+			destroy() {
+				inputRefs.delete(key);
+			}
+		};
+	}
+
+	// Check if a cell has a valid input (not holiday, exists, in bounds)
+	function isValidInputCell(weekIdx: number, dayIdx: number): boolean {
+		if (weekIdx < 0 || weekIdx >= weeklyData.length) return false;
+		const week = weeklyData[weekIdx];
+		if (dayIdx < 0 || dayIdx >= week.entries.length) return false;
+		return !week.entries[dayIdx].isHoliday;
+	}
+
+	// Find next valid position with boundary checks
+	function findNextPosition(
+		currentWeekIdx: number,
+		currentDayIdx: number,
+		direction: 'up' | 'down' | 'left' | 'right'
+	): { weekIdx: number; dayIdx: number } | null {
+		let targetWeekIdx = currentWeekIdx;
+		let targetDayIdx = currentDayIdx;
+
+		switch (direction) {
+			case 'up':
+				targetWeekIdx = Math.max(0, currentWeekIdx - 1);
+				break;
+			case 'down':
+				targetWeekIdx = Math.min(weeklyData.length - 1, currentWeekIdx + 1);
+				break;
+			case 'left':
+				targetDayIdx = Math.max(0, currentDayIdx - 1);
+				break;
+			case 'right':
+				targetDayIdx = Math.min(6, currentDayIdx + 1);
+				break;
+		}
+
+		if (isValidInputCell(targetWeekIdx, targetDayIdx)) {
+			return { weekIdx: targetWeekIdx, dayIdx: targetDayIdx };
+		}
+
+		// Skip holidays - find next valid cell in direction
+		return skipHolidayCells(targetWeekIdx, targetDayIdx, direction);
+	}
+
+	// Skip holiday cells recursively
+	function skipHolidayCells(
+		weekIdx: number,
+		dayIdx: number,
+		direction: 'up' | 'down' | 'left' | 'right'
+	): { weekIdx: number; dayIdx: number } | null {
+		const maxIterations = 14;
+		let iterations = 0;
+
+		while (iterations < maxIterations) {
+			iterations++;
+
+			if (weekIdx < 0 || weekIdx >= weeklyData.length) return null;
+			if (dayIdx < 0 || dayIdx >= 7) return null;
+
+			if (isValidInputCell(weekIdx, dayIdx)) {
+				return { weekIdx, dayIdx };
+			}
+
+			switch (direction) {
+				case 'up':
+					weekIdx--;
+					break;
+				case 'down':
+					weekIdx++;
+					break;
+				case 'left':
+					dayIdx--;
+					if (dayIdx < 0) {
+						dayIdx = 6;
+						weekIdx--;
+					}
+					break;
+				case 'right':
+					dayIdx++;
+					if (dayIdx > 6) {
+						dayIdx = 0;
+						weekIdx++;
+					}
+					break;
+			}
+		}
+
+		return null;
+	}
+
+	// Focus specific input
+	function focusInput(weekIdx: number, dayIdx: number): boolean {
+		// Commit any pending input from the previously focused cell
+		const prevFocused = focusedPosition;
+		if (prevFocused) {
+			const prevKey = getInputKey(prevFocused.weekIdx, prevFocused.dayIdx);
+			if (localInputValues.has(prevKey)) {
+				const prevWeek = weeklyData[prevFocused.weekIdx];
+				if (prevWeek) {
+					// Use unified dayOfWeekToDayIdx conversion
+					const entryIndex = prevWeek.entries.findIndex(
+						(e) => dayOfWeekToDayIdx(e.dayOfWeek) === prevFocused.dayIdx
+					);
+					if (entryIndex >= 0) {
+						handleInputBlur(prevFocused.weekIdx, entryIndex);
+					}
+				}
+			}
+		}
+
+		const key = getInputKey(weekIdx, dayIdx);
+		const input = inputRefs.get(key);
+
+		if (input) {
+			input.focus();
+			input.select();
+			focusedPosition = { weekIdx, dayIdx };
+			return true;
+		}
+
+		return false;
+	}
+
+	// Check if we should allow default browser behavior (text editing)
+	function shouldAllowDefaultBehavior(event: KeyboardEvent, input: HTMLInputElement): boolean {
+		const key = event.key;
+
+		if (['ArrowLeft', 'ArrowRight'].includes(key)) {
+			const selectionStart = input.selectionStart ?? 0;
+			const selectionEnd = input.selectionEnd ?? 0;
+			const valueLength = input.value.length;
+
+			if (valueLength > 0 && selectionStart !== selectionEnd) {
+				return true; // Allow navigation within selection
+			}
+
+			if (key === 'ArrowLeft' && selectionStart > 0) {
+				return true;
+			}
+
+			if (key === 'ArrowRight' && selectionStart < valueLength) {
+				return true;
+			}
+		}
+
+		if (['Home', 'End'].includes(key)) {
+			return true;
+		}
+
+		return false;
+	}
+
+	// Handle keyboard navigation
+	function handleKeydown(event: KeyboardEvent, weekIdx: number, dayIdx: number) {
+		const input = event.currentTarget as HTMLInputElement;
+
+		if (shouldAllowDefaultBehavior(event, input)) {
+			return;
+		}
+
+		let nextPosition: { weekIdx: number; dayIdx: number } | null = null;
+
+		switch (event.key) {
+			case 'ArrowUp':
+				event.preventDefault();
+				nextPosition = findNextPosition(weekIdx, dayIdx, 'up');
+				break;
+			case 'ArrowDown':
+				event.preventDefault();
+				nextPosition = findNextPosition(weekIdx, dayIdx, 'down');
+				break;
+			case 'ArrowLeft':
+				event.preventDefault();
+				nextPosition = findNextPosition(weekIdx, dayIdx, 'left');
+				break;
+			case 'ArrowRight':
+				event.preventDefault();
+				nextPosition = findNextPosition(weekIdx, dayIdx, 'right');
+				break;
+			case 'Enter':
+				event.preventDefault();
+				// Commit current input before navigating
+				const key = getInputKey(weekIdx, dayIdx);
+				if (localInputValues.has(key)) {
+					const week = weeklyData[weekIdx];
+					// Use unified dayOfWeekToDayIdx conversion
+					const entryIdx = week.entries.findIndex(
+						(e) => dayOfWeekToDayIdx(e.dayOfWeek) === dayIdx
+					);
+					if (entryIdx >= 0) {
+						handleInputBlur(weekIdx, entryIdx);
+					}
+				}
+				nextPosition = findNextPosition(weekIdx, dayIdx, 'right');
+				break;
+		}
+
+		if (nextPosition) {
+			focusInput(nextPosition.weekIdx, nextPosition.dayIdx);
+		}
+	}
 </script>
 
 {#if isOpen}
@@ -373,7 +643,7 @@
 								<div class="week-label">Wk{week.weekNumber}</div>
 								{#each dayNames as dayName, dayIdx}
 									{@const entry = week.entries.find(
-										(e) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][e.dayOfWeek] === dayName
+										(e) => dayNames[dayOfWeekToDayIdx(e.dayOfWeek)] === dayName
 									)}
 									{#if entry}
 										<div
@@ -388,17 +658,27 @@
 											{#if entry.isHoliday}
 												<i class="fas fa-gift holiday-icon"></i>
 											{:else}
+												{@const entryIdx = week.entries.indexOf(entry)}
 												<input
 													type="number"
 													class="hours-input"
 													min="0"
 													max="24"
 													step="0.5"
-													value={entry.totalHours || ''}
+													value={getInputDisplayValue(weekIdx, entryIdx, entry.totalHours)}
 													oninput={(e) =>
-														updateEntry(weekIdx, week.entries.indexOf(entry), e.currentTarget.value)}
+														handleInputChange(weekIdx, entryIdx, e.currentTarget.value)}
+													onfocus={() => {
+														focusedPosition = { weekIdx, dayIdx };
+														handleInputFocus(weekIdx, entryIdx, entry.totalHours);
+													}}
+													onblur={() => handleInputBlur(weekIdx, entryIdx)}
+													onkeydown={(e) => handleKeydown(e, weekIdx, dayIdx)}
+													use:registerInput={{ weekIdx, dayIdx }}
 													placeholder=""
 													aria-label="Hours for {entry.workDate}"
+													data-week={weekIdx}
+													data-day={dayIdx}
 												/>
 											{/if}
 										</div>
@@ -413,11 +693,11 @@
 					<!-- Summary Row -->
 					<div class="summary-row">
 						<span class="summary-item">
-							<strong>Regular:</strong> {totals().regularHours.toFixed(1)}h
+							<strong>Regular:</strong> {totals().regularHours.toFixed(2)}h
 						</span>
 						<span class="summary-divider">|</span>
 						<span class="summary-item">
-							<strong>Overtime:</strong> {totals().overtimeHours.toFixed(1)}h
+							<strong>Overtime:</strong> {totals().overtimeHours.toFixed(2)}h
 						</span>
 						{#if overtimeRules}
 							<span class="rules-hint">
