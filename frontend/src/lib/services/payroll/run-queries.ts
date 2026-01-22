@@ -275,6 +275,7 @@ export async function getPayrollRunByPayDate(
 					annual_salary,
 					vacation_balance,
 					sick_balance,
+					vacation_config,
 					pay_groups (
 						id,
 						name,
@@ -357,6 +358,7 @@ export async function getPayrollRunByPeriodEnd(
 					annual_salary,
 					vacation_balance,
 					sick_balance,
+					vacation_config,
 					pay_groups (
 						id,
 						name,
@@ -572,6 +574,7 @@ export async function listPayrollRecordsForEmployee(
 					annual_salary,
 					vacation_balance,
 					sick_balance,
+					vacation_config,
 					pay_groups (
 						id,
 						name,

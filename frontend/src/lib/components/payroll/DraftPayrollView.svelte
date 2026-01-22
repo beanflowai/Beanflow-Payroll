@@ -2,7 +2,8 @@
 	import type {
 		PayrollRunWithGroups,
 		EmployeePayrollInput,
-		HolidayWorkEntry
+		HolidayWorkEntry,
+		CompensationType
 	} from '$lib/types/payroll';
 	import { DraftPayGroupSection, HolidayAlert, HolidayWorkModal } from '$lib/components/payroll';
 	import PayDatePicker from './PayDatePicker.svelte';
@@ -17,6 +18,7 @@
 		isFinalizing: boolean;
 		isDeleting?: boolean;
 		onRecalculate: () => void;
+		onAutoCalculate?: (recordId: string) => void;
 		onFinalize: () => void;
 		onUpdateRecord: (
 			recordId: string,
@@ -37,6 +39,7 @@
 		isFinalizing,
 		isDeleting = false,
 		onRecalculate,
+		onAutoCalculate,
 		onFinalize,
 		onUpdateRecord,
 		onAddEmployee,
@@ -49,6 +52,9 @@
 	let expandedRecordId = $state<string | null>(null);
 	let showHolidayModal = $state(false);
 	let isUpdatingPayDate = $state(false);
+	let autoCalculateTimer = $state<ReturnType<typeof setTimeout> | null>(null);
+
+	const AUTO_CALCULATE_DEBOUNCE_MS = 500;
 
 	function handleToggleExpand(id: string) {
 		expandedRecordId = expandedRecordId === id ? null : id;
@@ -60,6 +66,33 @@
 
 	function closeHolidayModal() {
 		showHolidayModal = false;
+	}
+
+	function handleManualRecalculate() {
+		if (autoCalculateTimer) {
+			clearTimeout(autoCalculateTimer);
+			autoCalculateTimer = null;
+		}
+		onRecalculate();
+	}
+
+	function triggerAutoCalculate(
+		recordId: string,
+		compensationType: CompensationType,
+		regularHours: number
+	) {
+		if (!onAutoCalculate) return;
+		if (autoCalculateTimer) clearTimeout(autoCalculateTimer);
+
+		const shouldAutoCalculate =
+			compensationType === 'salaried' ||
+			(compensationType === 'hourly' && regularHours > 0);
+
+		if (!shouldAutoCalculate) return;
+
+		autoCalculateTimer = setTimeout(() => {
+			onAutoCalculate(recordId);
+		}, AUTO_CALCULATE_DEBOUNCE_MS);
 	}
 
 	// Handle pay date update
@@ -194,7 +227,7 @@
 				{/if}
 				<button
 					class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-base font-medium cursor-pointer transition-all bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 disabled:opacity-60 disabled:cursor-not-allowed"
-					onclick={onRecalculate}
+					onclick={handleManualRecalculate}
 					disabled={isRecalculating}
 				>
 					{#if isRecalculating}
@@ -414,8 +447,10 @@
 				{payGroup}
 				holidays={payrollRun.holidays ?? []}
 				{expandedRecordId}
+				{isRecalculating}
 				onToggleExpand={handleToggleExpand}
 				{onUpdateRecord}
+				onAutoCalculateTrigger={triggerAutoCalculate}
 				{onAddEmployee}
 				{onRemoveEmployee}
 			/>

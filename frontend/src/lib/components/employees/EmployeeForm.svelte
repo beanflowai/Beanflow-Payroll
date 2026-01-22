@@ -761,7 +761,7 @@
 		if (!lastName.trim()) newErrors.lastName = 'Last name is required';
 		if (email && !isValidEmail(email)) newErrors.email = 'Invalid email format';
 
-		if (canEditSin() && sin.trim() && !isValidSIN(sin)) newErrors.sin = 'SIN must be 9 digits';
+		if (canEditSin && sin.trim() && !isValidSIN(sin)) newErrors.sin = 'SIN must be 9 digits';
 
 		if (!province) newErrors.province = 'Province is required';
 		if (!hireDate) newErrors.hireDate = 'Hire date is required';
@@ -906,7 +906,7 @@
 						}
 					: {})
 			};
-			if (canEditSin()) {
+			if (canEditSin) {
 				const sanitizedSin = sin.replace(/\D/g, '');
 				if (sanitizedSin) {
 					updateInput.sin = sanitizedSin;

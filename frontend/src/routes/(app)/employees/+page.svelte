@@ -13,12 +13,15 @@
 		EmployeeTable,
 		EmployeeDetailSidebar,
 		EmployeeFilters as EmployeeFiltersComponent,
-		InviteToPortalModal
+		InviteToPortalModal,
+		EmployeeDeleteModal,
+		EmployeeStatusModal
 	} from '$lib/components/employees';
 	import { AlertBanner, TableSkeleton, EmptyState } from '$lib/components/shared';
-	import { listEmployees } from '$lib/services/employeeService';
+	import { listEmployees, deleteEmployee, updateEmployeeStatus } from '$lib/services/employeeService';
 	import { listPayGroups } from '$lib/services/payGroupService';
 	import { companyState } from '$lib/stores/company.svelte';
+	import type { EmployeeStatus } from '$lib/types/employee';
 
 	// ===========================================
 	// State
@@ -36,6 +39,13 @@
 	// Portal invite modal state
 	let showInviteModal = $state(false);
 	let employeesToInvite = $state<EmployeeWithPortalStatus[]>([]);
+
+	// Delete/Status modal state
+	let showDeleteModal = $state(false);
+	let showStatusModal = $state(false);
+	let employeeToModify = $state<Employee | null>(null);
+	let isDeleting = $state(false);
+	let isChangingStatus = $state(false);
 
 	// ===========================================
 	// Data Loading
@@ -229,6 +239,79 @@
 		showInviteModal = false;
 		employeesToInvite = [];
 	}
+
+	// ===========================================
+	// Delete Employee Actions
+	// ===========================================
+	function handleDeleteEmployee(employee: Employee) {
+		employeeToModify = employee;
+		showDeleteModal = true;
+	}
+
+	async function confirmDelete() {
+		if (!employeeToModify) return;
+
+		isDeleting = true;
+		try {
+			const result = await deleteEmployee(employeeToModify.id);
+			if (result.error) {
+				error = result.error;
+			} else {
+				// Refresh employee list and close sidebar
+				await loadEmployees();
+				closeDetails();
+			}
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to delete employee';
+		} finally {
+			isDeleting = false;
+			showDeleteModal = false;
+			employeeToModify = null;
+		}
+	}
+
+	function closeDeleteModal() {
+		showDeleteModal = false;
+		employeeToModify = null;
+	}
+
+	// ===========================================
+	// Change Status Actions
+	// ===========================================
+	function handleChangeStatus(employee: Employee) {
+		employeeToModify = employee;
+		showStatusModal = true;
+	}
+
+	async function confirmStatusChange(newStatus: EmployeeStatus, terminationDate?: string) {
+		if (!employeeToModify) return;
+
+		isChangingStatus = true;
+		try {
+			const result = await updateEmployeeStatus(
+				employeeToModify.id,
+				newStatus as 'active' | 'terminated',
+				terminationDate
+			);
+			if (result.error) {
+				error = result.error;
+			} else {
+				// Refresh employee list
+				await loadEmployees();
+			}
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to update employee status';
+		} finally {
+			isChangingStatus = false;
+			showStatusModal = false;
+			employeeToModify = null;
+		}
+	}
+
+	function closeStatusModal() {
+		showStatusModal = false;
+		employeeToModify = null;
+	}
 </script>
 
 <svelte:head>
@@ -383,6 +466,8 @@
 			onToggleSIN={toggleSidebarSIN}
 			onClose={closeDetails}
 			onInviteToPortal={handleInviteToPortal}
+			onDelete={handleDeleteEmployee}
+			onChangeStatus={handleChangeStatus}
 		/>
 	{/if}
 </div>
@@ -394,6 +479,26 @@
 	onclose={closeInviteModal}
 	onInvite={handleInviteSuccess}
 />
+
+<!-- Delete Employee Modal -->
+{#if showDeleteModal && employeeToModify}
+	<EmployeeDeleteModal
+		employee={employeeToModify}
+		onClose={closeDeleteModal}
+		onConfirm={confirmDelete}
+		{isDeleting}
+	/>
+{/if}
+
+<!-- Change Status Modal -->
+{#if showStatusModal && employeeToModify}
+	<EmployeeStatusModal
+		employee={employeeToModify}
+		onClose={closeStatusModal}
+		onConfirm={confirmStatusChange}
+		isProcessing={isChangingStatus}
+	/>
+{/if}
 
 <style>
 	.employees-page {

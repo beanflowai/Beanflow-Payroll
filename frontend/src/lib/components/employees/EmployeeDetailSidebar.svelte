@@ -12,6 +12,7 @@
 	import { formatDate } from '$lib/utils/dateUtils';
 	import { formatCurrency } from '$lib/utils/formatUtils';
 	import { getEmployeeSickLeaveBalance } from '$lib/services/sickLeaveService';
+	import { checkEmployeeHasPayrollRecords } from '$lib/services/employeeService';
 	import { PortalStatusBadge } from '$lib/components/employees';
 	import type { SickLeaveBalance } from '$lib/types/sick-leave';
 
@@ -21,9 +22,15 @@
 		onToggleSIN: () => void;
 		onClose: () => void;
 		onInviteToPortal?: (employee: Employee) => void;
+		onDelete?: (employee: Employee) => void;
+		onChangeStatus?: (employee: Employee) => void;
 	}
 
-	let { employee, showSIN, onToggleSIN, onClose, onInviteToPortal }: Props = $props();
+	let { employee, showSIN, onToggleSIN, onClose, onInviteToPortal, onDelete, onChangeStatus }: Props = $props();
+
+	// Payroll records check for delete button visibility
+	let hasPayrollRecords = $state<boolean | null>(null);
+	let isCheckingRecords = $state(false);
 
 	// Portal invite button labels based on status
 	const portalActionLabels = {
@@ -54,6 +61,29 @@
 				});
 		}
 	});
+
+	// Check if employee has payroll records (for delete button visibility)
+	$effect(() => {
+		if (employee?.id) {
+			isCheckingRecords = true;
+			hasPayrollRecords = null;
+			checkEmployeeHasPayrollRecords(employee.id)
+				.then((result) => {
+					hasPayrollRecords = result;
+				})
+				.finally(() => {
+					isCheckingRecords = false;
+				});
+		}
+	});
+
+	function handleDeleteClick() {
+		onDelete?.(employee);
+	}
+
+	function handleChangeStatusClick() {
+		onChangeStatus?.(employee);
+	}
 
 	function handleEdit() {
 		goto(`/employees/${employee.id}`);
@@ -309,6 +339,37 @@
 				<i class="fas fa-history"></i>
 				View Compensation History
 			</button>
+
+			<!-- Change Status Button - Always visible -->
+			{#if onChangeStatus}
+				<button
+					class="btn-status full-width"
+					class:terminate={employee.status === 'active' || employee.status === 'draft'}
+					class:reactivate={employee.status === 'terminated'}
+					onclick={handleChangeStatusClick}
+				>
+					{#if employee.status === 'terminated'}
+						<i class="fas fa-user-check"></i>
+						Reactivate Employee
+					{:else}
+						<i class="fas fa-user-slash"></i>
+						Terminate Employee
+					{/if}
+				</button>
+			{/if}
+
+			<!-- Delete Button - Only visible when no payroll records -->
+			{#if onDelete && hasPayrollRecords === false}
+				<button class="btn-danger full-width" onclick={handleDeleteClick}>
+					<i class="fas fa-trash"></i>
+					Delete Employee
+				</button>
+			{:else if isCheckingRecords}
+				<div class="checking-records">
+					<i class="fas fa-spinner fa-spin"></i>
+					<span>Checking records...</span>
+				</div>
+			{/if}
 		</div>
 	</div>
 </aside>
@@ -552,6 +613,85 @@
 	.btn-secondary.full-width {
 		width: 100%;
 		justify-content: center;
+	}
+
+	/* Status Change Button */
+	.btn-status {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
+		padding: var(--spacing-3) var(--spacing-5);
+		border: none;
+		border-radius: var(--radius-lg);
+		font-size: var(--font-size-body-content);
+		font-weight: var(--font-weight-medium);
+		cursor: pointer;
+		transition: var(--transition-fast);
+	}
+
+	.btn-status.terminate {
+		background: var(--color-warning-100);
+		color: var(--color-warning-700);
+		border: 1px solid var(--color-warning-200);
+	}
+
+	.btn-status.terminate:hover {
+		background: var(--color-warning-200);
+		border-color: var(--color-warning-300);
+	}
+
+	.btn-status.reactivate {
+		background: var(--color-success-100);
+		color: var(--color-success-700);
+		border: 1px solid var(--color-success-200);
+	}
+
+	.btn-status.reactivate:hover {
+		background: var(--color-success-200);
+		border-color: var(--color-success-300);
+	}
+
+	.btn-status.full-width {
+		width: 100%;
+		justify-content: center;
+	}
+
+	/* Delete Button */
+	.btn-danger {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
+		padding: var(--spacing-3) var(--spacing-5);
+		border: none;
+		border-radius: var(--radius-lg);
+		font-size: var(--font-size-body-content);
+		font-weight: var(--font-weight-medium);
+		cursor: pointer;
+		transition: var(--transition-fast);
+		background: var(--color-error-100);
+		color: var(--color-error-700);
+		border: 1px solid var(--color-error-200);
+	}
+
+	.btn-danger:hover {
+		background: var(--color-error-200);
+		border-color: var(--color-error-300);
+	}
+
+	.btn-danger.full-width {
+		width: 100%;
+		justify-content: center;
+	}
+
+	/* Checking Records State */
+	.checking-records {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--spacing-2);
+		padding: var(--spacing-3);
+		font-size: var(--font-size-auxiliary-text);
+		color: var(--color-surface-500);
 	}
 
 	/* Responsive */

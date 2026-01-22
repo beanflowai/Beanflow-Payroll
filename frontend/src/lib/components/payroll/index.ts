@@ -15,6 +15,7 @@ export { default as PayGroupSection } from './PayGroupSection.svelte';
 export { default as DraftPayrollView } from './DraftPayrollView.svelte';
 export { default as DraftPayGroupSection } from './DraftPayGroupSection.svelte';
 export { default as DeleteDraftModal } from './DeleteDraftModal.svelte';
+export { default as ZeroEarningsConfirmModal } from './ZeroEarningsConfirmModal.svelte';
 
 // Add Employees Panel
 export { default as AddEmployeesPanel } from './AddEmployeesPanel.svelte';

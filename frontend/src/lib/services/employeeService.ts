@@ -366,6 +366,27 @@ export async function terminateEmployee(
 }
 
 /**
+ * Update employee status (terminate or reactivate)
+ * @param newStatus - 'active' to reactivate, 'terminated' to terminate
+ * @param terminationDate - Required when newStatus is 'terminated'
+ */
+export async function updateEmployeeStatus(
+	employeeId: string,
+	newStatus: 'active' | 'terminated',
+	terminationDate?: string
+): Promise<EmployeeServiceResult<Employee>> {
+	if (newStatus === 'terminated') {
+		if (!terminationDate) {
+			return { data: null, error: 'Termination date is required when terminating an employee' };
+		}
+		return updateEmployee(employeeId, { termination_date: terminationDate });
+	} else {
+		// Reactivate: clear termination date
+		return updateEmployee(employeeId, { termination_date: null });
+	}
+}
+
+/**
  * Delete an employee (hard delete - use with caution)
  */
 export async function deleteEmployee(employeeId: string): Promise<{ error: string | null }> {
@@ -849,12 +870,12 @@ export async function checkEmployeeHasPayrollRecords(employeeId: string): Promis
 
 		if (error) {
 			console.error('Failed to check payroll records:', error);
-			return false; // On error, default to allowing edit
+			return true; // On error, conservatively assume records exist (disable delete)
 		}
 
 		return (count ?? 0) > 0;
 	} catch {
-		return false;
+		return true; // On error, conservatively assume records exist (disable delete)
 	}
 }
 

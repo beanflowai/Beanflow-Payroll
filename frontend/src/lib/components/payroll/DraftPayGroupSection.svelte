@@ -30,11 +30,17 @@
 		payGroup: PayrollRunPayGroup;
 		holidays?: Holiday[];
 		expandedRecordId: string | null;
+		isRecalculating?: boolean;
 		onToggleExpand: (id: string) => void;
 		onUpdateRecord: (
 			recordId: string,
 			employeeId: string,
 			updates: Partial<EmployeePayrollInput>
+		) => void;
+		onAutoCalculateTrigger?: (
+			recordId: string,
+			compensationType: PayrollRecord['compensationType'],
+			regularHours: number
 		) => void;
 		onAddEmployee?: (payGroupId: string) => void;
 		onRemoveEmployee?: (employeeId: string) => void;
@@ -44,8 +50,10 @@
 		payGroup,
 		holidays = [],
 		expandedRecordId,
+		isRecalculating = false,
 		onToggleExpand,
 		onUpdateRecord,
+		onAutoCalculateTrigger,
 		onAddEmployee,
 		onRemoveEmployee
 	}: Props = $props();
@@ -95,6 +103,23 @@
 		return localInputMap.get(recordId) || {};
 	}
 
+	function getRegularHoursValue(record: PayrollRecord, override?: number): number {
+		if (override !== undefined) return override;
+		const local = getLocalInput(record.id);
+		if (local.regularHours !== undefined) return local.regularHours;
+		if (record.inputData?.regularHours !== undefined) return record.inputData.regularHours;
+		return record.regularHoursWorked ?? 0;
+	}
+
+	function triggerAutoCalculate(record: PayrollRecord, overrideRegularHours?: number) {
+		if (!onAutoCalculateTrigger) return;
+		onAutoCalculateTrigger(
+			record.id,
+			record.compensationType,
+			getRegularHoursValue(record, overrideRegularHours)
+		);
+	}
+
 	function handleHoursChange(
 		record: PayrollRecord,
 		field: 'regularHours' | 'overtimeHours',
@@ -104,6 +129,7 @@
 		const updated = { ...current, [field]: value };
 		localInputMap = new Map(localInputMap).set(record.id, updated);
 		onUpdateRecord(record.id, record.employeeId, { [field]: value });
+		triggerAutoCalculate(record, field === 'regularHours' ? value : undefined);
 	}
 
 	function handleLeaveChange(record: PayrollRecord, type: 'vacation' | 'sick', hours: number) {
@@ -119,6 +145,7 @@
 		const updated = { ...current, leaveEntries: newLeaveEntries };
 		localInputMap = new Map(localInputMap).set(record.id, updated);
 		onUpdateRecord(record.id, record.employeeId, { leaveEntries: newLeaveEntries });
+		triggerAutoCalculate(record);
 	}
 
 	function handleAddAdjustment(record: PayrollRecord, type: AdjustmentType) {
@@ -136,6 +163,7 @@
 		const updated = { ...current, adjustments: newAdjs };
 		localInputMap = new Map(localInputMap).set(record.id, updated);
 		onUpdateRecord(record.id, record.employeeId, { adjustments: newAdjs });
+		triggerAutoCalculate(record);
 		// Close menus
 		showEarningsMenu = null;
 		showDeductionsMenu = null;
@@ -167,6 +195,7 @@
 		const updated = { ...current, adjustments: newAdjs };
 		localInputMap = new Map(localInputMap).set(record.id, updated);
 		onUpdateRecord(record.id, record.employeeId, { adjustments: newAdjs });
+		triggerAutoCalculate(record);
 		// Close menu
 		showDeductionsMenu = null;
 	}
@@ -183,6 +212,7 @@
 		const updated = { ...current, adjustments: newAdjs };
 		localInputMap = new Map(localInputMap).set(record.id, updated);
 		onUpdateRecord(record.id, record.employeeId, { adjustments: newAdjs });
+		triggerAutoCalculate(record);
 	}
 
 	function handleRemoveAdjustment(record: PayrollRecord, idx: number) {
@@ -192,6 +222,7 @@
 		const updated = { ...current, adjustments: newAdjs };
 		localInputMap = new Map(localInputMap).set(record.id, updated);
 		onUpdateRecord(record.id, record.employeeId, { adjustments: newAdjs });
+		triggerAutoCalculate(record);
 	}
 
 	function getLeaveHours(record: PayrollRecord, type: 'vacation' | 'sick'): number {
@@ -290,6 +321,10 @@
 		return '--';
 	}
 
+	function shouldShowNoHoursBadge(record: PayrollRecord): boolean {
+		return record.compensationType === 'hourly' && getRegularHoursValue(record) === 0;
+	}
+
 	// Check if record needs recalculation (modified or not yet calculated)
 	function isUncalculated(record: PayrollRecord): boolean {
 		// Check if record is marked as modified
@@ -337,6 +372,7 @@
 	 */
 	function handleHolidayPayExemptChange(record: PayrollRecord, exempt: boolean) {
 		onUpdateRecord(record.id, record.employeeId, { holidayPayExempt: exempt });
+		triggerAutoCalculate(record);
 	}
 
 	/**
@@ -374,13 +410,28 @@
 				regularHours: totals.regularHours,
 				overtimeHours: totals.overtimeHours
 			});
+			triggerAutoCalculate(record, totals.regularHours);
 		}
 		// Close modal
 		timesheetModalState.isOpen = false;
 	}
 </script>
 
-<div class="bg-white rounded-xl shadow-md3-1 overflow-hidden mb-4 border-2 border-neutral-200">
+<div class="relative bg-white rounded-xl shadow-md3-1 overflow-hidden mb-4 border-2 border-neutral-200">
+	<!-- Recalculating Overlay -->
+	{#if isRecalculating}
+		<div
+			class="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-xl"
+		>
+			<div class="flex flex-col items-center gap-3">
+				<div
+					class="w-10 h-10 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin"
+				></div>
+				<span class="text-sm font-medium text-primary-600">Calculating...</span>
+			</div>
+		</div>
+	{/if}
+
 	<!-- Section Header -->
 	<button
 		class="w-full flex items-center justify-between py-4 px-5 bg-white border-none cursor-pointer transition-all duration-150 text-left hover:bg-neutral-100"
@@ -546,7 +597,11 @@
 								</span>
 							</td>
 							<td class="py-3 px-4 text-body-content text-surface-700 border-b border-surface-100">
-								<span class="font-medium text-surface-700">{formatHoursRate(record)}</span>
+								{#if shouldShowNoHoursBadge(record)}
+									<span class="font-medium text-warning-600">{formatHoursRate(record)}</span>
+								{:else}
+									<span class="font-medium text-surface-700">{formatHoursRate(record)}</span>
+								{/if}
 							</td>
 							<td
 								class="py-3 px-4 text-body-content text-surface-700 border-b border-surface-100 text-right"
@@ -1136,8 +1191,10 @@
 															record.vacationAccrued -
 															(record.vacationPayPaid ?? 0)}
 														{@const vacationDisabled =
-															record.vacationPayoutMethod === 'accrual' &&
-															availableVacationDollars <= 0}
+															record.vacationPayoutMethod === 'pay_as_you_go' ||
+															(record.vacationPayoutMethod === 'accrual' &&
+																availableVacationDollars <= 0 &&
+																vacationHours === 0)}
 														{@const insufficientBalance = hasInsufficientBalance(record)}
 														{@const availableSickHours = record.sickBalanceHours ?? 0}
 														<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -1183,7 +1240,11 @@
 															{#if vacationDisabled}
 																<div class="flex items-center gap-1 pl-4 text-surface-500">
 																	<i class="fas fa-info-circle text-xs"></i>
-																	<span class="text-caption">No vacation balance available</span>
+																	<span class="text-caption"
+																		>{record.vacationPayoutMethod === 'pay_as_you_go'
+																			? 'Paid on each cheque'
+																			: 'No vacation balance available'}</span
+																	>
 																</div>
 															{/if}
 															<!-- Insufficient balance warning -->
@@ -1199,6 +1260,7 @@
 														{@const sickHours = getLeaveHours(record, 'sick')}
 														{@const paidSickHours = Math.min(sickHours, availableSickHours)}
 														{@const unpaidSickHours = Math.max(0, sickHours - availableSickHours)}
+														{@const sickDisabled = availableSickHours <= 0 && sickHours === 0}
 														<!-- svelte-ignore a11y_no_static_element_interactions -->
 														<!-- svelte-ignore a11y_click_events_have_key_events -->
 														<div class="flex flex-col gap-1" onclick={(e) => e.stopPropagation()}>
@@ -1207,10 +1269,13 @@
 																<div class="flex items-center gap-1">
 																	<input
 																		type="number"
-																		class="w-16 py-1 px-2 border rounded text-body-small text-center focus:outline-none focus:ring-2 border-surface-300 focus:border-primary-500 focus:ring-primary-100"
+																		class="w-16 py-1 px-2 border rounded text-body-small text-center focus:outline-none focus:ring-2 {sickDisabled
+																			? 'bg-surface-100 text-surface-400 cursor-not-allowed border-surface-200'
+																			: 'border-surface-300 focus:border-primary-500 focus:ring-primary-100'}"
 																		value={sickHours}
 																		min="0"
 																		step="0.5"
+																		disabled={sickDisabled}
 																		onchange={(e) =>
 																			handleLeaveChange(
 																				record,
@@ -1221,6 +1286,13 @@
 																	<span class="text-caption text-surface-500">hrs</span>
 																</div>
 															</div>
+															<!-- Disabled hint -->
+															{#if sickDisabled}
+																<div class="flex items-center gap-1 pl-4 text-surface-500">
+																	<i class="fas fa-info-circle text-xs"></i>
+																	<span class="text-caption">No sick balance available</span>
+																</div>
+															{/if}
 															<!-- Sick hours breakdown when entered -->
 															{#if sickHours > 0}
 																<div class="pl-4 space-y-0.5">
