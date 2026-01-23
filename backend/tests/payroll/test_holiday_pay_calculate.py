@@ -558,10 +558,10 @@ class TestEdgeCases:
         holidays = [{"holiday_date": "2025-07-01", "name": "Canada Day", "province": "TEST"}]
 
         # Patch WORK_DAYS_PER_PERIOD to test zero work days
-        from app.services.payroll_run import holiday_pay_calculator
-        original_dict = holiday_pay_calculator.WORK_DAYS_PER_PERIOD
+        from app.services.payroll_run.holiday_pay import formula_calculators
+        original_dict = formula_calculators.WORK_DAYS_PER_PERIOD
         try:
-            holiday_pay_calculator.WORK_DAYS_PER_PERIOD = {"bi_weekly": Decimal("0")}
+            formula_calculators.WORK_DAYS_PER_PERIOD = {"bi_weekly": Decimal("0")}
 
             result = calculator.calculate_holiday_pay(
                 employee=employee,
@@ -578,7 +578,7 @@ class TestEdgeCases:
             # Should return 0 when work_days is 0
             assert result.regular_holiday_pay == Decimal("0")
         finally:
-            holiday_pay_calculator.WORK_DAYS_PER_PERIOD = original_dict
+            formula_calculators.WORK_DAYS_PER_PERIOD = original_dict
 
     def test_four_week_average_ineligible_fallback(self, mock_supabase):
         """Test 4_week_average with ineligible fallback for new employees (lines 522-527)."""
