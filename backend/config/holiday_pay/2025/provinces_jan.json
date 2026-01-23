@@ -41,7 +41,13 @@
         "notes": "30 calendar days of employment required"
       },
       "premium_rate": 1.5,
-      "notes": "BC ESA s.45 - Average day's pay based on 30 days preceding holiday"
+      "premium_rate_tiers": [
+        {
+          "hours_threshold": 12,
+          "rate": 2.0
+        }
+      ],
+      "notes": "BC ESA s.45 - Average day's pay based on 30 days preceding holiday. Premium: 1.5x for first 12 hours, 2x thereafter"
     },
     "AB": {
       "province_code": "AB",
@@ -51,15 +57,20 @@
         "lookback_weeks": 4,
         "method": "wages_div_days_worked",
         "include_overtime": false,
-        "new_employee_fallback": "ineligible"
+        "new_employee_fallback": "ineligible",
+        "alberta_5_of_9_weeks": 9,
+        "alberta_5_of_9_threshold": 5,
+        "last_first_window_days": 28
       },
       "eligibility": {
         "min_employment_days": 30,
         "require_last_first_rule": true,
-        "notes": "30 days employment, must work last shift before and first shift after holiday"
+        "count_work_days": true,
+        "eligibility_period_months": 12,
+        "notes": "30 work days in preceding 12 months, must work last shift before and first shift after holiday"
       },
       "premium_rate": 1.5,
-      "notes": "Alberta ESC s.25 - wages in 4 weeks / days worked in 4 weeks"
+      "notes": "Alberta ESC s.25 - wages in 4 weeks / days worked in 4 weeks. 5 of 9 rule for regular work day determination."
     },
     "QC": {
       "province_code": "QC",

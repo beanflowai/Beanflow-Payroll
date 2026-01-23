@@ -57,7 +57,7 @@
         },
         "formula_type": {
           "type": "string",
-          "enum": ["4_week_average", "30_day_average", "4_week_average_daily", "current_period_daily"],
+          "enum": ["4_week_average", "30_day_average", "4_week_average_daily", "5_percent_28_days", "current_period_daily", "3_week_average_nl", "irregular_hours", "commission"],
           "description": "Type of calculation formula"
         },
         "formula_params": {
@@ -70,9 +70,37 @@
           "type": "number",
           "description": "Premium multiplier for working on holidays (e.g., 1.5)"
         },
+        "premium_rate_tiers": {
+          "type": "array",
+          "description": "Optional tiered premium rates for extended hours (e.g., BC 2x after 12 hours)",
+          "items": {
+            "type": "object",
+            "required": ["hours_threshold", "rate"],
+            "properties": {
+              "hours_threshold": {
+                "type": "number",
+                "description": "Hours threshold after which this rate applies"
+              },
+              "rate": {
+                "type": "number",
+                "description": "Premium rate for hours above threshold"
+              }
+            }
+          }
+        },
         "notes": {
           "type": "string",
           "description": "Additional notes or references"
+        },
+        "last_verified_date": {
+          "type": "string",
+          "format": "date",
+          "description": "Date when rules were last verified against government sources"
+        },
+        "source_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to government source documentation"
         }
       }
     },
@@ -104,9 +132,74 @@
           "type": "boolean",
           "description": "Whether to include overtime pay in calculation"
         },
+        "include_previous_holiday_pay": {
+          "type": "boolean",
+          "description": "Whether to include previous holiday pay in calculation"
+        },
         "default_daily_hours": {
           "type": "number",
           "description": "Default daily hours for simple formulas"
+        },
+        "percentage": {
+          "type": "number",
+          "description": "Percentage for 5_percent_28_days formula (e.g., 0.05 for 5%)"
+        },
+        "new_employee_fallback": {
+          "type": "string",
+          "enum": ["pro_rated", "ineligible"],
+          "description": "Fallback behavior for new employees with no historical data"
+        },
+        "construction_percentage": {
+          "type": "number",
+          "description": "Special percentage for construction industry (e.g., 0.04 for 4% in MB)"
+        },
+        "alberta_5_of_9_weeks": {
+          "type": "integer",
+          "description": "Number of weeks for Alberta 5 of 9 rule (default: 9)"
+        },
+        "alberta_5_of_9_threshold": {
+          "type": "integer",
+          "description": "Threshold for Alberta 5 of 9 rule (default: 5)"
+        },
+        "incentive_pay_percentage": {
+          "type": "number",
+          "description": "Alberta incentive pay percentage (e.g., 0.042 for 4.2%)"
+        },
+        "commission_divisor": {
+          "type": "integer",
+          "description": "Quebec commission employee divisor (e.g., 60 for 1/60)"
+        },
+        "commission_lookback_weeks": {
+          "type": "integer",
+          "description": "Quebec commission employee lookback period in weeks (e.g., 12)"
+        },
+        "irregular_hours_percentage": {
+          "type": "number",
+          "description": "Yukon irregular hours percentage (e.g., 0.10 for 10%)"
+        },
+        "irregular_hours_lookback_weeks": {
+          "type": "integer",
+          "description": "Yukon irregular hours lookback period in weeks (e.g., 2)"
+        },
+        "lookback_weeks_nl": {
+          "type": "integer",
+          "description": "Newfoundland lookback period in weeks (e.g., 3)"
+        },
+        "nl_divisor": {
+          "type": "integer",
+          "description": "Newfoundland formula divisor (e.g., 15)"
+        },
+        "lookback_period_days": {
+          "type": "integer",
+          "description": "Configurable lookback period in days (overrides lookback_days)"
+        },
+        "eligibility_lookback_days": {
+          "type": "integer",
+          "description": "Days to look back for eligibility checks (default: 30)"
+        },
+        "last_first_window_days": {
+          "type": "integer",
+          "description": "Days to search forward for first scheduled day after holiday (default: 14)"
         }
       }
     },
@@ -121,6 +214,18 @@
         "require_last_first_rule": {
           "type": "boolean",
           "description": "Whether employee must work last shift before and first shift after holiday"
+        },
+        "min_days_worked_in_period": {
+          "type": "integer",
+          "description": "Minimum days worked in period (e.g., PE requires 15 days in 30-day period)"
+        },
+        "count_work_days": {
+          "type": "boolean",
+          "description": "If true, count actual work days instead of calendar days for eligibility (Alberta-style)"
+        },
+        "eligibility_period_months": {
+          "type": "integer",
+          "description": "Period to look back for work days (default: 12 months)"
         },
         "notes": {
           "type": "string",

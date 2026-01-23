@@ -22,7 +22,9 @@
         "notes": "No minimum employment period, but must work last scheduled shift before and first scheduled shift after the holiday"
       },
       "premium_rate": 1.5,
-      "notes": "Ontario ESA s.24 - (total wages in 4 weeks + vacation pay) / 20"
+      "notes": "Ontario ESA s.24 - (total wages in 4 weeks + vacation pay) / 20",
+      "last_verified_date": "2026-01-22",
+      "source_url": "https://www.ontario.ca/document/your-guide-employment-standards-act-0/public-holidays"
     },
     "BC": {
       "province_code": "BC",
@@ -30,18 +32,27 @@
       "formula_type": "30_day_average",
       "formula_params": {
         "lookback_days": 30,
-        "method": "total_wages_div_days",
+        "method": "wages_div_days_worked",
         "include_overtime": false,
         "default_daily_hours": 8,
         "new_employee_fallback": "ineligible"
       },
       "eligibility": {
         "min_employment_days": 30,
+        "min_days_worked_in_period": 15,
         "require_last_first_rule": false,
-        "notes": "30 calendar days of employment required"
+        "notes": "30 calendar days of employment required. Must have worked or earned wages on 15 of 30 days before the holiday."
       },
       "premium_rate": 1.5,
-      "notes": "BC ESA s.45 - Average day's pay based on 30 days preceding holiday"
+      "premium_rate_tiers": [
+        {
+          "hours_threshold": 12,
+          "rate": 2.0
+        }
+      ],
+      "notes": "BC ESA s.45 - wages in 30 days / days worked. Premium: 1.5x up to 12 hours, 2x over 12 hours.",
+      "last_verified_date": "2026-01-22",
+      "source_url": "https://www2.gov.bc.ca/gov/content/employment-business/employment-standards-advice/employment-standards/statutory-holidays/calculate-statutory-holiday-pay"
     },
     "AB": {
       "province_code": "AB",
@@ -51,34 +62,47 @@
         "lookback_weeks": 4,
         "method": "wages_div_days_worked",
         "include_overtime": false,
-        "new_employee_fallback": "ineligible"
+        "new_employee_fallback": "ineligible",
+        "alberta_5_of_9_weeks": 9,
+        "alberta_5_of_9_threshold": 5,
+        "last_first_window_days": 28,
+        "construction_percentage": 0.036,
+        "incentive_pay_percentage": 0.042
       },
       "eligibility": {
         "min_employment_days": 30,
         "require_last_first_rule": true,
-        "notes": "30 days employment, must work last shift before and first shift after holiday"
+        "count_work_days": true,
+        "eligibility_period_months": 12,
+        "notes": "30 WORK days (not calendar days) in 12 months prior. Must work last shift before and first shift after holiday. Uses '5 of 9' rule."
       },
       "premium_rate": 1.5,
-      "notes": "Alberta ESC s.25 - wages in 4 weeks / days worked in 4 weeks"
+      "notes": "Alberta ESC s.25 - wages in 4 weeks / days worked. Construction: 3.6%. Incentive pay employees: 4.2% of wages in 4 weeks.",
+      "last_verified_date": "2026-01-22",
+      "source_url": "https://www.alberta.ca/alberta-general-holidays"
     },
     "QC": {
       "province_code": "QC",
       "name": "Quebec",
-      "formula_type": "30_day_average",
+      "formula_type": "4_week_average",
       "formula_params": {
-        "lookback_days": 30,
-        "method": "total_wages_div_days",
+        "lookback_weeks": 4,
+        "divisor": 20,
+        "include_vacation_pay": false,
         "include_overtime": false,
-        "default_daily_hours": 8,
-        "new_employee_fallback": "pro_rated"
+        "new_employee_fallback": "pro_rated",
+        "commission_divisor": 60,
+        "commission_lookback_weeks": 12
       },
       "eligibility": {
         "min_employment_days": 0,
-        "require_last_first_rule": false,
-        "notes": "No minimum employment period for most holidays"
+        "require_last_first_rule": true,
+        "notes": "No minimum employment period. Must not be absent without valid reason on day before or after holiday."
       },
       "premium_rate": 1.5,
-      "notes": "Quebec Labour Standards Act - 1/20 of wages in 4 weeks before holiday week"
+      "notes": "Quebec Labour Standards Act (CNESST) - 1/20 of wages in 4 weeks before holiday week. Commission employees: 1/60 of wages in 12 weeks.",
+      "last_verified_date": "2026-01-22",
+      "source_url": "https://www.cnesst.gouv.qc.ca/en/working-conditions/leave/statutory-holidays/calculating-indemnity-statutory-holiday"
     },
     "MB": {
       "province_code": "MB",
@@ -99,7 +123,9 @@
         "notes": "No minimum employment period. Must not be absent without permission on last scheduled day before or first scheduled day after holiday."
       },
       "premium_rate": 1.5,
-      "notes": "Manitoba Employment Standards Code - 5% of gross wages in 4-week period. Construction industry: 4%. Reference: https://www.gov.mb.ca/labour/standards/doc,gen-holidays-after-april-30-07,factsheet.html"
+      "notes": "Manitoba Employment Standards Code - 5% of gross wages in 4-week period. Construction industry: 4%.",
+      "last_verified_date": "2026-01-22",
+      "source_url": "https://www.gov.mb.ca/labour/standards/doc,gen-holidays-after-april-30-07,factsheet.html"
     },
     "SK": {
       "province_code": "SK",
@@ -119,7 +145,9 @@
         "notes": "No minimum employment period required"
       },
       "premium_rate": 1.5,
-      "notes": "Saskatchewan Employment Act - 5% of wages in preceding 28 days. Reference: https://apps.saskatchewan.ca/lrws/calculator/holidaypay/"
+      "notes": "Saskatchewan Employment Act - 5% of wages in preceding 28 days. Official calculator available.",
+      "last_verified_date": "2026-01-22",
+      "source_url": "https://www.saskatchewan.ca/business/employment-standards/public-statutory-holidays/paying-employees-for-public-holidays"
     },
     "NB": {
       "province_code": "NB",
@@ -130,15 +158,18 @@
         "method": "total_wages_div_days",
         "include_overtime": false,
         "default_daily_hours": 8,
-        "new_employee_fallback": "ineligible"
+        "new_employee_fallback": "ineligible",
+        "percentage": 0.04
       },
       "eligibility": {
         "min_employment_days": 90,
-        "require_last_first_rule": false,
-        "notes": "90 days of employment required"
+        "require_last_first_rule": true,
+        "notes": "90 days of employment in 12 months prior. Must work scheduled day before and after holiday. Alternative: 4% of wages method available."
       },
       "premium_rate": 1.5,
-      "notes": "New Brunswick Employment Standards Act"
+      "notes": "New Brunswick Employment Standards Act - regular day's wage OR 4% of wages as alternative method.",
+      "last_verified_date": "2026-01-22",
+      "source_url": "https://www.gnb.ca/en/topic/jobs-workplaces/labour-market-workforce/employment-standards/holiday-vacation.html"
     },
     "NS": {
       "province_code": "NS",
@@ -153,11 +184,14 @@
       },
       "eligibility": {
         "min_employment_days": 30,
-        "require_last_first_rule": false,
-        "notes": "30 days of employment required"
+        "min_days_worked_in_period": 15,
+        "require_last_first_rule": true,
+        "notes": "Must be entitled to pay for at least 15 of 30 days before holiday. Must work last scheduled shift before and first scheduled shift after holiday."
       },
       "premium_rate": 1.5,
-      "notes": "Nova Scotia Labour Standards Code"
+      "notes": "Nova Scotia Labour Standards Code - wages in 30 days / days worked. Remembrance Day covered by separate Remembrance Day Act.",
+      "last_verified_date": "2026-01-22",
+      "source_url": "https://novascotia.ca/lae/employmentrights/holidaypay.asp"
     },
     "PE": {
       "province_code": "PE",
@@ -172,38 +206,23 @@
       },
       "eligibility": {
         "min_employment_days": 30,
-        "require_last_first_rule": false,
-        "notes": "30 days of employment required"
+        "min_days_worked_in_period": 15,
+        "require_last_first_rule": true,
+        "notes": "30 days employment required, must earn wages on 15 of 30 days, must work last shift before and first shift after holiday"
       },
       "premium_rate": 1.5,
-      "notes": "PEI Employment Standards Act"
+      "notes": "PEI Employment Standards Act - 15 days worked rule unique to PEI",
+      "last_verified_date": "2026-01-22",
+      "source_url": "https://www.princeedwardisland.ca/en/information/workforce-advanced-learning-and-population/paid-holidays"
     },
     "NL": {
       "province_code": "NL",
       "name": "Newfoundland and Labrador",
-      "formula_type": "30_day_average",
+      "formula_type": "3_week_average_nl",
       "formula_params": {
-        "lookback_days": 30,
-        "method": "total_wages_div_days",
-        "include_overtime": false,
-        "default_daily_hours": 8,
-        "new_employee_fallback": "ineligible"
-      },
-      "eligibility": {
-        "min_employment_days": 30,
-        "require_last_first_rule": false,
-        "notes": "30 days of employment required"
-      },
-      "premium_rate": 1.5,
-      "notes": "NL Labour Standards Act"
-    },
-    "NT": {
-      "province_code": "NT",
-      "name": "Northwest Territories",
-      "formula_type": "30_day_average",
-      "formula_params": {
-        "lookback_days": 30,
-        "method": "total_wages_div_days",
+        "lookback_weeks_nl": 3,
+        "nl_divisor": 15,
+        "method": "hours_times_rate",
         "include_overtime": false,
         "default_daily_hours": 8,
         "new_employee_fallback": "ineligible"
@@ -211,10 +230,33 @@
       "eligibility": {
         "min_employment_days": 30,
         "require_last_first_rule": true,
-        "notes": "30 days employment within 12 months prior. Must work last scheduled shift before AND first shift after holiday."
+        "notes": "30 days of employment required. Must work last scheduled shift before AND first scheduled shift after holiday."
+      },
+      "premium_rate": 2.0,
+      "notes": "NL Labour Standards Act - hourly rate × (hours in 3 weeks / 15). Working on holiday: double regular wages OR extra day off.",
+      "last_verified_date": "2026-01-22",
+      "source_url": "https://www.assembly.nl.ca/legislation/sr/statutes/l02.htm"
+    },
+    "NT": {
+      "province_code": "NT",
+      "name": "Northwest Territories",
+      "formula_type": "4_week_average",
+      "formula_params": {
+        "lookback_weeks": 4,
+        "divisor": 20,
+        "include_vacation_pay": false,
+        "include_overtime": false,
+        "new_employee_fallback": "ineligible"
+      },
+      "eligibility": {
+        "min_employment_days": 30,
+        "require_last_first_rule": true,
+        "notes": "30 days employment within 12 months prior. Must work scheduled day before AND first shift after holiday."
       },
       "premium_rate": 1.5,
-      "notes": "NWT Employment Standards Act. Reference: https://www.ece.gov.nt.ca/en/services/employment-standards/frequently-asked-questions"
+      "notes": "NWT Employment Standards Act - 1/20 of wages in 4 weeks before holiday. Overtime threshold reduced to 32 hours in holiday week.",
+      "last_verified_date": "2026-01-22",
+      "source_url": "https://www.ece.gov.nt.ca/en/services/employment-standards"
     },
     "NU": {
       "province_code": "NU",
@@ -233,7 +275,9 @@
         "notes": "30 days employment within 12 months prior. Must work last scheduled shift before AND first shift after holiday."
       },
       "premium_rate": 1.5,
-      "notes": "Nunavut Labour Standards Act. Reference: https://nu-lsco.ca/faq-s?tmpl=component&faqid=11"
+      "notes": "Nunavut Labour Standards Act",
+      "last_verified_date": "2026-01-22",
+      "source_url": "https://nu-lsco.ca/faq-s?tmpl=component&faqid=11"
     },
     "YT": {
       "province_code": "YT",
@@ -242,9 +286,11 @@
       "formula_params": {
         "lookback_days": 30,
         "method": "total_wages_div_days",
-        "include_overtime": false,
+        "include_overtime": true,
         "default_daily_hours": 8,
-        "new_employee_fallback": "ineligible"
+        "new_employee_fallback": "ineligible",
+        "irregular_hours_percentage": 0.10,
+        "irregular_hours_lookback_weeks": 2
       },
       "eligibility": {
         "min_employment_days": 30,
@@ -252,7 +298,9 @@
         "notes": "30 calendar days employment required. Must work last scheduled shift before AND first scheduled shift after holiday (unless permitted absence)."
       },
       "premium_rate": 1.5,
-      "notes": "Yukon Employment Standards Act. Reference: https://yukon.ca/en/employment/employment-standards/find-employee-information-statutory-holidays"
+      "notes": "Yukon ESA - Regular employees: regular day's pay. Irregular hours: 10% of wages (including overtime) in 2 weeks prior.",
+      "last_verified_date": "2026-01-22",
+      "source_url": "https://yukon.ca/en/employment/employment-standards/find-employee-information-statutory-holidays"
     },
     "Federal": {
       "province_code": "Federal",
@@ -262,7 +310,7 @@
         "lookback_weeks": 4,
         "divisor": 20,
         "include_overtime": false,
-        "include_vacation_pay": false,
+        "include_vacation_pay": true,
         "new_employee_fallback": "pro_rated"
       },
       "eligibility": {
@@ -271,7 +319,9 @@
         "notes": "No minimum employment period. All federally regulated employees qualify for general holidays."
       },
       "premium_rate": 1.5,
-      "notes": "Canada Labour Code Part III s.196-202 - 1/20th of wages in 4 weeks before holiday week. Commission employees use 1/60th for 12 weeks."
+      "notes": "Canada Labour Code Part III s.196 - 1/20th of wages in 4 weeks before holiday week. Per CLC s.186: 'Vacation pay shall for all purposes be deemed to be wages', so vacation pay IS included. Only overtime is explicitly excluded per s.196.",
+      "last_verified_date": "2026-01-23",
+      "source_url": "https://wages-salaires.service.canada.ca/en/gen_holiday/index.html"
     }
   }
 }

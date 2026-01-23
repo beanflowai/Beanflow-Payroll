@@ -24,6 +24,7 @@ from app.models.holiday_pay_config import (
     HolidayPayConfig,
     HolidayPayEligibility,
     HolidayPayFormulaParams,
+    PremiumRateTier,
 )
 
 logger = logging.getLogger(__name__)
@@ -171,6 +172,19 @@ def _dict_to_config(province_data: dict[str, Any]) -> HolidayPayConfig:
     if percentage is not None:
         percentage = Decimal(str(percentage))
 
+    # Parse additional Decimal fields
+    construction_pct = formula_params_dict.get("construction_percentage")
+    if construction_pct is not None:
+        construction_pct = Decimal(str(construction_pct))
+
+    incentive_pct = formula_params_dict.get("incentive_pay_percentage")
+    if incentive_pct is not None:
+        incentive_pct = Decimal(str(incentive_pct))
+
+    irregular_pct = formula_params_dict.get("irregular_hours_percentage")
+    if irregular_pct is not None:
+        irregular_pct = Decimal(str(irregular_pct))
+
     formula_params = HolidayPayFormulaParams(
         lookback_weeks=formula_params_dict.get("lookback_weeks"),
         lookback_days=formula_params_dict.get("lookback_days"),
@@ -184,14 +198,47 @@ def _dict_to_config(province_data: dict[str, Any]) -> HolidayPayConfig:
         include_previous_holiday_pay=formula_params_dict.get("include_previous_holiday_pay", False),
         # New employee fallback handling
         new_employee_fallback=formula_params_dict.get("new_employee_fallback"),
+        # Configurable time periods
+        lookback_period_days=formula_params_dict.get("lookback_period_days"),
+        eligibility_lookback_days=formula_params_dict.get("eligibility_lookback_days"),
+        last_first_window_days=formula_params_dict.get("last_first_window_days"),
+        # Alberta-specific "5 of 9" rule parameters
+        alberta_5_of_9_weeks=formula_params_dict.get("alberta_5_of_9_weeks"),
+        alberta_5_of_9_threshold=formula_params_dict.get("alberta_5_of_9_threshold"),
+        # Manitoba/Alberta construction industry special percentage
+        construction_percentage=construction_pct,
+        # Alberta incentive pay percentage (4.2%)
+        incentive_pay_percentage=incentive_pct,
+        # Quebec/Federal commission employee formula
+        commission_divisor=formula_params_dict.get("commission_divisor"),
+        commission_lookback_weeks=formula_params_dict.get("commission_lookback_weeks"),
+        # Yukon irregular hours formula
+        irregular_hours_percentage=irregular_pct,
+        irregular_hours_lookback_weeks=formula_params_dict.get("irregular_hours_lookback_weeks"),
+        # Newfoundland 3-week lookback
+        lookback_weeks_nl=formula_params_dict.get("lookback_weeks_nl"),
+        nl_divisor=formula_params_dict.get("nl_divisor"),
     )
 
     eligibility = HolidayPayEligibility(
         min_employment_days=eligibility_dict.get("min_employment_days", 30),
         require_last_first_rule=eligibility_dict.get("require_last_first_rule", False),
         min_days_worked_in_period=eligibility_dict.get("min_days_worked_in_period"),
+        count_work_days=eligibility_dict.get("count_work_days", False),
+        eligibility_period_months=eligibility_dict.get("eligibility_period_months", 12),
         notes=eligibility_dict.get("notes"),
     )
+
+    # Parse premium rate tiers if present (for provinces with tiered rates like BC)
+    premium_rate_tiers: list[PremiumRateTier] | None = None
+    tiers_data = province_data.get("premium_rate_tiers")
+    if tiers_data:
+        premium_rate_tiers = []
+        for tier in tiers_data:
+            premium_rate_tiers.append(PremiumRateTier(
+                hours_threshold=Decimal(str(tier.get("hours_threshold", 0))),
+                rate=Decimal(str(tier.get("rate", 1.5))),
+            ))
 
     return HolidayPayConfig(
         province_code=province_data["province_code"],
@@ -199,6 +246,7 @@ def _dict_to_config(province_data: dict[str, Any]) -> HolidayPayConfig:
         formula_params=formula_params,
         eligibility=eligibility,
         premium_rate=Decimal(str(province_data.get("premium_rate", 1.5))),
+        premium_rate_tiers=premium_rate_tiers,
         name=province_data.get("name"),
         notes=province_data.get("notes"),
     )
@@ -209,20 +257,29 @@ def _dict_to_config(province_data: dict[str, Any]) -> HolidayPayConfig:
 # =============================================================================
 
 
+def _get_default_year(pay_date: date | None = None) -> int:
+    """Get the default configuration year based on pay date or current date."""
+    target_date = pay_date or date.today()
+    return target_date.year
+
+
 def get_config(
-    province_code: str, year: int = 2025, pay_date: date | None = None
+    province_code: str, year: int | None = None, pay_date: date | None = None
 ) -> HolidayPayConfig:
     """
     Get holiday pay configuration for a province.
 
     Args:
         province_code: Province code (e.g., 'BC', 'ON', 'Federal')
-        year: Configuration year (default: 2025)
+        year: Configuration year (default: derived from pay_date or current year)
         pay_date: Date to determine which edition to use (default: today)
 
     Returns:
         HolidayPayConfig (returns DEFAULT_BC_CONFIG if province not found)
     """
+    if year is None:
+        year = _get_default_year(pay_date)
+
     edition = _get_edition_for_date(year, pay_date)
     config_data = _load_provinces_config(year, edition)
     province_data = config_data.get("provinces", {}).get(province_code)
@@ -236,18 +293,21 @@ def get_config(
 
 
 def get_all_configs(
-    year: int = 2025, pay_date: date | None = None
+    year: int | None = None, pay_date: date | None = None
 ) -> dict[str, HolidayPayConfig]:
     """
     Get all holiday pay configurations for a year.
 
     Args:
-        year: Configuration year (default: 2025)
+        year: Configuration year (default: derived from pay_date or current year)
         pay_date: Date to determine which edition to use (default: today)
 
     Returns:
         Dictionary mapping province codes to HolidayPayConfig
     """
+    if year is None:
+        year = _get_default_year(pay_date)
+
     edition = _get_edition_for_date(year, pay_date)
     config_data = _load_provinces_config(year, edition)
 
@@ -258,17 +318,20 @@ def get_all_configs(
     return result
 
 
-def get_config_metadata(year: int = 2025, pay_date: date | None = None) -> dict[str, Any]:
+def get_config_metadata(year: int | None = None, pay_date: date | None = None) -> dict[str, Any]:
     """
     Get metadata about the holiday pay configuration.
 
     Args:
-        year: Configuration year
+        year: Configuration year (default: derived from pay_date or current year)
         pay_date: Date to determine which edition to use
 
     Returns:
         Dictionary with metadata (year, edition, effective_date, source, etc.)
     """
+    if year is None:
+        year = _get_default_year(pay_date)
+
     edition = _get_edition_for_date(year, pay_date)
     config_data = _load_provinces_config(year, edition)
 
@@ -300,14 +363,16 @@ class HolidayPayConfigLoader:
     Useful for dependency injection in calculators and services.
     """
 
-    def __init__(self, year: int = 2025, pay_date: date | None = None):
+    def __init__(self, year: int | None = None, pay_date: date | None = None):
         """
         Initialize config loader.
 
         Args:
-            year: Configuration year
+            year: Configuration year (default: derived from pay_date or current year)
             pay_date: Date to determine which edition to use
         """
+        if year is None:
+            year = _get_default_year(pay_date)
         self.year = year
         self.pay_date = pay_date
         self._configs = get_all_configs(year, pay_date)

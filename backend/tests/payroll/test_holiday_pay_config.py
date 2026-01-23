@@ -67,6 +67,7 @@ class TestAllProvincesConfigLoading:
             "4_week_average_daily",
             "5_percent_28_days",
             "current_period_daily",
+            "3_week_average_nl",
         }
         for province in self.ALL_PROVINCES:
             config = get_config(province)

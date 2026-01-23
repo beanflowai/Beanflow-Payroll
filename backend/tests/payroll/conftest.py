@@ -467,6 +467,72 @@ def mock_supabase():
     return MagicMock()
 
 
+def setup_bc_timesheet_mock(mock_supabase):
+    """Set up mock for BC 30-day average formula.
+
+    For BC 30-day average formula, this provides 10 days of work
+    at 8 hours each, matching the expected $200 result for hourly employees.
+    """
+    # Default timesheet data: 10 days × 8 hours = 80 hours
+    # For $25/hr employee: 80h × $25 = $2000 / 10 days = $200/day
+    timesheet_data = [
+        {"work_date": f"2025-06-{15+i}", "regular_hours": "8", "overtime_hours": "0"}
+        for i in range(10)
+    ]
+
+    mock_result = MagicMock()
+    mock_result.data = timesheet_data
+    mock_supabase.table.return_value.select.return_value.eq.return_value.gte.return_value.lte.return_value.execute.return_value = mock_result
+
+
+def setup_empty_timesheet_mock(mock_supabase):
+    """Set up mock for empty timesheet data.
+
+    Used when testing pro_rated fallback (new employee scenarios).
+    Returns empty data for timesheet_entries to trigger fallback logic.
+    """
+    mock_result = MagicMock()
+    mock_result.data = []  # Empty data triggers pro_rated fallback
+    mock_supabase.table.return_value.select.return_value.eq.return_value.gte.return_value.lte.return_value.execute.return_value = mock_result
+    # Also handle the limit/order chain for last/first rule
+    mock_supabase.table.return_value.select.return_value.eq.return_value.lt.return_value.order.return_value.limit.return_value.execute.return_value = mock_result
+    mock_supabase.table.return_value.select.return_value.eq.return_value.gt.return_value.order.return_value.limit.return_value.execute.return_value = mock_result
+
+
+def setup_nb_timesheet_mock(mock_supabase, holiday_date):
+    """Set up mock for NB 30-day average formula with work history.
+
+    Provides 10 days of work at 8 hours each, plus work before/after holiday
+    for the last/first rule.
+    """
+    from datetime import timedelta
+
+    # Default timesheet data: 10 days × 8 hours = 80 hours
+    # For $22/hr employee: 80h × $22 = $1760 / 10 days = $176/day
+    timesheet_data = [
+        {"work_date": (holiday_date - timedelta(days=i)).isoformat(), "regular_hours": 8, "overtime_hours": 0}
+        for i in range(1, 11)  # 10 days before holiday
+    ]
+    # Add one day after holiday for last/first rule
+    timesheet_data.append({
+        "work_date": (holiday_date + timedelta(days=1)).isoformat(),
+        "regular_hours": 8,
+        "overtime_hours": 0
+    })
+
+    mock_result = MagicMock()
+    mock_result.data = timesheet_data
+    mock_supabase.table.return_value.select.return_value.eq.return_value.gte.return_value.lte.return_value.execute.return_value = mock_result
+    # For last/first rule - return work day before
+    before_result = MagicMock()
+    before_result.data = [{"work_date": (holiday_date - timedelta(days=1)).isoformat(), "regular_hours": 8, "overtime_hours": 0}]
+    mock_supabase.table.return_value.select.return_value.eq.return_value.lt.return_value.order.return_value.limit.return_value.execute.return_value = before_result
+    # For last/first rule - return work day after
+    after_result = MagicMock()
+    after_result.data = [{"work_date": (holiday_date + timedelta(days=1)).isoformat(), "regular_hours": 8, "overtime_hours": 0}]
+    mock_supabase.table.return_value.select.return_value.eq.return_value.gt.return_value.order.return_value.limit.return_value.execute.return_value = after_result
+
+
 @pytest.fixture
 def mock_config_loader():
     """Create a mock config loader."""
@@ -475,7 +541,13 @@ def mock_config_loader():
 
 @pytest.fixture
 def holiday_calculator(mock_supabase, mock_config_loader):
-    """Create a HolidayPayCalculator instance with mock config."""
+    """Create a HolidayPayCalculator instance with mock config.
+
+    Sets up default BC timesheet mock for 30-day average formula.
+    """
+    # Set up default BC timesheet mock
+    setup_bc_timesheet_mock(mock_supabase)
+
     return HolidayPayCalculator(
         supabase=mock_supabase,
         user_id="test-user-id",

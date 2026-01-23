@@ -208,7 +208,16 @@ class TestCalculateHolidayPay:
             elif table_name == "timesheet_entries":
                 result = MagicMock()
                 result.execute.return_value = timesheet_mock
+                # Support various query chains for timesheet_entries
+                # Chain 1: select().eq().gte().lte() (for _get_timesheet_entries_for_eligibility)
                 mock_table.select.return_value.eq.return_value.gte.return_value.lte.return_value = result
+                # Chain 2: select().eq().gte().lte().order().limit() (for _find_nearest_work_day)
+                order_result = MagicMock()
+                order_result.limit.return_value.execute.return_value = timesheet_mock
+                mock_table.select.return_value.eq.return_value.gte.return_value.lte.return_value.order.return_value = order_result
+                # Chain 3: select().eq().eq().execute() (for checking specific work date)
+                # This needs a separate eq chain that also leads to execute
+                mock_table.select.return_value.eq.return_value.eq.return_value.execute.return_value = timesheet_mock
             return mock_table
 
         mock_supabase.table.side_effect = table_side_effect
@@ -271,7 +280,16 @@ class TestCalculateHolidayPay:
             elif table_name == "timesheet_entries":
                 result = MagicMock()
                 result.execute.return_value = timesheet_mock
+                # Support various query chains for timesheet_entries
+                # Chain 1: select().eq().gte().lte() (for _get_timesheet_entries_for_eligibility)
                 mock_table.select.return_value.eq.return_value.gte.return_value.lte.return_value = result
+                # Chain 2: select().eq().gte().lte().order().limit() (for _find_nearest_work_day)
+                order_result = MagicMock()
+                order_result.limit.return_value.execute.return_value = timesheet_mock
+                mock_table.select.return_value.eq.return_value.gte.return_value.lte.return_value.order.return_value = order_result
+                # Chain 3: select().eq().eq().execute() (for checking specific work date)
+                # This needs a separate eq chain that also leads to execute
+                mock_table.select.return_value.eq.return_value.eq.return_value.execute.return_value = timesheet_mock
             return mock_table
 
         mock_supabase.table.side_effect = table_side_effect
@@ -293,7 +311,7 @@ class TestCalculateHolidayPay:
         assert result.premium_holiday_pay == Decimal("0")
         # Verify ineligibility reason
         assert result.calculation_details["holidays"][0]["eligible"] is False
-        assert result.calculation_details["holidays"][0]["ineligibility_reason"] == "did not work before/after holiday"
+        assert result.calculation_details["holidays"][0]["ineligibility_reason"] == "did not work on last scheduled day before/first scheduled day after holiday"
 
     def test_no_holidays_in_period(self, holiday_calculator, hourly_employee):
         """No holidays in the pay period."""
@@ -616,7 +634,7 @@ class TestEdgeCases:
         """Test 4_week_average without vacation pay included (line 533)."""
         from app.models.holiday_pay_config import HolidayPayFormulaParams
 
-        # Create ON config without vacation pay
+        # Create ON config without vacation pay (but with overtime)
         config = HolidayPayConfig(
             province_code="ON",
             formula_type="4_week_average",
@@ -624,6 +642,7 @@ class TestEdgeCases:
                 lookback_weeks=4,
                 divisor=20,
                 include_vacation_pay=False,  # Exclude vacation pay
+                include_overtime=True,  # Include overtime in wages
                 new_employee_fallback="pro_rated",
             ),
             eligibility=HolidayPayEligibility(min_employment_days=0, require_last_first_rule=False),
@@ -868,6 +887,9 @@ class TestEdgeCases:
 
     def test_calculator_without_config_loader(self, mock_supabase):
         """Test calculator without config loader (line 92)."""
+        from tests.payroll.conftest import setup_bc_timesheet_mock
+        setup_bc_timesheet_mock(mock_supabase)
+
         # Create calculator without config_loader
         calculator = HolidayPayCalculator(
             supabase=mock_supabase,
@@ -899,7 +921,13 @@ class TestEdgeCases:
         assert result.regular_holiday_pay == Decimal("200")
 
     def test_four_week_daily_with_historical_data(self, mock_supabase):
-        """Test 4_week_daily with historical data (lines 588-608)."""
+        """Test 4_week_daily with timesheet data (lines 588-608).
+
+        After fix: Alberta uses timesheet_entries for both wages AND days worked.
+        - 20 days worked × 4.4 hours = 88 hours
+        - 88 hours × $25/hour = $2,200 wages
+        - $2,200 ÷ 20 days = $110/day
+        """
         from app.models.holiday_pay_config import HolidayPayFormulaParams
 
         # Create AB config with ineligible fallback
@@ -922,11 +950,26 @@ class TestEdgeCases:
             config_loader=loader,
         )
 
-        # Mock historical data
-        mock_supabase.table.return_value.select.return_value.eq.return_value.neq.return_value.gte.return_value.lt.return_value.in_.return_value.execute.return_value.data = [
-            {"gross_regular": "1000.00", "gross_overtime": "200.00", "vacation_pay_paid": "100.00"},
-            {"gross_regular": "1000.00", "gross_overtime": "0.00", "vacation_pay_paid": "100.00"},
-        ]
+        # Mock timesheet_entries for 4-week period (used for both wages AND days)
+        # 20 days × 4.4 hours = 88 hours × $25/hour = $2,200
+        timesheet_data = []
+        for i in range(20):
+            timesheet_data.append({
+                "work_date": (date(2025, 6, 3) + timedelta(days=i)).isoformat(),
+                "regular_hours": "4.4",
+                "overtime_hours": "0",
+            })
+
+        # Setup table side effect to return timesheet data
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "timesheet_entries":
+                mock_result = MagicMock()
+                mock_result.data = timesheet_data
+                mock_table.select.return_value.eq.return_value.gte.return_value.lte.return_value.execute.return_value = mock_result
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
 
         employee = {
             "id": "emp-ab-with-history",
@@ -947,7 +990,7 @@ class TestEdgeCases:
             current_run_id="run-001",
         )
 
-        # Should calculate from historical data: $2200 / 20 days = $110
+        # Should calculate from timesheet data: $2,200 / 20 days = $110
         assert result.regular_holiday_pay == Decimal("110")
 
     def test_five_percent_with_historical_data(self, mock_supabase):
@@ -1009,7 +1052,7 @@ class TestEdgeCases:
         """Test 4_week_average with vacation pay included (line 531)."""
         from app.models.holiday_pay_config import HolidayPayFormulaParams
 
-        # Create ON config with vacation pay
+        # Create ON config with vacation pay and overtime
         config = HolidayPayConfig(
             province_code="ON",
             formula_type="4_week_average",
@@ -1017,6 +1060,7 @@ class TestEdgeCases:
                 lookback_weeks=4,
                 divisor=20,
                 include_vacation_pay=True,  # Include vacation pay
+                include_overtime=True,  # Include overtime in wages
                 new_employee_fallback="pro_rated",
             ),
             eligibility=HolidayPayEligibility(min_employment_days=0, require_last_first_rule=False),
@@ -1246,3 +1290,411 @@ class TestEdgeCases:
         assert result.regular_holiday_pay == Decimal("0")
         assert result.calculation_details["holidays"][0]["eligible"] is False
         assert result.calculation_details["holidays"][0]["ineligibility_reason"] == "missing hire date"
+
+
+# =============================================================================
+# Alberta Holiday Pay Tests - Phase 1: Days Worked Calculation
+# =============================================================================
+
+
+class TestAlbertaDaysWorkedCalculation:
+    """Tests for actual days worked calculation in 4-week period."""
+
+    def test_get_days_worked_from_timesheet(self, holiday_calculator):
+        """Test _get_days_worked_in_4_weeks queries actual timesheet entries."""
+        employee_id = "emp-alberta-001"
+        holiday_date = date(2025, 12, 25)  # Thursday
+
+        # Mock timesheet entries for 4-week period
+        mock_result = MagicMock()
+        mock_result.data = [
+            {"work_date": "2025-12-04", "regular_hours": "8.0", "overtime_hours": "0"},
+            {"work_date": "2025-12-11", "regular_hours": "8.0", "overtime_hours": "0"},
+            {"work_date": "2025-12-18", "regular_hours": "5.0", "overtime_hours": "0"},
+        ]
+        # Properly chain the Supabase query builder methods
+        mock_query = MagicMock()
+        mock_query.execute.return_value = mock_result
+        holiday_calculator.supabase.table.return_value.select.return_value.eq.return_value.gte.return_value.lte.return_value = mock_query
+
+        count = holiday_calculator._get_days_worked_in_4_weeks(employee_id, holiday_date)
+
+        assert count == 3, f"Expected 3 days worked, got {count}"
+
+    def test_get_days_worked_no_timesheet_fallback(self, holiday_calculator):
+        """Test fallback when no timesheet entries exist."""
+        employee_id = "emp-alberta-002"
+        holiday_date = date(2025, 12, 25)
+
+        # Mock empty result
+        mock_result = MagicMock()
+        mock_result.data = []
+        mock_query = MagicMock()
+        mock_query.execute.return_value = mock_result
+        holiday_calculator.supabase.table.return_value.select.return_value.eq.return_value.gte.return_value.lte.return_value = mock_query
+
+        count = holiday_calculator._get_days_worked_in_4_weeks(employee_id, holiday_date)
+
+        assert count == 0, f"Expected 0 days (no entries), got {count}"
+
+    def test_get_days_worked_db_error_fallback(self, holiday_calculator):
+        """Test fallback on database error."""
+        employee_id = "emp-alberta-003"
+        holiday_date = date(2025, 12, 25)
+
+        # Mock exception
+        holiday_calculator.supabase.table.side_effect = Exception("DB error")
+
+        count = holiday_calculator._get_days_worked_in_4_weeks(employee_id, holiday_date)
+
+        assert count == 20, f"Expected 20 (fallback), got {count}"
+
+    def test_apply_4_week_daily_uses_actual_days(self, holiday_calculator):
+        """Test _apply_4_week_daily uses actual days worked, not hardcoded 20."""
+        employee_id = "emp-jonathan"
+        hourly_employee = {
+            "id": employee_id,
+            "first_name": "Jonathan",
+            "last_name": "Fjeld",
+            "hourly_rate": 15.00,
+            "hire_date": "2025-11-21",
+        }
+        holiday_date = date(2025, 12, 25)  # Thursday
+
+        # Mock timesheet entries: 15 days worked in 4 weeks
+        # For approximate $80.00 result with 15 days and $15/hour:
+        # - 15 days × 5.33 hours = 79.95 hours
+        # - 79.95 hours × $15/hour = $1,199.25
+        # - $1,199.25 ÷ 15 days = $79.95
+        mock_timesheet_result = MagicMock()
+        mock_timesheet_result.data = []
+        # Generate 15 unique work dates in the 4-week period
+        for i in range(15):
+            work_date = date(2025, 11, 28) + timedelta(days=i)
+            mock_timesheet_result.data.append({
+                "work_date": work_date.isoformat(),
+                "regular_hours": "5.33",
+                "overtime_hours": "0",
+            })
+        mock_timesheet_query = MagicMock()
+        mock_timesheet_query.execute.return_value = mock_timesheet_result
+
+        # Setup table to return timesheet data (no longer uses payroll_records)
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "timesheet_entries":
+                mock_table.select.return_value.eq.return_value.gte.return_value.lte.return_value = mock_timesheet_query
+            return mock_table
+
+        holiday_calculator.supabase.table.side_effect = table_side_effect
+
+        result = holiday_calculator._apply_4_week_daily(
+            employee_id=employee_id,
+            holiday_date=holiday_date,
+            current_run_id="run-001",
+            include_overtime=True,
+            employee_fallback=hourly_employee,
+            new_employee_fallback="ineligible",
+        )
+
+        # 15 days × 5.33 hours × $15/hour = $1,199.25 ÷ 15 days = $79.95
+        # Key assertion: uses actual days worked (15), not hardcoded 20 days
+        assert result == Decimal("79.95"), f"Expected $79.95, got ${result}"
+        assert result != Decimal("60"), "Should NOT use hardcoded 20 days ($60)"
+
+
+# =============================================================================
+# Alberta Holiday Pay Tests - Phase 2: "5 of 9" Rule
+# =============================================================================
+
+
+class TestAlbertaFiveOfNineRule:
+    """Tests for Alberta's "5 of 9" rule for determining regular work days."""
+
+    def test_regular_day_pass_5_mondays(self, holiday_calculator):
+        """Test 5 Mondays worked = Monday is regular work day."""
+        employee_id = "emp-alberta-monday"
+        holiday_date = date(2025, 12, 29)  # Monday
+
+        # Mock timesheet: worked 5 Mondays in last 9 weeks
+        mock_result = MagicMock()
+        mock_result.data = []
+        for i in range(5):
+            # 5 Mondays: Nov 3, 10, 17, 24, Dec 1
+            work_date = date(2025, 12, 29) - timedelta(weeks=i)
+            mock_result.data.append({
+                "work_date": work_date.isoformat(),
+                "regular_hours": "8.0",
+                "overtime_hours": "0",
+            })
+        mock_query = MagicMock()
+        mock_query.execute.return_value = mock_result
+        holiday_calculator.supabase.table.return_value.select.return_value.eq.return_value.gte.return_value.lte.return_value = mock_query
+
+        is_regular = holiday_calculator._is_regular_work_day_5_of_9(
+            employee_id, holiday_date, date(2025, 1, 1)
+        )
+
+        assert is_regular is True, "Monday should be regular (5 Mondays worked)"
+
+    def test_non_regular_day_fail_3_mondays(self, holiday_calculator):
+        """Test 3 Mondays worked = Monday is NOT regular work day."""
+        employee_id = "emp-alberta-nomondays"
+        holiday_date = date(2025, 12, 29)  # Monday
+
+        # Mock timesheet: only 3 Mondays worked
+        mock_result = MagicMock()
+        mock_result.data = []
+        for i in range(3):
+            work_date = date(2025, 12, 29) - timedelta(weeks=i)
+            mock_result.data.append({
+                "work_date": work_date.isoformat(),
+                "regular_hours": "4.0",
+                "overtime_hours": "0",
+            })
+        mock_query = MagicMock()
+        mock_query.execute.return_value = mock_result
+        holiday_calculator.supabase.table.return_value.select.return_value.eq.return_value.gte.return_value.lte.return_value = mock_query
+
+        is_regular = holiday_calculator._is_regular_work_day_5_of_9(
+            employee_id, holiday_date, date(2025, 1, 1)
+        )
+
+        assert is_regular is False, "Monday should NOT be regular (only 3 Mondays)"
+
+    def test_new_employee_pro_rated_threshold(self, holiday_calculator):
+        """Test new employee (< 9 weeks) gets pro-rated threshold."""
+        employee_id = "emp-alberta-new"
+        holiday_date = date(2025, 12, 25)  # Thursday
+        hire_date = date(2025, 11, 21)  # 5 weeks employment
+
+        # Mock timesheet: worked 3 Thursdays in 5 weeks
+        mock_result = MagicMock()
+        mock_result.data = []
+        for i in range(3):
+            work_date = date(2025, 11, 27) + timedelta(weeks=i)  # Thursdays
+            mock_result.data.append({
+                "work_date": work_date.isoformat(),
+                "regular_hours": "8.0",
+                "overtime_hours": "0",
+            })
+        mock_query = MagicMock()
+        mock_query.execute.return_value = mock_result
+        holiday_calculator.supabase.table.return_value.select.return_value.eq.return_value.gte.return_value.lte.return_value = mock_query
+
+        is_regular = holiday_calculator._is_regular_work_day_5_of_9(
+            employee_id, holiday_date, hire_date
+        )
+
+        # 5 weeks employment: threshold = 5 × 5/9 ≈ 3
+        # Worked 3 Thursdays: 3 >= 3 = regular
+        assert is_regular is True, "New employee with 3/5 Thursdays should be regular"
+
+    def test_five_of_nine_db_error_conservative(self, holiday_calculator):
+        """Test database error returns conservative True (assume regular)."""
+        employee_id = "emp-alberta-error"
+        holiday_date = date(2025, 12, 25)
+
+        # Mock exception
+        holiday_calculator.supabase.table.side_effect = Exception("DB error")
+
+        is_regular = holiday_calculator._is_regular_work_day_5_of_9(
+            employee_id, holiday_date, date(2025, 1, 1)
+        )
+
+        assert is_regular is True, "DB error should conservatively return True"
+
+
+# =============================================================================
+# Alberta Holiday Pay Tests - Integration: Non-Regular Day Pay
+# =============================================================================
+
+
+class TestAlbertaNonRegularDayPay:
+    """Tests for payment logic when holiday is on non-regular work day."""
+
+    def test_non_regular_day_not_worked_zero_pay(self, holiday_calculator, mock_supabase):
+        """Test non-regular day + not worked = $0 regular pay."""
+        from app.models.holiday_pay_config import HolidayPayConfig, HolidayPayFormulaParams
+
+        # Alberta config with "5 of 9" rule trigger
+        ab_config = HolidayPayConfig(
+            province_code="AB",
+            formula_type="4_week_average_daily",
+            formula_params=HolidayPayFormulaParams(
+                lookback_weeks=4,
+                method="wages_div_days_worked",
+                new_employee_fallback="ineligible",
+            ),
+            eligibility=HolidayPayEligibility(
+                min_employment_days=30,
+                require_last_first_rule=True,  # Triggers "5 of 9" rule
+            ),
+            premium_rate=Decimal("1.5"),
+        )
+
+        ab_config_loader = MockConfigLoader({"AB": ab_config})
+        calculator = HolidayPayCalculator(
+            supabase=mock_supabase,
+            user_id="test-user",
+            company_id="test-company",
+            config_loader=ab_config_loader,
+        )
+
+        employee = {
+            "id": "emp-non-regular",
+            "first_name": "Non",
+            "last_name": "Regular",
+            "hourly_rate": 20.00,
+            "hire_date": "2025-01-01",
+        }
+
+        # Holiday: Thursday Dec 25, 2025
+        # Mock "5 of 9": Only 3 Thursdays worked (NOT regular)
+        mock_timesheet = MagicMock()
+        mock_timesheet.data = []
+        for i in range(3):
+            work_date = date(2025, 12, 25) - timedelta(weeks=i)
+            mock_timesheet.data.append({
+                "work_date": work_date.isoformat(),
+                "regular_hours": "8.0",
+                "overtime_hours": "0",
+            })
+
+        # Mock 4-week earnings: $1,000
+        mock_earnings = MagicMock()
+        mock_earnings.data = [{"gross_regular": "1000.00", "gross_overtime": "0"}]
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "timesheet_entries":
+                result = MagicMock()
+                result.execute.return_value = mock_timesheet
+                mock_table.select.return_value.eq.return_value.gte.return_value.lte.return_value = result
+            elif table_name == "payroll_records":
+                result = MagicMock()
+                result.execute.return_value = mock_earnings
+                mock_table.select.return_value.eq.return_value.neq.return_value.gte.return_value.lt.return_value.in_.return_value = result
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
+
+        holidays = [{"holiday_date": "2025-12-25", "name": "Christmas Day", "province": "AB"}]
+
+        result = calculator.calculate_holiday_pay(
+            employee=employee,
+            province="AB",
+            pay_frequency="bi_weekly",
+            period_start=date(2025, 12, 14),
+            period_end=date(2025, 12, 27),
+            holidays_in_period=holidays,
+            holiday_work_entries=[],
+            current_period_gross=Decimal("1000"),
+            current_run_id="run-001",
+        )
+
+        # Non-regular day + not worked = $0
+        assert result.regular_holiday_pay == Decimal("0")
+        assert result.calculation_details["holidays"][0]["is_regular_work_day"] is False
+
+    def test_non_regular_day_worked_premium_only(self, holiday_calculator, mock_supabase):
+        """Test non-regular day + worked = premium pay only (no regular pay)."""
+        from app.models.holiday_pay_config import (
+            HolidayPayConfig,
+            HolidayPayEligibility,
+            HolidayPayFormulaParams,
+        )
+
+        ab_config = HolidayPayConfig(
+            province_code="AB",
+            formula_type="4_week_average_daily",
+            formula_params=HolidayPayFormulaParams(
+                lookback_weeks=4,
+                method="wages_div_days_worked",
+                new_employee_fallback="ineligible",
+            ),
+            eligibility=HolidayPayEligibility(
+                min_employment_days=30,
+                require_last_first_rule=True,
+            ),
+            premium_rate=Decimal("1.5"),
+        )
+
+        ab_config_loader = MockConfigLoader({"AB": ab_config})
+        calculator = HolidayPayCalculator(
+            supabase=mock_supabase,
+            user_id="test-user",
+            company_id="test-company",
+            config_loader=ab_config_loader,
+        )
+
+        employee = {
+            "id": "emp-non-regular-work",
+            "first_name": "Worker",
+            "last_name": "NonRegular",
+            "hourly_rate": 20.00,
+            "hire_date": "2025-01-01",
+        }
+
+        # Mock timesheet with last/first rule compliance
+        mock_timesheet = MagicMock()
+        mock_timesheet.data = []
+        # Add entries around holiday Dec 25 (Thursday) for last/first rule compliance
+        dates_to_add = [
+            date(2025, 12, 24),  # Wednesday before
+            date(2025, 12, 25),  # Holiday (Thursday) - worked
+            date(2025, 12, 26),  # Friday after
+        ]
+        for work_date in dates_to_add:
+            mock_timesheet.data.append({
+                "work_date": work_date.isoformat(),
+                "regular_hours": "8.0",
+                "overtime_hours": "0",
+            })
+        # Add ONLY 3 more Thursdays in 9-week window (FAILS 5 of 9 -> non-regular day)
+        # This makes Thursday a NON-regular work day
+        for i in range(1, 4):  # Only 3 additional Thursdays (not 5)
+            work_date = date(2025, 12, 25) - timedelta(weeks=i)
+            mock_timesheet.data.append({
+                "work_date": work_date.isoformat(),
+                "regular_hours": "8.0",
+                "overtime_hours": "0",
+            })
+
+        mock_earnings = MagicMock()
+        mock_earnings.data = [{"gross_regular": "1000.00", "gross_overtime": "0"}]
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "timesheet_entries":
+                result = MagicMock()
+                result.execute.return_value = mock_timesheet
+                mock_table.select.return_value.eq.return_value.gte.return_value.lte.return_value = result
+            elif table_name == "payroll_records":
+                result = MagicMock()
+                result.execute.return_value = mock_earnings
+                mock_table.select.return_value.eq.return_value.neq.return_value.gte.return_value.lt.return_value.in_.return_value = result
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
+
+        holidays = [{"holiday_date": "2025-12-25", "name": "Christmas Day", "province": "AB"}]
+        work_entries = [{"holidayDate": "2025-12-25", "hoursWorked": 8}]  # Worked 8 hours
+
+        result = calculator.calculate_holiday_pay(
+            employee=employee,
+            province="AB",
+            pay_frequency="bi_weekly",
+            period_start=date(2025, 12, 14),
+            period_end=date(2025, 12, 27),
+            holidays_in_period=holidays,
+            holiday_work_entries=work_entries,
+            current_period_gross=Decimal("1000"),
+            current_run_id="run-001",
+        )
+
+        # Non-regular day + worked
+        # Regular pay: $0 (not regular)
+        # Premium pay: 8h × $20 × 1.5 = $240
+        assert result.regular_holiday_pay == Decimal("0")
+        assert result.premium_holiday_pay == Decimal("240")

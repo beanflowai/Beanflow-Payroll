@@ -96,7 +96,7 @@ class ModelBuilder:
                 vacation_rate=Decimal(str(vacation_config_data["vacation_rate"])) if vacation_config_data.get("vacation_rate") is not None else Decimal("0.04"),
                 lump_sum_month=vacation_config_data.get("lump_sum_month"),
             ),
-            sin_encrypted=data.get("sin_encrypted", ""),
+            sin_encrypted=data.get("sin_encrypted") or "",
             vacation_balance=Decimal(str(data.get("vacation_balance", 0))),
             sick_balance=Decimal(str(data.get("sick_balance", 0))),
             created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.now(),

@@ -67,6 +67,30 @@
 	// Local input state for editing
 	let localInputMap = $state<Map<string, Partial<EmployeePayrollInput>>>(new Map());
 
+	// Track update timestamps for each record (for sorting by recently updated)
+	let recordUpdateTimestamps = $state<Map<string, number>>(new Map());
+
+	// Derive: sorted records by update timestamp (most recently updated first)
+	// Records with no updates keep their original order and appear after updated records
+	const sortedRecords = $derived(() => {
+		const recordsWithTimestamp = payGroup.records.map((record, idx) => {
+			const timestamp = recordUpdateTimestamps.get(record.id) ?? 0;
+			return { record, idx, timestamp };
+		});
+
+		// Sort: records with updates first (by timestamp desc), then original order
+		recordsWithTimestamp.sort((a, b) => {
+			if (a.timestamp === 0 && b.timestamp === 0) {
+				return a.idx - b.idx; // Original order
+			}
+			if (a.timestamp === 0) return 1; // Unupdated records go last
+			if (b.timestamp === 0) return -1; // Unupdated records go last
+			return b.timestamp - a.timestamp; // Most recent first
+		});
+
+		return recordsWithTimestamp.map((r) => r.record);
+	});
+
 	// Timesheet modal state
 	let timesheetModalState = $state<{
 		isOpen: boolean;
@@ -111,6 +135,11 @@
 		return record.regularHoursWorked ?? 0;
 	}
 
+	// Record update timestamp for sorting
+	function recordUpdated(recordId: string) {
+		recordUpdateTimestamps = new Map(recordUpdateTimestamps).set(recordId, Date.now());
+	}
+
 	function triggerAutoCalculate(record: PayrollRecord, overrideRegularHours?: number) {
 		if (!onAutoCalculateTrigger) return;
 		onAutoCalculateTrigger(
@@ -128,6 +157,7 @@
 		const current = getLocalInput(record.id);
 		const updated = { ...current, [field]: value };
 		localInputMap = new Map(localInputMap).set(record.id, updated);
+		recordUpdated(record.id); // Track update time
 		onUpdateRecord(record.id, record.employeeId, { [field]: value });
 		triggerAutoCalculate(record, field === 'regularHours' ? value : undefined);
 	}
@@ -144,6 +174,7 @@
 
 		const updated = { ...current, leaveEntries: newLeaveEntries };
 		localInputMap = new Map(localInputMap).set(record.id, updated);
+		recordUpdated(record.id); // Track update time
 		onUpdateRecord(record.id, record.employeeId, { leaveEntries: newLeaveEntries });
 		triggerAutoCalculate(record);
 	}
@@ -162,6 +193,7 @@
 		const newAdjs = [...existingAdjs, newAdj];
 		const updated = { ...current, adjustments: newAdjs };
 		localInputMap = new Map(localInputMap).set(record.id, updated);
+		recordUpdated(record.id); // Track update time
 		onUpdateRecord(record.id, record.employeeId, { adjustments: newAdjs });
 		triggerAutoCalculate(record);
 		// Close menus
@@ -194,6 +226,7 @@
 		const newAdjs = [...existingAdjs, newAdj];
 		const updated = { ...current, adjustments: newAdjs };
 		localInputMap = new Map(localInputMap).set(record.id, updated);
+		recordUpdated(record.id); // Track update time
 		onUpdateRecord(record.id, record.employeeId, { adjustments: newAdjs });
 		triggerAutoCalculate(record);
 		// Close menu
@@ -211,6 +244,7 @@
 		newAdjs[idx] = { ...newAdjs[idx], ...updates };
 		const updated = { ...current, adjustments: newAdjs };
 		localInputMap = new Map(localInputMap).set(record.id, updated);
+		recordUpdated(record.id); // Track update time
 		onUpdateRecord(record.id, record.employeeId, { adjustments: newAdjs });
 		triggerAutoCalculate(record);
 	}
@@ -221,6 +255,7 @@
 		const newAdjs = existingAdjs.filter((_: Adjustment, i: number) => i !== idx);
 		const updated = { ...current, adjustments: newAdjs };
 		localInputMap = new Map(localInputMap).set(record.id, updated);
+		recordUpdated(record.id); // Track update time
 		onUpdateRecord(record.id, record.employeeId, { adjustments: newAdjs });
 		triggerAutoCalculate(record);
 	}
@@ -371,6 +406,7 @@
 	 * Updates input_data with holidayPayExempt flag
 	 */
 	function handleHolidayPayExemptChange(record: PayrollRecord, exempt: boolean) {
+		recordUpdated(record.id); // Track update time
 		onUpdateRecord(record.id, record.employeeId, { holidayPayExempt: exempt });
 		triggerAutoCalculate(record);
 	}
@@ -404,6 +440,7 @@
 				overtimeHours: totals.overtimeHours
 			};
 			localInputMap = new Map(localInputMap).set(record.id, updated);
+			recordUpdated(record.id); // Track update time
 
 			// Send both updates in a single call to prevent race conditions in the backend
 			onUpdateRecord(record.id, record.employeeId, {
@@ -551,7 +588,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each payGroup.records as record (record.id)}
+					{#each sortedRecords() as record (record.id)}
 						<!-- Main Row -->
 						<tr
 							class="cursor-pointer transition-all duration-150 {expandedRecordId === record.id
@@ -684,7 +721,7 @@
 																<div class="flex items-center gap-1">
 																	<input
 																		type="number"
-																		class="amount-input w-16 py-1 px-2 border border-surface-300 rounded text-body-small text-center focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+																		class="amount-input w-20 py-1 px-2 border border-surface-300 rounded text-body-small text-center focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
 																		value={record.inputData?.regularHours ?? record.regularHoursWorked ?? 0}
 																		min="0"
 																		step="0.5"

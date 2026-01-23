@@ -52,13 +52,21 @@ class TestEligibilityCheck:
         assert result is False
 
     def test_ontario_no_min_days_requirement(self, holiday_calculator, new_hire_employee):
-        """Ontario: No minimum employment days requirement."""
+        """Ontario: No minimum employment days requirement (but still needs last/first rule)."""
         config = make_on_config()
         holiday_date = date.today()
 
+        # Provide timesheet entries that satisfy the last/first rule
+        # (work before and after holiday) - this is what Ontario requires
+        timesheet_entries = [
+            {"work_date": (holiday_date - timedelta(days=1)).isoformat(), "regular_hours": 8, "overtime_hours": 0},
+            {"work_date": (holiday_date + timedelta(days=1)).isoformat(), "regular_hours": 8, "overtime_hours": 0},
+        ]
+
         # Even a new hire should be eligible in Ontario (no 30-day rule)
+        # as long as they satisfy the last/first rule
         result = holiday_calculator._is_eligible_for_holiday_pay(
-            new_hire_employee, holiday_date, config
+            new_hire_employee, holiday_date, config, timesheet_entries
         )
 
         assert result is True  # Ontario has min_employment_days = 0
@@ -302,6 +310,9 @@ class TestNewEmployeeFallback:
 
     def test_qc_new_employee_eligible_no_min_days(self, mock_supabase):
         """QC: New employee is eligible (no min employment days)."""
+        from tests.payroll.conftest import setup_empty_timesheet_mock
+        setup_empty_timesheet_mock(mock_supabase)
+
         qc_loader = MockConfigLoader({"QC": make_qc_config()})
         calculator = HolidayPayCalculator(
             supabase=mock_supabase,
@@ -380,6 +391,11 @@ class TestNBEligibility:
 
     def test_nb_employee_over_90_days_eligible(self, mock_supabase):
         """NB: Employee with ≥90 days employment is eligible."""
+        from tests.payroll.conftest import setup_nb_timesheet_mock
+
+        holiday_date = date.today()
+        setup_nb_timesheet_mock(mock_supabase, holiday_date)
+
         calculator = HolidayPayCalculator(
             supabase=mock_supabase,
             user_id="test-user",
@@ -395,7 +411,6 @@ class TestNBEligibility:
             "hire_date": (date.today() - timedelta(days=100)).isoformat(),
         }
 
-        holiday_date = date.today()
         holidays = [{"holiday_date": holiday_date.isoformat(), "name": "Test Holiday", "province": "NB"}]
 
         result = calculator.calculate_holiday_pay(
@@ -411,19 +426,23 @@ class TestNBEligibility:
         )
 
         # NB: ≥90 days employed → eligible
-        # Uses 30_day_average: 8h × $22 = $176
+        # Uses 30_day_average: 10 days × 8h × $22 = $1760 / 10 = $176
         assert result.regular_holiday_pay == Decimal("176")
         assert result.calculation_details["holidays"][0]["eligible"] is True
 
     def test_nb_exactly_90_days_eligible(self, mock_supabase):
         """NB: Employee with exactly 90 days employment is eligible."""
+        from tests.payroll.conftest import setup_nb_timesheet_mock
+
+        holiday_date = date(2025, 4, 1)
+        setup_nb_timesheet_mock(mock_supabase, holiday_date)
+
         calculator = HolidayPayCalculator(
             supabase=mock_supabase,
             user_id="test-user",
             company_id="test-company",
         )
 
-        holiday_date = date(2025, 4, 1)
         # Hired exactly 90 days before holiday
         hire_date = holiday_date - timedelta(days=90)
 
@@ -521,8 +540,14 @@ class TestLastFirstRule:
 
         assert result is False
 
-    def test_on_eligible_when_no_timesheet_data(self, holiday_calculator):
-        """ON: Without timesheet data, default to eligible (graceful fallback)."""
+    def test_on_ineligible_when_no_timesheet_data(self, holiday_calculator):
+        """ON: Without timesheet data, fail-closed (ineligible) for compliance.
+
+        When require_last_first_rule=True but no timesheet data exists to verify,
+        the employee is marked ineligible. This is stricter than the old behavior
+        but more compliant with provincial requirements that mandate verification
+        of work on last/first scheduled days.
+        """
         config = make_on_config()
         holiday_date = date(2025, 12, 25)
 
@@ -531,12 +556,12 @@ class TestLastFirstRule:
             "hire_date": "2024-01-01",
         }
 
-        # No timesheet entries provided
+        # No timesheet entries provided - strict mode means ineligible
         result = holiday_calculator._is_eligible_for_holiday_pay(
             employee, holiday_date, config, None
         )
 
-        assert result is True
+        assert result is False
 
     def test_bc_skips_rule_check(self, holiday_calculator):
         """BC: require_last_first_rule=False means rule is skipped."""
@@ -610,8 +635,13 @@ class TestMinDaysWorkedInPeriod:
 
         assert result is False
 
-    def test_pe_eligible_when_no_timesheet_data(self, holiday_calculator):
-        """PE: Without timesheet data, default to eligible (graceful fallback)."""
+    def test_pe_ineligible_when_no_timesheet_data(self, holiday_calculator):
+        """PE: Without timesheet data, fail-closed (ineligible) for compliance.
+
+        PEI requires both the last/first rule and min_days_worked_in_period.
+        Without timesheet data to verify these requirements, the employee
+        is marked ineligible (strict mode for compliance).
+        """
         config = make_pe_config()
         holiday_date = date(2025, 7, 1)
 
@@ -624,7 +654,7 @@ class TestMinDaysWorkedInPeriod:
             employee, holiday_date, config, None
         )
 
-        assert result is True
+        assert result is False
 
     def test_on_skips_days_worked_check(self, holiday_calculator):
         """ON: min_days_worked_in_period not set, so rule is skipped."""
@@ -675,7 +705,8 @@ class TestIneligibilityReasons:
             employee, holiday_date, config, timesheet_entries
         )
 
-        assert "before/after" in reason.lower()
+        # Check for key terms in the reason message
+        assert "last scheduled day" in reason.lower() or "first scheduled day" in reason.lower()
 
     def test_reason_for_min_days_worked_failure(self, holiday_calculator):
         """Returns correct reason for min_days_worked_in_period failure."""
