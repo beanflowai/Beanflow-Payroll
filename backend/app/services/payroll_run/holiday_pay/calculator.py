@@ -321,6 +321,22 @@ class HolidayPayCalculator:
                     hourly_rate = GrossCalculator.calculate_hourly_rate(employee)
                     premium_pay = hours_worked * hourly_rate * Decimal("1.0")
                     holiday_detail["nl_rule"] = "s.17(2) partial shift - regular wages + holiday pay"
+                elif not is_eligible and config.eligibility.premium_requires_eligibility:
+                    # Ineligible employee working on holiday: regular rate only (1.0x)
+                    # Per BC ESA and similar provincial standards, ineligible employees
+                    # receive regular wages for hours worked, not premium pay.
+                    # This is province-configurable via premium_requires_eligibility.
+                    hourly_rate = GrossCalculator.calculate_hourly_rate(employee)
+                    premium_pay = hours_worked * hourly_rate
+                    holiday_detail["ineligible_premium"] = "regular rate only (1.0x)"
+                    logger.debug(
+                        "Ineligible employee %s %s working on %s: regular rate $%.2f "
+                        "(premium_requires_eligibility=True)",
+                        employee.get("first_name"),
+                        employee.get("last_name"),
+                        holiday_name,
+                        float(premium_pay),
+                    )
                 else:
                     premium_pay = self._calculate_premium_pay(employee, hours_worked, config)
                 premium_holiday_pay += premium_pay
@@ -379,6 +395,7 @@ class HolidayPayCalculator:
                     include_overtime=params.include_overtime,
                     employee_fallback=employee,
                     new_employee_fallback=params.new_employee_fallback,
+                    default_daily_hours=params.default_daily_hours,
                 )
             case "4_week_average_daily":
                 return self.formula_calculators.apply_4_week_daily(
@@ -388,6 +405,7 @@ class HolidayPayCalculator:
                     include_overtime=params.include_overtime,
                     employee_fallback=employee,
                     new_employee_fallback=params.new_employee_fallback,
+                    default_daily_hours=params.default_daily_hours,
                 )
             case "current_period_daily":
                 return self.formula_calculators.apply_current_period_daily(
@@ -449,6 +467,42 @@ class HolidayPayCalculator:
                     divisor=params.commission_divisor or 60,
                     lookback_weeks=params.commission_lookback_weeks or 12,
                 )
+            case "nt_split_by_compensation":
+                # NWT Employment Standards Act s.17:
+                # - If paid by time (hourly): pay for normal hours of work at regular rate
+                # - If paid otherwise (salaried): average daily pay from 4 weeks prior
+                #   based on actual days worked (not fixed divisor)
+                compensation_type = employee.get("compensation_type", "").lower()
+                if compensation_type == "salary":
+                    # Salaried: Get wages from payroll_records (not timesheet)
+                    # Salaried employees typically don't have timesheet entries,
+                    # so we need to use payroll records for historical wages.
+                    # Per NWT ESA s.17: "average day's pay" = wages in 4 weeks / days worked
+                    return self.formula_calculators.apply_4_week_average_from_payroll(
+                        employee_id=employee["id"],
+                        holiday_date=holiday_date,
+                        current_run_id=current_run_id,
+                        include_overtime=params.include_overtime,
+                        employee_fallback=employee,
+                        new_employee_fallback=params.new_employee_fallback,
+                        default_daily_hours=params.default_daily_hours,
+                    )
+                else:
+                    # Hourly: Use actual normal hours of work from recent history
+                    # (not just default_daily_hours which may not reflect reality)
+                    hourly_rate = GrossCalculator.calculate_hourly_rate(employee)
+                    normal_hours = self.work_day_tracker.get_normal_daily_hours(
+                        employee, config, holiday_date
+                    )
+                    daily_pay = hourly_rate * normal_hours
+                    logger.debug(
+                        "NT hourly daily rate: employee=%s, $%.2f × %.1f normal hrs = $%.2f",
+                        employee["id"],
+                        float(hourly_rate),
+                        float(normal_hours),
+                        float(daily_pay),
+                    )
+                    return daily_pay
             case _:
                 logger.error(
                     "Unknown formula_type '%s' for province %s",
@@ -590,6 +644,7 @@ class HolidayPayCalculator:
         include_overtime: bool,
         employee_fallback: dict[str, Any],
         new_employee_fallback: str | None = None,
+        default_daily_hours: Decimal = Decimal("8"),
     ) -> Decimal:
         """Backwards-compatible wrapper for formula_calculators.apply_4_week_average."""
         return self.formula_calculators.apply_4_week_average(
@@ -601,6 +656,7 @@ class HolidayPayCalculator:
             include_overtime=include_overtime,
             employee_fallback=employee_fallback,
             new_employee_fallback=new_employee_fallback,
+            default_daily_hours=default_daily_hours,
         )
 
     def _apply_4_week_daily(
@@ -611,6 +667,7 @@ class HolidayPayCalculator:
         include_overtime: bool,
         employee_fallback: dict[str, Any],
         new_employee_fallback: str | None = None,
+        default_daily_hours: Decimal = Decimal("8"),
     ) -> Decimal:
         """Backwards-compatible wrapper for formula_calculators.apply_4_week_daily."""
         return self.formula_calculators.apply_4_week_daily(
@@ -620,6 +677,7 @@ class HolidayPayCalculator:
             include_overtime=include_overtime,
             employee_fallback=employee_fallback,
             new_employee_fallback=new_employee_fallback,
+            default_daily_hours=default_daily_hours,
         )
 
     def _apply_5_percent_28_days(

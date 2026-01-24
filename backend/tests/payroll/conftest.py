@@ -470,14 +470,15 @@ def mock_supabase():
 def setup_bc_timesheet_mock(mock_supabase):
     """Set up mock for BC 30-day average formula.
 
-    For BC 30-day average formula, this provides 10 days of work
-    at 8 hours each, matching the expected $200 result for hourly employees.
+    For BC 30-day average formula, this provides 15 days of work
+    (BC requires min 15 of 30 days worked for eligibility).
+    At 8 hours each × $25/hr = $3000 in wages / 15 days = $200/day.
     """
-    # Default timesheet data: 10 days × 8 hours = 80 hours
-    # For $25/hr employee: 80h × $25 = $2000 / 10 days = $200/day
+    # Default timesheet data: 15 days × 8 hours = 120 hours
+    # For $25/hr employee: 120h × $25 = $3000 / 15 days = $200/day
     timesheet_data = [
-        {"work_date": f"2025-06-{15+i}", "regular_hours": "8", "overtime_hours": "0"}
-        for i in range(10)
+        {"work_date": f"2025-06-{10+i}", "regular_hours": "8", "overtime_hours": "0"}
+        for i in range(15)
     ]
 
     mock_result = MagicMock()

@@ -38,6 +38,7 @@ class FormulaCalculators:
     - 3_week_average_nl: hourly_rate x (hours in 3 weeks / 15) (NL)
     - irregular_hours: percentage x wages in lookback weeks (YT irregular)
     - commission: 1/divisor of wages in lookback weeks (QC/Federal commission)
+    - nt_split_by_compensation: hourly→daily rate, salaried→4-week avg (NT)
     """
 
     def __init__(
@@ -211,9 +212,48 @@ class FormulaCalculators:
 
             # Fetch sick pay if needed (BC ESA s.45)
             sick_pay = Decimal("0")
+            paid_leave_days: set[date] = set()
             if include_sick_pay:
                 sick_pay = self._get_sick_pay_in_period(employee_id, start_date, end_date)
                 total_wages += sick_pay
+                # Also get paid leave days to include in denominator
+                # Per BC ESA s.45, denominator should count days "entitled to wages"
+                # which includes paid sick leave days
+                paid_leave_days = self.work_day_tracker._get_paid_leave_days(
+                    employee_id, start_date, end_date
+                )
+
+            # Calculate days entitled to wages = days worked + paid leave days
+            #
+            # LIMITATION (BC ESA s.45 compliance):
+            # Per BC ESA, "days worked" should include ALL days employee was
+            # entitled to wages: work days, paid vacation days, paid holiday days,
+            # and paid sick days. Currently we only have day-level tracking for
+            # sick leave (sick_leave_usage_history). Vacation pay and holiday pay
+            # are tracked as amounts in payroll_records, not as individual days.
+            #
+            # Impact: When vacation_pay or previous_holiday_pay > 0, the denominator
+            # may be slightly underestimated (missing vacation/holiday days), which
+            # could result in a slightly higher calculated daily pay.
+            #
+            # TODO: Add day-level tracking for vacation and holiday leave usage
+            # to fully comply with BC ESA s.45 denominator requirements.
+            days_entitled_to_wages: set[str] = days_with_work.copy()
+            for leave_date in paid_leave_days:
+                # Add paid leave days that aren't already counted as work days
+                days_entitled_to_wages.add(leave_date.isoformat())
+
+            days_for_divisor = len(days_entitled_to_wages)
+
+            # Log warning if vacation/holiday pay included but days not tracked
+            if vacation_pay > 0 or previous_holiday_pay > 0:
+                logger.warning(
+                    "30-day avg denominator limitation: employee=%s has vacation_pay=$%.2f "
+                    "and/or holiday_pay=$%.2f in numerator, but only sick_leave_days (%d) "
+                    "tracked at day level. Denominator may be underestimated.",
+                    employee_id, float(vacation_pay), float(previous_holiday_pay),
+                    len(paid_leave_days)
+                )
 
             # Alternative: percentage-based calculation (removed for clarity)
             if percentage is not None:
@@ -224,9 +264,9 @@ class FormulaCalculators:
                 )
                 return holiday_pay
 
-            if days_worked == 0:
+            if days_for_divisor == 0:
                 logger.warning(
-                    "30-day avg: Employee %s has 0 days with hours", employee_id
+                    "30-day avg: Employee %s has 0 days entitled to wages", employee_id
                 )
                 return Decimal("0")
 
@@ -234,14 +274,16 @@ class FormulaCalculators:
                 avg_daily_hours = total_hours / Decimal(str(days_worked))
                 daily_pay = avg_daily_hours * hourly_rate
             else:
-                daily_pay = total_wages / Decimal(str(days_worked))
+                daily_pay = total_wages / Decimal(str(days_for_divisor))
 
             logger.debug(
                 "30-day avg: employee=%s, method=%s, daily_pay=$%.2f "
-                "(timesheet_wages=$%.2f, vacation=$%.2f, holiday=$%.2f, sick=$%.2f)",
+                "(timesheet_wages=$%.2f, vacation=$%.2f, holiday=$%.2f, sick=$%.2f, "
+                "work_days=%d, paid_leave_days=%d, total_days=%d)",
                 employee_id, method, float(daily_pay),
                 float(total_hours * hourly_rate), float(vacation_pay),
-                float(previous_holiday_pay), float(sick_pay)
+                float(previous_holiday_pay), float(sick_pay),
+                len(days_with_work), len(paid_leave_days), days_for_divisor
             )
 
             return daily_pay
@@ -561,6 +603,7 @@ class FormulaCalculators:
         include_overtime: bool,
         employee_fallback: dict[str, Any],
         new_employee_fallback: str | None,
+        default_daily_hours: Decimal = Decimal("8"),
     ) -> Decimal:
         """Apply 4-week average formula (Ontario style).
 
@@ -575,6 +618,7 @@ class FormulaCalculators:
             include_overtime: Whether to include overtime in wages
             employee_fallback: Employee data for fallback calculation
             new_employee_fallback: Config-driven fallback for new employees
+            default_daily_hours: Fallback daily hours for new employees
 
         Returns:
             One day's pay as Decimal
@@ -590,7 +634,7 @@ class FormulaCalculators:
             if new_employee_fallback == "pro_rated":
                 logger.info("4-week avg: No data for %s, using pro_rated", employee_id)
                 hourly_rate = GrossCalculator.calculate_hourly_rate(employee_fallback)
-                return Decimal("8") * hourly_rate
+                return default_daily_hours * hourly_rate
             else:
                 logger.info("4-week avg: No data for %s, returning $0", employee_id)
                 return Decimal("0")
@@ -618,6 +662,7 @@ class FormulaCalculators:
         include_overtime: bool,
         employee_fallback: dict[str, Any],
         new_employee_fallback: str | None,
+        default_daily_hours: Decimal = Decimal("8"),
     ) -> Decimal:
         """Apply 4-week daily average formula (Alberta style).
 
@@ -630,6 +675,7 @@ class FormulaCalculators:
             include_overtime: Whether to include overtime in wages
             employee_fallback: Employee data for fallback
             new_employee_fallback: Config-driven fallback for new employees
+            default_daily_hours: Fallback daily hours for new employees
 
         Returns:
             One day's pay as Decimal
@@ -646,7 +692,7 @@ class FormulaCalculators:
         if total_wages == Decimal("0"):
             if new_employee_fallback == "pro_rated":
                 logger.info("4-week daily: No data for %s, using pro_rated", employee_id)
-                return Decimal("8") * hourly_rate
+                return default_daily_hours * hourly_rate
             else:
                 logger.info("4-week daily: No data for %s, returning $0", employee_id)
                 return Decimal("0")
@@ -664,6 +710,74 @@ class FormulaCalculators:
         logger.info(
             "4-week daily: %s, wages=$%.2f / %d days = $%.2f",
             employee_id, float(total_wages), days_worked_int, float(daily_pay)
+        )
+
+        return daily_pay
+
+    def apply_4_week_average_from_payroll(
+        self,
+        employee_id: str,
+        holiday_date: date,
+        current_run_id: str,
+        include_overtime: bool,
+        employee_fallback: dict[str, Any],
+        new_employee_fallback: str | None,
+        default_daily_hours: Decimal = Decimal("8"),
+    ) -> Decimal:
+        """Apply 4-week average formula using payroll_records for salaried employees.
+
+        Used for NT salaried employees who don't have timesheet entries.
+        Gets wages from payroll_records (not timesheet) and divides by actual days worked.
+
+        Per NWT ESA s.17: "average day's pay" = wages in 4 weeks / days worked
+
+        Args:
+            employee_id: Employee ID
+            holiday_date: Holiday date for lookback
+            current_run_id: Current run ID to exclude
+            include_overtime: Whether to include overtime in wages
+            employee_fallback: Employee data for fallback
+            new_employee_fallback: Config-driven fallback for new employees
+            default_daily_hours: Fallback daily hours for new employees
+
+        Returns:
+            One day's pay as Decimal
+        """
+        total_wages, vacation_pay = self.earnings_fetcher.get_4_week_earnings(
+            employee_id=employee_id,
+            before_date=holiday_date,
+            current_run_id=current_run_id,
+            include_overtime=include_overtime,
+        )
+
+        if total_wages == Decimal("0"):
+            if new_employee_fallback == "pro_rated":
+                hourly_rate = GrossCalculator.calculate_hourly_rate(employee_fallback)
+                daily_pay = default_daily_hours * hourly_rate
+                logger.info(
+                    "NT salary 4-week avg: No data for %s, using pro_rated: $%.2f",
+                    employee_id, float(daily_pay)
+                )
+                return daily_pay
+            else:
+                logger.info(
+                    "NT salary 4-week avg: No data for %s, returning $0", employee_id
+                )
+                return Decimal("0")
+
+        # Get days worked from timesheet (salaried may still have some entries)
+        # or fall back to standard 20 work days in 4 weeks
+        days_worked = self.work_day_tracker.get_days_worked_in_4_weeks(
+            employee_id, holiday_date
+        )
+        if days_worked == 0:
+            days_worked = 20  # Standard 4-week work days
+
+        daily_pay = total_wages / Decimal(str(days_worked))
+
+        logger.info(
+            "NT salary 4-week avg from payroll: %s, wages=$%.2f / %d days = $%.2f",
+            employee_id, float(total_wages), days_worked, float(daily_pay)
         )
 
         return daily_pay

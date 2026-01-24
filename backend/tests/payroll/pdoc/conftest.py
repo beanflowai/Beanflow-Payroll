@@ -49,7 +49,14 @@ class PDOCTestCase:
 
     @property
     def is_verified(self) -> bool:
-        """Check if test case has been verified with PDOC."""
+        """Check if test case has been verified with PDOC.
+
+        A case is verified if:
+        1. status is not "PENDING"
+        2. federal_tax is not "TO_BE_VERIFIED"
+        """
+        if self.status == "PENDING":
+            return False
         return self.pdoc_expected.get("federal_tax") != "TO_BE_VERIFIED"
 
     @classmethod
@@ -302,14 +309,12 @@ def load_tier4_bonus_fixture(
 
 
 # Tier 6 categories (TD1 form fields)
+# Note: Only employer_rrsp and retroactive_pay are currently implemented.
+# Other categories (prescribed_zone, alimony, reserve_income, annual_deductions, rpp_prpp)
+# were removed as they lack fixture data and implementation.
 TIER6_CATEGORIES = [
     "employer_rrsp",
     "retroactive_pay",
-    "prescribed_zone",
-    "alimony",
-    "reserve_income",
-    "annual_deductions",
-    "rpp_prpp",
 ]
 
 

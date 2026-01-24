@@ -44,7 +44,8 @@
         "min_employment_days": 30,
         "min_days_worked_in_period": 15,
         "require_last_first_rule": false,
-        "notes": "30 calendar days of employment required. Must have worked or earned wages on 15 of 30 days before the holiday."
+        "premium_requires_eligibility": true,
+        "notes": "30 calendar days of employment required. Must have worked or earned wages on 15 of 30 days before the holiday. Ineligible employees working on holiday receive regular wages only."
       },
       "premium_rate": 1.5,
       "premium_rate_tiers": [
@@ -244,9 +245,10 @@
     "NT": {
       "province_code": "NT",
       "name": "Northwest Territories",
-      "formula_type": "30_day_average",
+      "formula_type": "nt_split_by_compensation",
       "formula_params": {
-        "lookback_days": 30,
+        "lookback_weeks": 4,
+        "divisor": 20,
         "method": "wages_div_days_worked",
         "include_overtime": false,
         "include_vacation_pay": false,
@@ -259,7 +261,7 @@
         "notes": "30 days employment within 12 months prior. Must work scheduled day before AND first shift after holiday."
       },
       "premium_rate": 1.5,
-      "notes": "NWT Employment Standards Act - average day's pay = total wages / days worked in 30 days prior. Overtime threshold reduced to 32 hours in holiday week.",
+      "notes": "NWT Employment Standards Act - Hourly employees: normal work day's wage (daily rate). Salaried employees: average day's pay from 4-week period. Overtime threshold reduced to 32 hours in holiday week.",
       "last_verified_date": "2026-01-23",
       "source_url": "https://www.ece.gov.nt.ca/en/services/employment-standards"
     },

@@ -4,7 +4,7 @@
   "name": "Retroactive Payment Tests",
   "description": "Tests for retroactive payment calculations (TD1 form field)",
   "version": "2026-01",
-  "collected_date": "PENDING",
+  "collected_date": "2025-01-23",
   "pdoc_version": "T4127 - Version 2026-01",
   "tolerance": "0.05",
   "test_cases": [
@@ -12,7 +12,7 @@
       "id": "ON_60K_RETROACTIVE",
       "tier": 6,
       "description": "Ontario $60k with retroactive payment $500 over 2 periods",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "category": "retroactive_pay",
       "input": {
         "province": "ON",

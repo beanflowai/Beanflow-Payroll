@@ -371,7 +371,16 @@ class PayrollEngine:
         )
         regular_gross = regular_earnings + input_data.taxable_benefits_pensionable
         regular_pensionable_earnings = regular_gross
-        regular_insurable_earnings = regular_earnings + input_data.taxable_benefits_insurable
+        # For EI calculation purposes, we need TWO different insurable earnings:
+        # 1. Total insurable (for EI deduction) = regular + retroactive
+        # 2. Regular-only insurable (for K2 credit in RetroactiveTaxCalculator)
+        #
+        # The regular_insurable_earnings here is used for the initial EI calculation.
+        # When has_retroactive=True, we'll calculate EI separately for the retroactive portion.
+        regular_insurable_earnings = (
+            regular_earnings
+            + input_data.taxable_benefits_insurable
+        )
 
         # =========================================================================
         # Step 2: Calculate EI (after regular_insurable_earnings is defined)
@@ -396,7 +405,7 @@ class PayrollEngine:
             else:
                 actual_ytd_insurable = input_data.ytd_insurable_earnings
 
-            # Calculate EI on regular earnings
+            # Calculate EI on regular earnings (without retroactive)
             regular_ei = ei_calc.calculate_ei_premium(
                 regular_insurable_earnings,
                 actual_ytd_insurable,
@@ -415,7 +424,27 @@ class PayrollEngine:
                     ytd_ei_for_bonus,
                 )
 
-            total_ei = regular_ei + bonus_ei
+            # Calculate EI on retroactive pay (similar to bonus EI logic)
+            retroactive_ei = Decimal("0")
+            if has_retroactive:
+                # YTD insurable for retro calc = actual YTD + regular insurable
+                ytd_for_retro = actual_ytd_insurable + regular_insurable_earnings
+                # YTD EI for retro calc = existing YTD + regular EI
+                ytd_ei_for_retro = input_data.ytd_ei + regular_ei
+
+                # If bonus was also paid this period, include it in YTD for retro calculation
+                # This prevents over-deduction when bonus already reached EI ceiling
+                if has_bonus:
+                    ytd_for_retro += input_data.bonus_earnings
+                    ytd_ei_for_retro += bonus_ei
+
+                retroactive_ei = ei_calc.calculate_ei_premium(
+                    input_data.retroactive_pay_amount,
+                    ytd_for_retro,
+                    ytd_ei_for_retro,
+                )
+
+            total_ei = regular_ei + bonus_ei + retroactive_ei
             ei_result = EiPremium(employee=total_ei, employer=total_ei * Decimal("1.4"))
 
         calculation_details["ei"] = {

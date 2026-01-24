@@ -1,0 +1,64 @@
+{
+  "tier": 6,
+  "category": "employer_rrsp",
+  "name": "Employer RRSP Contribution Tests",
+  "description": "Tests for employer RRSP contributions affecting EI insurability (TD1 form field)",
+  "version": "2026-01",
+  "collected_date": "PENDING",
+  "pdoc_version": "T4127 - Version 2026-01",
+  "tolerance": "0.05",
+  "implementation_status": "NOT_IMPLEMENTED",
+  "implementation_notes": "The employer_rrsp_per_period and employer_rrsp_withdrawal_restricted fields are defined in EmployeePayrollInput but not yet used in PayrollEngine.calculate(). EI insurability adjustment logic needs to be implemented.",
+  "test_cases": [
+    {
+      "id": "ON_60K_EMPLOYER_RRSP_RESTRICTED",
+      "tier": 6,
+      "description": "Ontario $60k with $200/period employer RRSP (withdrawal restricted - NOT EI insurable)",
+      "status": "PENDING",
+      "category": "employer_rrsp",
+      "input": {
+        "province": "ON",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_date": "2026-01-17",
+        "federal_claim": "16452.00",
+        "provincial_claim": "12989.00",
+        "employer_rrsp_per_period": "200.00",
+        "employer_rrsp_withdrawal_restricted": true
+      },
+      "pdoc_expected": {
+        "cpp_total": "TODO",
+        "ei": "TODO",
+        "federal_tax": "TODO",
+        "provincial_tax": "TODO",
+        "net_pay": "TODO"
+      },
+      "notes": "When employer RRSP is withdrawal-restricted, the contribution is NOT EI insurable. EI should be calculated on gross_pay only, not including employer RRSP. Awaiting PDOC verification and PayrollEngine implementation."
+    },
+    {
+      "id": "ON_60K_EMPLOYER_RRSP_NON_RESTRICTED",
+      "tier": 6,
+      "description": "Ontario $60k with $200/period employer RRSP (non-restricted - EI insurable)",
+      "status": "PENDING",
+      "category": "employer_rrsp",
+      "input": {
+        "province": "ON",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_date": "2026-01-17",
+        "federal_claim": "16452.00",
+        "provincial_claim": "12989.00",
+        "employer_rrsp_per_period": "200.00",
+        "employer_rrsp_withdrawal_restricted": false
+      },
+      "pdoc_expected": {
+        "cpp_total": "TODO",
+        "ei": "TODO",
+        "federal_tax": "TODO",
+        "provincial_tax": "TODO",
+        "net_pay": "TODO"
+      },
+      "notes": "When employer RRSP is NOT withdrawal-restricted, the contribution MAY be EI insurable (depends on specific plan rules). Awaiting PDOC verification and PayrollEngine implementation."
+    }
+  ]
+}

@@ -57,7 +57,7 @@
         },
         "formula_type": {
           "type": "string",
-          "enum": ["4_week_average", "30_day_average", "4_week_average_daily", "5_percent_28_days", "current_period_daily", "3_week_average_nl", "irregular_hours", "commission"],
+          "enum": ["4_week_average", "30_day_average", "4_week_average_daily", "5_percent_28_days", "current_period_daily", "3_week_average_nl", "irregular_hours", "commission", "nt_split_by_compensation"],
           "description": "Type of calculation formula"
         },
         "formula_params": {
@@ -230,6 +230,10 @@
         "eligibility_period_months": {
           "type": "integer",
           "description": "Period to look back for work days (default: 12 months)"
+        },
+        "premium_requires_eligibility": {
+          "type": "boolean",
+          "description": "Whether premium pay requires eligibility. If true, ineligible employees get 1.0x rate. Default: true"
         },
         "notes": {
           "type": "string",

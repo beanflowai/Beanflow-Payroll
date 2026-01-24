@@ -228,6 +228,8 @@ def _dict_to_config(province_data: dict[str, Any]) -> HolidayPayConfig:
         min_days_worked_in_period=eligibility_dict.get("min_days_worked_in_period"),
         count_work_days=eligibility_dict.get("count_work_days", False),
         eligibility_period_months=eligibility_dict.get("eligibility_period_months", 12),
+        # Whether premium pay requires eligibility (default True for BC-style rules)
+        premium_requires_eligibility=eligibility_dict.get("premium_requires_eligibility", True),
         notes=eligibility_dict.get("notes"),
     )
 

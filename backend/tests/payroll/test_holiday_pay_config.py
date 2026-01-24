@@ -68,6 +68,7 @@ class TestAllProvincesConfigLoading:
             "5_percent_28_days",
             "current_period_daily",
             "3_week_average_nl",
+            "nt_split_by_compensation",  # NT: hourly→daily rate, salaried→4-week avg
         }
         for province in self.ALL_PROVINCES:
             config = get_config(province)

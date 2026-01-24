@@ -141,7 +141,11 @@ class TestCalculateHolidayPay:
         assert result.total_holiday_pay == Decimal("550")
 
     def test_bc_new_hire_ineligible(self, holiday_calculator, new_hire_employee):
-        """BC: New hire <30 days should not get Regular pay, but can get Premium."""
+        """BC: New hire <30 days gets regular rate only for hours worked on holiday.
+
+        Per BC ESA, ineligible employees working on a statutory holiday receive
+        regular wages (1.0x) for their hours, not premium pay (1.5x).
+        """
         holiday_date = date.today()
         holidays = [{"holiday_date": holiday_date.isoformat(), "name": "Test Holiday", "province": "BC"}]
         work_entries = [{"holidayDate": holiday_date.isoformat(), "hoursWorked": 8}]
@@ -159,10 +163,10 @@ class TestCalculateHolidayPay:
         )
 
         # Regular: $0 (not eligible - <30 days employed in BC)
-        # Premium: 8h × $20 × 1.5 = $240
+        # Premium: 8h × $20 × 1.0 = $160 (regular rate only, not 1.5x)
         assert result.regular_holiday_pay == Decimal("0")
-        assert result.premium_holiday_pay == Decimal("240")
-        assert result.total_holiday_pay == Decimal("240")
+        assert result.premium_holiday_pay == Decimal("160")
+        assert result.total_holiday_pay == Decimal("160")
 
     def test_ontario_new_hire_eligible_with_last_first_rule(self, mock_supabase):
         """Ontario: New hire with last/first rule - eligible when work before/after holiday."""

@@ -22,6 +22,11 @@ class HolidayPayEligibility:
     # If True, min_employment_days means "min work days in eligibility_period_months"
     count_work_days: bool = False
     eligibility_period_months: int = 12  # Period to look back for work days (default: 12 months)
+    # Whether premium pay requires eligibility. If True (e.g., BC), ineligible employees
+    # working on a holiday receive regular wages (1.0x) instead of premium pay.
+    # If False, ineligible employees still receive premium rate for hours worked.
+    # Default: True (conservative approach per BC ESA and most provinces)
+    premium_requires_eligibility: bool = True
     notes: str | None = None
 
 
@@ -97,7 +102,7 @@ class HolidayPayConfig:
 
     province_code: str
     # Formula types:
-    # - "4_week_average": Ontario/Federal/QC/NT style (wages + vacation) / 20
+    # - "4_week_average": Ontario/Federal/QC style (wages + vacation) / 20
     # - "30_day_average": BC/NS/PE/NB/YT style, average daily pay
     # - "4_week_average_daily": Alberta style, wages / days worked
     # - "current_period_daily": Current period gross / work days
@@ -105,6 +110,7 @@ class HolidayPayConfig:
     # - "3_week_average_nl": Newfoundland style, hourly_rate × (hours in 3 weeks / 15)
     # - "irregular_hours": Yukon irregular-hours employees, percentage × wages
     # - "commission": Quebec/Federal commission employees, wages / divisor
+    # - "nt_split_by_compensation": NT style, hourly→daily rate, salaried→4-week avg
     formula_type: str
     formula_params: HolidayPayFormulaParams
     eligibility: HolidayPayEligibility
