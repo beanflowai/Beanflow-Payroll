@@ -34,6 +34,9 @@
         "lookback_days": 30,
         "method": "wages_div_days_worked",
         "include_overtime": false,
+        "include_vacation_pay": true,
+        "include_previous_holiday_pay": true,
+        "include_sick_pay": true,
         "default_daily_hours": 8,
         "new_employee_fallback": "ineligible"
       },
@@ -50,7 +53,7 @@
           "rate": 2.0
         }
       ],
-      "notes": "BC ESA s.45 - wages in 30 days / days worked. Premium: 1.5x up to 12 hours, 2x over 12 hours.",
+      "notes": "BC ESA s.45 - wages in 30 days / days worked. Wages include regular wages, statutory holiday pay, annual vacation pay, and sick pay. Premium: 1.5x up to 12 hours, 2x over 12 hours.",
       "last_verified_date": "2026-01-22",
       "source_url": "https://www2.gov.bc.ca/gov/content/employment-business/employment-standards-advice/employment-standards/statutory-holidays/calculate-statutory-holiday-pay"
     },
@@ -88,7 +91,7 @@
       "formula_params": {
         "lookback_weeks": 4,
         "divisor": 20,
-        "include_vacation_pay": false,
+        "include_vacation_pay": true,
         "include_overtime": false,
         "new_employee_fallback": "pro_rated",
         "commission_divisor": 60,
@@ -100,7 +103,7 @@
         "notes": "No minimum employment period. Must not be absent without valid reason on day before or after holiday."
       },
       "premium_rate": 1.5,
-      "notes": "Quebec Labour Standards Act (CNESST) - 1/20 of wages in 4 weeks before holiday week. Commission employees: 1/60 of wages in 12 weeks.",
+      "notes": "Quebec Labour Standards Act (CNESST) - 1/20 of wages in 4 weeks before holiday week. Vacation pay must be included per CNESST rules. Commission employees: 1/60 of wages in 12 weeks (pending implementation, requires employee type identifier support).",
       "last_verified_date": "2026-01-22",
       "source_url": "https://www.cnesst.gouv.qc.ca/en/working-conditions/leave/statutory-holidays/calculating-indemnity-statutory-holiday"
     },
@@ -158,16 +161,15 @@
         "method": "total_wages_div_days",
         "include_overtime": false,
         "default_daily_hours": 8,
-        "new_employee_fallback": "ineligible",
-        "percentage": 0.04
+        "new_employee_fallback": "ineligible"
       },
       "eligibility": {
         "min_employment_days": 90,
         "require_last_first_rule": true,
-        "notes": "90 days of employment in 12 months prior. Must work scheduled day before and after holiday. Alternative: 4% of wages method available."
+        "notes": "90 days of employment in 12 months prior. Must work scheduled day before and after holiday."
       },
       "premium_rate": 1.5,
-      "notes": "New Brunswick Employment Standards Act - regular day's wage OR 4% of wages as alternative method.",
+      "notes": "New Brunswick Employment Standards Act - regular day's wage (30-day average). NB hourly employees use Daily Average; does not implement 4% alternative method (employer-choice option, requires separate configuration).",
       "last_verified_date": "2026-01-22",
       "source_url": "https://www.gnb.ca/en/topic/jobs-workplaces/labour-market-workforce/employment-standards/holiday-vacation.html"
     },
@@ -179,6 +181,8 @@
         "lookback_days": 30,
         "method": "total_wages_div_days",
         "include_overtime": false,
+        "include_vacation_pay": false,
+        "include_previous_holiday_pay": true,
         "default_daily_hours": 8,
         "new_employee_fallback": "ineligible"
       },
@@ -189,7 +193,7 @@
         "notes": "Must be entitled to pay for at least 15 of 30 days before holiday. Must work last scheduled shift before and first scheduled shift after holiday."
       },
       "premium_rate": 1.5,
-      "notes": "Nova Scotia Labour Standards Code - wages in 30 days / days worked. Remembrance Day covered by separate Remembrance Day Act.",
+      "notes": "Nova Scotia Labour Standards Code - wages in 30 days / days worked. Per NS LSC s.2, 'wages' explicitly excludes vacation pay. Previous holiday pay IS included per NS practice. Remembrance Day covered by separate Remembrance Day Act.",
       "last_verified_date": "2026-01-22",
       "source_url": "https://novascotia.ca/lae/employmentrights/holidaypay.asp"
     },
@@ -240,12 +244,13 @@
     "NT": {
       "province_code": "NT",
       "name": "Northwest Territories",
-      "formula_type": "4_week_average",
+      "formula_type": "30_day_average",
       "formula_params": {
-        "lookback_weeks": 4,
-        "divisor": 20,
-        "include_vacation_pay": false,
+        "lookback_days": 30,
+        "method": "wages_div_days_worked",
         "include_overtime": false,
+        "include_vacation_pay": false,
+        "default_daily_hours": 8,
         "new_employee_fallback": "ineligible"
       },
       "eligibility": {
@@ -254,8 +259,8 @@
         "notes": "30 days employment within 12 months prior. Must work scheduled day before AND first shift after holiday."
       },
       "premium_rate": 1.5,
-      "notes": "NWT Employment Standards Act - 1/20 of wages in 4 weeks before holiday. Overtime threshold reduced to 32 hours in holiday week.",
-      "last_verified_date": "2026-01-22",
+      "notes": "NWT Employment Standards Act - average day's pay = total wages / days worked in 30 days prior. Overtime threshold reduced to 32 hours in holiday week.",
+      "last_verified_date": "2026-01-23",
       "source_url": "https://www.ece.gov.nt.ca/en/services/employment-standards"
     },
     "NU": {
@@ -311,7 +316,9 @@
         "divisor": 20,
         "include_overtime": false,
         "include_vacation_pay": true,
-        "new_employee_fallback": "pro_rated"
+        "new_employee_fallback": "pro_rated",
+        "commission_divisor": 60,
+        "commission_lookback_weeks": 12
       },
       "eligibility": {
         "min_employment_days": 0,
@@ -319,7 +326,7 @@
         "notes": "No minimum employment period. All federally regulated employees qualify for general holidays."
       },
       "premium_rate": 1.5,
-      "notes": "Canada Labour Code Part III s.196 - 1/20th of wages in 4 weeks before holiday week. Per CLC s.186: 'Vacation pay shall for all purposes be deemed to be wages', so vacation pay IS included. Only overtime is explicitly excluded per s.196.",
+      "notes": "Canada Labour Code Part III s.196 - 1/20th of wages in 4 weeks before holiday week. Per CLC s.186: 'Vacation pay shall for all purposes be deemed to be wages', so vacation pay IS included. Only overtime is explicitly excluded per s.196. Commission employees: 1/60 of wages in 12 weeks (pending implementation, requires employee type identifier support).",
       "last_verified_date": "2026-01-23",
       "source_url": "https://wages-salaires.service.canada.ca/en/gen_holiday/index.html"
     }

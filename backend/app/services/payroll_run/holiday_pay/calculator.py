@@ -124,11 +124,15 @@ class HolidayPayCalculator:
 
         config = self._get_config(province, period_end)
 
+        # Pre-compute compensation type for details
+        emp_compensation_type = employee.get("compensation_type", "")
+
         details: dict[str, Any] = {
             "holidays_count": len(holidays_in_period),
             "holidays": [],
             "work_entries": [],
             "is_hourly": bool(employee.get("hourly_rate")),
+            "compensation_type": emp_compensation_type,
             "province": province,
             "holiday_pay_exempt": holiday_pay_exempt,
             "config": {
@@ -147,7 +151,26 @@ class HolidayPayCalculator:
                 calculation_details=details,
             )
 
-        is_hourly = bool(employee.get("hourly_rate"))
+        # Determine if employee is hourly or salaried
+        # Use compensation_type as source of truth, fall back to hourly_rate check
+        compensation_type = employee.get("compensation_type", "").lower()
+        if compensation_type == "salary":
+            # Design intent: Salaried employees' holiday pay is typically already
+            # included in their annual salary, so regular holiday pay calculation
+            # is skipped. However, if a salaried employee works on a holiday,
+            # premium pay is still calculated.
+            is_hourly = False
+            logger.debug(
+                "Employee %s %s is salaried (compensation_type=%s) - skipping regular holiday pay",
+                employee.get("first_name"),
+                employee.get("last_name"),
+                compensation_type,
+            )
+        elif compensation_type == "hourly":
+            is_hourly = True
+        else:
+            # Fallback: check hourly_rate field
+            is_hourly = bool(employee.get("hourly_rate"))
 
         # Fetch timesheet entries for eligibility checks if needed
         timesheet_entries: list[dict[str, Any]] | None = None
@@ -156,7 +179,7 @@ class HolidayPayCalculator:
             or config.eligibility.min_days_worked_in_period is not None
         ):
             lookback_days = config.formula_params.eligibility_lookback_days or 30
-            forward_days = config.formula_params.last_first_window_days or 14
+            forward_days = config.formula_params.last_first_window_days or 28
 
             holiday_dates = []
             for h in holidays_in_period:
@@ -393,6 +416,11 @@ class HolidayPayCalculator:
                     default_daily_hours=params.default_daily_hours,
                     new_employee_fallback=params.new_employee_fallback,
                     lookback_days=params.lookback_days or 30,
+                    percentage=params.percentage,
+                    include_vacation_pay=params.include_vacation_pay,
+                    include_previous_holiday_pay=params.include_previous_holiday_pay,
+                    include_sick_pay=params.include_sick_pay,
+                    current_run_id=current_run_id,
                 )
             case "3_week_average_nl":
                 return self.formula_calculators.apply_3_week_average_nl(
@@ -522,6 +550,10 @@ class HolidayPayCalculator:
         default_daily_hours: Decimal,
         new_employee_fallback: str | None = None,
         lookback_days: int = 30,
+        include_vacation_pay: bool = False,
+        include_previous_holiday_pay: bool = False,
+        include_sick_pay: bool = False,
+        current_run_id: str | None = None,
     ) -> Decimal:
         """Backwards-compatible wrapper for formula_calculators.apply_30_day_average."""
         return self.formula_calculators.apply_30_day_average(
@@ -533,6 +565,10 @@ class HolidayPayCalculator:
             default_daily_hours=default_daily_hours,
             new_employee_fallback=new_employee_fallback,
             lookback_days=lookback_days,
+            include_vacation_pay=include_vacation_pay,
+            include_previous_holiday_pay=include_previous_holiday_pay,
+            include_sick_pay=include_sick_pay,
+            current_run_id=current_run_id,
         )
 
     def _apply_current_period_daily(
@@ -727,10 +763,16 @@ class HolidayPayCalculator:
         return self.work_day_tracker.get_days_worked_in_4_weeks(employee_id, holiday_date)
 
     def _count_days_worked_in_period(
-        self, entries: list[dict[str, Any]], start_date: date, end_date: date
+        self,
+        entries: list[dict[str, Any]],
+        start_date: date,
+        end_date: date,
+        employee_id: str | None = None,
     ) -> int:
         """Backwards-compatible wrapper for work_day_tracker."""
-        return self.work_day_tracker.count_days_worked_in_period(entries, start_date, end_date)
+        return self.work_day_tracker.count_days_worked_in_period(
+            entries, start_date, end_date, employee_id=employee_id
+        )
 
     def _get_normal_daily_hours(
         self, employee: dict[str, Any], config: HolidayPayConfig, holiday_date: date

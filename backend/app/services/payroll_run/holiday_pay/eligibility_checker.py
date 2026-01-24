@@ -134,6 +134,7 @@ class EligibilityChecker:
                 timesheet_entries,
                 holiday_date - timedelta(days=30),
                 holiday_date,
+                employee_id=employee.get("id"),
             )
             if days_worked < min_days_worked:
                 logger.debug(
@@ -214,6 +215,7 @@ class EligibilityChecker:
                 timesheet_entries,
                 holiday_date - timedelta(days=30),
                 holiday_date,
+                employee_id=employee.get("id"),
             )
             if days_worked < min_days_worked:
                 return f"only {days_worked} days worked in 30-day period (need {min_days_worked})"

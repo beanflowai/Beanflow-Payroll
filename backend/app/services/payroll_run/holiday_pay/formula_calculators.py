@@ -67,10 +67,21 @@ class FormulaCalculators:
         default_daily_hours: Decimal,
         new_employee_fallback: str | None,
         lookback_days: int = 30,
+        percentage: Decimal | None = None,
+        include_vacation_pay: bool = False,
+        include_previous_holiday_pay: bool = False,
+        include_sick_pay: bool = False,
+        current_run_id: str | None = None,
     ) -> Decimal:
         """Apply BC-style 30-day average formula.
 
         Official formula: total wages in 30 days / days with wages
+
+        Per BC ESA s.45, "wages" includes:
+        - Regular wages
+        - Statutory holiday pay
+        - Annual vacation pay
+        - Sick pay
 
         Methods:
         - "total_wages_div_days": Total wages / number of unique days with pay
@@ -86,6 +97,11 @@ class FormulaCalculators:
             default_daily_hours: Fallback daily hours for new employees
             new_employee_fallback: How to handle new employees
             lookback_days: Number of days to look back (default: 30)
+            percentage: Optional percentage for alternative calculation
+            include_vacation_pay: Whether to include vacation pay in wages (BC/NS)
+            include_previous_holiday_pay: Whether to include previous holiday pay (BC/NS)
+            include_sick_pay: Whether to include sick pay in wages (BC)
+            current_run_id: Current run ID to exclude from queries
 
         Returns:
             One day's pay as Decimal
@@ -142,6 +158,72 @@ class FormulaCalculators:
 
             days_worked = len(days_with_work)
 
+            total_wages = total_hours * hourly_rate
+
+            # Fetch vacation pay and holiday pay from payroll records if needed (BC/NS)
+            vacation_pay = Decimal("0")
+            previous_holiday_pay = Decimal("0")
+
+            if include_vacation_pay or include_previous_holiday_pay:
+                try:
+                    payroll_result = self.supabase.table("payroll_records").select(
+                        "vacation_pay_paid, holiday_pay, "
+                        "payroll_runs!inner(id, pay_date, status)"
+                    ).eq(
+                        "employee_id", employee_id
+                    ).gte(
+                        "payroll_runs.pay_date", start_date.isoformat()
+                    ).lt(
+                        "payroll_runs.pay_date", end_date.isoformat()
+                    ).in_(
+                        "payroll_runs.status", COMPLETED_RUN_STATUSES
+                    ).execute()
+
+                    # Exclude current run if provided
+                    records = payroll_result.data or []
+                    for record in records:
+                        run_info = record.get("payroll_runs", {})
+                        if current_run_id and run_info.get("id") == current_run_id:
+                            continue
+
+                        if include_vacation_pay:
+                            vac_pay = Decimal(str(record.get("vacation_pay_paid", 0) or 0))
+                            vacation_pay += vac_pay
+
+                        if include_previous_holiday_pay:
+                            hol_pay = Decimal(str(record.get("holiday_pay", 0) or 0))
+                            previous_holiday_pay += hol_pay
+
+                    if vacation_pay > 0 or previous_holiday_pay > 0:
+                        logger.debug(
+                            "30-day avg: Adding vacation_pay=$%.2f, holiday_pay=$%.2f for %s",
+                            float(vacation_pay), float(previous_holiday_pay), employee_id
+                        )
+
+                except Exception as e:
+                    logger.warning(
+                        "Failed to fetch vacation/holiday pay for %s: %s",
+                        employee_id, e
+                    )
+
+            # Add vacation pay and holiday pay to total wages
+            total_wages += vacation_pay + previous_holiday_pay
+
+            # Fetch sick pay if needed (BC ESA s.45)
+            sick_pay = Decimal("0")
+            if include_sick_pay:
+                sick_pay = self._get_sick_pay_in_period(employee_id, start_date, end_date)
+                total_wages += sick_pay
+
+            # Alternative: percentage-based calculation (removed for clarity)
+            if percentage is not None:
+                holiday_pay = total_wages * percentage
+                logger.debug(
+                    "30-day avg (percentage): employee=%s, wages=$%.2f x %.1f%% = $%.2f",
+                    employee_id, float(total_wages), float(percentage * 100), float(holiday_pay)
+                )
+                return holiday_pay
+
             if days_worked == 0:
                 logger.warning(
                     "30-day avg: Employee %s has 0 days with hours", employee_id
@@ -152,12 +234,14 @@ class FormulaCalculators:
                 avg_daily_hours = total_hours / Decimal(str(days_worked))
                 daily_pay = avg_daily_hours * hourly_rate
             else:
-                total_wages = total_hours * hourly_rate
                 daily_pay = total_wages / Decimal(str(days_worked))
 
             logger.debug(
-                "30-day avg: employee=%s, method=%s, daily_pay=$%.2f",
-                employee_id, method, float(daily_pay)
+                "30-day avg: employee=%s, method=%s, daily_pay=$%.2f "
+                "(timesheet_wages=$%.2f, vacation=$%.2f, holiday=$%.2f, sick=$%.2f)",
+                employee_id, method, float(daily_pay),
+                float(total_hours * hourly_rate), float(vacation_pay),
+                float(previous_holiday_pay), float(sick_pay)
             )
 
             return daily_pay
@@ -166,6 +250,54 @@ class FormulaCalculators:
             logger.error("Failed to calculate 30-day average: %s", e)
             hourly_rate = GrossCalculator.calculate_hourly_rate(employee)
             return default_daily_hours * hourly_rate
+
+    def _get_sick_pay_in_period(
+        self,
+        employee_id: str,
+        start_date: date,
+        end_date: date,
+    ) -> Decimal:
+        """Get total paid sick leave amount in the period.
+
+        Per BC ESA s.45, wages include sick pay for holiday pay calculation.
+
+        Args:
+            employee_id: Employee ID
+            start_date: Start of lookback period
+            end_date: End of lookback period
+
+        Returns:
+            Total sick pay as Decimal
+        """
+        try:
+            result = self.supabase.table("sick_leave_usage_history").select(
+                "sick_pay_amount"
+            ).eq(
+                "employee_id", employee_id
+            ).eq(
+                "is_paid", True
+            ).gte(
+                "usage_date", start_date.isoformat()
+            ).lte(
+                "usage_date", end_date.isoformat()
+            ).execute()
+
+            total_sick_pay = Decimal("0")
+            for record in result.data or []:
+                amount = record.get("sick_pay_amount")
+                if amount:
+                    total_sick_pay += Decimal(str(amount))
+
+            if total_sick_pay > 0:
+                logger.debug(
+                    "Sick pay in period for %s: $%.2f",
+                    employee_id, float(total_sick_pay)
+                )
+
+            return total_sick_pay
+        except Exception as e:
+            logger.warning("Failed to get sick pay for %s: %s", employee_id, e)
+            return Decimal("0")
 
     def apply_current_period_daily(
         self,

@@ -71,28 +71,32 @@ class WorkDayTracker:
         entries: list[dict[str, Any]],
         start_date: date,
         end_date: date,
+        employee_id: str | None = None,
     ) -> int:
-        """Count unique days with work in date range.
+        """Count unique days entitled to wages in date range.
 
         Used for BC/NS/PE "15 of 30 days" eligibility rule.
 
-        LIMITATION: Currently only counts days with hours > 0 from timesheet
-        entries. Per official rules (BC ESA, NS LSC, PEI ESA), this should
-        count days "entitled to wages" which includes:
-        - Days actually worked (currently counted)
-        - Paid vacation days (currently NOT counted)
-        - Paid sick leave (currently NOT counted)
-        - Other paid leave days (currently NOT counted)
+        Per official rules (BC ESA, NS LSC, PEI ESA), this counts days
+        "entitled to wages" which includes:
+        - Days actually worked (from timesheet entries)
+        - Paid sick leave days (from sick_leave_usage_history)
+
+        Note: Paid vacation days are not yet tracked at the day level,
+        so they are not included in this count.
 
         Args:
             entries: List of timesheet entries
             start_date: Start of date range (inclusive)
             end_date: End of date range (inclusive)
+            employee_id: Optional employee ID to query paid leave days
 
         Returns:
-            Number of unique days with hours > 0
+            Number of unique days entitled to wages
         """
-        days_with_work: set[date] = set()
+        days_with_wages: set[date] = set()
+
+        # Count days with work hours from timesheet
         for entry in entries:
             work_date_str = entry.get("work_date")
             if not work_date_str:
@@ -105,8 +109,66 @@ class WorkDayTracker:
                 regular = Decimal(str(entry.get("regular_hours", 0) or 0))
                 overtime = Decimal(str(entry.get("overtime_hours", 0) or 0))
                 if regular + overtime > 0:
-                    days_with_work.add(work_date)
-        return len(days_with_work)
+                    days_with_wages.add(work_date)
+
+        # Count paid sick leave days
+        if employee_id:
+            paid_leave_days = self._get_paid_leave_days(employee_id, start_date, end_date)
+            days_with_wages.update(paid_leave_days)
+
+        return len(days_with_wages)
+
+    def _get_paid_leave_days(
+        self,
+        employee_id: str,
+        start_date: date,
+        end_date: date,
+    ) -> set[date]:
+        """Get dates of paid leave (sick leave) for an employee.
+
+        Queries sick_leave_usage_history for paid sick leave days.
+
+        Args:
+            employee_id: Employee ID
+            start_date: Start of date range (inclusive)
+            end_date: End of date range (inclusive)
+
+        Returns:
+            Set of dates with paid leave
+        """
+        paid_leave_dates: set[date] = set()
+
+        try:
+            result = self.supabase.table("sick_leave_usage_history").select(
+                "usage_date"
+            ).eq(
+                "employee_id", employee_id
+            ).eq(
+                "is_paid", True
+            ).gte(
+                "usage_date", start_date.isoformat()
+            ).lte(
+                "usage_date", end_date.isoformat()
+            ).execute()
+
+            for record in result.data or []:
+                usage_date_str = record.get("usage_date")
+                if usage_date_str:
+                    try:
+                        paid_leave_dates.add(date.fromisoformat(usage_date_str))
+                    except (ValueError, TypeError):
+                        continue
+
+            if paid_leave_dates:
+                logger.debug(
+                    "Found %d paid sick leave days for employee %s in range %s to %s",
+                    len(paid_leave_dates), employee_id, start_date, end_date
+                )
+
+        except Exception as e:
+            logger.warning("Failed to query paid leave days for %s: %s", employee_id, e)
+
+        return paid_leave_dates
 
     def get_normal_daily_hours(
         self,
@@ -423,7 +485,7 @@ class WorkDayTracker:
             weeks_before = config.formula_params.alberta_5_of_9_weeks or 9
             base_threshold = config.formula_params.alberta_5_of_9_threshold or 5
 
-        start_of_week = holiday_date - timedelta(days=holiday_date.weekday() + 1)
+        start_of_week = holiday_date - timedelta(days=(holiday_date.weekday() + 1) % 7)
         start_date = start_of_week - timedelta(weeks=weeks_before)
         end_date = holiday_date - timedelta(days=1)
 
@@ -461,5 +523,11 @@ class WorkDayTracker:
 
             return is_regular
         except Exception as e:
-            logger.warning("Failed to check 5 of 9 rule: %s", e)
+            # Fail-open: assume it IS a regular work day if query fails
+            # This prevents penalizing employees due to system errors
+            logger.warning(
+                "Failed to check 5 of 9 rule for employee %s: %s. "
+                "Assuming regular work day (fail-open).",
+                employee_id, e
+            )
             return True

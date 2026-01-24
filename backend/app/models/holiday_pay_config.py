@@ -42,6 +42,9 @@ class HolidayPayFormulaParams:
     percentage: Decimal | None = None  # e.g., 0.05 for 5%
     include_previous_holiday_pay: bool = False
 
+    # BC ESA s.45 requires sick pay in wages base
+    include_sick_pay: bool = False
+
     # Common parameters
     include_overtime: bool = False
     default_daily_hours: Decimal = field(default_factory=lambda: Decimal("8"))

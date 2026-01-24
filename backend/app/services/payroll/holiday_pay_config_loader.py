@@ -196,6 +196,8 @@ def _dict_to_config(province_data: dict[str, Any]) -> HolidayPayConfig:
         # For Saskatchewan 5% formula
         percentage=percentage,
         include_previous_holiday_pay=formula_params_dict.get("include_previous_holiday_pay", False),
+        # BC ESA s.45 requires sick pay in wages base
+        include_sick_pay=formula_params_dict.get("include_sick_pay", False),
         # New employee fallback handling
         new_employee_fallback=formula_params_dict.get("new_employee_fallback"),
         # Configurable time periods
