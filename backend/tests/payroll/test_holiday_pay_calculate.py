@@ -1341,8 +1341,8 @@ class TestAlbertaDaysWorkedCalculation:
 
         assert count == 0, f"Expected 0 days (no entries), got {count}"
 
-    def test_get_days_worked_db_error_fallback(self, holiday_calculator):
-        """Test fallback on database error."""
+    def test_get_days_worked_db_error_returns_zero(self, holiday_calculator):
+        """Test that database error returns 0 (caller handles fallback)."""
         employee_id = "emp-alberta-003"
         holiday_date = date(2025, 12, 25)
 
@@ -1351,7 +1351,8 @@ class TestAlbertaDaysWorkedCalculation:
 
         count = holiday_calculator._get_days_worked_in_4_weeks(employee_id, holiday_date)
 
-        assert count == 20, f"Expected 20 (fallback), got {count}"
+        # Method returns 0 on error; caller decides how to handle (e.g., use calculated days)
+        assert count == 0, f"Expected 0 (error condition), got {count}"
 
     def test_apply_4_week_daily_uses_actual_days(self, holiday_calculator):
         """Test _apply_4_week_daily uses actual days worked, not hardcoded 20."""
@@ -1702,3 +1703,309 @@ class TestAlbertaNonRegularDayPay:
         # Premium pay: 8h × $20 × 1.5 = $240
         assert result.regular_holiday_pay == Decimal("0")
         assert result.premium_holiday_pay == Decimal("240")
+
+
+# =============================================================================
+# NT Salaried Employee Work Days Calculation Tests
+# =============================================================================
+
+
+class TestNTSalariedWorkDaysCalculation:
+    """Tests for NT salaried employee work days calculation.
+
+    Per NWT ESA s.17: For salaried employees without timesheet entries,
+    work days are calculated as: business days - sick leave - vacation - holidays
+    """
+
+    def test_calculate_business_days_4_weeks(self, holiday_calculator):
+        """Test business days calculation for a standard 4-week period."""
+        # 4 weeks = 28 days, should have 20 business days (Mon-Fri)
+        start_date = date(2025, 12, 1)  # Monday
+        end_date = date(2025, 12, 29)   # Monday (28 days later)
+
+        count = holiday_calculator.work_day_tracker.calculate_business_days(
+            start_date, end_date
+        )
+
+        assert count == 20, f"Expected 20 business days in 4 weeks, got {count}"
+
+    def test_calculate_business_days_includes_partial_week(self, holiday_calculator):
+        """Test business days with partial week."""
+        # Wed Dec 24 to Wed Dec 31 (7 days) = 5 business days
+        start_date = date(2025, 12, 24)  # Wednesday
+        end_date = date(2025, 12, 31)    # Wednesday (exclusive)
+
+        count = holiday_calculator.work_day_tracker.calculate_business_days(
+            start_date, end_date
+        )
+
+        # Dec 24 (Wed), 25 (Thu), 26 (Fri), 29 (Mon), 30 (Tue) = 5 days
+        assert count == 5, f"Expected 5 business days, got {count}"
+
+    def test_get_salaried_work_days_no_leaves(self, holiday_calculator):
+        """Test salaried work days with no leave deductions."""
+        employee_id = "emp-nt-salaried"
+        holiday_date = date(2025, 12, 25)  # Thursday
+
+        # Mock: no sick leave
+        mock_sick_leave = MagicMock()
+        mock_sick_leave.data = []
+
+        # Mock: no vacation hours
+        mock_vacation = MagicMock()
+        mock_vacation.data = []
+
+        # Mock: no statutory holidays in the 4-week period
+        mock_holidays = MagicMock()
+        mock_holidays.data = []
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "sick_leave_usage_history":
+                mock_table.select.return_value.eq.return_value.eq.return_value.gte.return_value.lte.return_value.execute.return_value = mock_sick_leave
+            elif table_name == "payroll_records":
+                mock_table.select.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = mock_vacation
+            elif table_name == "statutory_holidays":
+                mock_table.select.return_value.eq.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = mock_holidays
+            return mock_table
+
+        holiday_calculator.supabase.table.side_effect = table_side_effect
+
+        count = holiday_calculator.work_day_tracker.get_salaried_work_days_in_4_weeks(
+            employee_id=employee_id,
+            holiday_date=holiday_date,
+            province="NT",
+            default_daily_hours=Decimal("8"),
+        )
+
+        # 4 weeks = 20 business days, no deductions
+        assert count == 20, f"Expected 20 work days, got {count}"
+
+    def test_get_salaried_work_days_with_unpaid_sick_leave(self, holiday_calculator):
+        """Test salaried work days with UNPAID sick leave deduction.
+
+        CORRECTED per BC ESA: Only UNPAID sick leave reduces the count.
+        Paid sick leave is "entitled to wages" and should NOT be deducted.
+        """
+        employee_id = "emp-nt-salaried-sick"
+        holiday_date = date(2025, 12, 25)
+
+        # Mock: 3 UNPAID sick leave days
+        mock_unpaid_sick = MagicMock()
+        mock_unpaid_sick.data = [
+            {"usage_date": "2025-12-01"},
+            {"usage_date": "2025-12-02"},
+            {"usage_date": "2025-12-03"},
+        ]
+
+        mock_empty = MagicMock()
+        mock_empty.data = []
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "sick_leave_usage_history":
+                # New logic queries is_paid=False for unpaid sick leave
+                def mock_eq_chain(*args, **kwargs):
+                    result_mock = MagicMock()
+                    if args == ("is_paid", False):
+                        # Return unpaid sick leave days
+                        result_mock.gte.return_value.lt.return_value.execute.return_value = mock_unpaid_sick
+                    else:
+                        # is_paid=True returns empty (no paid sick leave)
+                        result_mock.gte.return_value.lt.return_value.execute.return_value = mock_empty
+                        result_mock.gte.return_value.lte.return_value.execute.return_value = mock_empty
+                    return result_mock
+                mock_table.select.return_value.eq.return_value.eq.side_effect = mock_eq_chain
+            return mock_table
+
+        holiday_calculator.supabase.table.side_effect = table_side_effect
+
+        count = holiday_calculator.work_day_tracker.get_salaried_work_days_in_4_weeks(
+            employee_id=employee_id,
+            holiday_date=holiday_date,
+            province="NT",
+            default_daily_hours=Decimal("8"),
+        )
+
+        # CORRECTED: 20 business days - 3 UNPAID sick days = 17
+        assert count == 17, f"Expected 17 work days, got {count}"
+
+    def test_get_salaried_work_days_paid_sick_does_not_reduce(self, holiday_calculator):
+        """Test that PAID sick leave does NOT reduce work days count.
+
+        Per BC ESA: Paid sick leave is "entitled to wages" and should
+        count toward the eligibility requirement, not reduce it.
+        """
+        employee_id = "emp-nt-salaried-paid-sick"
+        holiday_date = date(2025, 12, 25)
+
+        # Mock: 3 PAID sick leave days (should NOT reduce count)
+        mock_paid_sick = MagicMock()
+        mock_paid_sick.data = [
+            {"usage_date": "2025-12-01"},
+            {"usage_date": "2025-12-02"},
+            {"usage_date": "2025-12-03"},
+        ]
+
+        mock_empty = MagicMock()
+        mock_empty.data = []
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "sick_leave_usage_history":
+                def mock_eq_chain(*args, **kwargs):
+                    result_mock = MagicMock()
+                    if args == ("is_paid", False):
+                        # No unpaid sick leave
+                        result_mock.gte.return_value.lt.return_value.execute.return_value = mock_empty
+                    else:
+                        # 3 paid sick leave days (but these don't reduce count)
+                        result_mock.gte.return_value.lt.return_value.execute.return_value = mock_paid_sick
+                        result_mock.gte.return_value.lte.return_value.execute.return_value = mock_paid_sick
+                    return result_mock
+                mock_table.select.return_value.eq.return_value.eq.side_effect = mock_eq_chain
+            return mock_table
+
+        holiday_calculator.supabase.table.side_effect = table_side_effect
+
+        count = holiday_calculator.work_day_tracker.get_salaried_work_days_in_4_weeks(
+            employee_id=employee_id,
+            holiday_date=holiday_date,
+            province="NT",
+            default_daily_hours=Decimal("8"),
+        )
+
+        # CORRECTED: Paid sick leave = "entitled to wages" → still 20 business days
+        assert count == 20, f"Expected 20 work days (paid sick doesn't reduce), got {count}"
+
+    def test_get_salaried_work_days_vacation_does_not_reduce(self, holiday_calculator):
+        """Test that vacation does NOT reduce work days count.
+
+        CORRECTED per BC ESA: Vacation days are "entitled to wages" because
+        employees receive vacation pay. Vacation should NOT be deducted
+        from the 15/30 eligibility count or the 4-week average denominator.
+        """
+        employee_id = "emp-nt-salaried-vacation"
+        holiday_date = date(2025, 12, 25)
+
+        mock_empty = MagicMock()
+        mock_empty.data = []
+
+        # Mock: 16 vacation hours = 2 days (but no longer reduces count)
+        mock_vacation = MagicMock()
+        mock_vacation.data = [{"vacation_hours_taken": "16"}]
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "sick_leave_usage_history":
+                # No unpaid sick leave
+                def mock_eq_chain(*args, **kwargs):
+                    result_mock = MagicMock()
+                    result_mock.gte.return_value.lt.return_value.execute.return_value = mock_empty
+                    result_mock.gte.return_value.lte.return_value.execute.return_value = mock_empty
+                    return result_mock
+                mock_table.select.return_value.eq.return_value.eq.side_effect = mock_eq_chain
+            elif table_name == "payroll_records":
+                mock_table.select.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = mock_vacation
+            return mock_table
+
+        holiday_calculator.supabase.table.side_effect = table_side_effect
+
+        count = holiday_calculator.work_day_tracker.get_salaried_work_days_in_4_weeks(
+            employee_id=employee_id,
+            holiday_date=holiday_date,
+            province="NT",
+            default_daily_hours=Decimal("8"),
+        )
+
+        # CORRECTED: Vacation = "entitled to wages" (vacation pay) → still 20 business days
+        assert count == 20, f"Expected 20 work days (vacation doesn't reduce), got {count}"
+
+    def test_get_salaried_work_days_stat_holidays_do_not_reduce(self, holiday_calculator):
+        """Test that statutory holidays do NOT reduce work days count.
+
+        CORRECTED per BC ESA: Statutory holidays are "entitled to wages"
+        because employees receive holiday pay. Stat holidays should NOT
+        be deducted from the 15/30 eligibility count or 4-week denominator.
+        """
+        employee_id = "emp-nt-salaried-holiday"
+        holiday_date = date(2025, 12, 25)
+
+        mock_empty = MagicMock()
+        mock_empty.data = []
+
+        # Mock: 1 statutory holiday on a weekday (but no longer reduces count)
+        mock_holidays = MagicMock()
+        mock_holidays.data = [
+            {"holiday_date": "2025-12-01"}  # Monday
+        ]
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "sick_leave_usage_history":
+                # No unpaid sick leave
+                def mock_eq_chain(*args, **kwargs):
+                    result_mock = MagicMock()
+                    result_mock.gte.return_value.lt.return_value.execute.return_value = mock_empty
+                    result_mock.gte.return_value.lte.return_value.execute.return_value = mock_empty
+                    return result_mock
+                mock_table.select.return_value.eq.return_value.eq.side_effect = mock_eq_chain
+            elif table_name == "statutory_holidays":
+                mock_table.select.return_value.eq.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = mock_holidays
+            return mock_table
+
+        holiday_calculator.supabase.table.side_effect = table_side_effect
+
+        count = holiday_calculator.work_day_tracker.get_salaried_work_days_in_4_weeks(
+            employee_id=employee_id,
+            holiday_date=holiday_date,
+            province="NT",
+            default_daily_hours=Decimal("8"),
+        )
+
+        # CORRECTED: Stat holidays = "entitled to wages" (holiday pay) → still 20 business days
+        assert count == 20, f"Expected 20 work days (stat holidays don't reduce), got {count}"
+
+    def test_get_salaried_work_days_minimum_one(self, holiday_calculator):
+        """Test that work days never returns less than 1 (avoid division by zero).
+
+        Even with excessive UNPAID sick leave, the method should return
+        minimum 1 to prevent division by zero in salary calculations.
+        """
+        employee_id = "emp-nt-salaried-heavy-leave"
+        holiday_date = date(2025, 12, 25)
+
+        # Mock: excessive UNPAID sick leave (25 days - more than business days)
+        mock_unpaid_sick = MagicMock()
+        mock_unpaid_sick.data = [{"usage_date": f"2025-12-{i:02d}"} for i in range(1, 26)]
+
+        mock_empty = MagicMock()
+        mock_empty.data = []
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "sick_leave_usage_history":
+                def mock_eq_chain(*args, **kwargs):
+                    result_mock = MagicMock()
+                    if args == ("is_paid", False):
+                        # 25 unpaid sick leave days (exceeds business days)
+                        result_mock.gte.return_value.lt.return_value.execute.return_value = mock_unpaid_sick
+                    else:
+                        result_mock.gte.return_value.lt.return_value.execute.return_value = mock_empty
+                        result_mock.gte.return_value.lte.return_value.execute.return_value = mock_empty
+                    return result_mock
+                mock_table.select.return_value.eq.return_value.eq.side_effect = mock_eq_chain
+            return mock_table
+
+        holiday_calculator.supabase.table.side_effect = table_side_effect
+
+        count = holiday_calculator.work_day_tracker.get_salaried_work_days_in_4_weeks(
+            employee_id=employee_id,
+            holiday_date=holiday_date,
+            province="NT",
+            default_daily_hours=Decimal("8"),
+        )
+
+        # Should return minimum 1 even when calculation goes negative
+        # 20 business days - 25 unpaid sick = -5 → clamped to 1
+        assert count >= 1, f"Expected minimum 1 work day, got {count}"

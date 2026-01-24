@@ -334,7 +334,7 @@ def all_provinces():
 
 
 def make_bc_config() -> HolidayPayConfig:
-    """Create BC test config."""
+    """Create BC test config (simplified without 15/30 rule)."""
     return HolidayPayConfig(
         province_code="BC",
         formula_type="30_day_average",
@@ -346,6 +346,32 @@ def make_bc_config() -> HolidayPayConfig:
         eligibility=HolidayPayEligibility(
             min_employment_days=30,
             require_last_first_rule=False,
+        ),
+        premium_rate=Decimal("1.5"),
+    )
+
+
+def make_bc_15_30_config() -> HolidayPayConfig:
+    """Create BC test config with 15/30 eligibility rule (production-like).
+
+    BC requires:
+    - 30 calendar days of employment
+    - Must have worked or earned wages on 15 of 30 days before the holiday
+    """
+    return HolidayPayConfig(
+        province_code="BC",
+        formula_type="30_day_average",
+        formula_params=HolidayPayFormulaParams(
+            lookback_days=30,
+            method="total_wages_div_days",
+            default_daily_hours=Decimal("8"),
+            eligibility_lookback_days=30,
+            new_employee_fallback="ineligible",
+        ),
+        eligibility=HolidayPayEligibility(
+            min_employment_days=30,
+            require_last_first_rule=False,
+            min_days_worked_in_period=15,
         ),
         premium_rate=Decimal("1.5"),
     )

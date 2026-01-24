@@ -386,6 +386,14 @@ class HolidayPayCalculator:
 
         match formula_type:
             case "4_week_average":
+                # TODO: QC/Federal commission employees should use 1/60 divisor
+                # with 12-week lookback instead of 1/20 with 4-week lookback.
+                # Config already has commission_divisor and commission_lookback_weeks.
+                # The apply_commission() formula is implemented and ready to use.
+                # Deferred until QC implementation is complete - requires adding
+                # compensation_type == "commission" branch here to route to
+                # self.formula_calculators.apply_commission().
+                # See: payroll/docs/holiday-pay-known-limitations.md
                 return self.formula_calculators.apply_4_week_average(
                     employee_id=employee["id"],
                     holiday_date=holiday_date,
@@ -486,6 +494,7 @@ class HolidayPayCalculator:
                         employee_fallback=employee,
                         new_employee_fallback=params.new_employee_fallback,
                         default_daily_hours=params.default_daily_hours,
+                        province="NT",
                     )
                 else:
                     # Hourly: Use actual normal hours of work from recent history
@@ -503,6 +512,40 @@ class HolidayPayCalculator:
                         float(daily_pay),
                     )
                     return daily_pay
+            case "yt_split_by_employment":
+                # Yukon ESA:
+                # - Regular employees: regular day's pay (30_day_average formula)
+                # - Irregular hours (casual): 10% of wages in 2 weeks prior
+                # Per Yukon ESA, casual/irregular employees use percentage-based formula
+                employment_type = employee.get("employment_type", "").lower()
+                if employment_type == "casual":
+                    # Casual/irregular hours employees: 10% of wages in 2 weeks
+                    return self.formula_calculators.apply_irregular_hours(
+                        employee_id=employee["id"],
+                        employee=employee,
+                        holiday_date=holiday_date,
+                        current_run_id=current_run_id,
+                        percentage=params.irregular_hours_percentage or Decimal("0.10"),
+                        lookback_weeks=params.irregular_hours_lookback_weeks or 2,
+                        include_overtime=params.include_overtime,
+                    )
+                else:
+                    # Regular employees: use 30_day_average formula
+                    return self.formula_calculators.apply_30_day_average(
+                        employee_id=employee["id"],
+                        employee=employee,
+                        holiday_date=holiday_date,
+                        current_run_id=current_run_id,
+                        method=params.method or "total_wages_div_days",
+                        lookback_days=params.lookback_days or 30,
+                        include_overtime=params.include_overtime,
+                        include_vacation_pay=params.include_vacation_pay,
+                        include_sick_pay=params.include_sick_pay,
+                        include_previous_holiday_pay=params.include_previous_holiday_pay,
+                        employee_fallback=employee,
+                        new_employee_fallback=params.new_employee_fallback,
+                        default_daily_hours=params.default_daily_hours,
+                    )
             case _:
                 logger.error(
                     "Unknown formula_type '%s' for province %s",

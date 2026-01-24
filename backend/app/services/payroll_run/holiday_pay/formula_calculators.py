@@ -723,6 +723,7 @@ class FormulaCalculators:
         employee_fallback: dict[str, Any],
         new_employee_fallback: str | None,
         default_daily_hours: Decimal = Decimal("8"),
+        province: str = "NT",
     ) -> Decimal:
         """Apply 4-week average formula using payroll_records for salaried employees.
 
@@ -730,6 +731,13 @@ class FormulaCalculators:
         Gets wages from payroll_records (not timesheet) and divides by actual days worked.
 
         Per NWT ESA s.17: "average day's pay" = wages in 4 weeks / days worked
+
+        For salaried employees without timesheet entries, work days are calculated as:
+        business days (Mon-Fri) - unpaid sick leave days
+
+        Note: Vacation days and statutory holidays are NOT subtracted because
+        salaried employees are entitled to wages on those days (they are paid leave).
+        Only unpaid sick leave reduces the work day count.
 
         Args:
             employee_id: Employee ID
@@ -739,6 +747,7 @@ class FormulaCalculators:
             employee_fallback: Employee data for fallback
             new_employee_fallback: Config-driven fallback for new employees
             default_daily_hours: Fallback daily hours for new employees
+            province: Province code for statutory holiday lookup (default: "NT")
 
         Returns:
             One day's pay as Decimal
@@ -766,12 +775,24 @@ class FormulaCalculators:
                 return Decimal("0")
 
         # Get days worked from timesheet (salaried may still have some entries)
-        # or fall back to standard 20 work days in 4 weeks
         days_worked = self.work_day_tracker.get_days_worked_in_4_weeks(
             employee_id, holiday_date
         )
+
         if days_worked == 0:
-            days_worked = 20  # Standard 4-week work days
+            # Salaried employees typically don't have timesheet entries.
+            # Calculate work days from: business days - leaves - holidays
+            # Per NWT ESA s.17: "average day's pay" based on actual days worked
+            days_worked = self.work_day_tracker.get_salaried_work_days_in_4_weeks(
+                employee_id=employee_id,
+                holiday_date=holiday_date,
+                province=province,
+                default_daily_hours=default_daily_hours,
+            )
+            logger.info(
+                "NT salary using calculated work days for %s: %d (business days - leaves)",
+                employee_id, days_worked
+            )
 
         daily_pay = total_wages / Decimal(str(days_worked))
 

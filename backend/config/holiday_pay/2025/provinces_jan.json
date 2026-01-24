@@ -19,7 +19,8 @@
       "eligibility": {
         "min_employment_days": 0,
         "require_last_first_rule": true,
-        "notes": "No minimum employment period, but must work last scheduled shift before and first scheduled shift after the holiday"
+        "premium_requires_eligibility": false,
+        "notes": "No minimum employment period, but must work last scheduled shift before and first scheduled shift after the holiday. ESA s.24: All employees working on public holiday receive 1.5x premium pay regardless of eligibility status."
       },
       "premium_rate": 1.5,
       "notes": "Ontario ESA s.24 - (total wages in 4 weeks + vacation pay) / 20",
@@ -76,7 +77,8 @@
         "require_last_first_rule": true,
         "count_work_days": true,
         "eligibility_period_months": 12,
-        "notes": "30 work days in preceding 12 months, must work last shift before and first shift after holiday"
+        "premium_requires_eligibility": false,
+        "notes": "30 work days in preceding 12 months, must work last shift before and first shift after holiday. ESC s.25: Employees working on holiday receive 1.5x regardless of eligibility."
       },
       "premium_rate": 1.5,
       "notes": "Alberta ESC s.25 - wages in 4 weeks / days worked in 4 weeks. 5 of 9 rule for regular work day determination.",
@@ -99,7 +101,8 @@
       "eligibility": {
         "min_employment_days": 0,
         "require_last_first_rule": true,
-        "notes": "No minimum employment period. Must not be absent without valid reason on day before or after holiday."
+        "premium_requires_eligibility": false,
+        "notes": "No minimum employment period. Must not be absent without valid reason on day before or after holiday. Labour Standards Act: Working on holiday = 1.5x premium + compensation."
       },
       "premium_rate": 1.5,
       "notes": "Quebec Labour Standards Act (CNESST) - 1/20 of wages in 4 weeks before holiday week. Vacation pay must be included per CNESST rules. Commission employees: 1/60 of wages in 12 weeks (pending implementation, requires employee type identifier support).",
@@ -122,7 +125,8 @@
       "eligibility": {
         "min_employment_days": 0,
         "require_last_first_rule": true,
-        "notes": "No minimum employment period. Must not be absent without permission on last scheduled day before or first scheduled day after holiday."
+        "premium_requires_eligibility": false,
+        "notes": "No minimum employment period. Must not be absent without permission on last scheduled day before or first scheduled day after holiday. ESC: All employees working on general holiday receive 1.5x premium."
       },
       "premium_rate": 1.5,
       "notes": "Manitoba Employment Standards Code - 5% of gross wages in 4-week period. Construction industry: 4%.",
@@ -144,7 +148,8 @@
       "eligibility": {
         "min_employment_days": 0,
         "require_last_first_rule": false,
-        "notes": "No minimum employment period required"
+        "premium_requires_eligibility": false,
+        "notes": "No minimum employment period required. Employment Act: All employees working on public holiday receive 1.5x premium."
       },
       "premium_rate": 1.5,
       "notes": "Saskatchewan Employment Act - 5% of wages in preceding 28 days. Official calculator available.",
@@ -165,7 +170,8 @@
       "eligibility": {
         "min_employment_days": 90,
         "require_last_first_rule": true,
-        "notes": "90 days of employment in 12 months prior. Must work scheduled day before and after holiday."
+        "premium_requires_eligibility": false,
+        "notes": "90 days of employment in 12 months prior. Must work scheduled day before and after holiday. ESA: All employees entitled to 1.5x for hours worked on public holiday."
       },
       "premium_rate": 1.5,
       "notes": "New Brunswick Employment Standards Act - regular day's wage (30-day average). NB hourly employees use Daily Average; does not implement 4% alternative method (employer-choice option, requires separate configuration).",
@@ -189,7 +195,8 @@
         "min_employment_days": 30,
         "min_days_worked_in_period": 15,
         "require_last_first_rule": true,
-        "notes": "Must be entitled to pay for at least 15 of 30 days before holiday. Must work last scheduled shift before and first scheduled shift after holiday."
+        "premium_requires_eligibility": true,
+        "notes": "Must be entitled to pay for at least 15 of 30 days before holiday. Must work last scheduled shift before and first scheduled shift after holiday. LSC: Ineligible employees may be paid as regular workday."
       },
       "premium_rate": 1.5,
       "notes": "Nova Scotia Labour Standards Code - wages in 30 days / days worked. Per NS LSC s.2, 'wages' explicitly excludes vacation pay. Previous holiday pay IS included per NS practice. Remembrance Day covered by separate Remembrance Day Act.",
@@ -211,7 +218,8 @@
         "min_employment_days": 30,
         "min_days_worked_in_period": 15,
         "require_last_first_rule": true,
-        "notes": "30 days employment required, must earn wages on 15 of 30 days, must work last shift before and first shift after holiday"
+        "premium_requires_eligibility": true,
+        "notes": "30 days employment required, must earn wages on 15 of 30 days, must work last shift before and first shift after holiday. ESA: BC-style eligibility requirements - ineligible employees receive regular wages."
       },
       "premium_rate": 1.5,
       "notes": "PEI Employment Standards Act - 15 days worked rule unique to PEI.",
@@ -233,7 +241,8 @@
       "eligibility": {
         "min_employment_days": 30,
         "require_last_first_rule": true,
-        "notes": "30 days of employment required. Must work last scheduled shift before AND first scheduled shift after holiday."
+        "premium_requires_eligibility": true,
+        "notes": "30 days of employment required. Must work last scheduled shift before AND first scheduled shift after holiday. LSA s.17: Ineligible employees may be paid as regular workday."
       },
       "premium_rate": 2.0,
       "notes": "NL Labour Standards Act - hourly rate × (hours in 3 weeks / 15). Working on holiday: double regular wages OR extra day off.",
@@ -256,7 +265,8 @@
       "eligibility": {
         "min_employment_days": 30,
         "require_last_first_rule": true,
-        "notes": "30 days employment within 12 months prior. Must work scheduled day before AND first shift after holiday."
+        "premium_requires_eligibility": true,
+        "notes": "30 days employment within 12 months prior. Must work scheduled day before AND first shift after holiday. ESA: Ineligible employees receive regular wages only."
       },
       "premium_rate": 1.5,
       "notes": "NWT Employment Standards Act - Hourly employees: normal work day's wage (daily rate). Salaried employees: average day's pay from 4-week period. Overtime threshold reduced to 32 hours in holiday week.",
@@ -277,7 +287,8 @@
       "eligibility": {
         "min_employment_days": 30,
         "require_last_first_rule": true,
-        "notes": "30 days employment within 12 months prior. Must work last scheduled shift before AND first shift after holiday."
+        "premium_requires_eligibility": true,
+        "notes": "30 days employment within 12 months prior. Must work last scheduled shift before AND first shift after holiday. LSA: Ineligible employees receive regular wages only."
       },
       "premium_rate": 1.5,
       "notes": "Nunavut Labour Standards Act.",
@@ -300,7 +311,8 @@
       "eligibility": {
         "min_employment_days": 30,
         "require_last_first_rule": true,
-        "notes": "30 calendar days employment required. Must work last scheduled shift before AND first scheduled shift after holiday (unless permitted absence)."
+        "premium_requires_eligibility": false,
+        "notes": "30 calendar days employment required. Must work last scheduled shift before AND first scheduled shift after holiday (unless permitted absence). ESA: Premium pay (1.5x) applies even if employed less than 30 days."
       },
       "premium_rate": 1.5,
       "notes": "Yukon ESA - Regular employees: regular day's pay. Irregular hours: 10% of wages (including overtime) in 2 weeks prior.",
@@ -323,7 +335,8 @@
       "eligibility": {
         "min_employment_days": 0,
         "require_last_first_rule": false,
-        "notes": "No minimum employment period. All federally regulated employees qualify for general holidays."
+        "premium_requires_eligibility": true,
+        "notes": "No minimum employment period. All federally regulated employees qualify for general holidays. CLC s.197: Premium pay (1.5x) only for employees entitled to holiday pay."
       },
       "premium_rate": 1.5,
       "notes": "Canada Labour Code Part III s.196 - 1/20th of wages in 4 weeks before holiday week. Per CLC s.186: 'Vacation pay shall for all purposes be deemed to be wages', so vacation pay IS included. Only overtime is explicitly excluded per s.196. Commission employees: 1/60 of wages in 12 weeks (pending implementation, requires employee type identifier support).",

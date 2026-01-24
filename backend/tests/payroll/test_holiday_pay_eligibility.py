@@ -18,6 +18,7 @@ from app.services.payroll_run.holiday_pay_calculator import HolidayPayCalculator
 from tests.payroll.conftest import (
     MockConfigLoader,
     make_ab_config,
+    make_bc_15_30_config,
     make_bc_config,
     make_on_config,
     make_pe_config,
@@ -732,4 +733,568 @@ class TestIneligibilityReasons:
 
         assert "10 days worked" in reason
         assert "need 15" in reason
+
+
+class TestBCSalariedEligibility:
+    """Tests for BC salaried employee 15/30 eligibility check.
+
+    BC requires employees to have worked or earned wages on 15 of the 30 days
+    before a holiday. For salaried employees without timesheet entries, this
+    is calculated as:
+    - Business days (Mon-Fri) in the 30-day period
+    - Minus: sick leave days
+    - Minus: vacation days
+    - Minus: statutory holidays on business days
+    """
+
+    def test_bc_salaried_eligible_with_calculated_work_days(self, mock_supabase):
+        """BC salaried employee with 15+ calculated work days is eligible.
+
+        A 30-day period contains ~22 business days. Without any leave,
+        the salaried employee should have 22 calculated work days > 15.
+        """
+        from app.services.payroll_run.holiday_pay_calculator import HolidayPayCalculator
+
+        # Mock empty sick leave, vacation, and stat holiday queries
+        def mock_table(table_name):
+            mock = MagicMock()
+            empty_result = MagicMock()
+            empty_result.data = []
+
+            if table_name == "sick_leave_usage_history":
+                # No sick leave days
+                mock.select.return_value.eq.return_value.eq.return_value.gte.return_value.lte.return_value.execute.return_value = empty_result
+            elif table_name == "payroll_records":
+                # No vacation hours taken
+                mock.select.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = empty_result
+            elif table_name == "statutory_holidays":
+                # No stat holidays in period
+                mock.select.return_value.eq.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = empty_result
+            elif table_name == "timesheet_entries":
+                # Empty timesheet (salaried employees don't have timesheet entries)
+                mock.select.return_value.eq.return_value.gte.return_value.lte.return_value.execute.return_value = empty_result
+            else:
+                # Default empty for any other table
+                mock.select.return_value.eq.return_value.neq.return_value.gte.return_value.lt.return_value.in_.return_value.execute.return_value = empty_result
+
+            return mock
+
+        mock_supabase.table.side_effect = mock_table
+
+        bc_loader = MockConfigLoader({"BC": make_bc_15_30_config()})
+        calculator = HolidayPayCalculator(
+            supabase=mock_supabase,
+            user_id="test-user",
+            company_id="test-company",
+            config_loader=bc_loader,
+        )
+
+        holiday_date = date(2025, 7, 1)  # Tuesday
+
+        # Salaried employee with >30 days employment (hired 60 days before holiday)
+        salaried_employee = {
+            "id": "emp-bc-salaried",
+            "first_name": "Salaried",
+            "last_name": "BC",
+            "hourly_rate": None,
+            "annual_salary": 60000.00,
+            "compensation_type": "salary",  # Key: marks as salaried
+            "hire_date": (holiday_date - timedelta(days=60)).isoformat(),
+        }
+        config = make_bc_15_30_config()
+
+        # Test eligibility directly
+        result = calculator._is_eligible_for_holiday_pay(
+            salaried_employee, holiday_date, config, timesheet_entries=None
+        )
+
+        # 30-day period has ~22 business days, no leave = 22 work days > 15
+        assert result is True
+
+    def test_bc_salaried_eligible_with_vacation(self, mock_supabase):
+        """BC salaried employee with vacation is still ELIGIBLE.
+
+        CORRECTED TEST per BC ESA:
+        Vacation days are "days entitled to wages" and should NOT be subtracted
+        from the 15/30 eligibility count. The employee receives vacation pay
+        during vacation, so these days count toward the 15-day requirement.
+
+        Previous (incorrect) expectation:
+            22 business days - 10 vacation days = 12 days < 15 → ineligible
+
+        Corrected expectation:
+            22 business days (vacation days are "entitled to wages") >= 15 → ELIGIBLE
+        """
+        from app.services.payroll_run.holiday_pay_calculator import HolidayPayCalculator
+
+        holiday_date = date(2025, 7, 1)
+
+        # Mock queries - vacation hours no longer affect eligibility
+        def mock_table(table_name):
+            mock = MagicMock()
+            empty_result = MagicMock()
+            empty_result.data = []
+
+            if table_name == "sick_leave_usage_history":
+                # No sick leave days (paid or unpaid)
+                mock.select.return_value.eq.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = empty_result
+            elif table_name == "payroll_records":
+                # 80 hours vacation taken (10 days worth) - but this no longer affects eligibility
+                vacation_result = MagicMock()
+                vacation_result.data = [{"vacation_hours_taken": 80, "payroll_runs": {"pay_date": "2025-06-15"}}]
+                mock.select.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = vacation_result
+            elif table_name == "statutory_holidays":
+                # No stat holidays in period
+                mock.select.return_value.eq.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = empty_result
+            elif table_name == "timesheet_entries":
+                # Empty timesheet (salaried employees)
+                mock.select.return_value.eq.return_value.gte.return_value.lte.return_value.execute.return_value = empty_result
+            else:
+                mock.select.return_value.eq.return_value.neq.return_value.gte.return_value.lt.return_value.in_.return_value.execute.return_value = empty_result
+
+            return mock
+
+        mock_supabase.table.side_effect = mock_table
+
+        bc_loader = MockConfigLoader({"BC": make_bc_15_30_config()})
+        calculator = HolidayPayCalculator(
+            supabase=mock_supabase,
+            user_id="test-user",
+            company_id="test-company",
+            config_loader=bc_loader,
+        )
+
+        # Salaried employee hired 60 days before holiday
+        salaried_employee = {
+            "id": "emp-bc-salaried-vacation",
+            "first_name": "Vacation",
+            "last_name": "Taker",
+            "hourly_rate": None,
+            "annual_salary": 60000.00,
+            "compensation_type": "salary",
+            "hire_date": (holiday_date - timedelta(days=60)).isoformat(),
+        }
+
+        config = make_bc_15_30_config()
+
+        result = calculator._is_eligible_for_holiday_pay(
+            salaried_employee, holiday_date, config, timesheet_entries=None
+        )
+
+        # CORRECTED: Vacation days are "entitled to wages" per BC ESA
+        # 22 business days >= 15 → ELIGIBLE (vacation doesn't reduce count)
+        assert result is True
+
+    def test_bc_salaried_ineligible_with_unpaid_sick_leave(self, mock_supabase):
+        """BC salaried employee with excessive UNPAID sick leave is ineligible.
+
+        Per BC ESA, only UNPAID sick leave days should reduce the eligibility count.
+        If employee has many unpaid sick days, they may fall below 15 days.
+
+        22 business days - 10 unpaid sick days = 12 days < 15 → ineligible
+        """
+        from app.services.payroll_run.holiday_pay_calculator import HolidayPayCalculator
+
+        holiday_date = date(2025, 7, 1)
+
+        # Mock queries to return 10 unpaid sick leave days
+        def mock_table(table_name):
+            mock = MagicMock()
+            empty_result = MagicMock()
+            empty_result.data = []
+
+            if table_name == "sick_leave_usage_history":
+                # Check if querying for is_paid=False (unpaid) or is_paid=True (paid)
+                # We need to return different results based on is_paid filter
+                def mock_eq_chain(*args, **kwargs):
+                    result_mock = MagicMock()
+                    # If this is the is_paid=False query, return 10 unpaid days
+                    if args == ("is_paid", False):
+                        unpaid_result = MagicMock()
+                        unpaid_result.data = [
+                            {"usage_date": (holiday_date - timedelta(days=i)).isoformat()}
+                            for i in range(1, 11)  # 10 unpaid sick days
+                        ]
+                        result_mock.gte.return_value.lt.return_value.execute.return_value = unpaid_result
+                    else:
+                        # For is_paid=True query, return empty (no paid sick leave)
+                        result_mock.gte.return_value.lt.return_value.execute.return_value = empty_result
+                        result_mock.gte.return_value.lte.return_value.execute.return_value = empty_result
+                    return result_mock
+
+                mock.select.return_value.eq.return_value.eq.side_effect = mock_eq_chain
+            elif table_name == "payroll_records":
+                mock.select.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = empty_result
+            elif table_name == "statutory_holidays":
+                mock.select.return_value.eq.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = empty_result
+            elif table_name == "timesheet_entries":
+                mock.select.return_value.eq.return_value.gte.return_value.lte.return_value.execute.return_value = empty_result
+            else:
+                mock.select.return_value.eq.return_value.neq.return_value.gte.return_value.lt.return_value.in_.return_value.execute.return_value = empty_result
+
+            return mock
+
+        mock_supabase.table.side_effect = mock_table
+
+        bc_loader = MockConfigLoader({"BC": make_bc_15_30_config()})
+        calculator = HolidayPayCalculator(
+            supabase=mock_supabase,
+            user_id="test-user",
+            company_id="test-company",
+            config_loader=bc_loader,
+        )
+
+        salaried_employee = {
+            "id": "emp-bc-salaried-unpaid-sick",
+            "first_name": "Unpaid",
+            "last_name": "Sick",
+            "hourly_rate": None,
+            "annual_salary": 60000.00,
+            "compensation_type": "salary",
+            "hire_date": (holiday_date - timedelta(days=60)).isoformat(),
+        }
+
+        config = make_bc_15_30_config()
+
+        result = calculator._is_eligible_for_holiday_pay(
+            salaried_employee, holiday_date, config, timesheet_entries=None
+        )
+
+        # 22 business days - 10 unpaid sick days = 12 days < 15 → ineligible
+        assert result is False
+
+    def test_bc_salaried_ineligibility_reason_with_unpaid_sick(self, mock_supabase):
+        """BC salaried employee gets correct ineligibility reason for unpaid sick leave."""
+        from app.services.payroll_run.holiday_pay_calculator import HolidayPayCalculator
+
+        holiday_date = date(2025, 7, 1)
+
+        # Mock to return excessive unpaid sick leave
+        def mock_table(table_name):
+            mock = MagicMock()
+            empty_result = MagicMock()
+            empty_result.data = []
+
+            if table_name == "sick_leave_usage_history":
+                def mock_eq_chain(*args, **kwargs):
+                    result_mock = MagicMock()
+                    if args == ("is_paid", False):
+                        unpaid_result = MagicMock()
+                        unpaid_result.data = [
+                            {"usage_date": (holiday_date - timedelta(days=i)).isoformat()}
+                            for i in range(1, 11)  # 10 unpaid sick days
+                        ]
+                        result_mock.gte.return_value.lt.return_value.execute.return_value = unpaid_result
+                    else:
+                        result_mock.gte.return_value.lt.return_value.execute.return_value = empty_result
+                        result_mock.gte.return_value.lte.return_value.execute.return_value = empty_result
+                    return result_mock
+
+                mock.select.return_value.eq.return_value.eq.side_effect = mock_eq_chain
+            elif table_name == "payroll_records":
+                mock.select.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = empty_result
+            elif table_name == "statutory_holidays":
+                mock.select.return_value.eq.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = empty_result
+            elif table_name == "timesheet_entries":
+                mock.select.return_value.eq.return_value.gte.return_value.lte.return_value.execute.return_value = empty_result
+            else:
+                mock.select.return_value.eq.return_value.neq.return_value.gte.return_value.lt.return_value.in_.return_value.execute.return_value = empty_result
+
+            return mock
+
+        mock_supabase.table.side_effect = mock_table
+
+        bc_loader = MockConfigLoader({"BC": make_bc_15_30_config()})
+        calculator = HolidayPayCalculator(
+            supabase=mock_supabase,
+            user_id="test-user",
+            company_id="test-company",
+            config_loader=bc_loader,
+        )
+
+        salaried_employee = {
+            "id": "emp-bc-salaried-reason",
+            "first_name": "Reason",
+            "last_name": "Check",
+            "hourly_rate": None,
+            "annual_salary": 60000.00,
+            "compensation_type": "salary",
+            "hire_date": (holiday_date - timedelta(days=60)).isoformat(),
+        }
+
+        config = make_bc_15_30_config()
+
+        reason = calculator._get_ineligibility_reason(
+            salaried_employee, holiday_date, config, timesheet_entries=None
+        )
+
+        # Should mention days worked and the requirement
+        assert "days worked" in reason
+        assert "need 15" in reason
+
+    def test_bc_hourly_still_uses_timesheet(self, mock_supabase):
+        """BC hourly employee still uses timesheet entries for 15/30 check."""
+        from app.services.payroll_run.holiday_pay_calculator import HolidayPayCalculator
+
+        # Mock empty DB queries
+        def mock_table(table_name):
+            mock = MagicMock()
+            empty_result = MagicMock()
+            empty_result.data = []
+            mock.select.return_value.eq.return_value.gte.return_value.lte.return_value.execute.return_value = empty_result
+            mock.select.return_value.eq.return_value.neq.return_value.gte.return_value.lt.return_value.in_.return_value.execute.return_value = empty_result
+            return mock
+
+        mock_supabase.table.side_effect = mock_table
+
+        bc_loader = MockConfigLoader({"BC": make_bc_15_30_config()})
+        calculator = HolidayPayCalculator(
+            supabase=mock_supabase,
+            user_id="test-user",
+            company_id="test-company",
+            config_loader=bc_loader,
+        )
+
+        holiday_date = date(2025, 7, 1)
+
+        # Hourly employee hired 60 days before holiday
+        hourly_employee = {
+            "id": "emp-bc-hourly",
+            "first_name": "Hourly",
+            "last_name": "Worker",
+            "hourly_rate": 25.00,
+            "annual_salary": None,
+            "compensation_type": "hourly",  # Hourly employee
+            "hire_date": (holiday_date - timedelta(days=60)).isoformat(),
+        }
+
+        config = make_bc_15_30_config()
+
+        # Provide 15 days of timesheet entries
+        timesheet_entries = [
+            {"work_date": (holiday_date - timedelta(days=i)).isoformat(), "regular_hours": 8, "overtime_hours": 0}
+            for i in range(1, 16)  # 15 days
+        ]
+
+        result = calculator._is_eligible_for_holiday_pay(
+            hourly_employee, holiday_date, config, timesheet_entries=timesheet_entries
+        )
+
+        # Hourly employee with 15 days from timesheet = eligible
+        assert result is True
+
+    def test_bc_hourly_ineligible_without_enough_timesheet_days(self, mock_supabase):
+        """BC hourly employee without 15 timesheet days is ineligible."""
+        from app.services.payroll_run.holiday_pay_calculator import HolidayPayCalculator
+
+        # Mock empty DB queries
+        def mock_table(table_name):
+            mock = MagicMock()
+            empty_result = MagicMock()
+            empty_result.data = []
+            mock.select.return_value.eq.return_value.gte.return_value.lte.return_value.execute.return_value = empty_result
+            mock.select.return_value.eq.return_value.neq.return_value.gte.return_value.lt.return_value.in_.return_value.execute.return_value = empty_result
+            return mock
+
+        mock_supabase.table.side_effect = mock_table
+
+        bc_loader = MockConfigLoader({"BC": make_bc_15_30_config()})
+        calculator = HolidayPayCalculator(
+            supabase=mock_supabase,
+            user_id="test-user",
+            company_id="test-company",
+            config_loader=bc_loader,
+        )
+
+        holiday_date = date(2025, 7, 1)
+
+        # Hourly employee hired 60 days before holiday
+        hourly_employee = {
+            "id": "emp-bc-hourly-few",
+            "first_name": "Few",
+            "last_name": "Days",
+            "hourly_rate": 25.00,
+            "annual_salary": None,
+            "compensation_type": "hourly",
+            "hire_date": (holiday_date - timedelta(days=60)).isoformat(),
+        }
+
+        config = make_bc_15_30_config()
+
+        # Only 10 days of timesheet entries (less than 15 required)
+        timesheet_entries = [
+            {"work_date": (holiday_date - timedelta(days=i)).isoformat(), "regular_hours": 8, "overtime_hours": 0}
+            for i in range(1, 11)  # Only 10 days
+        ]
+
+        result = calculator._is_eligible_for_holiday_pay(
+            hourly_employee, holiday_date, config, timesheet_entries=timesheet_entries
+        )
+
+        # Hourly employee with only 10 days < 15 = ineligible
+        assert result is False
+
+    def test_bc_salaried_eligible_with_paid_sick_leave(self, mock_supabase):
+        """BC salaried employee with PAID sick leave is still ELIGIBLE.
+
+        Per BC ESA, paid sick leave days are "days entitled to wages" and should
+        NOT reduce the 15/30 eligibility count. Only UNPAID sick leave reduces it.
+        """
+        from app.services.payroll_run.holiday_pay_calculator import HolidayPayCalculator
+
+        holiday_date = date(2025, 7, 1)
+
+        # Mock queries - paid sick leave should not affect eligibility
+        def mock_table(table_name):
+            mock = MagicMock()
+            empty_result = MagicMock()
+            empty_result.data = []
+
+            if table_name == "sick_leave_usage_history":
+                def mock_eq_chain(*args, **kwargs):
+                    result_mock = MagicMock()
+                    if args == ("is_paid", False):
+                        # No unpaid sick leave
+                        result_mock.gte.return_value.lt.return_value.execute.return_value = empty_result
+                    else:
+                        # 5 PAID sick leave days - should NOT reduce count
+                        paid_result = MagicMock()
+                        paid_result.data = [
+                            {"usage_date": (holiday_date - timedelta(days=i)).isoformat()}
+                            for i in range(1, 6)  # 5 paid sick days
+                        ]
+                        result_mock.gte.return_value.lt.return_value.execute.return_value = paid_result
+                        result_mock.gte.return_value.lte.return_value.execute.return_value = paid_result
+                    return result_mock
+
+                mock.select.return_value.eq.return_value.eq.side_effect = mock_eq_chain
+            elif table_name == "payroll_records":
+                mock.select.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = empty_result
+            elif table_name == "statutory_holidays":
+                mock.select.return_value.eq.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = empty_result
+            elif table_name == "timesheet_entries":
+                mock.select.return_value.eq.return_value.gte.return_value.lte.return_value.execute.return_value = empty_result
+            else:
+                mock.select.return_value.eq.return_value.neq.return_value.gte.return_value.lt.return_value.in_.return_value.execute.return_value = empty_result
+
+            return mock
+
+        mock_supabase.table.side_effect = mock_table
+
+        bc_loader = MockConfigLoader({"BC": make_bc_15_30_config()})
+        calculator = HolidayPayCalculator(
+            supabase=mock_supabase,
+            user_id="test-user",
+            company_id="test-company",
+            config_loader=bc_loader,
+        )
+
+        salaried_employee = {
+            "id": "emp-bc-salaried-paid-sick",
+            "first_name": "Paid",
+            "last_name": "Sick",
+            "hourly_rate": None,
+            "annual_salary": 60000.00,
+            "compensation_type": "salary",
+            "hire_date": (holiday_date - timedelta(days=60)).isoformat(),
+        }
+
+        config = make_bc_15_30_config()
+
+        result = calculator._is_eligible_for_holiday_pay(
+            salaried_employee, holiday_date, config, timesheet_entries=None
+        )
+
+        # Paid sick leave days are "entitled to wages" - should still be eligible
+        # 22 business days (paid sick doesn't reduce) >= 15 → ELIGIBLE
+        assert result is True
+
+    def test_bc_salaried_eligible_with_combined_paid_leave(self, mock_supabase):
+        """BC salaried employee with vacation + paid sick + stat holidays is ELIGIBLE.
+
+        Comprehensive test: All forms of paid leave count as "days entitled to wages"
+        per BC ESA. Only unpaid leave should reduce the count.
+
+        Scenario:
+        - 22 business days in 30-day period
+        - 5 vacation days (paid) → should NOT reduce count
+        - 3 paid sick days → should NOT reduce count
+        - 1 stat holiday → should NOT reduce count
+        - 0 unpaid sick days → nothing to subtract
+
+        Result: 22 days >= 15 → ELIGIBLE
+        """
+        from app.services.payroll_run.holiday_pay_calculator import HolidayPayCalculator
+
+        holiday_date = date(2025, 7, 1)
+
+        # Mock queries with various paid leave types
+        def mock_table(table_name):
+            mock = MagicMock()
+            empty_result = MagicMock()
+            empty_result.data = []
+
+            if table_name == "sick_leave_usage_history":
+                def mock_eq_chain(*args, **kwargs):
+                    result_mock = MagicMock()
+                    if args == ("is_paid", False):
+                        # No unpaid sick leave
+                        result_mock.gte.return_value.lt.return_value.execute.return_value = empty_result
+                    else:
+                        # 3 paid sick days
+                        paid_result = MagicMock()
+                        paid_result.data = [
+                            {"usage_date": (holiday_date - timedelta(days=i)).isoformat()}
+                            for i in range(1, 4)
+                        ]
+                        result_mock.gte.return_value.lt.return_value.execute.return_value = paid_result
+                        result_mock.gte.return_value.lte.return_value.execute.return_value = paid_result
+                    return result_mock
+
+                mock.select.return_value.eq.return_value.eq.side_effect = mock_eq_chain
+            elif table_name == "payroll_records":
+                # 40 hours vacation (5 days)
+                vacation_result = MagicMock()
+                vacation_result.data = [{"vacation_hours_taken": 40, "payroll_runs": {"pay_date": "2025-06-15"}}]
+                mock.select.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = vacation_result
+            elif table_name == "statutory_holidays":
+                # 1 stat holiday
+                stat_result = MagicMock()
+                stat_result.data = [{"holiday_date": "2025-06-16"}]  # A Monday
+                mock.select.return_value.eq.return_value.eq.return_value.gte.return_value.lt.return_value.execute.return_value = stat_result
+            elif table_name == "timesheet_entries":
+                mock.select.return_value.eq.return_value.gte.return_value.lte.return_value.execute.return_value = empty_result
+            else:
+                mock.select.return_value.eq.return_value.neq.return_value.gte.return_value.lt.return_value.in_.return_value.execute.return_value = empty_result
+
+            return mock
+
+        mock_supabase.table.side_effect = mock_table
+
+        bc_loader = MockConfigLoader({"BC": make_bc_15_30_config()})
+        calculator = HolidayPayCalculator(
+            supabase=mock_supabase,
+            user_id="test-user",
+            company_id="test-company",
+            config_loader=bc_loader,
+        )
+
+        salaried_employee = {
+            "id": "emp-bc-combined-paid",
+            "first_name": "Combined",
+            "last_name": "Paid",
+            "hourly_rate": None,
+            "annual_salary": 60000.00,
+            "compensation_type": "salary",
+            "hire_date": (holiday_date - timedelta(days=60)).isoformat(),
+        }
+
+        config = make_bc_15_30_config()
+
+        result = calculator._is_eligible_for_holiday_pay(
+            salaried_employee, holiday_date, config, timesheet_entries=None
+        )
+
+        # All paid leave = "entitled to wages" → 22 business days >= 15 → ELIGIBLE
+        assert result is True
 

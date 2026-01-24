@@ -75,15 +75,26 @@ class WorkDayTracker:
     ) -> int:
         """Count unique days entitled to wages in date range.
 
-        Used for BC/NS/PE "15 of 30 days" eligibility rule.
+        Used for BC/NS/PE "15 of 30 days" eligibility rule for HOURLY employees.
 
-        Per official rules (BC ESA, NS LSC, PEI ESA), this counts days
-        "entitled to wages" which includes:
+        Per BC ESA s.45, NS LSC, PEI ESA, this counts days "entitled to wages".
+
+        Included:
         - Days actually worked (from timesheet entries)
         - Paid sick leave days (from sick_leave_usage_history)
 
-        Note: Paid vacation days are not yet tracked at the day level,
-        so they are not included in this count.
+        NOT included (by design for hourly employees):
+        - Vacation days: Hourly employees in Canada receive vacation pay as
+          "pay as you go" (4%/6% added to each paycheck), NOT as paid time off.
+          When hourly employees take vacation, it is unpaid leave - they have
+          already received their vacation pay incrementally. Therefore, there
+          are no "paid vacation days" to count.
+        - Previous statutory holiday days: Would create circular dependency
+          in the eligibility calculation. The holiday we're checking eligibility
+          for cannot count previous holidays in the same eligibility window.
+
+        Note: Salaried employees use get_salaried_work_days_in_period() which
+        calculates business days minus unpaid sick leave.
 
         Args:
             entries: List of timesheet entries
@@ -169,6 +180,67 @@ class WorkDayTracker:
             logger.warning("Failed to query paid leave days for %s: %s", employee_id, e)
 
         return paid_leave_dates
+
+    def _get_unpaid_sick_leave_days(
+        self,
+        employee_id: str,
+        start_date: date,
+        end_date: date,
+    ) -> set[date]:
+        """Get dates of UNPAID sick leave for an employee.
+
+        For BC/NS/PE 15/30 eligibility: only unpaid sick days should be
+        excluded from "days entitled to wages" per official ESA rules.
+
+        Per BC ESA, "days worked" means "days entitled to wages", which includes:
+        - Days actually worked
+        - Paid vacation days
+        - Paid sick leave days
+        - Statutory holidays (always paid)
+
+        Only UNPAID sick leave should reduce the count of eligible days.
+
+        Args:
+            employee_id: Employee ID
+            start_date: Start of date range (inclusive)
+            end_date: End of date range (exclusive)
+
+        Returns:
+            Set of dates with unpaid sick leave
+        """
+        unpaid_leave_dates: set[date] = set()
+
+        try:
+            result = self.supabase.table("sick_leave_usage_history").select(
+                "usage_date"
+            ).eq(
+                "employee_id", employee_id
+            ).eq(
+                "is_paid", False  # Only unpaid sick leave
+            ).gte(
+                "usage_date", start_date.isoformat()
+            ).lt(
+                "usage_date", end_date.isoformat()
+            ).execute()
+
+            for record in result.data or []:
+                usage_date_str = record.get("usage_date")
+                if usage_date_str:
+                    try:
+                        unpaid_leave_dates.add(date.fromisoformat(usage_date_str))
+                    except (ValueError, TypeError):
+                        continue
+
+            if unpaid_leave_dates:
+                logger.debug(
+                    "Found %d unpaid sick leave days for employee %s in range %s to %s",
+                    len(unpaid_leave_dates), employee_id, start_date, end_date
+                )
+
+        except Exception as e:
+            logger.warning("Failed to query unpaid leave days for %s: %s", employee_id, e)
+
+        return unpaid_leave_dates
 
     def get_normal_daily_hours(
         self,
@@ -449,7 +521,230 @@ class WorkDayTracker:
             return count
         except Exception as e:
             logger.warning("Failed to query days worked: %s", e)
-            return 20
+            return 0
+
+    def calculate_business_days(self, start_date: date, end_date: date) -> int:
+        """Calculate Mon-Fri business days in a date range.
+
+        Args:
+            start_date: Start of date range (inclusive)
+            end_date: End of date range (exclusive)
+
+        Returns:
+            Number of business days (Mon-Fri) in the range
+        """
+        count = 0
+        current = start_date
+        while current < end_date:
+            if current.weekday() < 5:  # Mon=0 to Fri=4
+                count += 1
+            current += timedelta(days=1)
+        return count
+
+    def get_salaried_work_days_in_period(
+        self,
+        employee_id: str,
+        start_date: date,
+        end_date: date,
+        province: str,
+        default_daily_hours: Decimal = Decimal("8"),
+    ) -> int:
+        """Calculate work days for salaried employees in arbitrary period.
+
+        Used for:
+        - NT salaried employee daily pay calculation (4-week period)
+        - BC/NS/PE salaried employee 15/30 eligibility check (30-day period)
+
+        IMPORTANT: BC/NS/PE 15/30 Eligibility Logic
+        -------------------------------------------
+        Per BC ESA (and similar rules in NS/PE), "days worked" for the 15/30
+        eligibility check means "days entitled to wages", which INCLUDES:
+
+        1. Days actually worked (business days for salaried employees)
+        2. Paid vacation days - employee is entitled to vacation pay
+        3. Paid sick leave days - employee is entitled to sick pay
+        4. Statutory holidays - always entitled to holiday pay
+
+        Only UNPAID sick leave days should be EXCLUDED, because on those days
+        the employee was NOT entitled to any wages.
+
+        Previous (incorrect) logic:
+            work_days = business_days - sick_leave - vacation - stat_holidays
+            This incorrectly excluded paid leave days that should count.
+
+        Corrected logic:
+            work_days = business_days - unpaid_sick_leave_days
+            Only unpaid sick leave reduces the eligibility count.
+
+        Reference:
+        - BC Employment Standards Act, Section 45
+        - "15 of the 30 calendar days before the statutory holiday"
+        - "days entitled to wages" interpretation
+
+        Args:
+            employee_id: Employee ID
+            start_date: Start of date range (inclusive)
+            end_date: End of date range (exclusive)
+            province: Province code for statutory holiday lookup
+            default_daily_hours: Daily hours for converting vacation hours to days
+                (kept for backward compatibility but no longer used in calculation)
+
+        Returns:
+            Number of calculated work days (minimum 1 to avoid division by zero)
+        """
+        # 1. Count business days (Mon-Fri) as the base
+        # For salaried employees, business days represent their scheduled work days
+        business_days = self.calculate_business_days(start_date, end_date)
+
+        # 2. Get UNPAID sick leave days only
+        # Per BC ESA: Only unpaid leave days should be excluded from "days entitled to wages"
+        # Paid sick leave, paid vacation, and stat holidays are all "entitled to wages"
+        unpaid_sick_days = len(self._get_unpaid_sick_leave_days(
+            employee_id, start_date, end_date
+        ))
+
+        # CORRECTED: Only subtract unpaid sick leave
+        # Previous incorrect logic subtracted: sick_leave + vacation + stat_holidays
+        # This was wrong because paid vacation/sick/stat holidays are "entitled to wages"
+        work_days = business_days - unpaid_sick_days
+
+        logger.debug(
+            "Salaried work days for %s (%s to %s): business=%d - unpaid_sick=%d = %d "
+            "(BC ESA: only unpaid leave excluded from 'days entitled to wages')",
+            employee_id, start_date, end_date, business_days, unpaid_sick_days, work_days
+        )
+
+        # Ensure minimum of 1 to avoid division by zero
+        return max(work_days, 1)
+
+    def get_salaried_work_days_in_4_weeks(
+        self,
+        employee_id: str,
+        holiday_date: date,
+        province: str,
+        default_daily_hours: Decimal = Decimal("8"),
+    ) -> int:
+        """Calculate work days for salaried employees in 4-week period.
+
+        Convenience wrapper for NT salaried daily pay calculation.
+
+        Args:
+            employee_id: Employee ID
+            holiday_date: Holiday date (calculation period ends day before)
+            province: Province code for statutory holiday lookup
+            default_daily_hours: Daily hours for converting vacation hours to days
+
+        Returns:
+            Number of calculated work days (minimum 1 to avoid division by zero)
+        """
+        start_date = holiday_date - timedelta(days=28)
+        return self.get_salaried_work_days_in_period(
+            employee_id=employee_id,
+            start_date=start_date,
+            end_date=holiday_date,
+            province=province,
+            default_daily_hours=default_daily_hours,
+        )
+
+    def _get_vacation_days_in_period(
+        self,
+        employee_id: str,
+        start_date: date,
+        end_date: date,
+        default_daily_hours: Decimal,
+    ) -> int:
+        """Get vacation days taken in period by converting hours to days.
+
+        Args:
+            employee_id: Employee ID
+            start_date: Start of date range (inclusive)
+            end_date: End of date range (exclusive)
+            default_daily_hours: Daily hours for conversion
+
+        Returns:
+            Number of vacation days (rounded down)
+        """
+        try:
+            result = self.supabase.table("payroll_records").select(
+                "vacation_hours_taken, payroll_runs!inner(pay_date)"
+            ).eq(
+                "employee_id", employee_id
+            ).gte(
+                "payroll_runs.pay_date", start_date.isoformat()
+            ).lt(
+                "payroll_runs.pay_date", end_date.isoformat()
+            ).execute()
+
+            total_hours = Decimal("0")
+            for record in result.data or []:
+                hours = Decimal(str(record.get("vacation_hours_taken", 0) or 0))
+                total_hours += hours
+
+            # Convert hours to days
+            if default_daily_hours > 0:
+                vacation_days = int(total_hours / default_daily_hours)
+                if vacation_days > 0:
+                    logger.debug(
+                        "Vacation days for %s: %.2f hours / %.2f = %d days",
+                        employee_id, float(total_hours), float(default_daily_hours), vacation_days
+                    )
+                return vacation_days
+            return 0
+
+        except Exception as e:
+            logger.warning("Failed to get vacation days for %s: %s", employee_id, e)
+            return 0
+
+    def _count_statutory_holidays_in_period(
+        self,
+        province: str,
+        start_date: date,
+        end_date: date,
+    ) -> int:
+        """Count statutory holidays that fall on business days in period.
+
+        Args:
+            province: Province code (e.g., "NT", "AB")
+            start_date: Start of date range (inclusive)
+            end_date: End of date range (exclusive)
+
+        Returns:
+            Number of statutory holidays on business days
+        """
+        try:
+            result = self.supabase.table("statutory_holidays").select(
+                "holiday_date"
+            ).eq(
+                "province", province.upper()
+            ).eq(
+                "is_statutory", True
+            ).gte(
+                "holiday_date", start_date.isoformat()
+            ).lt(
+                "holiday_date", end_date.isoformat()
+            ).execute()
+
+            count = 0
+            for record in result.data or []:
+                holiday_str = record.get("holiday_date")
+                if holiday_str:
+                    try:
+                        holiday = date.fromisoformat(holiday_str)
+                        if holiday.weekday() < 5:  # Only count if on business day
+                            count += 1
+                    except (ValueError, TypeError):
+                        continue
+
+            if count > 0:
+                logger.debug(
+                    "Statutory holidays in period for %s: %d",
+                    province, count
+                )
+            return count
+
+        except Exception as e:
+            logger.warning("Failed to count statutory holidays for %s: %s", province, e)
+            return 0
 
     def is_regular_work_day_5_of_9(
         self,

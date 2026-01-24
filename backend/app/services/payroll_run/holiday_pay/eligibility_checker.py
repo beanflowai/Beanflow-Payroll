@@ -85,13 +85,31 @@ class EligibilityChecker:
             # Alberta-style: count actual work days in the eligibility period
             period_months = config.eligibility.eligibility_period_months or 12
             period_start = holiday_date - relativedelta(months=period_months)
-            work_days = self.work_day_tracker.count_work_days_for_eligibility(
-                employee.get("id"), period_start, holiday_date
-            )
+
+            compensation_type = employee.get("compensation_type", "").lower()
+
+            if compensation_type == "salary":
+                # Salaried employees: use business days - unpaid sick days
+                # Salaried employees typically don't have timesheet entries, so we
+                # calculate work days as (Mon-Fri business days) - (unpaid sick leave).
+                # This is consistent with BC/NS/PE salaried employee handling.
+                work_days = self.work_day_tracker.get_salaried_work_days_in_period(
+                    employee_id=employee.get("id"),
+                    start_date=period_start,
+                    end_date=holiday_date,
+                    province=config.province_code,
+                    default_daily_hours=config.formula_params.default_daily_hours or Decimal("8"),
+                )
+            else:
+                # Hourly employees: use timesheet entries (existing logic)
+                work_days = self.work_day_tracker.count_work_days_for_eligibility(
+                    employee.get("id"), period_start, holiday_date
+                )
+
             if work_days < min_days:
                 logger.debug(
-                    "Employee %s failed work days eligibility: %d < %d",
-                    employee.get("id"), work_days, min_days
+                    "Employee %s (%s) failed work days eligibility: %d < %d",
+                    employee.get("id"), compensation_type or "hourly", work_days, min_days
                 )
                 return False
         else:
@@ -127,21 +145,40 @@ class EligibilityChecker:
                 )
                 return False
 
-        # Check min_days_worked_in_period (PE requires 15 days in 30-day period)
+        # Check min_days_worked_in_period (BC/NS/PE requires 15 days in 30-day period)
         min_days_worked = config.eligibility.min_days_worked_in_period
-        if min_days_worked is not None and timesheet_entries is not None:
-            days_worked = self.work_day_tracker.count_days_worked_in_period(
-                timesheet_entries,
-                holiday_date - timedelta(days=30),
-                holiday_date,
-                employee_id=employee.get("id"),
-            )
+        if min_days_worked is not None:
+            lookback_days = config.formula_params.eligibility_lookback_days or 30
+            start_date = holiday_date - timedelta(days=lookback_days)
+            # End date is day BEFORE the holiday - the 30-day period is
+            # "in the 30 days before the holiday", not including the holiday itself.
+            # Per BC ESA s.45, NS LSC, PEI ESA.
+            end_date = holiday_date - timedelta(days=1)
+
+            compensation_type = employee.get("compensation_type", "").lower()
+
+            if compensation_type == "salary":
+                # Salaried: use calculated work days (business days - leaves)
+                days_worked = self.work_day_tracker.get_salaried_work_days_in_period(
+                    employee_id=employee.get("id"),
+                    start_date=start_date,
+                    end_date=end_date,
+                    province=config.province_code,
+                    default_daily_hours=config.formula_params.default_daily_hours or Decimal("8"),
+                )
+            elif timesheet_entries is not None:
+                # Hourly: use timesheet entries (existing logic)
+                days_worked = self.work_day_tracker.count_days_worked_in_period(
+                    timesheet_entries, start_date, end_date, employee_id=employee.get("id")
+                )
+            else:
+                # No data for hourly - fail eligibility check
+                days_worked = 0
+
             if days_worked < min_days_worked:
                 logger.debug(
-                    "Employee %s failed min_days_worked: %d < %d",
-                    employee.get("id"),
-                    days_worked,
-                    min_days_worked,
+                    "Employee %s (%s) failed min_days_worked: %d < %d",
+                    employee.get("id"), compensation_type or "hourly", days_worked, min_days_worked
                 )
                 return False
 
@@ -179,9 +216,23 @@ class EligibilityChecker:
         if config.eligibility.count_work_days:
             period_months = config.eligibility.eligibility_period_months or 12
             period_start = holiday_date - relativedelta(months=period_months)
-            work_days = self.work_day_tracker.count_work_days_for_eligibility(
-                employee.get("id"), period_start, holiday_date
-            )
+
+            compensation_type = employee.get("compensation_type", "").lower()
+
+            if compensation_type == "salary":
+                # Salaried employees: use business days - unpaid sick days
+                work_days = self.work_day_tracker.get_salaried_work_days_in_period(
+                    employee_id=employee.get("id"),
+                    start_date=period_start,
+                    end_date=holiday_date,
+                    province=config.province_code,
+                    default_daily_hours=config.formula_params.default_daily_hours or Decimal("8"),
+                )
+            else:
+                work_days = self.work_day_tracker.count_work_days_for_eligibility(
+                    employee.get("id"), period_start, holiday_date
+                )
+
             if work_days < min_days:
                 return f"< {min_days} work days in past {period_months} months ({work_days} work days)"
         else:
@@ -210,15 +261,31 @@ class EligibilityChecker:
                 return "did not work on last scheduled day before/first scheduled day after holiday"
 
         min_days_worked = config.eligibility.min_days_worked_in_period
-        if min_days_worked is not None and timesheet_entries is not None:
-            days_worked = self.work_day_tracker.count_days_worked_in_period(
-                timesheet_entries,
-                holiday_date - timedelta(days=30),
-                holiday_date,
-                employee_id=employee.get("id"),
-            )
+        if min_days_worked is not None:
+            lookback_days = config.formula_params.eligibility_lookback_days or 30
+            start_date = holiday_date - timedelta(days=lookback_days)
+            # End date is day BEFORE the holiday (same as is_eligible_for_holiday_pay)
+            end_date = holiday_date - timedelta(days=1)
+
+            compensation_type = employee.get("compensation_type", "").lower()
+
+            if compensation_type == "salary":
+                days_worked = self.work_day_tracker.get_salaried_work_days_in_period(
+                    employee_id=employee.get("id"),
+                    start_date=start_date,
+                    end_date=end_date,
+                    province=config.province_code,
+                    default_daily_hours=config.formula_params.default_daily_hours or Decimal("8"),
+                )
+            elif timesheet_entries is not None:
+                days_worked = self.work_day_tracker.count_days_worked_in_period(
+                    timesheet_entries, start_date, end_date, employee_id=employee.get("id")
+                )
+            else:
+                days_worked = 0
+
             if days_worked < min_days_worked:
-                return f"only {days_worked} days worked in 30-day period (need {min_days_worked})"
+                return f"only {days_worked} days worked in {lookback_days}-day period (need {min_days_worked})"
 
         return "unknown"
 
