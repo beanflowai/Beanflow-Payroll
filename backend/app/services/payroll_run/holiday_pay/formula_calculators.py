@@ -781,8 +781,9 @@ class FormulaCalculators:
 
         if days_worked == 0:
             # Salaried employees typically don't have timesheet entries.
-            # Calculate work days from: business days - leaves - holidays
-            # Per NWT ESA s.17: "average day's pay" based on actual days worked
+            # Calculate work days from: business days - unpaid sick leave only
+            # Per NWT ESA s.17: "average day's pay" based on days entitled to wages
+            # Note: Paid vacation/sick/stat holidays count as "entitled to wages"
             days_worked = self.work_day_tracker.get_salaried_work_days_in_4_weeks(
                 employee_id=employee_id,
                 holiday_date=holiday_date,
@@ -790,7 +791,7 @@ class FormulaCalculators:
                 default_daily_hours=default_daily_hours,
             )
             logger.info(
-                "NT salary using calculated work days for %s: %d (business days - leaves)",
+                "NT salary using calculated work days for %s: %d (business days - unpaid sick)",
                 employee_id, days_worked
             )
 
