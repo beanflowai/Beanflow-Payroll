@@ -33,7 +33,7 @@ This directory contains email templates for Supabase Auth and reference template
 **配置环境变量**:
 ```env
 RESEND_EMAIL_API_KEY=re_xxx
-EMAIL_FROM_ADDRESS=noreply@email.beanflow.ai
+EMAIL_FROM_ADDRESS=noreply@beanflow.ai
 EMAIL_FROM_NAME=BeanFlow
 ```
 
