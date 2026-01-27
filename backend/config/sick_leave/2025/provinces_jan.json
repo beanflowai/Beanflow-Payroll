@@ -132,26 +132,26 @@
       "name": "Newfoundland and Labrador",
       "paid_days_per_year": 0,
       "unpaid_days_per_year": 7,
-      "waiting_period_days": 0,
+      "waiting_period_days": 30,
       "allows_carryover": false,
       "max_carryover_days": 0,
       "accrual_method": "immediate",
       "initial_days_after_qualifying": 0,
       "days_per_month_after_initial": 0,
-      "notes": "NL Labour Standards Act - 7 unpaid days"
+      "notes": "NL Labour Standards Act - 7 unpaid days after 30 days continuous employment"
     },
     "NT": {
       "province_code": "NT",
       "name": "Northwest Territories",
       "paid_days_per_year": 0,
       "unpaid_days_per_year": 5,
-      "waiting_period_days": 0,
+      "waiting_period_days": 30,
       "allows_carryover": false,
       "max_carryover_days": 0,
       "accrual_method": "immediate",
       "initial_days_after_qualifying": 0,
       "days_per_month_after_initial": 0,
-      "notes": "NWT Employment Standards Act - 5 unpaid days"
+      "notes": "NWT Employment Standards Act - 5 unpaid days after 30 days employment"
     },
     "NU": {
       "province_code": "NU",

@@ -298,7 +298,7 @@
     "YT": {
       "province_code": "YT",
       "name": "Yukon",
-      "formula_type": "30_day_average",
+      "formula_type": "yt_split_by_employment",
       "formula_params": {
         "lookback_days": 30,
         "method": "total_wages_div_days",

@@ -52,9 +52,11 @@ describe('getPayGroupsForPeriodEnd', () => {
 			if (table === 'v_pay_group_summary') {
 				return {
 					select: vi.fn().mockReturnValue({
-						eq: vi.fn().mockResolvedValue({
-							data: [],
-							error: null
+						eq: vi.fn().mockReturnValue({
+							eq: vi.fn().mockResolvedValue({
+								data: [],
+								error: null
+							})
 						})
 					})
 				};
@@ -85,9 +87,11 @@ describe('getPayGroupsForPeriodEnd', () => {
 			if (table === 'v_pay_group_summary') {
 				return {
 					select: vi.fn().mockReturnValue({
-						eq: vi.fn().mockResolvedValue({
-							data: payGroupData,
-							error: null
+						eq: vi.fn().mockReturnValue({
+							eq: vi.fn().mockResolvedValue({
+								data: payGroupData,
+								error: null
+							})
 						})
 					})
 				};
@@ -133,9 +137,11 @@ describe('getPayGroupsForPeriodEnd', () => {
 			if (table === 'v_pay_group_summary') {
 				return {
 					select: vi.fn().mockReturnValue({
-						eq: vi.fn().mockResolvedValue({
-							data: payGroupData,
-							error: null
+						eq: vi.fn().mockReturnValue({
+							eq: vi.fn().mockResolvedValue({
+								data: payGroupData,
+								error: null
+							})
 						})
 					})
 				};
@@ -164,14 +170,21 @@ describe('getPayGroupsForPeriodEnd', () => {
 	});
 
 	it('handles query error', async () => {
-		const mockFrom = vi.fn().mockImplementation(() => ({
-			select: vi.fn().mockReturnValue({
-				eq: vi.fn().mockResolvedValue({
-					data: null,
-					error: { message: 'Database error' }
-				})
-			})
-		}));
+		const mockFrom = vi.fn().mockImplementation((table: string) => {
+			if (table === 'v_pay_group_summary') {
+				return {
+					select: vi.fn().mockReturnValue({
+						eq: vi.fn().mockReturnValue({
+							eq: vi.fn().mockResolvedValue({
+								data: null,
+								error: { message: 'Database error' }
+							})
+						})
+					})
+				};
+			}
+			return {};
+		});
 
 		mockSupabase.from.mockImplementation(mockFrom);
 
@@ -207,9 +220,11 @@ describe('getPayGroupsForPeriodEnd', () => {
 			if (table === 'v_pay_group_summary') {
 				return {
 					select: vi.fn().mockReturnValue({
-						eq: vi.fn().mockResolvedValue({
-							data: payGroupData,
-							error: null
+						eq: vi.fn().mockReturnValue({
+							eq: vi.fn().mockResolvedValue({
+								data: payGroupData,
+								error: null
+							})
 						})
 					})
 				};
@@ -248,9 +263,11 @@ describe('getPayGroupsWithEmployeesForPeriodEnd', () => {
 			if (table === 'v_pay_group_summary') {
 				return {
 					select: vi.fn().mockReturnValue({
-						eq: vi.fn().mockResolvedValue({
-							data: [],
-							error: null
+						eq: vi.fn().mockReturnValue({
+							eq: vi.fn().mockResolvedValue({
+								data: [],
+								error: null
+							})
 						})
 					})
 				};
@@ -298,9 +315,11 @@ describe('getPayGroupsWithEmployeesForPeriodEnd', () => {
 			if (table === 'v_pay_group_summary') {
 				return {
 					select: vi.fn().mockReturnValue({
-						eq: vi.fn().mockResolvedValue({
-							data: payGroupData,
-							error: null
+						eq: vi.fn().mockReturnValue({
+							eq: vi.fn().mockResolvedValue({
+								data: payGroupData,
+								error: null
+							})
 						})
 					})
 				};
@@ -382,9 +401,11 @@ describe('getPayGroupsWithEmployeesForPeriodEnd', () => {
 			if (table === 'v_pay_group_summary') {
 				return {
 					select: vi.fn().mockReturnValue({
-						eq: vi.fn().mockResolvedValue({
-							data: payGroupData,
-							error: null
+						eq: vi.fn().mockReturnValue({
+							eq: vi.fn().mockResolvedValue({
+								data: payGroupData,
+								error: null
+							})
 						})
 					})
 				};
@@ -470,9 +491,11 @@ describe('getPayGroupsWithEmployeesForPeriodEnd', () => {
 			if (table === 'v_pay_group_summary') {
 				return {
 					select: vi.fn().mockReturnValue({
-						eq: vi.fn().mockResolvedValue({
-							data: payGroupData,
-							error: null
+						eq: vi.fn().mockReturnValue({
+							eq: vi.fn().mockResolvedValue({
+								data: payGroupData,
+								error: null
+							})
 						})
 					})
 				};
@@ -525,14 +548,21 @@ describe('getPayGroupsWithEmployeesForPeriodEnd', () => {
 	});
 
 	it('handles pay group query error', async () => {
-		const mockFrom = vi.fn().mockImplementation(() => ({
-			select: vi.fn().mockReturnValue({
-				eq: vi.fn().mockResolvedValue({
-					data: null,
-					error: { message: 'Query failed' }
-				})
-			})
-		}));
+		const mockFrom = vi.fn().mockImplementation((table: string) => {
+			if (table === 'v_pay_group_summary') {
+				return {
+					select: vi.fn().mockReturnValue({
+						eq: vi.fn().mockReturnValue({
+							eq: vi.fn().mockResolvedValue({
+								data: null,
+								error: { message: 'Query failed' }
+							})
+						})
+					})
+				};
+			}
+			return {};
+		});
 
 		mockSupabase.from.mockImplementation(mockFrom);
 
@@ -554,9 +584,11 @@ describe('getPayGroupsWithEmployeesForPeriodEnd', () => {
 			if (table === 'v_pay_group_summary') {
 				return {
 					select: vi.fn().mockReturnValue({
-						eq: vi.fn().mockResolvedValue({
-							data: payGroupData,
-							error: null
+						eq: vi.fn().mockReturnValue({
+							eq: vi.fn().mockResolvedValue({
+								data: payGroupData,
+								error: null
+							})
 						})
 					})
 				};
@@ -667,9 +699,11 @@ describe('getPayGroupsWithEmployeesForPeriodEnd', () => {
 			if (table === 'v_pay_group_summary') {
 				return {
 					select: vi.fn().mockReturnValue({
-						eq: vi.fn().mockResolvedValue({
-							data: payGroupData,
-							error: null
+						eq: vi.fn().mockReturnValue({
+							eq: vi.fn().mockResolvedValue({
+								data: payGroupData,
+								error: null
+							})
 						})
 					})
 				};
