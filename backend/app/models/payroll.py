@@ -22,8 +22,10 @@ from pydantic import BaseModel, Field, computed_field
 # Enums
 # =============================================================================
 
+
 class Province(str, Enum):
     """Canadian provinces and territories (excluding Quebec)."""
+
     AB = "AB"  # Alberta
     BC = "BC"  # British Columbia
     MB = "MB"  # Manitoba
@@ -40,24 +42,21 @@ class Province(str, Enum):
 
 class PayFrequency(str, Enum):
     """Pay period frequencies with periods per year."""
-    WEEKLY = "weekly"           # 52 periods
-    BIWEEKLY = "bi_weekly"      # 26 periods
+
+    WEEKLY = "weekly"  # 52 periods
+    BIWEEKLY = "bi_weekly"  # 26 periods
     SEMI_MONTHLY = "semi_monthly"  # 24 periods
-    MONTHLY = "monthly"         # 12 periods
+    MONTHLY = "monthly"  # 12 periods
 
     @property
     def periods_per_year(self) -> int:
         """Get number of pay periods per year."""
-        return {
-            "weekly": 52,
-            "bi_weekly": 26,
-            "semi_monthly": 24,
-            "monthly": 12
-        }[self.value]
+        return {"weekly": 52, "bi_weekly": 26, "semi_monthly": 24, "monthly": 12}[self.value]
 
 
 class PayrollRunStatus(str, Enum):
     """Payroll run status states."""
+
     DRAFT = "draft"
     CALCULATING = "calculating"
     PENDING_APPROVAL = "pending_approval"
@@ -68,6 +67,7 @@ class PayrollRunStatus(str, Enum):
 
 class EmploymentType(str, Enum):
     """Employment type classification."""
+
     FULL_TIME = "full_time"
     PART_TIME = "part_time"
     SEASONAL = "seasonal"
@@ -77,23 +77,27 @@ class EmploymentType(str, Enum):
 
 class CompensationType(str, Enum):
     """Compensation type classification."""
-    SALARY = "salary"    # Annual salary
-    HOURLY = "hourly"    # Hourly rate
+
+    SALARY = "salary"  # Annual salary
+    HOURLY = "hourly"  # Hourly rate
 
 
 class VacationPayoutMethod(str, Enum):
     """Vacation pay distribution method."""
-    ACCRUAL = "accrual"           # Accrue and pay when taken
+
+    ACCRUAL = "accrual"  # Accrue and pay when taken
     PAY_AS_YOU_GO = "pay_as_you_go"  # Add to each paycheck
-    LUMP_SUM = "lump_sum"         # Pay once per year
+    LUMP_SUM = "lump_sum"  # Pay once per year
 
 
 # =============================================================================
 # Tax Configuration Models
 # =============================================================================
 
+
 class TaxBracket(BaseModel):
     """Tax bracket definition."""
+
     threshold: Decimal = Field(description="Income threshold for this bracket")
     rate: Decimal = Field(description="Tax rate for this bracket")
     constant: Decimal = Field(description="Tax constant (K value) for formula")
@@ -102,6 +106,7 @@ class TaxBracket(BaseModel):
 
 class ProvinceTaxConfig(BaseModel):
     """Provincial/territorial tax configuration."""
+
     code: str
     name: str
     bpa: Decimal = Field(description="Basic Personal Amount")
@@ -115,6 +120,7 @@ class ProvinceTaxConfig(BaseModel):
 
 class FederalTaxConfig(BaseModel):
     """Federal tax configuration."""
+
     year: int
     bpaf: Decimal = Field(description="Basic Personal Amount Federal")
     cea: Decimal = Field(description="Canada Employment Amount")
@@ -124,6 +130,7 @@ class FederalTaxConfig(BaseModel):
 
 class CppConfig(BaseModel):
     """CPP contribution configuration."""
+
     ympe: Decimal = Field(description="Year's Maximum Pensionable Earnings")
     yampe: Decimal = Field(description="Year's Additional Maximum Pensionable Earnings")
     basic_exemption: Decimal
@@ -135,6 +142,7 @@ class CppConfig(BaseModel):
 
 class EiConfig(BaseModel):
     """EI premium configuration."""
+
     mie: Decimal = Field(description="Maximum Insurable Earnings")
     employee_rate: Decimal
     employer_rate_multiplier: Decimal
@@ -144,6 +152,7 @@ class EiConfig(BaseModel):
 # =============================================================================
 # Vacation Configuration
 # =============================================================================
+
 
 class VacationConfig(BaseModel):
     """
@@ -163,15 +172,11 @@ class VacationConfig(BaseModel):
 
     # Frontend sets this based on province; "0" for Owner/Contractor
     vacation_rate: Decimal = Field(
-        default=Decimal("0.04"),
-        description="Vacation rate as decimal (e.g., 0.04 = 4%, 0 = none)."
+        default=Decimal("0.04"), description="Vacation rate as decimal (e.g., 0.04 = 4%, 0 = none)."
     )
 
     lump_sum_month: int | None = Field(
-        default=None,
-        ge=1,
-        le=12,
-        description="Month for lump sum payout (1-12)"
+        default=None, ge=1, le=12, description="Month for lump sum payout (1-12)"
     )
 
 
@@ -179,8 +184,10 @@ class VacationConfig(BaseModel):
 # Employee Models
 # =============================================================================
 
+
 class EmployeeBase(BaseModel):
     """Base employee fields."""
+
     first_name: str
     last_name: str
     email: str | None = None
@@ -197,6 +204,15 @@ class EmployeeBase(BaseModel):
     # Compensation (at least one required)
     annual_salary: Decimal | None = None
     hourly_rate: Decimal | None = None
+
+    # Standard hours per week for salaried employees (for ROE and pay stub display)
+    # Default 40h for full-time, range 1-60
+    standard_hours_per_week: Decimal = Field(
+        default=Decimal("40.00"),
+        ge=Decimal("1"),
+        le=Decimal("60"),
+        description="Standard contractual hours per week. Used for ROE insurable hours and pay stub display.",
+    )
 
     # TD1 additional claims (beyond BPA, from TD1 form)
     # BPA is fetched dynamically from tax tables based on pay_date
@@ -221,23 +237,24 @@ class EmployeeBase(BaseModel):
     initial_ytd_cpp2: Decimal = Field(default=Decimal("0"), ge=0)
     initial_ytd_ei: Decimal = Field(default=Decimal("0"), ge=0)
     initial_ytd_year: int | None = Field(
-        default=None,
-        description="Tax year for which initial YTD values apply"
+        default=None, description="Tax year for which initial YTD values apply"
     )
 
 
 class EmployeeCreate(EmployeeBase):
     """Employee creation request (API input)."""
+
     sin: str | None = Field(
         default=None,
         min_length=9,
         max_length=9,
-        description="Social Insurance Number (will be encrypted)"
+        description="Social Insurance Number (will be encrypted)",
     )
 
 
 class EmployeeUpdate(BaseModel):
     """Employee update request (all fields optional)."""
+
     first_name: str | None = None
     last_name: str | None = None
     email: str | None = None
@@ -252,6 +269,12 @@ class EmployeeUpdate(BaseModel):
     # Compensation
     annual_salary: Decimal | None = None
     hourly_rate: Decimal | None = None
+    standard_hours_per_week: Decimal | None = Field(
+        default=None,
+        ge=Decimal("1"),
+        le=Decimal("60"),
+        description="Standard contractual hours per week (1-60).",
+    )
     federal_additional_claims: Decimal | None = None
     provincial_additional_claims: Decimal | None = None
     is_cpp_exempt: bool | None = None
@@ -269,6 +292,7 @@ class EmployeeUpdate(BaseModel):
 
 class Employee(EmployeeBase):
     """Complete employee model (from database)."""
+
     id: UUID
     user_id: str
     company_id: str
@@ -295,6 +319,7 @@ class Employee(EmployeeBase):
 
 class EmployeeResponse(BaseModel):
     """Employee API response (with masked SIN)."""
+
     id: UUID
     first_name: str
     last_name: str
@@ -312,6 +337,7 @@ class EmployeeResponse(BaseModel):
     # Compensation
     annual_salary: Decimal | None
     hourly_rate: Decimal | None
+    standard_hours_per_week: Decimal
     federal_additional_claims: Decimal
     provincial_additional_claims: Decimal
     is_cpp_exempt: bool
@@ -336,12 +362,16 @@ class EmployeeResponse(BaseModel):
 # Employee Tax Claims Models (TD1 by year)
 # =============================================================================
 
+
 class EmployeeTaxClaimBase(BaseModel):
     """Base TD1 tax claim fields for a specific year."""
+
     tax_year: int = Field(ge=2020, le=2100)
     federal_bpa: Decimal = Field(ge=0, description="Federal Basic Personal Amount (from config)")
     federal_additional_claims: Decimal = Field(default=Decimal("0"), ge=0)
-    provincial_bpa: Decimal = Field(ge=0, description="Provincial Basic Personal Amount (from config)")
+    provincial_bpa: Decimal = Field(
+        ge=0, description="Provincial Basic Personal Amount (from config)"
+    )
     provincial_additional_claims: Decimal = Field(default=Decimal("0"), ge=0)
 
     @computed_field  # type: ignore[prop-decorator]
@@ -359,6 +389,7 @@ class EmployeeTaxClaimBase(BaseModel):
 
 class EmployeeTaxClaim(EmployeeTaxClaimBase):
     """Complete tax claim record (from database)."""
+
     id: UUID
     employee_id: UUID
     company_id: UUID
@@ -375,6 +406,7 @@ class EmployeeTaxClaimCreate(BaseModel):
     Note: BPA values are derived server-side from tax configuration based on
     employee's province and tax year. Client only provides additional claims.
     """
+
     tax_year: int = Field(ge=2020, le=2100)
     # BPA values removed - derived server-side from tax config
     federal_additional_claims: Decimal = Field(default=Decimal("0"), ge=0)
@@ -387,11 +419,12 @@ class EmployeeTaxClaimUpdate(BaseModel):
     By default, only additional claims are editable. Set recalculate_bpa=True
     to recalculate BPA values from tax config (e.g., when province changes).
     """
+
     federal_additional_claims: Decimal | None = Field(default=None, ge=0)
     provincial_additional_claims: Decimal | None = Field(default=None, ge=0)
     recalculate_bpa: bool = Field(
         default=False,
-        description="If true, recalculate BPA values from tax config based on current province"
+        description="If true, recalculate BPA values from tax config based on current province",
     )
 
 
@@ -399,8 +432,10 @@ class EmployeeTaxClaimUpdate(BaseModel):
 # Payroll Run Models
 # =============================================================================
 
+
 class PayrollRunBase(BaseModel):
     """Base payroll run fields."""
+
     period_start: date
     period_end: date
     pay_date: date
@@ -409,11 +444,13 @@ class PayrollRunBase(BaseModel):
 
 class PayrollRunCreate(PayrollRunBase):
     """Payroll run creation request."""
+
     pass
 
 
 class PayrollRun(PayrollRunBase):
     """Complete payroll run model."""
+
     id: UUID
     user_id: str
     company_id: str
@@ -448,8 +485,10 @@ class PayrollRun(PayrollRunBase):
 # Payroll Record Models
 # =============================================================================
 
+
 class PayrollRecordBase(BaseModel):
     """Base payroll record fields (earnings)."""
+
     gross_regular: Decimal
     gross_overtime: Decimal = Decimal("0")
     bonus_earnings: Decimal = Decimal("0")  # Lump-sum payments (e.g., bonuses, commissions)
@@ -461,6 +500,7 @@ class PayrollRecordBase(BaseModel):
 
 class PayrollRecord(PayrollRecordBase):
     """Complete payroll record model."""
+
     id: UUID
     payroll_run_id: UUID
     employee_id: UUID
@@ -499,6 +539,10 @@ class PayrollRecord(PayrollRecordBase):
     vacation_accrued: Decimal = Decimal("0")
     vacation_hours_taken: Decimal = Decimal("0")
 
+    # Hours worked (for hourly employees)
+    regular_hours_worked: Decimal | None = None
+    overtime_hours_worked: Decimal = Decimal("0")
+
     # Calculation details (for audit/debugging)
     calculation_details: dict[str, Any] | None = None
 
@@ -515,8 +559,10 @@ class PayrollRecord(PayrollRecordBase):
 # Calculation Request/Result Models
 # =============================================================================
 
+
 class PayrollCalculationRequest(BaseModel):
     """Request for payroll calculation."""
+
     employee_id: UUID
     province: Province
     pay_frequency: PayFrequency
@@ -546,6 +592,7 @@ class PayrollCalculationRequest(BaseModel):
 
 class PayrollCalculationResult(BaseModel):
     """Result of payroll calculation."""
+
     # Earnings
     gross_pay: Decimal
     gross_overtime: Decimal = Decimal("0")
@@ -595,7 +642,7 @@ class PayrollCalculationResult(BaseModel):
                 "union_dues": "0.00",
                 "total_employee_deductions": "674.29",
                 "total_employer_costs": "168.39",
-                "net_pay": "1633.40"
+                "net_pay": "1633.40",
             }
         }
     }
@@ -605,8 +652,10 @@ class PayrollCalculationResult(BaseModel):
 # List/Filter Models
 # =============================================================================
 
+
 class EmployeeListFilters(BaseModel):
     """Filters for employee list endpoint."""
+
     active_only: bool = True
     province: Province | None = None
     pay_frequency: PayFrequency | None = None
@@ -616,6 +665,7 @@ class EmployeeListFilters(BaseModel):
 
 class PayrollRunListFilters(BaseModel):
     """Filters for payroll run list endpoint."""
+
     status: PayrollRunStatus | None = None
     year: int | None = None
     start_date: date | None = None
@@ -626,16 +676,19 @@ class PayrollRunListFilters(BaseModel):
 # Company & Pay Group Enums
 # =============================================================================
 
+
 class RemitterType(str, Enum):
     """CRA remitter type classification based on AMWA."""
-    QUARTERLY = "quarterly"         # < $3,000 AMWA
-    REGULAR = "regular"             # $3,000 - $24,999 AMWA
-    THRESHOLD_1 = "threshold_1"     # $25,000 - $99,999 AMWA
-    THRESHOLD_2 = "threshold_2"     # >= $100,000 AMWA
+
+    QUARTERLY = "quarterly"  # < $3,000 AMWA
+    REGULAR = "regular"  # $3,000 - $24,999 AMWA
+    THRESHOLD_1 = "threshold_1"  # $25,000 - $99,999 AMWA
+    THRESHOLD_2 = "threshold_2"  # >= $100,000 AMWA
 
 
 class PeriodStartDay(str, Enum):
     """Period start day options for pay schedules."""
+
     # Weekly/Bi-weekly options
     SUNDAY = "sunday"
     MONDAY = "monday"
@@ -655,12 +708,14 @@ class PeriodStartDay(str, Enum):
 
 class BankTimeRate(float, Enum):
     """Bank time accrual rate options."""
+
     STRAIGHT_TIME = 1.0
     TIME_AND_HALF = 1.5
 
 
 class BankTimeExpiryMonths(int, Enum):
     """Bank time expiry options in months."""
+
     THREE_MONTHS = 3
     SIX_MONTHS = 6
     TWELVE_MONTHS = 12
@@ -668,12 +723,14 @@ class BankTimeExpiryMonths(int, Enum):
 
 class DeductionType(str, Enum):
     """Deduction type for custom deductions."""
+
     PRE_TAX = "pre_tax"
     POST_TAX = "post_tax"
 
 
 class CalculationType(str, Enum):
     """Calculation type for deductions."""
+
     FIXED = "fixed"
     PERCENTAGE = "percentage"
 
@@ -682,20 +739,19 @@ class CalculationType(str, Enum):
 # Company Models
 # =============================================================================
 
+
 class CompanyBase(BaseModel):
     """Base company fields."""
+
     company_name: str
     business_number: str = Field(
-        ...,
-        min_length=9,
-        max_length=9,
-        description="9-digit CRA Business Number"
+        ..., min_length=9, max_length=9, description="9-digit CRA Business Number"
     )
     payroll_account_number: str = Field(
         ...,
         min_length=15,
         max_length=15,
-        description="15-character payroll account (e.g., 123456789RP0001)"
+        description="15-character payroll account (e.g., 123456789RP0001)",
     )
     province: Province
 
@@ -722,11 +778,13 @@ class CompanyBase(BaseModel):
 
 class CompanyCreate(CompanyBase):
     """Company creation request."""
+
     pass
 
 
 class CompanyUpdate(BaseModel):
     """Company update request (all fields optional)."""
+
     company_name: str | None = None
     business_number: str | None = None
     payroll_account_number: str | None = None
@@ -748,6 +806,7 @@ class CompanyUpdate(BaseModel):
 
 class Company(CompanyBase):
     """Complete company model (from database)."""
+
     id: UUID
     user_id: str
     created_at: datetime
@@ -760,8 +819,10 @@ class Company(CompanyBase):
 # Pay Group Policy Models (embedded in PayGroup)
 # =============================================================================
 
+
 class OvertimePolicy(BaseModel):
     """Overtime and bank time policy configuration."""
+
     bank_time_enabled: bool = False
     bank_time_rate: float = 1.5
     bank_time_expiry_months: int = 3
@@ -770,6 +831,7 @@ class OvertimePolicy(BaseModel):
 
 class WcbConfig(BaseModel):
     """WCB/WSIB workers compensation configuration."""
+
     enabled: bool = False
     industry_class_code: str | None = None
     industry_name: str | None = None
@@ -779,6 +841,7 @@ class WcbConfig(BaseModel):
 
 class BenefitConfig(BaseModel):
     """Individual benefit configuration."""
+
     enabled: bool = False
     employee_deduction: Decimal = Decimal("0")
     employer_contribution: Decimal = Decimal("0")
@@ -787,12 +850,14 @@ class BenefitConfig(BaseModel):
 
 class LifeInsuranceConfig(BenefitConfig):
     """Life insurance configuration."""
+
     coverage_amount: Decimal = Decimal("0")
     coverage_multiplier: Decimal | None = None
 
 
 class GroupBenefits(BaseModel):
     """Group benefits configuration."""
+
     enabled: bool = False
     health: BenefitConfig = Field(default_factory=BenefitConfig)
     dental: BenefitConfig = Field(default_factory=BenefitConfig)
@@ -803,6 +868,7 @@ class GroupBenefits(BaseModel):
 
 class CustomDeduction(BaseModel):
     """Custom deduction item."""
+
     id: str
     name: str
     type: DeductionType = DeductionType.POST_TAX
@@ -818,8 +884,10 @@ class CustomDeduction(BaseModel):
 # Pay Group Models
 # =============================================================================
 
+
 class PayGroupBase(BaseModel):
     """Base pay group fields."""
+
     name: str
     description: str | None = None
     pay_frequency: PayFrequency
@@ -843,11 +911,13 @@ class PayGroupBase(BaseModel):
 
 class PayGroupCreate(PayGroupBase):
     """Pay group creation request."""
+
     company_id: UUID
 
 
 class PayGroupUpdate(BaseModel):
     """Pay group update request (all fields optional)."""
+
     name: str | None = None
     description: str | None = None
     pay_frequency: PayFrequency | None = None
@@ -865,6 +935,7 @@ class PayGroupUpdate(BaseModel):
 
 class PayGroup(PayGroupBase):
     """Complete pay group model (from database)."""
+
     id: UUID
     company_id: UUID
     created_at: datetime
@@ -875,6 +946,7 @@ class PayGroup(PayGroupBase):
 
 class PayGroupWithEmployeeCount(PayGroup):
     """Pay group with employee count (from view)."""
+
     employee_count: int = 0
     company_name: str | None = None
 
@@ -883,14 +955,17 @@ class PayGroupWithEmployeeCount(PayGroup):
 # Company & Pay Group List/Filter Models
 # =============================================================================
 
+
 class CompanyListFilters(BaseModel):
     """Filters for company list endpoint."""
+
     province: Province | None = None
     search: str | None = None
 
 
 class PayGroupListFilters(BaseModel):
     """Filters for pay group list endpoint."""
+
     company_id: UUID | None = None
     pay_frequency: PayFrequency | None = None
     employment_type: EmploymentType | None = None

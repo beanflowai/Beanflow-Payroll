@@ -87,6 +87,7 @@ class ModelBuilder:
             if data.get("annual_salary")
             else None,
             hourly_rate=Decimal(str(data["hourly_rate"])) if data.get("hourly_rate") else None,
+            standard_hours_per_week=Decimal(str(data.get("standard_hours_per_week", 40))),
             federal_additional_claims=Decimal(str(data.get("federal_additional_claims", 0))),
             provincial_additional_claims=Decimal(str(data.get("provincial_additional_claims", 0))),
             is_cpp_exempt=data.get("is_cpp_exempt", False),

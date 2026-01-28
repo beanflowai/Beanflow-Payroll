@@ -306,6 +306,10 @@ class CreateOrGetRunRequest(BaseModel):
         default=None,
         description="Optional pay date in YYYY-MM-DD format. If not provided, calculated from period_end + province delay",
     )
+    payGroupIds: list[str] | None = Field(
+        default=None,
+        description="Optional list of pay group IDs to include. If provided, uses these IDs instead of querying by next_period_end",
+    )
 
 
 class CreateOrGetRunResponse(BaseModel):

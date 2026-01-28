@@ -133,6 +133,7 @@ export interface PayrollRecord {
 	compensationType: CompensationType;
 	annualSalary?: number; // For salaried employees
 	hourlyRate?: number; // For hourly employees
+	standardHoursPerWeek: number; // Standard contractual hours per week (default 40)
 
 	// Hours worked (for hourly employees)
 	regularHoursWorked?: number; // NULL for salaried employees
@@ -511,6 +512,7 @@ export interface DbPayrollRecordWithEmployee extends DbPayrollRecord {
 		email: string | null;
 		annual_salary: number | null;
 		hourly_rate: number | null;
+		standard_hours_per_week: number | null;
 		vacation_config?: {
 			payout_method?: 'accrual' | 'pay_as_you_go';
 			vacation_rate?: string;
@@ -597,12 +599,13 @@ export function dbPayrollRecordToUi(db: DbPayrollRecordWithEmployee): PayrollRec
 
 	// Calculate vacation hourly rate for UI display
 	// For hourly employees: use hourly_rate
-	// For salaried employees: annual_salary / 2080
+	// For salaried employees: annual_salary / (standard_hours_per_week * 52)
+	const standardHoursPerWeek = employee.standard_hours_per_week ?? 40;
 	let vacationHourlyRate: number | undefined;
 	if (hourlyRate != null) {
 		vacationHourlyRate = hourlyRate;
 	} else if (annualSalary != null) {
-		vacationHourlyRate = annualSalary / 2080;
+		vacationHourlyRate = annualSalary / (standardHoursPerWeek * 52);
 	}
 
 	// Extract vacation config from employee data
@@ -618,6 +621,7 @@ export function dbPayrollRecordToUi(db: DbPayrollRecordWithEmployee): PayrollRec
 		compensationType,
 		annualSalary: annualSalary ?? undefined,
 		hourlyRate: hourlyRate ?? undefined,
+		standardHoursPerWeek: employee.standard_hours_per_week ?? 40,
 		// Hours worked (for hourly employees)
 		regularHoursWorked: db.regular_hours_worked ?? undefined,
 		overtimeHoursWorked: db.overtime_hours_worked ?? undefined,

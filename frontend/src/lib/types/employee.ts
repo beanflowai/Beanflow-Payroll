@@ -150,6 +150,8 @@ export interface Employee {
 	// Compensation
 	annualSalary?: number | null;
 	hourlyRate?: number | null;
+	/** Standard contractual hours per week. Used for ROE insurable hours and pay stub display. Default: 40 */
+	standardHoursPerWeek: number;
 	// TD1 additional claims beyond BPA (BPA is fetched dynamically from tax tables)
 	federalAdditionalClaims: number;
 	provincialAdditionalClaims: number;
@@ -451,6 +453,8 @@ export interface DbEmployee {
 	// Compensation
 	annual_salary: number | null;
 	hourly_rate: number | null;
+	/** Standard contractual hours per week (default 40) */
+	standard_hours_per_week: number;
 	federal_additional_claims: number;
 	provincial_additional_claims: number;
 	is_cpp_exempt: boolean;
@@ -499,6 +503,8 @@ export interface EmployeeCreateInput {
 	// Compensation
 	annual_salary?: number | null;
 	hourly_rate?: number | null;
+	/** Standard contractual hours per week (default 40, range 1-60) */
+	standard_hours_per_week?: number;
 	federal_additional_claims: number;
 	provincial_additional_claims: number;
 	is_cpp_exempt?: boolean;
@@ -551,6 +557,7 @@ export function dbEmployeeToUi(db: DbEmployee, maskedSin: string): Employee {
 		// Compensation
 		annualSalary: db.annual_salary,
 		hourlyRate: db.hourly_rate,
+		standardHoursPerWeek: db.standard_hours_per_week ?? 40,
 		federalAdditionalClaims: db.federal_additional_claims,
 		provincialAdditionalClaims: db.provincial_additional_claims,
 		isCppExempt: db.is_cpp_exempt,
@@ -598,6 +605,7 @@ export function uiEmployeeToDbCreate(
 		// Compensation
 		annual_salary: ui.annualSalary ?? null,
 		hourly_rate: ui.hourlyRate ?? null,
+		standard_hours_per_week: ui.standardHoursPerWeek ?? 40,
 		federal_additional_claims: ui.federalAdditionalClaims,
 		provincial_additional_claims: ui.provincialAdditionalClaims,
 		is_cpp_exempt: ui.isCppExempt,

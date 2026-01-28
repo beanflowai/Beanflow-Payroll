@@ -251,7 +251,7 @@ class PayrollRunService:
         return await self._run_ops.create_or_get_run(pay_date)
 
     async def create_or_get_run_by_period_end(
-        self, period_end: str, pay_date: str | None = None
+        self, period_end: str, pay_date: str | None = None, pay_group_ids: list[str] | None = None
     ) -> dict[str, Any]:
         """Create a new draft payroll run or get existing one for a period end.
 
@@ -263,8 +263,10 @@ class PayrollRunService:
             pay_date: Optional pay date (YYYY-MM-DD). If not provided, calculated from
                      period_end + province delay. If provided, must be compliant with
                      province regulations.
+            pay_group_ids: Optional list of pay group IDs to include. If provided,
+                          uses these IDs instead of querying by next_period_end.
         """
-        return await self._run_ops.create_or_get_run_by_period_end(period_end, pay_date)
+        return await self._run_ops.create_or_get_run_by_period_end(period_end, pay_date, pay_group_ids)
 
     async def recalculate_run(self, run_id: UUID) -> dict[str, Any]:
         """Recalculate all records in a draft payroll run."""
