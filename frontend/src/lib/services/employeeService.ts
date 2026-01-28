@@ -221,6 +221,7 @@ export async function createEmployee(
 			employment_type: input.employment_type ?? 'full_time',
 			annual_salary: input.annual_salary ?? null,
 			hourly_rate: input.hourly_rate ?? null,
+			standard_hours_per_week: input.standard_hours_per_week ?? 40,
 			federal_additional_claims: input.federal_additional_claims,
 			provincial_additional_claims: input.provincial_additional_claims,
 			is_cpp_exempt: input.is_cpp_exempt ?? false,
@@ -308,6 +309,9 @@ export async function updateEmployee(
 		// NOTE: annual_salary and hourly_rate are intentionally excluded from updateEmployee
 		// Compensation changes MUST go through the dedicated /compensation endpoint
 		// to ensure proper history tracking. See: create_initial_compensation()
+		// standard_hours_per_week is a work schedule field, not a rate, so it can be updated here
+		if (input.standard_hours_per_week !== undefined)
+			updateData.standard_hours_per_week = input.standard_hours_per_week;
 		if (input.federal_additional_claims !== undefined)
 			updateData.federal_additional_claims = input.federal_additional_claims;
 		if (input.provincial_additional_claims !== undefined)

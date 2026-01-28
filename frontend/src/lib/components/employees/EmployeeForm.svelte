@@ -100,6 +100,7 @@
 			compensationType: (emp?.hourlyRate ? 'hourly' : 'salaried') as 'salaried' | 'hourly',
 			annualSalary: emp?.annualSalary ?? 0,
 			hourlyRate: emp?.hourlyRate ?? 0,
+			standardHoursPerWeek: emp?.standardHoursPerWeek ?? 40,
 			// Tax
 			federalAdditionalClaims: emp?.federalAdditionalClaims ?? 0,
 			provincialAdditionalClaims: emp?.provincialAdditionalClaims ?? 0,
@@ -167,6 +168,7 @@
 	let compensationType = $state<'salaried' | 'hourly'>(initialValues.compensationType);
 	let annualSalary = $state(initialValues.annualSalary);
 	let hourlyRate = $state(initialValues.hourlyRate);
+	let standardHoursPerWeek = $state(initialValues.standardHoursPerWeek);
 	// Effective date from compensation history (for edit mode only)
 	// Falls back to hireDate if no compensation history exists
 	let currentCompensationEffectiveDate = $state<string | undefined>(employee?.hireDate);
@@ -513,6 +515,7 @@
 			compensationType = employee.hourlyRate ? 'hourly' : 'salaried';
 			annualSalary = employee.annualSalary ?? 0;
 			hourlyRate = employee.hourlyRate ?? 0;
+			standardHoursPerWeek = employee.standardHoursPerWeek ?? 40;
 			federalAdditionalClaims = employee.federalAdditionalClaims;
 			provincialAdditionalClaims = employee.provincialAdditionalClaims;
 			isCppExempt = employee.isCppExempt;
@@ -838,6 +841,8 @@
 				occupation: occupation.trim() || null,
 				annual_salary: compensationType === 'salaried' ? annualSalary : null,
 				hourly_rate: compensationType === 'hourly' ? hourlyRate : null,
+				standard_hours_per_week:
+					compensationType === 'salaried' ? standardHoursPerWeek : undefined,
 				federal_additional_claims: federalAdditionalClaims,
 				provincial_additional_claims: provincialAdditionalClaims,
 				is_cpp_exempt: isCppExempt,
@@ -889,6 +894,8 @@
 				occupation: occupation.trim() || null,
 				annual_salary: compensationType === 'salaried' ? annualSalary : null,
 				hourly_rate: compensationType === 'hourly' ? hourlyRate : null,
+				standard_hours_per_week:
+					compensationType === 'salaried' ? standardHoursPerWeek : undefined,
 				federal_additional_claims: federalAdditionalClaims,
 				provincial_additional_claims: provincialAdditionalClaims,
 				is_cpp_exempt: isCppExempt,
@@ -1077,11 +1084,13 @@
 		{compensationType}
 		{annualSalary}
 		{hourlyRate}
+		{standardHoursPerWeek}
 		effectiveDate={currentCompensationEffectiveDate}
 		{errors}
 		onCompensationTypeChange={(v) => (compensationType = v)}
 		onAnnualSalaryChange={(v) => (annualSalary = v)}
 		onHourlyRateChange={(v) => (hourlyRate = v)}
+		onStandardHoursPerWeekChange={(v) => (standardHoursPerWeek = v)}
 	/>
 
 	<TaxInfoSection

@@ -5,11 +5,13 @@
 		compensationType: 'salaried' | 'hourly';
 		annualSalary: number;
 		hourlyRate: number;
+		standardHoursPerWeek: number;
 		effectiveDate?: string;
 		errors: Record<string, string>;
 		onCompensationTypeChange: (type: 'salaried' | 'hourly') => void;
 		onAnnualSalaryChange: (value: number) => void;
 		onHourlyRateChange: (value: number) => void;
+		onStandardHoursPerWeekChange: (value: number) => void;
 	}
 
 	let {
@@ -18,11 +20,13 @@
 		compensationType,
 		annualSalary,
 		hourlyRate,
+		standardHoursPerWeek,
 		effectiveDate,
 		errors,
 		onCompensationTypeChange,
 		onAnnualSalaryChange,
-		onHourlyRateChange
+		onHourlyRateChange,
+		onStandardHoursPerWeekChange
 	}: Props = $props();
 
 	// Format currency for display
@@ -112,6 +116,22 @@
 					<span class="info-value">{formatDate(effectiveDate)}</span>
 				</div>
 			</div>
+
+			<!-- Standard Hours (for salaried employees) -->
+			{#if compensationType === 'salaried'}
+				<div class="info-row">
+					<div class="info-icon">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<circle cx="12" cy="12" r="10"></circle>
+							<polyline points="12 6 12 12 16 14"></polyline>
+						</svg>
+					</div>
+					<div class="info-content">
+						<span class="info-label">Standard Hours</span>
+						<span class="info-value">{standardHoursPerWeek} hrs/week</span>
+					</div>
+				</div>
+			{/if}
 		</div>
 
 		<!-- CTA Button -->
@@ -187,6 +207,35 @@
 					</div>
 					{#if errors.annualSalary}
 						<span class="text-auxiliary-text text-error-600">{errors.annualSalary}</span>
+					{/if}
+				</div>
+
+				<!-- Standard Hours per Week (for salaried employees) -->
+				<div class="flex flex-col gap-2">
+					<label for="standardHoursPerWeek" class="text-body-small font-medium text-surface-700"
+						>Standard Hours per Week</label
+					>
+					<div
+						class="flex items-center border border-surface-300 rounded-md overflow-hidden transition-[150ms] focus-within:border-primary-500 focus-within:ring-[3px] focus-within:ring-primary-500/10"
+					>
+						<input
+							id="standardHoursPerWeek"
+							type="number"
+							class="flex-1 p-3 border-none rounded-none text-body-content focus:outline-none focus:ring-0"
+							value={standardHoursPerWeek}
+							oninput={(e) =>
+								onStandardHoursPerWeekChange(parseFloat(e.currentTarget.value) || 40)}
+							min="1"
+							max="60"
+							step="0.5"
+						/>
+						<span class="p-3 bg-surface-100 text-surface-500 text-body-content">hrs/week</span>
+					</div>
+					<span class="text-auxiliary-text text-surface-500">
+						Contractual weekly hours. Default: 40h. Used for ROE and pay stub.
+					</span>
+					{#if errors.standardHoursPerWeek}
+						<span class="text-auxiliary-text text-error-600">{errors.standardHoursPerWeek}</span>
 					{/if}
 				</div>
 			{:else}
