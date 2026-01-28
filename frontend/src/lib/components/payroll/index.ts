@@ -5,6 +5,8 @@ export { default as HolidayWorkModal } from './HolidayWorkModal.svelte';
 export { default as HolidayAlert } from './HolidayAlert.svelte';
 export { default as PaystubStatusBadge } from './PaystubStatusBadge.svelte';
 export { default as LeaveTypeBadge } from './LeaveTypeBadge.svelte';
+export { default as PaystubWebPreview } from './PaystubWebPreview.svelte';
+export { default as PaystubPreviewModal } from './PaystubPreviewModal.svelte';
 
 // Multi Pay Group Support
 export { default as PayPeriodCard } from './PayPeriodCard.svelte';

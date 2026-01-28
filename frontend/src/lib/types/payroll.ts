@@ -770,7 +770,7 @@ export interface EmployeePayrollInput {
 	employeeId: string;
 
 	// Hours
-	regularHours: number; // Required for hourly employees
+	regularHours: number; // Required for hourly employees; for salaried, used for proration (default: standard hours per period)
 	overtimeHours: number; // Overtime hours worked
 
 	// Overtime choice (when bank time is enabled)
