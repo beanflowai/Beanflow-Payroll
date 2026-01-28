@@ -8,6 +8,41 @@ import { getCurrentUserId } from './helpers';
 import type { PayrollServiceResult } from './types';
 
 // ===========================================
+// Paystub Preview
+// ===========================================
+
+/**
+ * Generate a paystub PDF preview without storing it.
+ * Returns a Blob containing the PDF.
+ */
+export async function previewPaystub(recordId: string): Promise<PayrollServiceResult<Blob>> {
+	try {
+		getCurrentUserId();
+
+		const response = await api.postRaw(`/payroll/records/${recordId}/paystub-preview`, {});
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			let errorMessage = 'Failed to generate paystub preview';
+			try {
+				const errorJson = JSON.parse(errorText);
+				errorMessage = errorJson.detail || errorMessage;
+			} catch {
+				// Use default error message
+			}
+			return { data: null, error: errorMessage };
+		}
+
+		const blob = await response.blob();
+		return { data: blob, error: null };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to generate paystub preview';
+		console.error('previewPaystub error:', message);
+		return { data: null, error: message };
+	}
+}
+
+// ===========================================
 // Paystub Download
 // ===========================================
 
