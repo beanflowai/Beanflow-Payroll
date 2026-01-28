@@ -331,7 +331,8 @@ async def create_or_get_run(
         service = get_payroll_run_service(current_user.id, company_id)
         result = await service.create_or_get_run_by_period_end(
             request.periodEnd,
-            request.payDate
+            request.payDate,
+            request.payGroupIds
         )
 
         run_data = result["run"]

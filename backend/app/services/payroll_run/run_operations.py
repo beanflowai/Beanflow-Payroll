@@ -468,7 +468,7 @@ class PayrollRunOperations:
         return await self.create_or_get_run_by_period_end(period_end.strftime("%Y-%m-%d"))
 
     async def create_or_get_run_by_period_end(
-        self, period_end: str, pay_date: str | None = None
+        self, period_end: str, pay_date: str | None = None, pay_group_ids: list[str] | None = None
     ) -> dict[str, Any]:
         """Create a new draft payroll run or get existing one for a period end.
 
@@ -480,6 +480,8 @@ class PayrollRunOperations:
             pay_date: Optional pay date (YYYY-MM-DD). If not provided, calculated from
                      period_end + province delay. If provided, must be compliant with
                      province regulations (on or after period_end, on or before legal deadline).
+            pay_group_ids: Optional list of pay group IDs to include. If provided,
+                          uses these IDs instead of querying by next_period_end.
 
         Returns:
             Dict with 'run', 'created' bool, 'records_count', and sync metadata
@@ -487,43 +489,65 @@ class PayrollRunOperations:
         Raises:
             ValueError: If pay_date is provided but not compliant with province regulations
         """
-        # Check if run already exists for this period_end
+        # Check if run already exists for this period_end and pay_group_ids
         existing_result = self.supabase.table("payroll_runs").select("*").eq(
             "user_id", self.user_id
         ).eq("company_id", self.company_id).eq("period_end", period_end).execute()
 
         if existing_result.data and len(existing_result.data) > 0:
-            existing_run = existing_result.data[0]
-            if existing_run.get("status") == "draft" and self._sync_employees:
-                sync_result = await self._sync_employees(UUID(existing_run["id"]))
-                added_count = sync_result.get("added_count", 0)
-                removed_count = sync_result.get("removed_count", 0)
+            # If pay_group_ids provided, find the run that matches those specific pay groups
+            if pay_group_ids:
+                sorted_input_ids = sorted(pay_group_ids)
+                for run in existing_result.data:
+                    run_pay_group_ids = run.get("pay_group_ids") or []
+                    if sorted(run_pay_group_ids) == sorted_input_ids:
+                        existing_run = run
+                        break
+                else:
+                    # No matching run found, will create a new one below
+                    existing_run = None
+            else:
+                # No pay_group_ids provided, use first matching run (legacy behavior)
+                existing_run = existing_result.data[0]
+
+            if existing_run:
+                if existing_run.get("status") == "draft" and self._sync_employees:
+                    sync_result = await self._sync_employees(UUID(existing_run["id"]))
+                    added_count = sync_result.get("added_count", 0)
+                    removed_count = sync_result.get("removed_count", 0)
+                    return {
+                        "run": sync_result.get("run", existing_run),
+                        "created": False,
+                        "records_count": 0,
+                        "synced": added_count > 0 or removed_count > 0,
+                        "added_count": added_count,
+                    }
+
                 return {
-                    "run": sync_result.get("run", existing_run),
+                    "run": existing_run,
                     "created": False,
                     "records_count": 0,
-                    "synced": added_count > 0 or removed_count > 0,
-                    "added_count": added_count,
+                    "synced": False,
+                    "added_count": 0,
                 }
 
-            return {
-                "run": existing_run,
-                "created": False,
-                "records_count": 0,
-                "synced": False,
-                "added_count": 0,
-            }
-
-        # Get pay groups with matching next_period_end for this company
-        pay_groups_result = self.supabase.table("pay_groups").select(
-            "id, name, pay_frequency, employment_type, group_benefits, province"
-        ).eq("company_id", self.company_id).eq("next_period_end", period_end).eq("is_active", True).execute()
+        # Get pay groups - use provided IDs if available, otherwise query by next_period_end
+        if pay_group_ids:
+            # Use the explicitly provided pay group IDs
+            pay_groups_result = self.supabase.table("pay_groups").select(
+                "id, name, pay_frequency, employment_type, group_benefits, province"
+            ).eq("company_id", self.company_id).in_("id", pay_group_ids).eq("is_active", True).execute()
+        else:
+            # Fallback: query by next_period_end (legacy behavior)
+            pay_groups_result = self.supabase.table("pay_groups").select(
+                "id, name, pay_frequency, employment_type, group_benefits, province"
+            ).eq("company_id", self.company_id).eq("next_period_end", period_end).eq("is_active", True).execute()
 
         pay_groups = pay_groups_result.data or []
         if not pay_groups:
-            raise ValueError(f"No pay groups found with period end {period_end}")
+            raise ValueError(f"No pay groups found for period end {period_end}")
 
-        pay_group_ids = [pg["id"] for pg in pay_groups]
+        selected_pay_group_ids = [pg["id"] for pg in pay_groups]
         pay_group_map = {pg["id"]: pg for pg in pay_groups}
 
         # Collect all provinces from pay groups for compliance validation
@@ -536,10 +560,11 @@ class PayrollRunOperations:
         # Get all active employees
         employees_result = self.supabase.table("employees").select(
             "id, first_name, last_name, province_of_employment, pay_group_id, "
-            "annual_salary, hourly_rate, federal_additional_claims, provincial_additional_claims, "
+            "annual_salary, hourly_rate, standard_hours_per_week, "
+            "federal_additional_claims, provincial_additional_claims, "
             "is_cpp_exempt, is_ei_exempt, cpp2_exempt, vacation_config"
         ).eq("user_id", self.user_id).eq("company_id", self.company_id).in_(
-            "pay_group_id", pay_group_ids
+            "pay_group_id", selected_pay_group_ids
         ).is_("termination_date", "null").execute()
 
         employees = employees_result.data or []
@@ -591,7 +616,7 @@ class PayrollRunOperations:
             "period_end": period_end,
             "pay_date": pay_date_obj.strftime("%Y-%m-%d"),
             "status": "draft",
-            "pay_group_ids": pay_group_ids,
+            "pay_group_ids": selected_pay_group_ids,
             "total_employees": len(employees),
             "total_gross": 0,
             "total_cpp_employee": 0,

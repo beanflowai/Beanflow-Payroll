@@ -17,11 +17,49 @@ class TestCalculateHourlyRate:
         assert result == Decimal("25")
 
     def test_salaried_employee(self):
-        """Test hourly rate calculation for salaried employee."""
+        """Test hourly rate calculation for salaried employee with default 40h/week."""
         employee = {"annual_salary": 52000}
         result = GrossCalculator.calculate_hourly_rate(employee)
-        # 52000 / 2080 = 25
+        # 52000 / (40 * 52) = 52000 / 2080 = 25
         assert result == Decimal("25")
+
+    def test_salaried_employee_37_5_hours_per_week(self):
+        """Test hourly rate for salaried employee with 37.5h/week (common in Canada).
+
+        Bug fix verification: Previously hardcoded 2080 hours, now uses standard_hours_per_week.
+        """
+        employee = {"annual_salary": 60000, "standard_hours_per_week": 37.5}
+        result = GrossCalculator.calculate_hourly_rate(employee)
+        # 60000 / (37.5 * 52) = 60000 / 1950 = 30.769230769...
+        expected = Decimal("60000") / (Decimal("37.5") * Decimal("52"))
+        assert result == expected
+        # Verify it's NOT the old incorrect calculation
+        incorrect_result = Decimal("60000") / Decimal("2080")  # Would be ~28.85
+        assert result != incorrect_result
+
+    def test_salaried_employee_35_hours_per_week(self):
+        """Test hourly rate for salaried employee with 35h/week."""
+        employee = {"annual_salary": 52000, "standard_hours_per_week": 35}
+        result = GrossCalculator.calculate_hourly_rate(employee)
+        # 52000 / (35 * 52) = 52000 / 1820 = 28.571428571...
+        expected = Decimal("52000") / (Decimal("35") * Decimal("52"))
+        assert result == expected
+
+    def test_salaried_employee_invalid_hours_fallback(self):
+        """Test that invalid standard_hours_per_week falls back to 40."""
+        employee = {"annual_salary": 52000, "standard_hours_per_week": 0}
+        result = GrossCalculator.calculate_hourly_rate(employee)
+        # Should fall back to 40 hours/week
+        expected = Decimal("52000") / Decimal("2080")
+        assert result == expected
+
+    def test_salaried_employee_negative_hours_fallback(self):
+        """Test that negative standard_hours_per_week falls back to 40."""
+        employee = {"annual_salary": 52000, "standard_hours_per_week": -10}
+        result = GrossCalculator.calculate_hourly_rate(employee)
+        # Should fall back to 40 hours/week
+        expected = Decimal("52000") / Decimal("2080")
+        assert result == expected
 
     def test_employee_with_both(self):
         """Test that hourly_rate takes precedence over annual_salary."""
@@ -39,7 +77,7 @@ class TestCalculateHourlyRate:
         """Test decimal precision for salary calculation."""
         employee = {"annual_salary": 60000}
         result = GrossCalculator.calculate_hourly_rate(employee)
-        # 60000 / 2080 = 28.846153846...
+        # 60000 / (40 * 52) = 60000 / 2080 = 28.846153846...
         expected = Decimal("60000") / Decimal("2080")
         assert result == expected
 

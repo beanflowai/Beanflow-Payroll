@@ -696,6 +696,9 @@ class TestBuildFullPaystub:
         record.vacation_accrued = Decimal("88")
         record.vacation_hours_taken = Decimal("0")
         record.net_pay = Decimal("1590")
+        # Hours worked fields for earnings display
+        record.regular_hours_worked = Decimal("80")
+        record.overtime_hours_worked = Decimal("5")
         return record
 
     @pytest.fixture
@@ -714,6 +717,10 @@ class TestBuildFullPaystub:
         emp.hourly_rate = None
         emp.vacation_balance = Decimal("500")
         emp.sick_balance = Decimal("5")
+        # Standard hours and pay frequency for earnings display
+        emp.standard_hours_per_week = Decimal("40")
+        emp.pay_frequency = MagicMock()
+        emp.pay_frequency.value = "bi_weekly"
         return emp
 
     @pytest.fixture

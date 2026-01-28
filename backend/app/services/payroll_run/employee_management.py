@@ -100,7 +100,8 @@ class EmployeeManagement:
         # Get all active employees from these pay groups
         employees_result = self.supabase.table("employees").select(
             "id, first_name, last_name, province_of_employment, pay_group_id, "
-            "annual_salary, hourly_rate, federal_additional_claims, provincial_additional_claims, "
+            "annual_salary, hourly_rate, standard_hours_per_week, "
+            "federal_additional_claims, provincial_additional_claims, "
             "is_cpp_exempt, is_ei_exempt, cpp2_exempt, vacation_config, hire_date"
         ).eq("user_id", self.user_id).eq("company_id", self.company_id).in_(
             "pay_group_id", pay_group_ids
@@ -575,6 +576,33 @@ class EmployeeManagement:
             else:
                 vacation_accrued = Decimal("0")
 
+            # Determine default regularHours based on compensation type
+            # Salaried employees: use employee's standard_hours_per_week converted to period hours
+            # Hourly employees: use 0 (must be entered manually)
+            pay_frequency = pay_group.get("pay_frequency", "bi_weekly")
+            annual_salary = emp.get("annual_salary")
+            is_salaried = annual_salary is not None and annual_salary > 0
+
+            if is_salaried:
+                # Use employee's actual standard hours per week (default 40 if NULL or not set)
+                std_hours = emp.get("standard_hours_per_week")
+                weekly_hours = Decimal(str(std_hours)) if std_hours is not None else Decimal("40")
+                # Convert to period hours based on pay frequency
+                if pay_frequency == "weekly":
+                    default_regular_hours = float(weekly_hours)
+                elif pay_frequency == "bi_weekly":
+                    default_regular_hours = float(weekly_hours * 2)
+                elif pay_frequency == "semi_monthly":
+                    # 52 weeks / 24 periods = 2.1667 weeks per period
+                    default_regular_hours = float(weekly_hours * Decimal("52") / Decimal("24"))
+                elif pay_frequency == "monthly":
+                    # 52 weeks / 12 periods = 4.3333 weeks per period
+                    default_regular_hours = float(weekly_hours * Decimal("52") / Decimal("12"))
+                else:
+                    default_regular_hours = float(weekly_hours * 2)  # default to bi-weekly
+            else:
+                default_regular_hours = 0
+
             records_to_insert.append({
                 "payroll_run_id": str(run_id),
                 "employee_id": result.employee_id,
@@ -616,7 +644,7 @@ class EmployeeManagement:
                 "vacation_accrued": float(vacation_accrued),
                 "vacation_hours_taken": 0,
                 "input_data": {
-                    "regularHours": 0,
+                    "regularHours": default_regular_hours,
                     "overtimeHours": 0,
                     "leaveEntries": [],
                     "holidayWorkEntries": [],

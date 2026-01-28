@@ -148,9 +148,9 @@ class PaystubOrchestrator:
             return False, f"Record {record_data['id']}: missing company data"
 
         # Get prior YTD records
-        # Use period_end year for YTD lookup (not pay_date)
-        # This handles cross-year scenarios where Dec 2025 is paid in Jan 2026
-        ytd_year = int(run["period_end"][:4])
+        # Use pay_date year for YTD lookup (Canadian payroll tax is based on payment date)
+        # Cross-year example: Dec 2025 period paid in Jan 2026 → income belongs to 2026 tax year
+        ytd_year = int(run["pay_date"][:4])
         ytd_records = await self.ytd_calculator.get_ytd_records_for_employee(
             record_data["employee_id"],
             str(run["id"]),

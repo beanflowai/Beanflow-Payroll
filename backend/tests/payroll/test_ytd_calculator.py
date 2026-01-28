@@ -596,6 +596,99 @@ class TestYtdCalculatorGetYtdRecords:
         assert str(result[0].payroll_run_id) == TEST_RUN_ID
 
 
+class TestYtdCalculatorYearEndScenarios:
+    """Tests for year-end scenarios where pay_date and period_end are in different years.
+
+    Bug fix verification: YTD year should be based on pay_date, not period_end.
+    Canadian payroll tax is based on when the employee receives payment.
+    """
+
+    @pytest.fixture
+    def mock_supabase(self):
+        """Create a mock Supabase client"""
+        return MagicMock()
+
+    @pytest.fixture
+    def calculator(self, mock_supabase):
+        """Create YtdCalculator instance with mock Supabase"""
+        return YtdCalculator(
+            supabase=mock_supabase,
+            user_id="test-user",
+            company_id="test-company"
+        )
+
+    @pytest.mark.asyncio
+    async def test_year_end_pay_date_in_next_year(self, calculator, mock_supabase):
+        """Test YTD calculation when period_end=2024-12-31 but pay_date=2025-01-03.
+
+        The YTD should be for 2025 (pay_date year), not 2024 (period_end year).
+        This income appears on the 2025 T4, not 2024.
+        """
+        # Setup mock: return records for 2025 (the correct year based on pay_date)
+        mock_supabase.table.return_value.select.return_value.eq.return_value.in_.return_value.gte.return_value.lte.return_value.neq.return_value.execute.return_value = MagicMock(
+            data=[
+                {
+                    "id": TEST_RECORD_ID,
+                    "employee_id": TEST_EMPLOYEE_ID,
+                    "payroll_run_id": TEST_RUN_ID,
+                    "gross_regular": "3000.00",
+                    "gross_overtime": "0",
+                    "holiday_pay": "0",
+                    "holiday_premium_pay": "0",
+                    "vacation_pay_paid": "0",
+                    "other_earnings": "0",
+                    "total_gross": "3000.00",
+                    "cpp_employee": "172.50",
+                    "cpp_additional": "0",
+                    "cpp_employer": "172.50",
+                    "ei_employee": "49.20",
+                    "ei_employer": "68.88",
+                    "federal_tax": "300.00",
+                    "provincial_tax": "150.00",
+                    "net_pay": "2328.30",
+                    "payroll_runs": {
+                        "id": TEST_RUN_ID,
+                        "pay_date": "2025-01-15",  # Pay date in 2025
+                        "status": "paid"
+                    }
+                }
+            ]
+        )
+
+        # Query for 2025 YTD (the correct year based on pay_date)
+        result = await calculator.get_ytd_records_for_employee(
+            employee_id=TEST_EMPLOYEE_ID,
+            current_run_id="run-current",
+            year=2025  # Should use pay_date year, not period_end year
+        )
+
+        # Should return the record since pay_date is in 2025
+        assert len(result) == 1
+        assert result[0].total_gross == Decimal("3000.00")
+
+    @pytest.mark.asyncio
+    async def test_year_end_period_end_in_previous_year(self, calculator, mock_supabase):
+        """Test that querying 2024 YTD doesn't include records paid in 2025.
+
+        Even if period_end is 2024-12-31, if pay_date is 2025-01-03,
+        the record should NOT appear in 2024 YTD.
+        """
+        # Setup mock: return empty for 2024 query (record is in 2025 based on pay_date)
+        mock_supabase.table.return_value.select.return_value.eq.return_value.in_.return_value.gte.return_value.lte.return_value.neq.return_value.execute.return_value = MagicMock(
+            data=[]
+        )
+
+        # Query for 2024 YTD
+        result = await calculator.get_ytd_records_for_employee(
+            employee_id=TEST_EMPLOYEE_ID,
+            current_run_id="run-current",
+            year=2024
+        )
+
+        # Should be empty since records with pay_date in 2025 shouldn't count for 2024
+        assert result == []
+
+
 class TestYtdCalculatorEdgeCases:
     """Tests for edge cases in YTD calculation"""
 
