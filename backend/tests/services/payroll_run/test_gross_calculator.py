@@ -278,3 +278,62 @@ class TestCalculateGrossFromInput:
         )
         assert gross_regular == Decimal("800")
         assert gross_overtime == Decimal("0")
+
+    def test_salaried_employee_with_prorated_hours(self):
+        """Test salaried employee with hours less than standard for proration."""
+        employee = {"annual_salary": 52000}  # $25/hr implied rate (52000/2080)
+        input_data = {"regularHours": 40}  # Half of bi-weekly standard (80 hrs)
+        gross_regular, gross_overtime = GrossCalculator.calculate_gross_from_input(
+            employee, input_data, "bi_weekly"
+        )
+        # Prorated: 40 hours × $25/hr = $1000
+        assert gross_regular == Decimal("1000")
+        assert gross_overtime == Decimal("0")
+
+    def test_salaried_employee_full_standard_hours(self):
+        """Test salaried employee with full standard hours (no proration)."""
+        employee = {"annual_salary": 52000}
+        input_data = {"regularHours": 80}  # Full bi-weekly standard
+        gross_regular, gross_overtime = GrossCalculator.calculate_gross_from_input(
+            employee, input_data, "bi_weekly"
+        )
+        # Full period: $52000 / 26 = $2000
+        assert gross_regular == Decimal("2000")
+        assert gross_overtime == Decimal("0")
+
+    def test_salaried_employee_prorated_semi_monthly(self):
+        """Test salaried employee proration with semi-monthly frequency."""
+        employee = {"annual_salary": 62400}  # $30/hr implied rate (62400/2080)
+        input_data = {"regularHours": 43.335}  # Half of semi-monthly standard (86.67)
+        gross_regular, gross_overtime = GrossCalculator.calculate_gross_from_input(
+            employee, input_data, "semi_monthly"
+        )
+        # Prorated: 43.335 hours × $30/hr = $1300.05
+        expected = Decimal("43.335") * (Decimal("62400") / Decimal("2080"))
+        assert gross_regular == expected
+        assert gross_overtime == Decimal("0")
+
+    def test_salaried_employee_zero_hours(self):
+        """Test salaried employee with zero hours (e.g., unpaid leave entire period)."""
+        employee = {"annual_salary": 52000}
+        input_data = {"regularHours": 0}
+        gross_regular, gross_overtime = GrossCalculator.calculate_gross_from_input(
+            employee, input_data, "bi_weekly"
+        )
+        # Zero hours = zero pay
+        assert gross_regular == Decimal("0")
+        assert gross_overtime == Decimal("0")
+
+    def test_salaried_employee_proration_override_takes_precedence(self):
+        """Test that manual override takes precedence over proration."""
+        employee = {"annual_salary": 52000}
+        input_data = {
+            "regularHours": 40,  # Would prorate to $1000
+            "overrides": {"regularPay": 1500},  # Override to $1500
+        }
+        gross_regular, gross_overtime = GrossCalculator.calculate_gross_from_input(
+            employee, input_data, "bi_weekly"
+        )
+        # Override should win
+        assert gross_regular == Decimal("1500")
+        assert gross_overtime == Decimal("0")
