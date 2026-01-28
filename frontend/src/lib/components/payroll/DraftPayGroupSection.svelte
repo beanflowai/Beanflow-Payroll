@@ -44,6 +44,7 @@
 		) => void;
 		onAddEmployee?: (payGroupId: string) => void;
 		onRemoveEmployee?: (employeeId: string) => void;
+		onPreviewPaystub?: (record: PayrollRecord) => void;
 	}
 
 	let {
@@ -55,7 +56,8 @@
 		onUpdateRecord,
 		onAutoCalculateTrigger,
 		onAddEmployee,
-		onRemoveEmployee
+		onRemoveEmployee,
+		onPreviewPaystub
 	}: Props = $props();
 
 	let isCollapsed = $state(false);
@@ -63,6 +65,12 @@
 	// Track which record's type selection menu is open
 	let showEarningsMenu = $state<string | null>(null);
 	let showDeductionsMenu = $state<string | null>(null);
+
+	// Track which salaried record is in hours editing mode
+	let editingSalariedHoursId = $state<string | null>(null);
+
+	// Track which record is in overtime hours editing mode
+	let editingOvertimeHoursId = $state<string | null>(null);
 
 	// Local input state for editing
 	let localInputMap = $state<Map<string, Partial<EmployeePayrollInput>>>(new Map());
@@ -280,15 +288,16 @@
 
 	/**
 	 * Calculate vacation pay for the given vacation hours
-	 * Uses the employee's hourly rate (or annual_salary / 2080 for salaried)
+	 * Uses the employee's hourly rate (or annual_salary / annual_hours for salaried)
 	 */
 	function calculateVacationPay(record: PayrollRecord, vacationHours: number): number {
 		if (vacationHours <= 0) return 0;
 		// Use vacation hourly rate if available, otherwise calculate from salary/hourly
+		const annualHours = record.standardHoursPerWeek * 52;
 		const hourlyRate =
 			record.vacationHourlyRate ??
 			record.hourlyRate ??
-			(record.annualSalary ? record.annualSalary / 2080 : 0);
+			(record.annualSalary ? record.annualSalary / annualHours : 0);
 		return vacationHours * hourlyRate;
 	}
 
@@ -358,6 +367,70 @@
 
 	function shouldShowNoHoursBadge(record: PayrollRecord): boolean {
 		return record.compensationType === 'hourly' && getRegularHoursValue(record) === 0;
+	}
+
+	/**
+	 * Get standard hours per pay period based on pay frequency and employee's weekly hours
+	 */
+	function getStandardHoursPerPeriod(payFrequency: string, weeklyHours: number = 40): number {
+		switch (payFrequency) {
+			case 'weekly':
+				return weeklyHours;
+			case 'bi_weekly':
+				return weeklyHours * 2;
+			case 'semi_monthly':
+				return (weeklyHours * 52) / 24; // ~86.67 for 40h/week
+			case 'monthly':
+				return (weeklyHours * 52) / 12; // ~173.33 for 40h/week
+			default:
+				return weeklyHours * 2; // default to bi-weekly
+		}
+	}
+
+	/**
+	 * Get the current salaried hours value from input data or default to standard hours
+	 */
+	function getSalariedHoursValue(record: PayrollRecord): number {
+		const local = getLocalInput(record.id);
+		if (local.regularHours !== undefined) return local.regularHours;
+		if (record.inputData?.regularHours !== undefined) return record.inputData.regularHours;
+		return getStandardHoursPerPeriod(payGroup.payFrequency, record.standardHoursPerWeek);
+	}
+
+	/**
+	 * Check if a salaried employee's pay is prorated (0 < hours < standard)
+	 * Only show proration indicator when actually working partial period, not when hours = 0
+	 */
+	function isSalariedProrated(record: PayrollRecord): boolean {
+		if (record.compensationType !== 'salaried') return false;
+		const standardHours = getStandardHoursPerPeriod(payGroup.payFrequency, record.standardHoursPerWeek);
+		const workedHours = getSalariedHoursValue(record);
+		// Only prorated when hours > 0 AND less than standard
+		return workedHours > 0 && workedHours < standardHours;
+	}
+
+	/**
+	 * Handle salaried employee hours change for proration
+	 */
+	function handleSalariedHoursChange(record: PayrollRecord, value: string) {
+		const standardHours = getStandardHoursPerPeriod(payGroup.payFrequency, record.standardHoursPerWeek);
+		// Clamp to [0, standardHours]
+		const hours = Math.min(Math.max(parseFloat(value) || 0, 0), standardHours);
+
+		const current = getLocalInput(record.id);
+		const updated = { ...current, regularHours: hours };
+		localInputMap = new Map(localInputMap).set(record.id, updated);
+		recordUpdated(record.id);
+		onUpdateRecord(record.id, record.employeeId, { regularHours: hours });
+		triggerAutoCalculate(record, hours);
+	}
+
+	/**
+	 * Handle overtime hours change when editing finishes
+	 */
+	function handleOvertimeHoursEdit(record: PayrollRecord, value: string) {
+		const hours = Math.max(parseFloat(value) || 0, 0);
+		handleHoursChange(record, 'overtimeHours', hours);
 	}
 
 	// Check if record needs recalculation (modified or not yet calculated)
@@ -454,7 +527,9 @@
 	}
 </script>
 
-<div class="relative bg-white rounded-xl shadow-md3-1 overflow-hidden mb-4 border-2 border-neutral-200">
+<div
+	class="relative bg-white rounded-xl shadow-md3-1 overflow-hidden mb-4 border-2 border-neutral-200"
+>
 	<!-- Recalculating Overlay -->
 	{#if isRecalculating}
 		<div
@@ -663,12 +738,24 @@
 								<span class="font-semibold text-success-600">{formatCurrency(record.netPay)}</span>
 							</td>
 							<td class="py-3 px-4 text-body-content border-b border-surface-100 text-right">
-								<button
-									class="p-2 bg-transparent border-none rounded-lg text-surface-500 cursor-pointer transition-all duration-150 hover:bg-surface-100 hover:text-primary-600"
-									title={expandedRecordId === record.id ? 'Collapse' : 'Expand'}
-								>
-									<i class="fas fa-chevron-{expandedRecordId === record.id ? 'up' : 'down'}"></i>
-								</button>
+								<div class="flex gap-1 justify-end">
+									<button
+										class="p-2 bg-transparent border-none rounded-lg text-surface-500 cursor-pointer transition-all duration-150 hover:bg-surface-100 hover:text-primary-600"
+										title="Preview Paystub"
+										onclick={(e) => {
+											e.stopPropagation();
+											onPreviewPaystub?.(record);
+										}}
+									>
+										<i class="fas fa-eye"></i>
+									</button>
+									<button
+										class="p-2 bg-transparent border-none rounded-lg text-surface-500 cursor-pointer transition-all duration-150 hover:bg-surface-100 hover:text-primary-600"
+										title={expandedRecordId === record.id ? 'Collapse' : 'Expand'}
+									>
+										<i class="fas fa-chevron-{expandedRecordId === record.id ? 'up' : 'down'}"></i>
+									</button>
+								</div>
 							</td>
 						</tr>
 
@@ -681,7 +768,9 @@
 										<div class="grid grid-cols-3 gap-5">
 											<!-- EARNINGS Column -->
 											<div class="flex flex-col gap-3">
-												<div class="flex items-center justify-between pb-2 border-b border-surface-200">
+												<div
+													class="flex items-center justify-between pb-2 border-b border-surface-200"
+												>
 													<h4
 														class="text-caption font-semibold text-surface-600 uppercase tracking-wider m-0"
 													>
@@ -722,7 +811,9 @@
 																	<input
 																		type="number"
 																		class="amount-input w-20 py-1 px-2 border border-surface-300 rounded text-body-small text-center focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
-																		value={record.inputData?.regularHours ?? record.regularHoursWorked ?? 0}
+																		value={record.inputData?.regularHours ??
+																			record.regularHoursWorked ??
+																			0}
 																		min="0"
 																		step="0.5"
 																		onchange={(e) => {
@@ -735,6 +826,67 @@
 																	<span class="text-caption text-surface-500">hrs</span>
 																</div>
 															</div>
+														{/if}
+														<!-- Salaried hours display and input for proration -->
+														{#if record.compensationType === 'salaried' && record.annualSalary}
+															{@const standardHours = getStandardHoursPerPeriod(payGroup.payFrequency, record.standardHoursPerWeek)}
+															{@const impliedHourlyRate = record.annualSalary / (record.standardHoursPerWeek * 52)}
+															{@const workedHours = getSalariedHoursValue(record)}
+															{@const isEditing = editingSalariedHoursId === record.id}
+															<!-- svelte-ignore a11y_no_static_element_interactions -->
+															<!-- svelte-ignore a11y_click_events_have_key_events -->
+															<div
+																class="flex justify-between items-center pl-4"
+																onclick={(e) => e.stopPropagation()}
+															>
+																<span class="text-auxiliary-text text-surface-500">Hours @ Rate</span>
+																<div class="flex items-center gap-1">
+																	{#if isEditing}
+																		<!-- Inline edit mode -->
+																		<input
+																			type="number"
+																			class="amount-input w-16 py-0.5 px-1.5 border border-primary-400 rounded text-auxiliary-text text-center focus:outline-none focus:ring-2 focus:ring-primary-100"
+																			value={workedHours}
+																			min="0"
+																			max={standardHours}
+																			step="0.5"
+																			autofocus
+																			onblur={(e) => {
+																				handleSalariedHoursChange(record, e.currentTarget.value);
+																				editingSalariedHoursId = null;
+																			}}
+																			onkeydown={(e) => {
+																				if (e.key === 'Enter') {
+																					handleSalariedHoursChange(record, e.currentTarget.value);
+																					editingSalariedHoursId = null;
+																				} else if (e.key === 'Escape') {
+																					editingSalariedHoursId = null;
+																				}
+																			}}
+																		/>
+																	{:else}
+																		<!-- Read-only display with edit button -->
+																		<span class="text-auxiliary-text text-surface-700">{workedHours.toFixed(2)} hrs</span>
+																		<button
+																			class="p-1 text-surface-400 hover:text-primary-600 transition-colors"
+																			title="Edit hours"
+																			onclick={() => (editingSalariedHoursId = record.id)}
+																		>
+																			<i class="fas fa-pencil-alt text-xs"></i>
+																		</button>
+																	{/if}
+																	<span class="text-auxiliary-text text-surface-400">@ {formatCurrency(impliedHourlyRate)}/hr</span>
+																</div>
+															</div>
+															<!-- Proration indicator (only when prorated) -->
+															{#if isSalariedProrated(record)}
+																<div class="flex items-center gap-1 pl-4 text-warning-600">
+																	<i class="fas fa-clock text-xs"></i>
+																	<span class="text-caption">
+																		Prorated: {((workedHours / standardHours) * 100).toFixed(0)}% of full period
+																	</span>
+																</div>
+															{/if}
 														{/if}
 													</div>
 
@@ -757,31 +909,54 @@
 																>{formatCurrency(record.grossOvertime)}</span
 															>
 														</div>
-														<!-- Overtime Hours input (for both hourly and salaried) -->
-														<!-- svelte-ignore a11y_no_static_element_interactions -->
-														<!-- svelte-ignore a11y_click_events_have_key_events -->
-														<div
-															class="flex justify-between items-center gap-2 pl-4"
-															onclick={(e) => e.stopPropagation()}
-														>
-															<span class="text-body-small text-surface-500">Overtime Hours</span>
-															<div class="flex items-center gap-1">
-																<input
-																	type="number"
-																	class="amount-input w-16 py-1 px-2 border border-surface-300 rounded text-body-small text-center focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
-																	value={record.inputData?.overtimeHours ?? record.overtimeHoursWorked ?? 0}
-																	min="0"
-																	step="0.5"
-																	onchange={(e) => {
-																		let val = parseFloat(e.currentTarget.value) || 0;
-																		if (val < 0) val = 0;
-																		e.currentTarget.value = val.toString();
-																		handleHoursChange(record, 'overtimeHours', val);
-																	}}
-																/>
-																<span class="text-caption text-surface-500">hrs</span>
+														<!-- Overtime Hours with click-to-edit pattern -->
+														{#if true}
+															{@const overtimeHours = record.inputData?.overtimeHours ?? record.overtimeHoursWorked ?? 0}
+															{@const isEditingOvertime = editingOvertimeHoursId === record.id}
+															<!-- svelte-ignore a11y_no_static_element_interactions -->
+															<!-- svelte-ignore a11y_click_events_have_key_events -->
+															<div
+																class="flex justify-between items-center gap-2 pl-4"
+																onclick={(e) => e.stopPropagation()}
+															>
+																<span class="text-auxiliary-text text-surface-500">Overtime Hours</span>
+																<div class="flex items-center gap-1">
+																	{#if isEditingOvertime}
+																		<!-- Edit mode: inline input -->
+																		<input
+																			type="number"
+																			class="amount-input w-16 py-0.5 px-1.5 border border-primary-400 rounded text-auxiliary-text text-center focus:outline-none focus:ring-2 focus:ring-primary-100"
+																			value={overtimeHours}
+																			min="0"
+																			step="0.5"
+																			autofocus
+																			onblur={(e) => {
+																				handleOvertimeHoursEdit(record, e.currentTarget.value);
+																				editingOvertimeHoursId = null;
+																			}}
+																			onkeydown={(e) => {
+																				if (e.key === 'Enter') {
+																					handleOvertimeHoursEdit(record, e.currentTarget.value);
+																					editingOvertimeHoursId = null;
+																				} else if (e.key === 'Escape') {
+																					editingOvertimeHoursId = null;
+																				}
+																			}}
+																		/>
+																	{:else}
+																		<!-- Display mode: value + pencil -->
+																		<span class="text-auxiliary-text text-surface-700">{overtimeHours} hrs</span>
+																		<button
+																			class="p-1 text-surface-400 hover:text-primary-600 transition-colors"
+																			title="Edit overtime hours"
+																			onclick={() => (editingOvertimeHoursId = record.id)}
+																		>
+																			<i class="fas fa-pencil-alt text-xs"></i>
+																		</button>
+																	{/if}
+																</div>
 															</div>
-														</div>
+														{/if}
 													</div>
 
 													<!-- Holiday Pay with Exempt toggle (only shown when pay period has holidays for this province) -->
@@ -971,13 +1146,17 @@
 													<!-- Federal Tax (show breakdown when bonus exists) -->
 													{#if record.federalTaxOnBonus && record.federalTaxOnBonus > 0}
 														<div class="flex justify-between items-center">
-															<span class="text-body-content text-surface-600">Federal Tax on Income</span>
+															<span class="text-body-content text-surface-600"
+																>Federal Tax on Income</span
+															>
 															<span class="text-body-content text-surface-800"
 																>{formatCurrency(record.federalTaxOnIncome ?? 0)}</span
 															>
 														</div>
 														<div class="flex justify-between items-center">
-															<span class="text-body-content text-surface-600">Federal Tax on Bonus</span>
+															<span class="text-body-content text-surface-600"
+																>Federal Tax on Bonus</span
+															>
 															<span class="text-body-content text-surface-800"
 																>{formatCurrency(record.federalTaxOnBonus)}</span
 															>
@@ -994,13 +1173,17 @@
 													<!-- Provincial Tax (show breakdown when bonus exists) -->
 													{#if record.provincialTaxOnBonus && record.provincialTaxOnBonus > 0}
 														<div class="flex justify-between items-center">
-															<span class="text-body-content text-surface-600">Provincial Tax on Income</span>
+															<span class="text-body-content text-surface-600"
+																>Provincial Tax on Income</span
+															>
 															<span class="text-body-content text-surface-800"
 																>{formatCurrency(record.provincialTaxOnIncome ?? 0)}</span
 															>
 														</div>
 														<div class="flex justify-between items-center">
-															<span class="text-body-content text-surface-600">Provincial Tax on Bonus</span>
+															<span class="text-body-content text-surface-600"
+																>Provincial Tax on Bonus</span
+															>
 															<span class="text-body-content text-surface-800"
 																>{formatCurrency(record.provincialTaxOnBonus)}</span
 															>

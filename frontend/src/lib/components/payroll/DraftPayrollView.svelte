@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type {
 		PayrollRunWithGroups,
+		PayrollRecord,
 		EmployeePayrollInput,
 		HolidayWorkEntry,
 		CompensationType,
@@ -34,6 +35,7 @@
 		onDeleteDraft?: () => void;
 		onBack?: () => void;
 		onPayDateChange?: (newPayDate: string) => Promise<void>;
+		onPreviewPaystub?: (record: PayrollRecord) => void;
 	}
 
 	let {
@@ -50,7 +52,8 @@
 		onRemoveEmployee,
 		onDeleteDraft,
 		onBack,
-		onPayDateChange
+		onPayDateChange,
+		onPreviewPaystub
 	}: Props = $props();
 
 	let expandedRecordId = $state<string | null>(null);
@@ -98,8 +101,7 @@
 		if (autoCalculateTimer) clearTimeout(autoCalculateTimer);
 
 		const shouldAutoCalculate =
-			compensationType === 'salaried' ||
-			(compensationType === 'hourly' && regularHours > 0);
+			compensationType === 'salaried' || (compensationType === 'hourly' && regularHours > 0);
 
 		if (!shouldAutoCalculate) return;
 
@@ -188,9 +190,7 @@
 	);
 
 	// Get province from first pay group (for pay date editing)
-	const province = $derived(
-		payrollRun.payGroups[0]?.province ?? 'SK'
-	);
+	const province = $derived(payrollRun.payGroups[0]?.province ?? 'SK');
 
 	// Filter change handler
 	function handleFiltersChange(newFilters: PayrollDraftFilters) {
@@ -212,7 +212,7 @@
 				<PayrollDatePicker
 					value={payrollRun.payDate}
 					periodEnd={payrollRun.payGroups[0]?.periodEnd ?? payrollRun.periodEnd}
-					province={province}
+					{province}
 					onValueChange={() => {}}
 					onSave={handlePayDateSave}
 					onCancel={() => {}}
@@ -460,7 +460,7 @@
 
 	<!-- Employee Filters -->
 	<PayrollDraftFiltersComponent
-		filters={filters}
+		{filters}
 		payGroups={payrollRun.payGroups.map((pg) => ({
 			payGroupId: pg.payGroupId,
 			payGroupName: pg.payGroupName
@@ -482,6 +482,7 @@
 				onAutoCalculateTrigger={triggerAutoCalculate}
 				{onAddEmployee}
 				{onRemoveEmployee}
+				{onPreviewPaystub}
 			/>
 		{/each}
 	</div>
@@ -498,4 +499,3 @@
 		onSave={handleHolidayWorkSave}
 	/>
 {/if}
-

@@ -286,9 +286,11 @@ export async function createPayGroup(
 			description: input.description ?? null,
 			pay_frequency: input.pay_frequency,
 			employment_type: input.employment_type ?? 'full_time',
+			compensation_type: input.compensation_type ?? 'salary',
 			next_period_end: input.next_period_end,
 			period_start_day: input.period_start_day ?? 'monday',
 			leave_enabled: input.leave_enabled ?? true,
+			tax_calculation_method: input.tax_calculation_method ?? DEFAULT_TAX_CALCULATION_METHOD,
 			overtime_policy: input.overtime_policy ?? {
 				bankTimeEnabled: false,
 				bankTimeRate: 1.5,

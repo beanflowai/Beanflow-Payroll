@@ -273,6 +273,7 @@ export async function getPayrollRunByPayDate(
 					email,
 					hourly_rate,
 					annual_salary,
+					standard_hours_per_week,
 					vacation_balance,
 					sick_balance,
 					vacation_config,
@@ -356,6 +357,7 @@ export async function getPayrollRunByPeriodEnd(
 					email,
 					hourly_rate,
 					annual_salary,
+					standard_hours_per_week,
 					vacation_balance,
 					sick_balance,
 					vacation_config,
@@ -421,10 +423,56 @@ export async function getPayrollRunById(
 			return { data: null, error: null };
 		}
 
-		// Use getPayrollRunByPayDate to get full data
-		return getPayrollRunByPayDate(runData.pay_date);
+		// Get payroll records with employee and pay group info using the run ID
+		// (Don't use getPayrollRunByPayDate which might get a different run)
+		const { data: recordsData, error: recordsError } = await supabase
+			.from('payroll_records')
+			.select(
+				`
+				*,
+				employees!inner (
+					id,
+					first_name,
+					last_name,
+					province_of_employment,
+					pay_group_id,
+					email,
+					hourly_rate,
+					annual_salary,
+					standard_hours_per_week,
+					vacation_balance,
+					sick_balance,
+					vacation_config,
+					pay_groups (
+						id,
+						name,
+						pay_frequency,
+						employment_type,
+						province,
+						earnings_config,
+						taxable_benefits_config,
+						deductions_config,
+						group_benefits
+					)
+				)
+			`
+			)
+			.eq('payroll_run_id', runId);
+
+		if (recordsError) {
+			console.error('Failed to get payroll records:', recordsError);
+			return { data: null, error: recordsError.message };
+		}
+
+		const result = await buildPayrollRunWithGroups(
+			runData as DbPayrollRun,
+			(recordsData as DbPayrollRecordWithEmployee[]) ?? []
+		);
+
+		return { data: result, error: null };
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Failed to get payroll run';
+		console.error('getPayrollRunById error:', message);
 		return { data: null, error: message };
 	}
 }
@@ -572,6 +620,7 @@ export async function listPayrollRecordsForEmployee(
 					email,
 					hourly_rate,
 					annual_salary,
+					standard_hours_per_week,
 					vacation_balance,
 					sick_balance,
 					vacation_config,

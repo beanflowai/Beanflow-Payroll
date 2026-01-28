@@ -8,8 +8,10 @@
 	interface Props {
 		payGroup: PayrollRunPayGroup;
 		runStatus: PayrollRunStatus;
+		payDate?: string;
 		expandedRecordId: string | null;
 		onToggleExpand: (id: string) => void;
+		onPreviewPaystub?: (record: PayrollRecord) => void;
 		onDownloadPaystub?: (record: PayrollRecord) => void;
 		onResendPaystub?: (record: PayrollRecord) => void;
 	}
@@ -17,8 +19,10 @@
 	let {
 		payGroup,
 		runStatus,
+		payDate,
 		expandedRecordId,
 		onToggleExpand,
+		onPreviewPaystub,
 		onDownloadPaystub,
 		onResendPaystub
 	}: Props = $props();
@@ -132,7 +136,7 @@
 						<th
 							class="w-[12%] text-right px-4 py-3 text-auxiliary-text font-semibold text-surface-600 uppercase tracking-wide bg-surface-50 border-b border-surface-200"
 						>
-							{isApprovedOrPaid ? 'Actions' : ''}
+							Actions
 						</th>
 					</tr>
 				</thead>
@@ -211,8 +215,19 @@
 								class="px-4 py-3 text-body-content text-surface-700 border-b border-surface-100 text-right
 									{index === payGroup.records.length - 1 && expandedRecordId !== record.id ? 'border-b-0' : ''}"
 							>
-								{#if isApprovedOrPaid}
-									<div class="flex gap-2 justify-end">
+								<div class="flex gap-2 justify-end">
+									<!-- Preview button - always visible -->
+									<button
+										class="p-2 bg-transparent border-none rounded-md text-surface-500 cursor-pointer transition-all duration-150 hover:bg-surface-100 hover:text-primary-600"
+										title="Preview Paystub"
+										onclick={(e) => {
+											e.stopPropagation();
+											onPreviewPaystub?.(record);
+										}}
+									>
+										<i class="fas fa-eye"></i>
+									</button>
+									{#if isApprovedOrPaid}
 										<button
 											class="p-2 bg-transparent border-none rounded-md text-surface-500 cursor-pointer transition-all duration-150 hover:bg-surface-100 hover:text-primary-600"
 											title="Download Paystub"
@@ -233,22 +248,14 @@
 										>
 											<i class="fas fa-paper-plane"></i>
 										</button>
-										<button
-											class="p-2 bg-transparent border-none rounded-md text-surface-500 cursor-pointer transition-all duration-150 hover:bg-surface-100 hover:text-primary-600"
-											title={expandedRecordId === record.id ? 'Collapse' : 'Expand'}
-										>
-											<i class="fas fa-chevron-{expandedRecordId === record.id ? 'up' : 'down'}"
-											></i>
-										</button>
-									</div>
-								{:else}
+									{/if}
 									<button
 										class="p-2 bg-transparent border-none rounded-md text-surface-500 cursor-pointer transition-all duration-150 hover:bg-surface-100 hover:text-primary-600"
 										title={expandedRecordId === record.id ? 'Collapse' : 'Expand'}
 									>
 										<i class="fas fa-chevron-{expandedRecordId === record.id ? 'up' : 'down'}"></i>
 									</button>
-								{/if}
+								</div>
 							</td>
 						</tr>
 						{#if expandedRecordId === record.id}

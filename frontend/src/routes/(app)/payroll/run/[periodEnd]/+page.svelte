@@ -22,7 +22,8 @@
 		PayrollPageHeader,
 		DraftPayrollView,
 		DeleteDraftModal,
-		ZeroEarningsConfirmModal
+		ZeroEarningsConfirmModal,
+		PaystubPreviewModal
 	} from '$lib/components/payroll';
 	import {
 		approvePayrollRun,
@@ -49,6 +50,10 @@
 	// Route Params
 	// ===========================================
 	const periodEnd = $derived($page.params.periodEnd ?? '');
+	// Get pay group IDs from URL query params (passed from PayPeriodCard)
+	const payGroupIds = $derived(
+		$page.url.searchParams.get('payGroupIds')?.split(',').filter(Boolean) ?? []
+	);
 
 	// ===========================================
 	// State
@@ -87,6 +92,10 @@
 	let isApproving = $state(false);
 	let isSendingPaystubs = $state(false);
 
+	// Paystub Preview Modal State
+	let previewRecord = $state<PayrollRecord | null>(null);
+	let previewPayGroup = $state<PayrollRunWithGroups['payGroups'][0] | null>(null);
+
 	// ===========================================
 	// Load Data
 	// ===========================================
@@ -108,7 +117,12 @@
 			periodInfo = payGroupsResult.data;
 
 			// Use createOrGetPayrollRunByPeriodEnd - this will either get existing or create new draft
-			const result = await createOrGetPayrollRunByPeriodEnd(periodEnd);
+			// Pass payGroupIds from URL to ensure correct pay groups are included
+			const result = await createOrGetPayrollRunByPeriodEnd(
+				periodEnd,
+				undefined,
+				payGroupIds.length > 0 ? payGroupIds : undefined
+			);
 			if (result.error) {
 				error = result.error;
 				return;
@@ -281,6 +295,19 @@
 
 	function handleResendPaystub(record: PayrollRecord) {
 		alert(`Resend Paystub: Email sent to ${record.employeeName}.`);
+	}
+
+	function handlePreviewPaystub(record: PayrollRecord) {
+		if (!payrollRun) return;
+		// Find the pay group containing this record
+		const payGroup = payrollRun.payGroups.find((pg) => pg.records.some((r) => r.id === record.id));
+		previewPayGroup = payGroup ?? null;
+		previewRecord = record;
+	}
+
+	function closePreviewModal() {
+		previewRecord = null;
+		previewPayGroup = null;
 	}
 
 	// ===========================================
@@ -651,6 +678,7 @@
 			onDeleteDraft={handleDeleteDraft}
 			onBack={handleBack}
 			onPayDateChange={handlePayDateChange}
+			onPreviewPaystub={handlePreviewPaystub}
 		/>
 	</div>
 {:else if payrollRun}
@@ -745,8 +773,10 @@
 				<PayGroupSection
 					{payGroup}
 					runStatus={payrollRun.status}
+					payDate={payrollRun.payDate}
 					{expandedRecordId}
 					onToggleExpand={toggleExpand}
+					onPreviewPaystub={handlePreviewPaystub}
 					onDownloadPaystub={handleDownloadPaystub}
 					onResendPaystub={handleResendPaystub}
 				/>
@@ -795,5 +825,16 @@
 		onClose={() => (showZeroEarningsModal = false)}
 		onConfirm={handleZeroEarningsConfirm}
 		isConfirming={isFinalizing}
+	/>
+{/if}
+
+<!-- Paystub Preview Modal -->
+{#if previewRecord && payrollRun}
+	<PaystubPreviewModal
+		record={previewRecord}
+		payGroup={previewPayGroup ?? undefined}
+		runStatus={payrollRun.status}
+		payDate={payrollRun.payDate}
+		onClose={closePreviewModal}
 	/>
 {/if}
