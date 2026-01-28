@@ -62,7 +62,9 @@
 	}
 
 	function handleRunPayroll() {
-		goto(`/payroll/run/${periodData.periodEnd}`);
+		// Collect pay group IDs for this period to ensure correct groups are included
+		const payGroupIds = periodData.payGroups.map((g) => g.id).join(',');
+		goto(`/payroll/run/${periodData.periodEnd}?payGroupIds=${payGroupIds}`);
 	}
 
 	function getButtonLabel(): string {
