@@ -13,6 +13,7 @@ from app.models.payroll import (
     Company,
     Employee,
     GroupBenefits,
+    PayFrequency,
     PayGroup,
     PayrollRecord,
     PayrollRun,
@@ -25,6 +26,14 @@ from app.models.paystub import (
     TaxLine,
     VacationInfo,
 )
+
+# Pay periods per year by frequency
+PERIODS_PER_YEAR: dict[str, int] = {
+    "weekly": 52,
+    "bi_weekly": 26,
+    "semi_monthly": 24,
+    "monthly": 12,
+}
 
 # Province name mapping for display
 PROVINCE_NAMES: dict[str, str] = {
@@ -61,6 +70,7 @@ class PaystubDataBuilder:
         ytd_records: list[PayrollRecord] | None = None,
         masked_sin: str | None = None,
         logo_bytes: bytes | None = None,
+        skip_logo_download: bool = False,
     ) -> PaystubData:
         """
         Build PaystubData from database records.
@@ -73,6 +83,8 @@ class PaystubDataBuilder:
             company: Company data
             ytd_records: Historical records from same year for YTD calculations
             masked_sin: Pre-masked SIN (e.g., "***-***-XXX"), if not provided will mask
+            logo_bytes: Pre-downloaded logo bytes (optional)
+            skip_logo_download: If True, skip logo entirely (for preview mode)
 
         Returns:
             PaystubData ready for PDF generation
@@ -96,7 +108,7 @@ class PaystubDataBuilder:
         )
 
         # Build earnings lines
-        earnings = self._build_earnings(record, ytd_records)
+        earnings = self._build_earnings(record, employee, ytd_records)
         total_earnings = sum((e.current for e in earnings), Decimal("0"))
         ytd_earnings = record.ytd_gross
 
@@ -117,12 +129,8 @@ class PaystubDataBuilder:
                 benefit_deductions,
             ) = self._build_benefits(pay_group.group_benefits, ytd_records)
 
-        total_benefit_deductions = sum(
-            (d.current for d in benefit_deductions), Decimal("0")
-        )
-        ytd_benefit_deductions = sum(
-            (d.ytd for d in benefit_deductions), Decimal("0")
-        )
+        total_benefit_deductions = sum((d.current for d in benefit_deductions), Decimal("0"))
+        ytd_benefit_deductions = sum((d.ytd for d in benefit_deductions), Decimal("0"))
 
         # Build vacation info
         vacation = self._build_vacation(record, employee)
@@ -174,9 +182,9 @@ class PaystubDataBuilder:
             vacation=vacation,
             # Sick Leave
             sickLeave=sick_leave,
-            # Company branding
-            logoUrl=company.logo_url,
-            logoBytes=logo_bytes,
+            # Company branding (skip logo entirely if skip_logo_download=True)
+            logoUrl=None if skip_logo_download else company.logo_url,
+            logoBytes=None if skip_logo_download else logo_bytes,
             # Pay rate
             payRate=pay_rate,
         )
@@ -210,9 +218,85 @@ class PaystubDataBuilder:
 
         return "\n".join(parts) if parts else ""
 
+    def _format_hours(self, hours: Decimal | None) -> str | None:
+        """Format hours as HH:MM string for paystub display.
+
+        Args:
+            hours: Hours as decimal (e.g., 80.5 = 80 hours 30 minutes)
+
+        Returns:
+            Formatted string like "80:30" or None if hours is None or zero
+        """
+        if hours is None or hours == 0:
+            return None
+        total_minutes = int(hours * 60)
+        h, m = divmod(total_minutes, 60)
+        return f"{h}:{m:02d}"
+
+    def _format_hours_decimal(self, hours: Decimal) -> str:
+        """Format hours as decimal string for paystub display (e.g., '86.67 hrs').
+
+        Args:
+            hours: Hours as decimal
+
+        Returns:
+            Formatted string like "86.67" (without 'hrs' suffix)
+        """
+        return f"{hours:.2f}"
+
+    def _calculate_hours_per_period(
+        self, weekly_hours: Decimal, pay_frequency: PayFrequency
+    ) -> Decimal:
+        """Calculate standard hours per pay period for salaried employees.
+
+        Args:
+            weekly_hours: Standard hours per week (e.g., 40)
+            pay_frequency: Pay frequency enum
+
+        Returns:
+            Hours per pay period (e.g., 86.67 for semi-monthly at 40h/week)
+        """
+        periods_per_year = PERIODS_PER_YEAR.get(pay_frequency.value, 26)
+        # Hours per year = weekly_hours * 52, then divide by periods
+        annual_hours = weekly_hours * Decimal("52")
+        return (annual_hours / Decimal(periods_per_year)).quantize(Decimal("0.01"))
+
+    def _calculate_equivalent_hourly_rate(
+        self, annual_salary: Decimal, weekly_hours: Decimal
+    ) -> Decimal:
+        """Calculate equivalent hourly rate from annual salary and weekly hours.
+
+        Args:
+            annual_salary: Annual salary amount
+            weekly_hours: Standard hours per week
+
+        Returns:
+            Equivalent hourly rate (e.g., $48.08/hr for $100k at 40h/week)
+        """
+        annual_hours = weekly_hours * Decimal("52")
+        if annual_hours == 0:
+            return Decimal("0")
+        return (annual_salary / annual_hours).quantize(Decimal("0.01"))
+
+    def _is_salaried_employee(self, employee: Employee) -> bool:
+        """Check if an employee is salaried (has annual salary, no hourly rate).
+
+        Args:
+            employee: Employee model
+
+        Returns:
+            True if employee is salaried, False if hourly
+        """
+        return (
+            employee.annual_salary is not None
+            and employee.annual_salary > 0
+            and (employee.hourly_rate is None or employee.hourly_rate == 0)
+        )
+
     def _build_earnings(
         self,
         record: PayrollRecord,
+        employee: Employee,
         ytd_records: list[PayrollRecord],
     ) -> list[EarningLine]:
         """Build earnings line items from payroll record."""
@@ -226,29 +310,63 @@ class PaystubDataBuilder:
             + record.holiday_pay
             + record.holiday_premium_pay
         )
-        ytd_vacation = (
-            sum(r.vacation_pay_paid for r in ytd_records) + record.vacation_pay_paid
-        )
+        ytd_vacation = sum(r.vacation_pay_paid for r in ytd_records) + record.vacation_pay_paid
         ytd_other = sum(r.other_earnings for r in ytd_records) + record.other_earnings
 
-        # Regular earnings (always present)
-        earnings.append(
-            EarningLine(
-                description="Regular Earnings",
-                qty=None,  # Could add hours if tracked
-                rate=None,
-                current=record.gross_regular,
-                ytd=ytd_regular,
+        # Regular earnings - different display for salaried vs hourly
+        if self._is_salaried_employee(employee):
+            # Salaried employee: show hours @ equivalent hourly rate
+            standard_hours = self._calculate_hours_per_period(
+                employee.standard_hours_per_week, employee.pay_frequency
             )
-        )
+            equivalent_hourly_rate = self._calculate_equivalent_hourly_rate(
+                employee.annual_salary, employee.standard_hours_per_week  # type: ignore
+            )
+            # Show actual worked hours if available and different from standard (proration)
+            # Otherwise show standard hours per period
+            if record.regular_hours_worked is not None and record.regular_hours_worked > 0:
+                display_hours = record.regular_hours_worked
+            else:
+                display_hours = standard_hours
+            earnings.append(
+                EarningLine(
+                    description="Regular Salary",
+                    qty=self._format_hours_decimal(display_hours),
+                    rate=equivalent_hourly_rate,
+                    current=record.gross_regular,
+                    ytd=ytd_regular,
+                )
+            )
+        else:
+            # Hourly employee: show actual hours worked @ hourly rate
+            earnings.append(
+                EarningLine(
+                    description="Regular Earnings",
+                    qty=self._format_hours(record.regular_hours_worked),
+                    rate=employee.hourly_rate,
+                    current=record.gross_regular,
+                    ytd=ytd_regular,
+                )
+            )
 
         # Overtime (if any)
         if record.gross_overtime > 0:
+            # Calculate OT rate (1.5x hourly rate)
+            # For salaried employees, use implied hourly rate since they don't have hourly_rate
+            if employee.hourly_rate:
+                ot_rate = employee.hourly_rate * Decimal("1.5")
+            elif self._is_salaried_employee(employee):
+                implied_rate = self._calculate_equivalent_hourly_rate(
+                    employee.annual_salary, employee.standard_hours_per_week  # type: ignore
+                )
+                ot_rate = implied_rate * Decimal("1.5")
+            else:
+                ot_rate = None
             earnings.append(
                 EarningLine(
                     description="Overtime",
-                    qty=None,
-                    rate=None,
+                    qty=self._format_hours(record.overtime_hours_worked),
+                    rate=ot_rate,
                     current=record.gross_overtime,
                     ytd=ytd_overtime,
                 )
@@ -288,6 +406,19 @@ class PaystubDataBuilder:
                     rate=None,
                     current=record.other_earnings,
                     ytd=ytd_other,
+                )
+            )
+
+        # Bonus earnings
+        if record.bonus_earnings > 0:
+            ytd_bonus = sum(r.bonus_earnings for r in ytd_records) + record.bonus_earnings
+            earnings.append(
+                EarningLine(
+                    description="Bonus",
+                    qty=None,
+                    rate=None,
+                    current=record.bonus_earnings,
+                    ytd=ytd_bonus,
                 )
             )
 
@@ -435,8 +566,7 @@ class PaystubDataBuilder:
                     BenefitLine(
                         description="Life & AD&D - Employer",
                         current=group_benefits.life_insurance.employer_contribution,
-                        ytd=group_benefits.life_insurance.employer_contribution
-                        * periods_count,
+                        ytd=group_benefits.life_insurance.employer_contribution * periods_count,
                     )
                 )
 
@@ -445,8 +575,7 @@ class PaystubDataBuilder:
                     BenefitLine(
                         description="Life & AD&D - Employee",
                         current=-group_benefits.life_insurance.employee_deduction,
-                        ytd=-group_benefits.life_insurance.employee_deduction
-                        * periods_count,
+                        ytd=-group_benefits.life_insurance.employee_deduction * periods_count,
                     )
                 )
 
@@ -482,17 +611,11 @@ class PaystubDataBuilder:
         """Build vacation info from payroll record and employee data."""
         # Calculate available balance: old balance + accrued - paid
         available_balance = (
-            employee.vacation_balance
-            + record.vacation_accrued
-            - record.vacation_pay_paid
+            employee.vacation_balance + record.vacation_accrued - record.vacation_pay_paid
         )
 
         # Only include if there's vacation accrued or balance
-        if (
-            record.vacation_accrued > 0
-            or record.vacation_hours_taken > 0
-            or available_balance > 0
-        ):
+        if record.vacation_accrued > 0 or record.vacation_hours_taken > 0 or available_balance > 0:
             return VacationInfo(
                 earned=record.vacation_accrued,
                 ytdUsed=record.vacation_hours_taken,  # This might need YTD calculation

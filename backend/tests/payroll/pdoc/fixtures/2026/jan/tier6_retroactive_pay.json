@@ -1,0 +1,39 @@
+{
+  "tier": 6,
+  "category": "retroactive_pay",
+  "name": "Retroactive Payment Tests",
+  "description": "Tests for retroactive payment calculations (TD1 form field)",
+  "version": "2026-01",
+  "collected_date": "2025-01-23",
+  "pdoc_version": "T4127 - Version 2026-01",
+  "tolerance": "0.05",
+  "test_cases": [
+    {
+      "id": "ON_60K_RETROACTIVE",
+      "tier": 6,
+      "description": "Ontario $60k with retroactive payment $500 over 2 periods",
+      "status": "VERIFIED",
+      "category": "retroactive_pay",
+      "input": {
+        "province": "ON",
+        "gross_pay": "2307.69",
+        "pay_frequency": "biweekly",
+        "pay_date": "2026-01-17",
+        "federal_claim": "16452.00",
+        "provincial_claim": "12989.00",
+        "retroactive_pay_amount": "500.00",
+        "retroactive_pay_periods": "2"
+      },
+      "pdoc_expected": {
+        "cpp_total": "159.05",
+        "ei": "45.77",
+        "federal_tax": "204.83",
+        "federal_tax_on_retroactive": "97.36",
+        "provincial_tax": "114.46",
+        "provincial_tax_on_retroactive": "43.85",
+        "net_pay": "2142.37"
+      },
+      "notes": "Retroactive payments are pensionable AND insurable. Provincial claim adjusted to 12989.00 (CRA minimum)."
+    }
+  ]
+}

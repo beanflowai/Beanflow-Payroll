@@ -24,10 +24,23 @@ export interface DateRange {
 // ============ 基础函数 ============
 
 /**
- * Get current date in YYYY-MM-DD format
+ * Get current date in YYYY-MM-DD format (UTC)
+ * @deprecated Use getCurrentLocalDate() for local timezone instead
  */
 export function getCurrentDate(): string {
 	return new Date().toISOString().split('T')[0];
+}
+
+/**
+ * Get current local date in YYYY-MM-DD format
+ * Uses local timezone to avoid UTC offset issues
+ */
+export function getCurrentLocalDate(): string {
+	const now = new Date();
+	const year = now.getFullYear();
+	const month = String(now.getMonth() + 1).padStart(2, '0');
+	const day = String(now.getDate()).padStart(2, '0');
+	return `${year}-${month}-${day}`;
 }
 
 /**

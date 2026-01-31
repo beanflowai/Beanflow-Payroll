@@ -456,6 +456,10 @@ export interface PayGroup {
 	/** Deductions configuration (RRSP, union dues, custom deductions) */
 	deductionsConfig: DeductionsConfig;
 
+	// Status
+	/** Soft delete flag. FALSE = inactive (won't appear in payroll run or employee dropdowns) */
+	isActive: boolean;
+
 	// Metadata
 	createdAt: string;
 	updatedAt: string;
@@ -702,7 +706,8 @@ export function createDefaultPayGroup(
 		groupBenefits: { ...DEFAULT_GROUP_BENEFITS },
 		earningsConfig: { ...DEFAULT_EARNINGS_CONFIG },
 		taxableBenefitsConfig: { ...DEFAULT_TAXABLE_BENEFITS_CONFIG },
-		deductionsConfig: { ...DEFAULT_DEDUCTIONS_CONFIG }
+		deductionsConfig: { ...DEFAULT_DEDUCTIONS_CONFIG },
+		isActive: true
 	};
 }
 

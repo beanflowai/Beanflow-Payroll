@@ -38,11 +38,12 @@ export async function getPayGroupsForPeriodEnd(
 	try {
 		getCurrentUserId();
 
-		// Query pay groups with this next_period_end
+		// Query pay groups with this next_period_end (only active pay groups)
 		const { data: payGroups, error: pgError } = await supabase
 			.from('v_pay_group_summary')
 			.select('*')
-			.eq('next_period_end', periodEnd);
+			.eq('next_period_end', periodEnd)
+			.eq('is_active', true);
 
 		if (pgError) {
 			console.error('Failed to query pay groups:', pgError);
@@ -123,11 +124,12 @@ export async function getPayGroupsWithEmployeesForPeriodEnd(
 		const userId = getCurrentUserId();
 		const companyId = getCurrentCompanyId();
 
-		// Query pay groups with this next_period_end
+		// Query pay groups with this next_period_end (only active pay groups)
 		const { data: payGroups, error: pgError } = await supabase
 			.from('v_pay_group_summary')
 			.select('*')
-			.eq('next_period_end', periodEnd);
+			.eq('next_period_end', periodEnd)
+			.eq('is_active', true);
 
 		if (pgError) {
 			console.error('Failed to query pay groups:', pgError);

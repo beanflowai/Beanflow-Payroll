@@ -50,7 +50,7 @@ This checklist has been updated to reflect standalone product architecture:
 | Phase 2: Calculations | ✅ Completed | 2025-12-20 | 2025-12-26 | CPP/EI/Federal/Provincial + Engine 全部完成 |
 | Phase 3: Paystub | ✅ Completed | 2025-12-28 | 2025-12-29 | PDF Generator + Data Builder + DO Spaces Storage |
 | Phase 4: API & Integration | ✅ Completed | 2025-12-16 | 2026-01-02 | API + Service + Frontend UI 全部完成 |
-| Phase 5: Testing | ✅ Completed | 2025-12-29 | 2025-12-31 | **998 tests passed** - PDOC 验证完成 |
+| Phase 5: Testing | ✅ Completed | 2025-12-29 | 2025-12-31 | **2300+ tests, CRA-compliant validated** - 160+ PDOC validation cases |
 | Phase 6: Year-End | ✅ ~95% Done | 2025-12-31 | 2026-01-02 | T4 完整实现 (Models/PDF/XML/API/UI) |
 | Phase 7: Compliance | 🔄 ~70% Done | 2025-12-31 | 2026-01-02 | Remittance 完整实现，ROE 未开始 |
 | Phase 8: Gov Submission (Future) | ⬜ Not Started | | | Enterprise auto-submission (WAC/ROE Web) |

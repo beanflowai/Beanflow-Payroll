@@ -99,7 +99,7 @@ Test low and high income for provinces with special rules.
 | AB_85K_CPP2 | Alberta | $85,000 | CPP2 range | Verify CPP2 calculation |
 | BC_90K_CPP2 | BC | $90,000 | CPP2 + tax reduction | Combined rules |
 
-### Tier 4: Special Conditions (8 tests)
+### Tier 4: Special Conditions (11 tests)
 
 | ID | Province | Annual | Special Condition | Notes |
 |----|----------|--------|-------------------|-------|
@@ -111,6 +111,9 @@ Test low and high income for provinces with special rules.
 | ON_100K_CPP2_EXEMPT | Ontario | $100,000 | CPP2 exempt | No additional CPP |
 | ON_60K_BENEFITS | Ontario | $60,000 | Taxable benefits $100 | Benefits taxability |
 | BC_40K_BENEFITS | BC | $40,000 | Taxable benefits + low income | Combined with tax reduction |
+| **ON_BONUS_10K** | Ontario | $60,000 YTD + $10K bonus | Bonus $10,000 | Marginal rate method validation |
+| **BC_BONUS_60K** | BC | $76,333 YTD + $60K bonus | Bonus $60,000 | High-value bonus edge case |
+| **AB_BONUS_5K** | Alberta | $50,000 YTD + $5K bonus | Bonus $5,000 | Small bonus scenario |
 
 ### Tier 5: Federal Tax Rate Change (4 tests)
 
@@ -183,9 +186,9 @@ For each test case, collect from PDOC:
 - Tier 3 CPP/EI boundary tests
 - Validates contribution maximums
 
-### Phase 5D - Standard Priority (12 tests)
-- Tier 4 special conditions + Tier 5 rate change
-- Validates edge cases
+### Phase 5D - Standard Priority (15 tests)
+- Tier 4 special conditions (11) + Tier 5 rate change (4)
+- Validates edge cases and bonus taxation
 
 ---
 
@@ -228,11 +231,12 @@ From PDOC results page, extract:
 
 | Metric | Target |
 |--------|--------|
-| Total test cases | 44 |
+| Total test cases | 47 |
 | Province coverage | 12/12 (100%) |
 | Maximum variance | $0.05 per component |
 | CPP/EI exact match | 100% |
 | Tax variance | < $0.05 |
+| Bonus scenarios | 3 (ON, BC, AB) |
 
 ---
 
@@ -243,8 +247,8 @@ From PDOC results page, extract:
 | Phase 5A | 12 | Pending |
 | Phase 5B | 12 | Pending |
 | Phase 5C | 8 | Pending |
-| Phase 5D | 12 | Pending |
-| **Total** | **44** | |
+| Phase 5D | 15 | Pending |
+| **Total** | **47** | |
 
 ---
 

@@ -103,6 +103,34 @@ export async function apiClient<T>(endpoint: string, options: RequestInit = {}):
 }
 
 /**
+ * Raw API client function that returns the Response object directly.
+ * Useful for handling binary responses like PDFs.
+ */
+export async function apiClientRaw(endpoint: string, options: RequestInit = {}): Promise<Response> {
+	const token = await getAuthToken();
+	const companyId = getCompanyIdSafe();
+
+	const headers: HeadersInit = {
+		'Content-Type': 'application/json',
+		...options.headers
+	};
+
+	if (token) {
+		(headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+	}
+
+	if (companyId) {
+		(headers as Record<string, string>)['X-Company-Id'] = companyId;
+	}
+
+	return fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
+		...options,
+		headers,
+		credentials: 'include'
+	});
+}
+
+/**
  * HTTP method helpers
  */
 export const api = {
@@ -113,6 +141,16 @@ export const api = {
 
 	post: <T>(endpoint: string, body?: unknown) => {
 		return apiClient<T>(endpoint, {
+			method: 'POST',
+			body: body ? JSON.stringify(body) : undefined
+		});
+	},
+
+	/**
+	 * POST request that returns raw Response (for binary data like PDFs)
+	 */
+	postRaw: (endpoint: string, body?: unknown) => {
+		return apiClientRaw(endpoint, {
 			method: 'POST',
 			body: body ? JSON.stringify(body) : undefined
 		});

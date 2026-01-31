@@ -18,5 +18,7 @@ export interface OnboardingStepConfig {
   icon: string;
   route: string;
   checkCompletion: (companyId: string) => Promise<boolean>;
-  videoUrl?: string;
+  youtubeVideoId?: string;
+  estimatedMinutes: number;
+  tip?: string;
 }

@@ -129,6 +129,17 @@ class TestBuildEarnings:
         return PaystubDataBuilder()
 
     @pytest.fixture
+    def base_employee(self) -> MagicMock:
+        """Create a base employee mock."""
+        employee = MagicMock()
+        employee.hourly_rate = None  # Salaried employee by default
+        employee.annual_salary = Decimal("52000")
+        employee.standard_hours_per_week = Decimal("40")
+        employee.pay_frequency = MagicMock()
+        employee.pay_frequency.value = "bi_weekly"
+        return employee
+
+    @pytest.fixture
     def base_record(self) -> MagicMock:
         """Create a base payroll record mock."""
         record = MagicMock()
@@ -138,70 +149,77 @@ class TestBuildEarnings:
         record.holiday_premium_pay = Decimal("0")
         record.vacation_pay_paid = Decimal("0")
         record.other_earnings = Decimal("0")
+        record.bonus_earnings = Decimal("0")
+        record.regular_hours_worked = None
+        record.overtime_hours_worked = Decimal("0")
         return record
 
     def test_regular_earnings_only(
-        self, builder: PaystubDataBuilder, base_record: MagicMock
+        self, builder: PaystubDataBuilder, base_record: MagicMock, base_employee: MagicMock
     ):
-        """Test building earnings with only regular earnings."""
-        earnings = builder._build_earnings(base_record, [])
+        """Test building earnings with only regular earnings (salaried employee)."""
+        earnings = builder._build_earnings(base_record, base_employee, [])
 
         assert len(earnings) == 1
-        assert earnings[0].description == "Regular Earnings"
+        # Salaried employees show "Regular Salary" with hours and rate
+        assert earnings[0].description == "Regular Salary"
         assert earnings[0].current == Decimal("2000")
         assert earnings[0].ytd == Decimal("2000")
+        # Verify hours and rate are calculated for salaried employees
+        assert earnings[0].qty is not None  # bi-weekly hours (80.00)
+        assert earnings[0].rate is not None  # implied hourly rate ($25/hr)
 
     def test_earnings_with_overtime(
-        self, builder: PaystubDataBuilder, base_record: MagicMock
+        self, builder: PaystubDataBuilder, base_record: MagicMock, base_employee: MagicMock
     ):
         """Test building earnings with overtime."""
         base_record.gross_overtime = Decimal("300")
 
-        earnings = builder._build_earnings(base_record, [])
+        earnings = builder._build_earnings(base_record, base_employee, [])
 
         assert len(earnings) == 2
         overtime_line = next(e for e in earnings if e.description == "Overtime")
         assert overtime_line.current == Decimal("300")
 
     def test_earnings_with_holiday_pay(
-        self, builder: PaystubDataBuilder, base_record: MagicMock
+        self, builder: PaystubDataBuilder, base_record: MagicMock, base_employee: MagicMock
     ):
         """Test building earnings with holiday pay."""
         base_record.holiday_pay = Decimal("150")
         base_record.holiday_premium_pay = Decimal("50")
 
-        earnings = builder._build_earnings(base_record, [])
+        earnings = builder._build_earnings(base_record, base_employee, [])
 
         assert len(earnings) == 2
         holiday_line = next(e for e in earnings if e.description == "Holiday Pay")
         assert holiday_line.current == Decimal("200")  # 150 + 50
 
     def test_earnings_with_vacation_pay(
-        self, builder: PaystubDataBuilder, base_record: MagicMock
+        self, builder: PaystubDataBuilder, base_record: MagicMock, base_employee: MagicMock
     ):
         """Test building earnings with vacation pay."""
         base_record.vacation_pay_paid = Decimal("500")
 
-        earnings = builder._build_earnings(base_record, [])
+        earnings = builder._build_earnings(base_record, base_employee, [])
 
         assert len(earnings) == 2
         vacation_line = next(e for e in earnings if e.description == "Vacation Pay")
         assert vacation_line.current == Decimal("500")
 
     def test_earnings_with_other_earnings(
-        self, builder: PaystubDataBuilder, base_record: MagicMock
+        self, builder: PaystubDataBuilder, base_record: MagicMock, base_employee: MagicMock
     ):
         """Test building earnings with other earnings."""
         base_record.other_earnings = Decimal("100")
 
-        earnings = builder._build_earnings(base_record, [])
+        earnings = builder._build_earnings(base_record, base_employee, [])
 
         assert len(earnings) == 2
         other_line = next(e for e in earnings if e.description == "Other Earnings")
         assert other_line.current == Decimal("100")
 
     def test_earnings_ytd_calculation_with_history(
-        self, builder: PaystubDataBuilder, base_record: MagicMock
+        self, builder: PaystubDataBuilder, base_record: MagicMock, base_employee: MagicMock
     ):
         """Test YTD calculation with historical records."""
         # Create historical records
@@ -212,16 +230,52 @@ class TestBuildEarnings:
         hist_record.holiday_premium_pay = Decimal("0")
         hist_record.vacation_pay_paid = Decimal("0")
         hist_record.other_earnings = Decimal("0")
+        hist_record.bonus_earnings = Decimal("0")
 
         base_record.gross_overtime = Decimal("200")
 
-        earnings = builder._build_earnings(base_record, [hist_record])
+        earnings = builder._build_earnings(base_record, base_employee, [hist_record])
 
-        regular_line = next(e for e in earnings if e.description == "Regular Earnings")
+        # Salaried employees show "Regular Salary" with hours and rate
+        regular_line = next(e for e in earnings if e.description == "Regular Salary")
         assert regular_line.ytd == Decimal("4000")  # 2000 + 2000
 
         overtime_line = next(e for e in earnings if e.description == "Overtime")
         assert overtime_line.ytd == Decimal("300")  # 100 + 200
+
+    def test_earnings_with_hours_for_hourly_employee(
+        self, builder: PaystubDataBuilder, base_record: MagicMock, base_employee: MagicMock
+    ):
+        """Test building earnings with hours for hourly employee."""
+        base_employee.hourly_rate = Decimal("25.00")
+        base_employee.annual_salary = None
+        base_record.regular_hours_worked = Decimal("80")
+        base_record.overtime_hours_worked = Decimal("5")
+        base_record.gross_overtime = Decimal("187.50")  # 5 * 25 * 1.5
+
+        earnings = builder._build_earnings(base_record, base_employee, [])
+
+        assert len(earnings) == 2
+        regular_line = next(e for e in earnings if e.description == "Regular Earnings")
+        assert regular_line.qty == "80:00"
+        assert regular_line.rate == Decimal("25.00")
+
+        overtime_line = next(e for e in earnings if e.description == "Overtime")
+        assert overtime_line.qty == "5:00"
+        assert overtime_line.rate == Decimal("37.50")  # 25 * 1.5
+
+    def test_earnings_with_hours_and_rate_for_salaried_employee(
+        self, builder: PaystubDataBuilder, base_record: MagicMock, base_employee: MagicMock
+    ):
+        """Test building earnings with hours and rate for salaried employee."""
+        earnings = builder._build_earnings(base_record, base_employee, [])
+
+        assert len(earnings) == 1
+        regular_line = earnings[0]
+        # Salaried employees now show calculated hours and equivalent hourly rate
+        assert regular_line.description == "Regular Salary"
+        assert regular_line.qty == "80.00"  # bi-weekly hours (40 * 2)
+        assert regular_line.rate == Decimal("25.00")  # $52000 / (40 * 52) = $25/hr
 
 
 class TestBuildTaxes:
@@ -247,9 +301,7 @@ class TestBuildTaxes:
         record.ytd_provincial_tax = Decimal("300")
         return record
 
-    def test_all_tax_lines(
-        self, builder: PaystubDataBuilder, base_record: MagicMock
-    ):
+    def test_all_tax_lines(self, builder: PaystubDataBuilder, base_record: MagicMock):
         """Test building all tax lines."""
         taxes = builder._build_taxes(base_record)
 
@@ -271,9 +323,7 @@ class TestBuildTaxes:
         # CPP = cpp_employee + cpp_additional = 100 + 20 = 120, shown as negative
         assert cpp_line.current == Decimal("-120")
 
-    def test_taxes_are_negative(
-        self, builder: PaystubDataBuilder, base_record: MagicMock
-    ):
+    def test_taxes_are_negative(self, builder: PaystubDataBuilder, base_record: MagicMock):
         """Test that all tax values are negative (deductions)."""
         taxes = builder._build_taxes(base_record)
 
@@ -281,9 +331,7 @@ class TestBuildTaxes:
             assert tax.current < 0
             assert tax.ytd < 0
 
-    def test_zero_taxes_not_included(
-        self, builder: PaystubDataBuilder
-    ):
+    def test_zero_taxes_not_included(self, builder: PaystubDataBuilder):
         """Test that zero taxes are not included in output."""
         record = MagicMock()
         record.cpp_employee = Decimal("0")
@@ -356,9 +404,7 @@ class TestBuildBenefits:
         self, builder: PaystubDataBuilder, group_benefits: MagicMock
     ):
         """Test that benefits are separated into taxable and non-taxable."""
-        non_taxable, taxable, deductions = builder._build_benefits(
-            group_benefits, []
-        )
+        non_taxable, taxable, deductions = builder._build_benefits(group_benefits, [])
 
         # Health, Dental, Vision are non-taxable
         assert len(non_taxable) == 3
@@ -367,9 +413,7 @@ class TestBuildBenefits:
         # All employee deductions
         assert len(deductions) == 5
 
-    def test_calculates_ytd_correctly(
-        self, builder: PaystubDataBuilder, group_benefits: MagicMock
-    ):
+    def test_calculates_ytd_correctly(self, builder: PaystubDataBuilder, group_benefits: MagicMock):
         """Test that YTD is calculated based on period count."""
         hist_record = MagicMock()  # One historical record
 
@@ -379,9 +423,7 @@ class TestBuildBenefits:
         health_line = next(b for b in non_taxable if "Health" in b.description)
         assert health_line.ytd == Decimal("200")  # 100 * 2 periods
 
-    def test_deductions_are_negative(
-        self, builder: PaystubDataBuilder, group_benefits: MagicMock
-    ):
+    def test_deductions_are_negative(self, builder: PaystubDataBuilder, group_benefits: MagicMock):
         """Test that employee deductions are negative."""
         _, _, deductions = builder._build_benefits(group_benefits, [])
 
@@ -389,9 +431,7 @@ class TestBuildBenefits:
             assert d.current < 0
             assert d.ytd < 0
 
-    def test_disabled_benefits_not_included(
-        self, builder: PaystubDataBuilder
-    ):
+    def test_disabled_benefits_not_included(self, builder: PaystubDataBuilder):
         """Test that disabled benefits are not included."""
         gb = MagicMock()
         gb.enabled = True
@@ -414,9 +454,7 @@ class TestBuildBenefits:
         assert len(taxable) == 0
         assert len(deductions) == 0
 
-    def test_zero_contributions_not_included(
-        self, builder: PaystubDataBuilder
-    ):
+    def test_zero_contributions_not_included(self, builder: PaystubDataBuilder):
         """Test that zero contribution benefits are not included."""
         gb = MagicMock()
         gb.enabled = True
@@ -644,6 +682,7 @@ class TestBuildFullPaystub:
         record.holiday_premium_pay = Decimal("0")
         record.vacation_pay_paid = Decimal("0")
         record.other_earnings = Decimal("0")
+        record.bonus_earnings = Decimal("0")
         record.cpp_employee = Decimal("100")
         record.cpp_additional = Decimal("10")
         record.ei_employee = Decimal("50")
@@ -657,6 +696,9 @@ class TestBuildFullPaystub:
         record.vacation_accrued = Decimal("88")
         record.vacation_hours_taken = Decimal("0")
         record.net_pay = Decimal("1590")
+        # Hours worked fields for earnings display
+        record.regular_hours_worked = Decimal("80")
+        record.overtime_hours_worked = Decimal("5")
         return record
 
     @pytest.fixture
@@ -675,6 +717,10 @@ class TestBuildFullPaystub:
         emp.hourly_rate = None
         emp.vacation_balance = Decimal("500")
         emp.sick_balance = Decimal("5")
+        # Standard hours and pay frequency for earnings display
+        emp.standard_hours_per_week = Decimal("40")
+        emp.pay_frequency = MagicMock()
+        emp.pay_frequency.value = "bi_weekly"
         return emp
 
     @pytest.fixture

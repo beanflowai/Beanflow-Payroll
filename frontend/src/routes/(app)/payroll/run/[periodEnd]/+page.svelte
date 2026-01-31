@@ -10,7 +10,7 @@
 	} from '$lib/types/payroll';
 	import type { Employee } from '$lib/types/employee';
 	import { PAYROLL_STATUS_LABELS } from '$lib/types/payroll';
-	import { StatusBadge } from '$lib/components/shared';
+	import { AlertBanner, StatusBadge } from '$lib/components/shared';
 	import {
 		PayGroupSection,
 		PayrollSummaryCards,
@@ -20,7 +20,10 @@
 		PayrollErrorState,
 		PayrollNotFound,
 		PayrollPageHeader,
-		DraftPayrollView
+		DraftPayrollView,
+		DeleteDraftModal,
+		ZeroEarningsConfirmModal,
+		PaystubPreviewModal
 	} from '$lib/components/payroll';
 	import {
 		approvePayrollRun,
@@ -35,7 +38,8 @@
 		removeEmployeeFromRun,
 		deletePayrollRun,
 		getPaystubDownloadUrl,
-		sendPaystubs
+		sendPaystubs,
+		updatePayDate
 	} from '$lib/services/payroll';
 	import { getUnassignedEmployees, assignEmployeesToPayGroup } from '$lib/services/employeeService';
 	import { formatFullDate } from '$lib/utils/dateUtils';
@@ -46,6 +50,10 @@
 	// Route Params
 	// ===========================================
 	const periodEnd = $derived($page.params.periodEnd ?? '');
+	// Get pay group IDs from URL query params (passed from PayPeriodCard)
+	const payGroupIds = $derived(
+		$page.url.searchParams.get('payGroupIds')?.split(',').filter(Boolean) ?? []
+	);
 
 	// ===========================================
 	// State
@@ -55,6 +63,8 @@
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let expandedRecordId = $state<string | null>(null);
+	let syncAddedCount = $state(0);
+	let showSyncNotice = $state(false);
 
 	// Add Employees Modal State
 	let showAddEmployeesModal = $state(false);
@@ -65,13 +75,26 @@
 	// Draft State Variables
 	let hasModifiedRecords = $state(false);
 	let isRecalculating = $state(false);
+	let lastModificationId = $state(0); // Track modifications to handle race conditions
+	let lastSuccessfulUpdateId = $state(0);
+	let pendingUpdateCount = $state(0);
+	let autoCalculateQueued = $state(false);
+	let autoCalculateRecordId = $state<string | null>(null);
+	let autoCalculateTimer = $state<ReturnType<typeof setTimeout> | null>(null);
 	let isFinalizing = $state(false);
 	let isReverting = $state(false);
 	let isDeletingDraft = $state(false);
+	let showDeleteModal = $state(false);
+	let showZeroEarningsModal = $state(false);
+	let zeroEarningsEmployees = $state<Array<{ name: string; reason: string }>>([]);
 
 	// Approved State Variables
 	let isApproving = $state(false);
 	let isSendingPaystubs = $state(false);
+
+	// Paystub Preview Modal State
+	let previewRecord = $state<PayrollRecord | null>(null);
+	let previewPayGroup = $state<PayrollRunWithGroups['payGroups'][0] | null>(null);
 
 	// ===========================================
 	// Load Data
@@ -81,6 +104,8 @@
 
 		isLoading = true;
 		error = null;
+		syncAddedCount = 0;
+		showSyncNotice = false;
 
 		try {
 			// First, get pay groups for this period end (for display info)
@@ -92,12 +117,20 @@
 			periodInfo = payGroupsResult.data;
 
 			// Use createOrGetPayrollRunByPeriodEnd - this will either get existing or create new draft
-			const result = await createOrGetPayrollRunByPeriodEnd(periodEnd);
+			// Pass payGroupIds from URL to ensure correct pay groups are included
+			const result = await createOrGetPayrollRunByPeriodEnd(
+				periodEnd,
+				undefined,
+				payGroupIds.length > 0 ? payGroupIds : undefined
+			);
 			if (result.error) {
 				error = result.error;
 				return;
 			}
 
+			const addedCount = result.data?.addedCount ?? 0;
+			syncAddedCount = addedCount;
+			showSyncNotice = addedCount > 0;
 			payrollRun = result.data;
 
 			// For draft runs: check for modified records
@@ -151,7 +184,8 @@
 					totalEmployerCost: payrollRun.totalEmployerCost,
 					totalPayrollCost: payrollRun.totalPayrollCost,
 					totalRemittance: payrollRun.totalRemittance,
-					holidays: payrollRun.holidays
+					holidays: payrollRun.holidays,
+					needsRecalculation: payrollRun.needsRecalculation
 				}
 			: null
 	);
@@ -263,6 +297,19 @@
 		alert(`Resend Paystub: Email sent to ${record.employeeName}.`);
 	}
 
+	function handlePreviewPaystub(record: PayrollRecord) {
+		if (!payrollRun) return;
+		// Find the pay group containing this record
+		const payGroup = payrollRun.payGroups.find((pg) => pg.records.some((r) => r.id === record.id));
+		previewPayGroup = payGroup ?? null;
+		previewRecord = record;
+	}
+
+	function closePreviewModal() {
+		previewRecord = null;
+		previewPayGroup = null;
+	}
+
 	// ===========================================
 	// Add/Remove Employees for Draft
 	// ===========================================
@@ -337,16 +384,13 @@
 		}
 	}
 
-	async function handleDeleteDraft() {
+	function handleDeleteDraft() {
 		if (!payrollRun) return;
+		showDeleteModal = true;
+	}
 
-		if (
-			!confirm(
-				'Are you sure you want to delete this draft payroll run? This action cannot be undone.'
-			)
-		) {
-			return;
-		}
+	async function confirmDeleteDraft() {
+		if (!payrollRun) return;
 
 		isDeletingDraft = true;
 		try {
@@ -362,6 +406,7 @@
 			alert(`Failed to delete draft: ${err instanceof Error ? err.message : 'Unknown error'}`);
 		} finally {
 			isDeletingDraft = false;
+			showDeleteModal = false;
 		}
 	}
 
@@ -375,6 +420,12 @@
 	) {
 		if (!payrollRun || payrollRun.status !== 'draft') return;
 
+		// Mark as modified immediately (optimistically) and track modification ID
+		// This ensures auto-calculate can detect if modifications happened during recalculation
+		const modificationId = ++lastModificationId;
+		hasModifiedRecords = true;
+		pendingUpdateCount++;
+
 		try {
 			const result = await updatePayrollRecord(payrollRun.id, recordId, updates);
 			if (result.error) {
@@ -383,10 +434,14 @@
 			}
 			// Update local state with updated data
 			payrollRun = result.data;
-			// Mark that we have modified records
-			hasModifiedRecords = true;
+			lastSuccessfulUpdateId = Math.max(lastSuccessfulUpdateId, modificationId);
 		} catch (err) {
 			console.error('Failed to update record:', err);
+		} finally {
+			pendingUpdateCount = Math.max(0, pendingUpdateCount - 1);
+			if (pendingUpdateCount === 0 && autoCalculateQueued && !isRecalculating) {
+				scheduleAutoCalculate(100);
+			}
 		}
 	}
 
@@ -410,6 +465,83 @@
 		}
 	}
 
+	function scheduleAutoCalculate(delayMs: number) {
+		if (!autoCalculateRecordId) return;
+		if (autoCalculateTimer) clearTimeout(autoCalculateTimer);
+		autoCalculateTimer = setTimeout(() => {
+			if (autoCalculateRecordId) {
+				handleAutoCalculate(autoCalculateRecordId);
+			}
+		}, delayMs);
+	}
+
+	async function handleAutoCalculate(recordId: string) {
+		autoCalculateQueued = true;
+		autoCalculateRecordId = recordId;
+		if (!payrollRun || payrollRun.status !== 'draft') {
+			autoCalculateQueued = false;
+			autoCalculateRecordId = null;
+			return;
+		}
+		if (isRecalculating || pendingUpdateCount > 0) return;
+
+		autoCalculateQueued = false;
+		if (autoCalculateTimer) {
+			clearTimeout(autoCalculateTimer);
+			autoCalculateTimer = null;
+		}
+
+		// Capture the current modification ID to detect if new modifications happen during recalculation
+		const startModificationId = lastModificationId;
+		const startSuccessfulUpdateId = lastSuccessfulUpdateId;
+
+		isRecalculating = true;
+		try {
+			const result = await recalculatePayrollRun(payrollRun.id);
+			if (result.error) {
+				console.warn(`Auto-calculate failed for record ${recordId}:`, result.error);
+				return;
+			}
+			payrollRun = result.data;
+
+			// Only clear hasModifiedRecords if no new modifications or failed updates happened
+			if (
+				lastModificationId === startModificationId &&
+				lastSuccessfulUpdateId === startSuccessfulUpdateId &&
+				lastSuccessfulUpdateId === startModificationId &&
+				pendingUpdateCount === 0 &&
+				!autoCalculateQueued
+			) {
+				hasModifiedRecords = false;
+			}
+		} catch (err) {
+			console.warn(`Auto-calculate failed for record ${recordId}:`, err);
+		} finally {
+			isRecalculating = false;
+			if (autoCalculateQueued && pendingUpdateCount === 0) {
+				scheduleAutoCalculate(100);
+			}
+		}
+	}
+
+	function getRegularHours(record: PayrollRecord): number {
+		return record.inputData?.regularHours ?? record.regularHoursWorked ?? 0;
+	}
+
+	function getZeroEarningsEmployees(run: PayrollRunWithGroups) {
+		return run.payGroups.flatMap((payGroup) =>
+			payGroup.records
+				.filter((record) => record.totalGross === 0)
+				.map((record) => ({
+					name: record.employeeName,
+					reason:
+						record.compensationType === 'hourly' && getRegularHours(record) === 0
+							? 'No hours entered'
+							: 'Gross pay is $0'
+				}))
+		);
+	}
+
 	async function handleFinalize() {
 		if (!payrollRun || payrollRun.status !== 'draft') return;
 
@@ -417,6 +549,19 @@
 			alert('Please recalculate before finalizing. There are unsaved changes.');
 			return;
 		}
+
+		const zeroGrossEmployees = getZeroEarningsEmployees(payrollRun);
+		if (zeroGrossEmployees.length > 0) {
+			zeroEarningsEmployees = zeroGrossEmployees;
+			showZeroEarningsModal = true;
+			return;
+		}
+
+		await proceedWithFinalize();
+	}
+
+	async function proceedWithFinalize() {
+		if (!payrollRun || payrollRun.status !== 'draft') return;
 
 		isFinalizing = true;
 		try {
@@ -432,6 +577,11 @@
 		} finally {
 			isFinalizing = false;
 		}
+	}
+
+	async function handleZeroEarningsConfirm() {
+		showZeroEarningsModal = false;
+		await proceedWithFinalize();
 	}
 
 	async function handleRevertToDraft() {
@@ -454,8 +604,40 @@
 		}
 	}
 
+	// ===========================================
+	// Pay Date Edit Handler
+	// ===========================================
+	async function handlePayDateChange(newPayDate: string) {
+		if (!payrollRun || payrollRun.status !== 'draft') return;
+
+		try {
+			const result = await updatePayDate(payrollRun.id, newPayDate);
+			if (result.error) {
+				alert(`Failed to update pay date: ${result.error}`);
+				return;
+			}
+			// Update local state with new pay date
+			if (result.data) {
+				payrollRun = {
+					...payrollRun,
+					payDate: result.data.payDate,
+					needsRecalculation: result.data.needsRecalculation
+				};
+				// If backend returns needsRecalculation, mark as modified to disable Finalize
+				if (result.data.needsRecalculation) {
+					hasModifiedRecords = true;
+				}
+			}
+		} catch (err) {
+			alert(`Failed to update pay date: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		}
+	}
+
 	// Check if payroll run is in draft state
 	const isDraft = $derived(payrollRun?.status === 'draft');
+
+	// Get province from first pay group (default to SK if not available)
+	const province = $derived(payrollRun?.payGroups[0]?.province ?? 'SK');
 </script>
 
 <svelte:head>
@@ -471,6 +653,16 @@
 {:else if payrollRun && isDraft}
 	<!-- Draft View - Editable Payroll Run (includes initial setup) -->
 	<div class="max-w-[1200px] mx-auto">
+		{#if showSyncNotice && syncAddedCount > 0}
+			<AlertBanner
+				type="info"
+				title="Employees updated"
+				message={`${syncAddedCount} new employee${syncAddedCount === 1 ? '' : 's'} added to this payroll run.`}
+				dismissible
+				class="mb-4"
+				onDismiss={() => (showSyncNotice = false)}
+			/>
+		{/if}
 		<DraftPayrollView
 			{payrollRun}
 			{hasModifiedRecords}
@@ -478,22 +670,29 @@
 			{isFinalizing}
 			isDeleting={isDeletingDraft}
 			onRecalculate={handleRecalculate}
+			onAutoCalculate={handleAutoCalculate}
 			onFinalize={handleFinalize}
 			onUpdateRecord={handleUpdateDraftRecord}
 			onAddEmployee={handleAddEmployee}
 			onRemoveEmployee={handleRemoveEmployee}
 			onDeleteDraft={handleDeleteDraft}
 			onBack={handleBack}
+			onPayDateChange={handlePayDateChange}
+			onPreviewPaystub={handlePreviewPaystub}
 		/>
 	</div>
 {:else if payrollRun}
 	<!-- Payroll Run View (pending_approval, approved, paid) -->
 	<div class="max-w-[1200px] mx-auto">
 		<PayrollPageHeader
+			payDate={payrollRun.payDate}
+			periodEnd={payrollRun.periodEnd}
+			{province}
 			payDateFormatted={formatFullDate(payrollRun.payDate)}
 			payGroupCount={payrollRun.payGroups.length}
 			employeeCount={payrollRun.totalEmployees}
 			onBack={handleBack}
+			onPayDateChange={handlePayDateChange}
 		>
 			{#snippet actions()}
 				{@const run = payrollRun!}
@@ -574,8 +773,10 @@
 				<PayGroupSection
 					{payGroup}
 					runStatus={payrollRun.status}
+					payDate={payrollRun.payDate}
 					{expandedRecordId}
 					onToggleExpand={toggleExpand}
+					onPreviewPaystub={handlePreviewPaystub}
 					onDownloadPaystub={handleDownloadPaystub}
 					onResendPaystub={handleResendPaystub}
 				/>
@@ -607,4 +808,33 @@
 			onAssign={handleAssignEmployeesFromModal}
 		/>
 	{/if}
+{/if}
+
+{#if showDeleteModal && payrollRun}
+	<DeleteDraftModal
+		payDate={payrollRun.payDate}
+		onClose={() => (showDeleteModal = false)}
+		onConfirm={confirmDeleteDraft}
+		isDeleting={isDeletingDraft}
+	/>
+{/if}
+
+{#if showZeroEarningsModal}
+	<ZeroEarningsConfirmModal
+		employees={zeroEarningsEmployees}
+		onClose={() => (showZeroEarningsModal = false)}
+		onConfirm={handleZeroEarningsConfirm}
+		isConfirming={isFinalizing}
+	/>
+{/if}
+
+<!-- Paystub Preview Modal -->
+{#if previewRecord && payrollRun}
+	<PaystubPreviewModal
+		record={previewRecord}
+		payGroup={previewPayGroup ?? undefined}
+		runStatus={payrollRun.status}
+		payDate={payrollRun.payDate}
+		onClose={closePreviewModal}
+	/>
 {/if}

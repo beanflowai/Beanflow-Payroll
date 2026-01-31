@@ -12,8 +12,8 @@ import type {
 } from '$lib/types/payroll';
 import { calculatePayDate } from '$lib/types/pay-group';
 import { getCurrentUserId, getCurrentCompanyId } from './helpers';
-import type { PayrollServiceResult, PayrollDashboardStats } from './types';
-import { listPayrollRuns, type PayrollRunListOptionsExt } from './run-queries';
+import type { PayrollServiceResult, PayrollDashboardStats, PayrollRunListOptionsExt } from './types';
+import { listPayrollRuns } from './run-queries';
 
 // ===========================================
 // Page Status Check

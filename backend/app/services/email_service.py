@@ -242,6 +242,165 @@ class EmailService:
 
         return await self.send_email(message)
 
+    def create_welcome_email_content(self) -> str:
+        """Create HTML content for welcome email.
+
+        Returns:
+            HTML email content for the welcome email
+        """
+        from datetime import datetime
+
+        current_year = datetime.now().year
+        video_url = "https://youtu.be/_yjmnaa1wk8"
+        docs_url = "https://support.beanflow.ai"
+
+        html_template = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to BeanFlow Payroll</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f7fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f7fa;">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 40px 40px 30px; text-align: center; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 12px 12px 0 0;">
+              <img src="https://payroll.beanflow.ai/logo-white.png" alt="BeanFlow" style="height: 40px; margin-bottom: 16px;" />
+              <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">Welcome to BeanFlow Payroll</h1>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <p style="margin: 0 0 20px; color: #374151; font-size: 16px; line-height: 26px;">
+                Hey,
+              </p>
+              <p style="margin: 0 0 20px; color: #374151; font-size: 16px; line-height: 26px;">
+                My name is Martin Sun — I'm the founder and CEO of BeanFlow.
+              </p>
+              <p style="margin: 0 0 24px; color: #374151; font-size: 16px; line-height: 26px;">
+                We started BeanFlow Payroll because running payroll in Canada shouldn't require a CPA degree. CPP, EI, federal and provincial taxes — we handle all the complexity so you can focus on your team.
+              </p>
+
+              <!-- 5 Steps -->
+              <h3 style="margin: 0 0 16px; color: #1f2937; font-size: 18px; font-weight: 600;">Get started in 5 simple steps:</h3>
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 24px;">
+                <tr>
+                  <td style="padding: 16px; background-color: #f0fdf4; border-radius: 8px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td style="padding: 8px 0; color: #166534; font-size: 15px; line-height: 22px;">
+                          <strong style="color: #059669;">1.</strong> <strong>Create Company Profile</strong> — Set up your business info and CRA details
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #166534; font-size: 15px; line-height: 22px;">
+                          <strong style="color: #059669;">2.</strong> <strong>Design Pay Groups</strong> — Define pay frequencies (weekly, bi-weekly, monthly)
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #166534; font-size: 15px; line-height: 22px;">
+                          <strong style="color: #059669;">3.</strong> <strong>Add Employees</strong> — Enter your team's info, we'll handle the tax calculations
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #166534; font-size: 15px; line-height: 22px;">
+                          <strong style="color: #059669;">4.</strong> <strong>Assign to Pay Groups</strong> — Match employees to their pay schedules
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #166534; font-size: 15px; line-height: 22px;">
+                          <strong style="color: #059669;">5.</strong> <strong>Run First Payroll</strong> — You're ready to go! &#x1F389;
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Video Link -->
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 16px;">
+                <tr>
+                  <td style="padding: 16px; background-color: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe;">
+                    <p style="margin: 0; color: #1e40af; font-size: 15px; line-height: 22px;">
+                      &#x1F4FA; <strong>Watch the quick setup video:</strong>
+                      <a href="{video_url}" style="color: #2563eb; text-decoration: underline;">{video_url}</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Docs Link -->
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 24px;">
+                <tr>
+                  <td style="padding: 16px; background-color: #faf5ff; border-radius: 8px; border: 1px solid #e9d5ff;">
+                    <p style="margin: 0; color: #7c3aed; font-size: 15px; line-height: 22px;">
+                      &#x1F4DA; <strong>Check the docs</strong> for step-by-step guides and compliance tips:
+                      <a href="{docs_url}" style="color: #7c3aed; text-decoration: underline;">{docs_url}</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- P.S. -->
+              <p style="margin: 0 0 20px; color: #6b7280; font-size: 14px; line-height: 22px; font-style: italic;">
+                P.S.: What made you look for a new payroll solution? Hit "Reply" and let me know — I read and reply to every email.
+              </p>
+
+              <!-- Sign off -->
+              <p style="margin: 0; color: #374151; font-size: 16px; line-height: 26px;">
+                Cheers,<br/>
+                <strong>Martin</strong>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 24px 40px 32px; background-color: #f9fafb; border-radius: 0 0 12px 12px; border-top: 1px solid #e5e7eb;">
+              <p style="margin: 0; color: #9ca3af; font-size: 12px; text-align: center;">
+                &copy; {current_year} BeanFlow Payroll. All rights reserved.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+"""
+        return html_template
+
+    async def send_welcome_email(self, to_email: str) -> dict[str, Any]:
+        """Send welcome email to new payroll users.
+
+        Args:
+            to_email: Recipient email address
+
+        Returns:
+            Resend API response
+        """
+        subject = "Welcome to BeanFlow Payroll — Get started in 5 simple steps"
+
+        html_content = self.create_welcome_email_content()
+
+        message = EmailMessage(
+            to=[to_email],
+            subject=subject,
+            html_content=html_content,
+            from_email="martin.sun@beanflow.ai",
+            from_name="Martin Sun",
+        )
+
+        return await self.send_email(message)
+
 
 # Global email service instance
 _email_service: EmailService | None = None

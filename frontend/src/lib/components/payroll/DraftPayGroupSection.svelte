@@ -30,24 +30,34 @@
 		payGroup: PayrollRunPayGroup;
 		holidays?: Holiday[];
 		expandedRecordId: string | null;
+		isRecalculating?: boolean;
 		onToggleExpand: (id: string) => void;
 		onUpdateRecord: (
 			recordId: string,
 			employeeId: string,
 			updates: Partial<EmployeePayrollInput>
 		) => void;
+		onAutoCalculateTrigger?: (
+			recordId: string,
+			compensationType: PayrollRecord['compensationType'],
+			regularHours: number
+		) => void;
 		onAddEmployee?: (payGroupId: string) => void;
 		onRemoveEmployee?: (employeeId: string) => void;
+		onPreviewPaystub?: (record: PayrollRecord) => void;
 	}
 
 	let {
 		payGroup,
 		holidays = [],
 		expandedRecordId,
+		isRecalculating = false,
 		onToggleExpand,
 		onUpdateRecord,
+		onAutoCalculateTrigger,
 		onAddEmployee,
-		onRemoveEmployee
+		onRemoveEmployee,
+		onPreviewPaystub
 	}: Props = $props();
 
 	let isCollapsed = $state(false);
@@ -56,8 +66,38 @@
 	let showEarningsMenu = $state<string | null>(null);
 	let showDeductionsMenu = $state<string | null>(null);
 
+	// Track which salaried record is in hours editing mode
+	let editingSalariedHoursId = $state<string | null>(null);
+
+	// Track which record is in overtime hours editing mode
+	let editingOvertimeHoursId = $state<string | null>(null);
+
 	// Local input state for editing
 	let localInputMap = $state<Map<string, Partial<EmployeePayrollInput>>>(new Map());
+
+	// Track update timestamps for each record (for sorting by recently updated)
+	let recordUpdateTimestamps = $state<Map<string, number>>(new Map());
+
+	// Derive: sorted records by update timestamp (most recently updated first)
+	// Records with no updates keep their original order and appear after updated records
+	const sortedRecords = $derived(() => {
+		const recordsWithTimestamp = payGroup.records.map((record, idx) => {
+			const timestamp = recordUpdateTimestamps.get(record.id) ?? 0;
+			return { record, idx, timestamp };
+		});
+
+		// Sort: records with updates first (by timestamp desc), then original order
+		recordsWithTimestamp.sort((a, b) => {
+			if (a.timestamp === 0 && b.timestamp === 0) {
+				return a.idx - b.idx; // Original order
+			}
+			if (a.timestamp === 0) return 1; // Unupdated records go last
+			if (b.timestamp === 0) return -1; // Unupdated records go last
+			return b.timestamp - a.timestamp; // Most recent first
+		});
+
+		return recordsWithTimestamp.map((r) => r.record);
+	});
 
 	// Timesheet modal state
 	let timesheetModalState = $state<{
@@ -95,6 +135,28 @@
 		return localInputMap.get(recordId) || {};
 	}
 
+	function getRegularHoursValue(record: PayrollRecord, override?: number): number {
+		if (override !== undefined) return override;
+		const local = getLocalInput(record.id);
+		if (local.regularHours !== undefined) return local.regularHours;
+		if (record.inputData?.regularHours !== undefined) return record.inputData.regularHours;
+		return record.regularHoursWorked ?? 0;
+	}
+
+	// Record update timestamp for sorting
+	function recordUpdated(recordId: string) {
+		recordUpdateTimestamps = new Map(recordUpdateTimestamps).set(recordId, Date.now());
+	}
+
+	function triggerAutoCalculate(record: PayrollRecord, overrideRegularHours?: number) {
+		if (!onAutoCalculateTrigger) return;
+		onAutoCalculateTrigger(
+			record.id,
+			record.compensationType,
+			getRegularHoursValue(record, overrideRegularHours)
+		);
+	}
+
 	function handleHoursChange(
 		record: PayrollRecord,
 		field: 'regularHours' | 'overtimeHours',
@@ -103,7 +165,9 @@
 		const current = getLocalInput(record.id);
 		const updated = { ...current, [field]: value };
 		localInputMap = new Map(localInputMap).set(record.id, updated);
+		recordUpdated(record.id); // Track update time
 		onUpdateRecord(record.id, record.employeeId, { [field]: value });
+		triggerAutoCalculate(record, field === 'regularHours' ? value : undefined);
 	}
 
 	function handleLeaveChange(record: PayrollRecord, type: 'vacation' | 'sick', hours: number) {
@@ -118,7 +182,9 @@
 
 		const updated = { ...current, leaveEntries: newLeaveEntries };
 		localInputMap = new Map(localInputMap).set(record.id, updated);
+		recordUpdated(record.id); // Track update time
 		onUpdateRecord(record.id, record.employeeId, { leaveEntries: newLeaveEntries });
+		triggerAutoCalculate(record);
 	}
 
 	function handleAddAdjustment(record: PayrollRecord, type: AdjustmentType) {
@@ -135,7 +201,9 @@
 		const newAdjs = [...existingAdjs, newAdj];
 		const updated = { ...current, adjustments: newAdjs };
 		localInputMap = new Map(localInputMap).set(record.id, updated);
+		recordUpdated(record.id); // Track update time
 		onUpdateRecord(record.id, record.employeeId, { adjustments: newAdjs });
+		triggerAutoCalculate(record);
 		// Close menus
 		showEarningsMenu = null;
 		showDeductionsMenu = null;
@@ -166,7 +234,9 @@
 		const newAdjs = [...existingAdjs, newAdj];
 		const updated = { ...current, adjustments: newAdjs };
 		localInputMap = new Map(localInputMap).set(record.id, updated);
+		recordUpdated(record.id); // Track update time
 		onUpdateRecord(record.id, record.employeeId, { adjustments: newAdjs });
+		triggerAutoCalculate(record);
 		// Close menu
 		showDeductionsMenu = null;
 	}
@@ -182,7 +252,9 @@
 		newAdjs[idx] = { ...newAdjs[idx], ...updates };
 		const updated = { ...current, adjustments: newAdjs };
 		localInputMap = new Map(localInputMap).set(record.id, updated);
+		recordUpdated(record.id); // Track update time
 		onUpdateRecord(record.id, record.employeeId, { adjustments: newAdjs });
+		triggerAutoCalculate(record);
 	}
 
 	function handleRemoveAdjustment(record: PayrollRecord, idx: number) {
@@ -191,7 +263,9 @@
 		const newAdjs = existingAdjs.filter((_: Adjustment, i: number) => i !== idx);
 		const updated = { ...current, adjustments: newAdjs };
 		localInputMap = new Map(localInputMap).set(record.id, updated);
+		recordUpdated(record.id); // Track update time
 		onUpdateRecord(record.id, record.employeeId, { adjustments: newAdjs });
+		triggerAutoCalculate(record);
 	}
 
 	function getLeaveHours(record: PayrollRecord, type: 'vacation' | 'sick'): number {
@@ -214,15 +288,16 @@
 
 	/**
 	 * Calculate vacation pay for the given vacation hours
-	 * Uses the employee's hourly rate (or annual_salary / 2080 for salaried)
+	 * Uses the employee's hourly rate (or annual_salary / annual_hours for salaried)
 	 */
 	function calculateVacationPay(record: PayrollRecord, vacationHours: number): number {
 		if (vacationHours <= 0) return 0;
 		// Use vacation hourly rate if available, otherwise calculate from salary/hourly
+		const annualHours = record.standardHoursPerWeek * 52;
 		const hourlyRate =
 			record.vacationHourlyRate ??
 			record.hourlyRate ??
-			(record.annualSalary ? record.annualSalary / 2080 : 0);
+			(record.annualSalary ? record.annualSalary / annualHours : 0);
 		return vacationHours * hourlyRate;
 	}
 
@@ -290,6 +365,74 @@
 		return '--';
 	}
 
+	function shouldShowNoHoursBadge(record: PayrollRecord): boolean {
+		return record.compensationType === 'hourly' && getRegularHoursValue(record) === 0;
+	}
+
+	/**
+	 * Get standard hours per pay period based on pay frequency and employee's weekly hours
+	 */
+	function getStandardHoursPerPeriod(payFrequency: string, weeklyHours: number = 40): number {
+		switch (payFrequency) {
+			case 'weekly':
+				return weeklyHours;
+			case 'bi_weekly':
+				return weeklyHours * 2;
+			case 'semi_monthly':
+				return (weeklyHours * 52) / 24; // ~86.67 for 40h/week
+			case 'monthly':
+				return (weeklyHours * 52) / 12; // ~173.33 for 40h/week
+			default:
+				return weeklyHours * 2; // default to bi-weekly
+		}
+	}
+
+	/**
+	 * Get the current salaried hours value from input data or default to standard hours
+	 */
+	function getSalariedHoursValue(record: PayrollRecord): number {
+		const local = getLocalInput(record.id);
+		if (local.regularHours !== undefined) return local.regularHours;
+		if (record.inputData?.regularHours !== undefined) return record.inputData.regularHours;
+		return getStandardHoursPerPeriod(payGroup.payFrequency, record.standardHoursPerWeek);
+	}
+
+	/**
+	 * Check if a salaried employee's pay is prorated (0 < hours < standard)
+	 * Only show proration indicator when actually working partial period, not when hours = 0
+	 */
+	function isSalariedProrated(record: PayrollRecord): boolean {
+		if (record.compensationType !== 'salaried') return false;
+		const standardHours = getStandardHoursPerPeriod(payGroup.payFrequency, record.standardHoursPerWeek);
+		const workedHours = getSalariedHoursValue(record);
+		// Only prorated when hours > 0 AND less than standard
+		return workedHours > 0 && workedHours < standardHours;
+	}
+
+	/**
+	 * Handle salaried employee hours change for proration
+	 */
+	function handleSalariedHoursChange(record: PayrollRecord, value: string) {
+		const standardHours = getStandardHoursPerPeriod(payGroup.payFrequency, record.standardHoursPerWeek);
+		// Clamp to [0, standardHours]
+		const hours = Math.min(Math.max(parseFloat(value) || 0, 0), standardHours);
+
+		const current = getLocalInput(record.id);
+		const updated = { ...current, regularHours: hours };
+		localInputMap = new Map(localInputMap).set(record.id, updated);
+		recordUpdated(record.id);
+		onUpdateRecord(record.id, record.employeeId, { regularHours: hours });
+		triggerAutoCalculate(record, hours);
+	}
+
+	/**
+	 * Handle overtime hours change when editing finishes
+	 */
+	function handleOvertimeHoursEdit(record: PayrollRecord, value: string) {
+		const hours = Math.max(parseFloat(value) || 0, 0);
+		handleHoursChange(record, 'overtimeHours', hours);
+	}
+
 	// Check if record needs recalculation (modified or not yet calculated)
 	function isUncalculated(record: PayrollRecord): boolean {
 		// Check if record is marked as modified
@@ -336,7 +479,9 @@
 	 * Updates input_data with holidayPayExempt flag
 	 */
 	function handleHolidayPayExemptChange(record: PayrollRecord, exempt: boolean) {
+		recordUpdated(record.id); // Track update time
 		onUpdateRecord(record.id, record.employeeId, { holidayPayExempt: exempt });
+		triggerAutoCalculate(record);
 	}
 
 	/**
@@ -368,19 +513,37 @@
 				overtimeHours: totals.overtimeHours
 			};
 			localInputMap = new Map(localInputMap).set(record.id, updated);
+			recordUpdated(record.id); // Track update time
 
 			// Send both updates in a single call to prevent race conditions in the backend
 			onUpdateRecord(record.id, record.employeeId, {
 				regularHours: totals.regularHours,
 				overtimeHours: totals.overtimeHours
 			});
+			triggerAutoCalculate(record, totals.regularHours);
 		}
 		// Close modal
 		timesheetModalState.isOpen = false;
 	}
 </script>
 
-<div class="bg-white rounded-xl shadow-md3-1 overflow-hidden mb-4 border-2 border-neutral-200">
+<div
+	class="relative bg-white rounded-xl shadow-md3-1 overflow-hidden mb-4 border-2 border-neutral-200"
+>
+	<!-- Recalculating Overlay -->
+	{#if isRecalculating}
+		<div
+			class="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-xl"
+		>
+			<div class="flex flex-col items-center gap-3">
+				<div
+					class="w-10 h-10 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin"
+				></div>
+				<span class="text-sm font-medium text-primary-600">Calculating...</span>
+			</div>
+		</div>
+	{/if}
+
 	<!-- Section Header -->
 	<button
 		class="w-full flex items-center justify-between py-4 px-5 bg-white border-none cursor-pointer transition-all duration-150 text-left hover:bg-neutral-100"
@@ -500,7 +663,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each payGroup.records as record (record.id)}
+					{#each sortedRecords() as record (record.id)}
 						<!-- Main Row -->
 						<tr
 							class="cursor-pointer transition-all duration-150 {expandedRecordId === record.id
@@ -546,7 +709,11 @@
 								</span>
 							</td>
 							<td class="py-3 px-4 text-body-content text-surface-700 border-b border-surface-100">
-								<span class="font-medium text-surface-700">{formatHoursRate(record)}</span>
+								{#if shouldShowNoHoursBadge(record)}
+									<span class="font-medium text-warning-600">{formatHoursRate(record)}</span>
+								{:else}
+									<span class="font-medium text-surface-700">{formatHoursRate(record)}</span>
+								{/if}
 							</td>
 							<td
 								class="py-3 px-4 text-body-content text-surface-700 border-b border-surface-100 text-right"
@@ -571,12 +738,24 @@
 								<span class="font-semibold text-success-600">{formatCurrency(record.netPay)}</span>
 							</td>
 							<td class="py-3 px-4 text-body-content border-b border-surface-100 text-right">
-								<button
-									class="p-2 bg-transparent border-none rounded-lg text-surface-500 cursor-pointer transition-all duration-150 hover:bg-surface-100 hover:text-primary-600"
-									title={expandedRecordId === record.id ? 'Collapse' : 'Expand'}
-								>
-									<i class="fas fa-chevron-{expandedRecordId === record.id ? 'up' : 'down'}"></i>
-								</button>
+								<div class="flex gap-1 justify-end">
+									<button
+										class="p-2 bg-transparent border-none rounded-lg text-surface-500 cursor-pointer transition-all duration-150 hover:bg-surface-100 hover:text-primary-600"
+										title="Preview Paystub"
+										onclick={(e) => {
+											e.stopPropagation();
+											onPreviewPaystub?.(record);
+										}}
+									>
+										<i class="fas fa-eye"></i>
+									</button>
+									<button
+										class="p-2 bg-transparent border-none rounded-lg text-surface-500 cursor-pointer transition-all duration-150 hover:bg-surface-100 hover:text-primary-600"
+										title={expandedRecordId === record.id ? 'Collapse' : 'Expand'}
+									>
+										<i class="fas fa-chevron-{expandedRecordId === record.id ? 'up' : 'down'}"></i>
+									</button>
+								</div>
 							</td>
 						</tr>
 
@@ -589,7 +768,9 @@
 										<div class="grid grid-cols-3 gap-5">
 											<!-- EARNINGS Column -->
 											<div class="flex flex-col gap-3">
-												<div class="flex items-center justify-between pb-2 border-b border-surface-200">
+												<div
+													class="flex items-center justify-between pb-2 border-b border-surface-200"
+												>
 													<h4
 														class="text-caption font-semibold text-surface-600 uppercase tracking-wider m-0"
 													>
@@ -629,8 +810,10 @@
 																<div class="flex items-center gap-1">
 																	<input
 																		type="number"
-																		class="amount-input w-16 py-1 px-2 border border-surface-300 rounded text-body-small text-center focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
-																		value={record.inputData?.regularHours ?? record.regularHoursWorked ?? 0}
+																		class="amount-input w-20 py-1 px-2 border border-surface-300 rounded text-body-small text-center focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+																		value={record.inputData?.regularHours ??
+																			record.regularHoursWorked ??
+																			0}
 																		min="0"
 																		step="0.5"
 																		onchange={(e) => {
@@ -643,6 +826,67 @@
 																	<span class="text-caption text-surface-500">hrs</span>
 																</div>
 															</div>
+														{/if}
+														<!-- Salaried hours display and input for proration -->
+														{#if record.compensationType === 'salaried' && record.annualSalary}
+															{@const standardHours = getStandardHoursPerPeriod(payGroup.payFrequency, record.standardHoursPerWeek)}
+															{@const impliedHourlyRate = record.annualSalary / (record.standardHoursPerWeek * 52)}
+															{@const workedHours = getSalariedHoursValue(record)}
+															{@const isEditing = editingSalariedHoursId === record.id}
+															<!-- svelte-ignore a11y_no_static_element_interactions -->
+															<!-- svelte-ignore a11y_click_events_have_key_events -->
+															<div
+																class="flex justify-between items-center pl-4"
+																onclick={(e) => e.stopPropagation()}
+															>
+																<span class="text-auxiliary-text text-surface-500">Hours @ Rate</span>
+																<div class="flex items-center gap-1">
+																	{#if isEditing}
+																		<!-- Inline edit mode -->
+																		<input
+																			type="number"
+																			class="amount-input w-16 py-0.5 px-1.5 border border-primary-400 rounded text-auxiliary-text text-center focus:outline-none focus:ring-2 focus:ring-primary-100"
+																			value={workedHours}
+																			min="0"
+																			max={standardHours}
+																			step="0.5"
+																			autofocus
+																			onblur={(e) => {
+																				handleSalariedHoursChange(record, e.currentTarget.value);
+																				editingSalariedHoursId = null;
+																			}}
+																			onkeydown={(e) => {
+																				if (e.key === 'Enter') {
+																					handleSalariedHoursChange(record, e.currentTarget.value);
+																					editingSalariedHoursId = null;
+																				} else if (e.key === 'Escape') {
+																					editingSalariedHoursId = null;
+																				}
+																			}}
+																		/>
+																	{:else}
+																		<!-- Read-only display with edit button -->
+																		<span class="text-auxiliary-text text-surface-700">{workedHours.toFixed(2)} hrs</span>
+																		<button
+																			class="p-1 text-surface-400 hover:text-primary-600 transition-colors"
+																			title="Edit hours"
+																			onclick={() => (editingSalariedHoursId = record.id)}
+																		>
+																			<i class="fas fa-pencil-alt text-xs"></i>
+																		</button>
+																	{/if}
+																	<span class="text-auxiliary-text text-surface-400">@ {formatCurrency(impliedHourlyRate)}/hr</span>
+																</div>
+															</div>
+															<!-- Proration indicator (only when prorated) -->
+															{#if isSalariedProrated(record)}
+																<div class="flex items-center gap-1 pl-4 text-warning-600">
+																	<i class="fas fa-clock text-xs"></i>
+																	<span class="text-caption">
+																		Prorated: {((workedHours / standardHours) * 100).toFixed(0)}% of full period
+																	</span>
+																</div>
+															{/if}
 														{/if}
 													</div>
 
@@ -665,31 +909,54 @@
 																>{formatCurrency(record.grossOvertime)}</span
 															>
 														</div>
-														<!-- Overtime Hours input (for both hourly and salaried) -->
-														<!-- svelte-ignore a11y_no_static_element_interactions -->
-														<!-- svelte-ignore a11y_click_events_have_key_events -->
-														<div
-															class="flex justify-between items-center gap-2 pl-4"
-															onclick={(e) => e.stopPropagation()}
-														>
-															<span class="text-body-small text-surface-500">Overtime Hours</span>
-															<div class="flex items-center gap-1">
-																<input
-																	type="number"
-																	class="amount-input w-16 py-1 px-2 border border-surface-300 rounded text-body-small text-center focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
-																	value={record.inputData?.overtimeHours ?? record.overtimeHoursWorked ?? 0}
-																	min="0"
-																	step="0.5"
-																	onchange={(e) => {
-																		let val = parseFloat(e.currentTarget.value) || 0;
-																		if (val < 0) val = 0;
-																		e.currentTarget.value = val.toString();
-																		handleHoursChange(record, 'overtimeHours', val);
-																	}}
-																/>
-																<span class="text-caption text-surface-500">hrs</span>
+														<!-- Overtime Hours with click-to-edit pattern -->
+														{#if true}
+															{@const overtimeHours = record.inputData?.overtimeHours ?? record.overtimeHoursWorked ?? 0}
+															{@const isEditingOvertime = editingOvertimeHoursId === record.id}
+															<!-- svelte-ignore a11y_no_static_element_interactions -->
+															<!-- svelte-ignore a11y_click_events_have_key_events -->
+															<div
+																class="flex justify-between items-center gap-2 pl-4"
+																onclick={(e) => e.stopPropagation()}
+															>
+																<span class="text-auxiliary-text text-surface-500">Overtime Hours</span>
+																<div class="flex items-center gap-1">
+																	{#if isEditingOvertime}
+																		<!-- Edit mode: inline input -->
+																		<input
+																			type="number"
+																			class="amount-input w-16 py-0.5 px-1.5 border border-primary-400 rounded text-auxiliary-text text-center focus:outline-none focus:ring-2 focus:ring-primary-100"
+																			value={overtimeHours}
+																			min="0"
+																			step="0.5"
+																			autofocus
+																			onblur={(e) => {
+																				handleOvertimeHoursEdit(record, e.currentTarget.value);
+																				editingOvertimeHoursId = null;
+																			}}
+																			onkeydown={(e) => {
+																				if (e.key === 'Enter') {
+																					handleOvertimeHoursEdit(record, e.currentTarget.value);
+																					editingOvertimeHoursId = null;
+																				} else if (e.key === 'Escape') {
+																					editingOvertimeHoursId = null;
+																				}
+																			}}
+																		/>
+																	{:else}
+																		<!-- Display mode: value + pencil -->
+																		<span class="text-auxiliary-text text-surface-700">{overtimeHours} hrs</span>
+																		<button
+																			class="p-1 text-surface-400 hover:text-primary-600 transition-colors"
+																			title="Edit overtime hours"
+																			onclick={() => (editingOvertimeHoursId = record.id)}
+																		>
+																			<i class="fas fa-pencil-alt text-xs"></i>
+																		</button>
+																	{/if}
+																</div>
 															</div>
-														</div>
+														{/if}
 													</div>
 
 													<!-- Holiday Pay with Exempt toggle (only shown when pay period has holidays for this province) -->
@@ -876,21 +1143,59 @@
 														>
 													</div>
 
-													<!-- Federal Tax -->
-													<div class="flex justify-between items-center">
-														<span class="text-body-content text-surface-600">Federal Tax</span>
-														<span class="text-body-content text-surface-800"
-															>{formatCurrency(record.federalTax)}</span
-														>
-													</div>
+													<!-- Federal Tax (show breakdown when bonus exists) -->
+													{#if record.federalTaxOnBonus && record.federalTaxOnBonus > 0}
+														<div class="flex justify-between items-center">
+															<span class="text-body-content text-surface-600"
+																>Federal Tax on Income</span
+															>
+															<span class="text-body-content text-surface-800"
+																>{formatCurrency(record.federalTaxOnIncome ?? 0)}</span
+															>
+														</div>
+														<div class="flex justify-between items-center">
+															<span class="text-body-content text-surface-600"
+																>Federal Tax on Bonus</span
+															>
+															<span class="text-body-content text-surface-800"
+																>{formatCurrency(record.federalTaxOnBonus)}</span
+															>
+														</div>
+													{:else}
+														<div class="flex justify-between items-center">
+															<span class="text-body-content text-surface-600">Federal Tax</span>
+															<span class="text-body-content text-surface-800"
+																>{formatCurrency(record.federalTax)}</span
+															>
+														</div>
+													{/if}
 
-													<!-- Provincial Tax -->
-													<div class="flex justify-between items-center">
-														<span class="text-body-content text-surface-600">Provincial Tax</span>
-														<span class="text-body-content text-surface-800"
-															>{formatCurrency(record.provincialTax)}</span
-														>
-													</div>
+													<!-- Provincial Tax (show breakdown when bonus exists) -->
+													{#if record.provincialTaxOnBonus && record.provincialTaxOnBonus > 0}
+														<div class="flex justify-between items-center">
+															<span class="text-body-content text-surface-600"
+																>Provincial Tax on Income</span
+															>
+															<span class="text-body-content text-surface-800"
+																>{formatCurrency(record.provincialTaxOnIncome ?? 0)}</span
+															>
+														</div>
+														<div class="flex justify-between items-center">
+															<span class="text-body-content text-surface-600"
+																>Provincial Tax on Bonus</span
+															>
+															<span class="text-body-content text-surface-800"
+																>{formatCurrency(record.provincialTaxOnBonus)}</span
+															>
+														</div>
+													{:else}
+														<div class="flex justify-between items-center">
+															<span class="text-body-content text-surface-600">Provincial Tax</span>
+															<span class="text-body-content text-surface-800"
+																>{formatCurrency(record.provincialTax)}</span
+															>
+														</div>
+													{/if}
 
 													<!-- Benefits (from Pay Group group_benefits) -->
 													{#if payGroup.groupBenefits?.enabled}
@@ -1106,8 +1411,10 @@
 															record.vacationAccrued -
 															(record.vacationPayPaid ?? 0)}
 														{@const vacationDisabled =
-															record.vacationPayoutMethod === 'accrual' &&
-															availableVacationDollars <= 0}
+															record.vacationPayoutMethod === 'pay_as_you_go' ||
+															(record.vacationPayoutMethod === 'accrual' &&
+																availableVacationDollars <= 0 &&
+																vacationHours === 0)}
 														{@const insufficientBalance = hasInsufficientBalance(record)}
 														{@const availableSickHours = record.sickBalanceHours ?? 0}
 														<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -1153,7 +1460,11 @@
 															{#if vacationDisabled}
 																<div class="flex items-center gap-1 pl-4 text-surface-500">
 																	<i class="fas fa-info-circle text-xs"></i>
-																	<span class="text-caption">No vacation balance available</span>
+																	<span class="text-caption"
+																		>{record.vacationPayoutMethod === 'pay_as_you_go'
+																			? 'Paid on each cheque'
+																			: 'No vacation balance available'}</span
+																	>
 																</div>
 															{/if}
 															<!-- Insufficient balance warning -->
@@ -1169,6 +1480,7 @@
 														{@const sickHours = getLeaveHours(record, 'sick')}
 														{@const paidSickHours = Math.min(sickHours, availableSickHours)}
 														{@const unpaidSickHours = Math.max(0, sickHours - availableSickHours)}
+														{@const sickDisabled = availableSickHours <= 0 && sickHours === 0}
 														<!-- svelte-ignore a11y_no_static_element_interactions -->
 														<!-- svelte-ignore a11y_click_events_have_key_events -->
 														<div class="flex flex-col gap-1" onclick={(e) => e.stopPropagation()}>
@@ -1177,10 +1489,13 @@
 																<div class="flex items-center gap-1">
 																	<input
 																		type="number"
-																		class="w-16 py-1 px-2 border rounded text-body-small text-center focus:outline-none focus:ring-2 border-surface-300 focus:border-primary-500 focus:ring-primary-100"
+																		class="w-16 py-1 px-2 border rounded text-body-small text-center focus:outline-none focus:ring-2 {sickDisabled
+																			? 'bg-surface-100 text-surface-400 cursor-not-allowed border-surface-200'
+																			: 'border-surface-300 focus:border-primary-500 focus:ring-primary-100'}"
 																		value={sickHours}
 																		min="0"
 																		step="0.5"
+																		disabled={sickDisabled}
 																		onchange={(e) =>
 																			handleLeaveChange(
 																				record,
@@ -1191,6 +1506,13 @@
 																	<span class="text-caption text-surface-500">hrs</span>
 																</div>
 															</div>
+															<!-- Disabled hint -->
+															{#if sickDisabled}
+																<div class="flex items-center gap-1 pl-4 text-surface-500">
+																	<i class="fas fa-info-circle text-xs"></i>
+																	<span class="text-caption">No sick balance available</span>
+																</div>
+															{/if}
 															<!-- Sick hours breakdown when entered -->
 															{#if sickHours > 0}
 																<div class="pl-4 space-y-0.5">

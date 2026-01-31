@@ -188,6 +188,9 @@ class PayrollInputPreparer:
         # Calculate other earnings from adjustments
         other_earnings = self._calculate_other_earnings(input_data)
 
+        # Calculate bonus earnings (taxed separately using bonus tax method)
+        bonus_earnings = self._calculate_bonus_earnings(input_data)
+
         # Calculate tax claims
         province_code = employee["province_of_employment"]
         federal_claim, provincial_claim = self._calculate_tax_claims(
@@ -207,6 +210,7 @@ class PayrollInputPreparer:
             holiday_premium_pay=holiday_premium_pay,
             vacation_pay=vacation_pay,
             other_earnings=other_earnings,
+            bonus_earnings=bonus_earnings,
             federal_claim_amount=federal_claim,
             provincial_claim_amount=provincial_claim,
             is_cpp_exempt=employee.get("is_cpp_exempt", False),
@@ -216,6 +220,15 @@ class PayrollInputPreparer:
             other_deductions=benefits_deduction,
             pay_date=pay_date,
             ytd_gross=emp_prior_ytd.get("ytd_gross", Decimal("0")),
+            ytd_bonus_earnings=emp_prior_ytd.get("ytd_bonus_earnings", Decimal("0")),
+            ytd_pensionable_earnings=emp_prior_ytd.get(
+                "ytd_pensionable_earnings",
+                emp_prior_ytd.get("ytd_gross", Decimal("0")),
+            ),
+            ytd_insurable_earnings=emp_prior_ytd.get(
+                "ytd_insurable_earnings",
+                emp_prior_ytd.get("ytd_gross", Decimal("0")),
+            ),
             ytd_cpp_base=emp_prior_ytd.get("ytd_cpp", Decimal("0")),
             ytd_cpp_additional=emp_prior_ytd.get("ytd_cpp_additional", Decimal("0")),
             ytd_ei=emp_prior_ytd.get("ytd_ei", Decimal("0")),
@@ -384,7 +397,11 @@ class PayrollInputPreparer:
         return holiday_result.regular_holiday_pay, holiday_result.premium_holiday_pay
 
     def _calculate_other_earnings(self, input_data: dict[str, Any]) -> Decimal:
-        """Calculate other earnings from adjustments."""
+        """Calculate other earnings from adjustments (excludes bonuses).
+
+        Note: Bonuses are handled separately by _calculate_bonus_earnings()
+        for proper tax treatment using the bonus tax method.
+        """
         other_earnings = Decimal("0")
 
         if input_data.get("adjustments"):
@@ -392,10 +409,26 @@ class PayrollInputPreparer:
                 amount = Decimal(str(adj.get("amount", 0)))
                 if adj.get("type") == "deduction":
                     other_earnings -= amount
-                else:
+                elif adj.get("type") != "bonus":  # Skip bonus, handled separately
                     other_earnings += amount
 
         return other_earnings
+
+    def _calculate_bonus_earnings(self, input_data: dict[str, Any]) -> Decimal:
+        """Extract bonus earnings from adjustments.
+
+        Bonuses are taxed differently using the bonus tax method (CRA guidelines).
+        This separates them from regular other_earnings for proper tax treatment.
+        """
+        bonus_total = Decimal("0")
+
+        if input_data.get("adjustments"):
+            for adj in input_data["adjustments"]:
+                if adj.get("type") == "bonus":
+                    amount = Decimal(str(adj.get("amount", 0)))
+                    bonus_total += amount
+
+        return bonus_total
 
     def _calculate_tax_claims(
         self,

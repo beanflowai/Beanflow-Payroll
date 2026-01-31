@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { browser } from '$app/environment';
 	import type {
 		Employee,
 		Province,
@@ -11,6 +12,10 @@
 		EmploymentType,
 		EmployeeTaxClaim
 	} from '$lib/types/employee';
+	import { companyState } from '$lib/stores/company.svelte';
+
+	const EMPLOYMENT_TYPE_STORAGE_KEY = 'beanflow_employee_employment_type_pref';
+
 	import {
 		FEDERAL_BPA_2025,
 		PROVINCIAL_BPA_2025,
@@ -37,8 +42,10 @@
 		checkEmployeeHasPayrollRecords,
 		getEmployeeTaxClaims,
 		createEmployeeTaxClaimViaApi,
-		updateEmployeeTaxClaimViaApi
+		updateEmployeeTaxClaimViaApi,
+		checkDuplicateNames
 	} from '$lib/services/employeeService';
+	import { getCurrentCompensation } from '$lib/services/compensationService';
 
 	// Import section components
 	import {
@@ -53,11 +60,12 @@
 	interface Props {
 		employee?: Employee | null;
 		mode: 'create' | 'edit';
-		onSuccess: (employee: Employee) => void;
+		onSuccess: (employee: Employee, action?: 'save' | 'saveAndNew') => void;
 		onCancel: () => void;
+		isSubmitting?: boolean;
 	}
 
-	let { employee = null, mode, onSuccess, onCancel: _onCancel }: Props = $props();
+	let { employee = null, mode, onSuccess, onCancel: _onCancel, isSubmitting = $bindable() }: Props = $props();
 
 	// ============================================
 	// INITIAL VALUES FROM PROPS
@@ -80,9 +88,10 @@
 			addressStreet: emp?.addressStreet ?? '',
 			addressCity: emp?.addressCity ?? '',
 			addressPostalCode: emp?.addressPostalCode ?? '',
+			dateOfBirth: emp?.dateOfBirth ?? '',
 			// Employment Details
 			occupation: emp?.occupation ?? '',
-			province: (emp?.provinceOfEmployment ?? 'ON') as Province,
+			province: (emp?.provinceOfEmployment ?? companyState.currentCompany?.province ?? 'ON') as Province,
 			payFrequency: (emp?.payFrequency ?? 'bi_weekly') as PayFrequency,
 			employmentType: (emp?.employmentType ?? 'full_time') as EmploymentType,
 			hireDate: emp?.hireDate ?? '',
@@ -91,6 +100,7 @@
 			compensationType: (emp?.hourlyRate ? 'hourly' : 'salaried') as 'salaried' | 'hourly',
 			annualSalary: emp?.annualSalary ?? 0,
 			hourlyRate: emp?.hourlyRate ?? 0,
+			standardHoursPerWeek: emp?.standardHoursPerWeek ?? 40,
 			// Tax
 			federalAdditionalClaims: emp?.federalAdditionalClaims ?? 0,
 			provincialAdditionalClaims: emp?.provincialAdditionalClaims ?? 0,
@@ -123,11 +133,28 @@
 	// Personal Information
 	let firstName = $state(initialValues.firstName);
 	let lastName = $state(initialValues.lastName);
-	let sin = $state(''); // Only used in create mode
+	let sin = $state(mode === 'edit' && employee?.sin ? employee.sin : '');
 	let email = $state(initialValues.email);
 	let addressStreet = $state(initialValues.addressStreet);
 	let addressCity = $state(initialValues.addressCity);
 	let addressPostalCode = $state(initialValues.addressPostalCode);
+	let dateOfBirth = $state(initialValues.dateOfBirth);
+	const canEditSin = $derived(
+		mode === 'create' || (mode === 'edit' && !employee?.sin)
+	);
+
+	// Age calculation for CPP exemption
+	const age = $derived(() => {
+		if (!dateOfBirth) return null;
+		const today = new Date();
+		const birthDate = new Date(dateOfBirth);
+		let calculatedAge = today.getFullYear() - birthDate.getFullYear();
+		const monthDiff = today.getMonth() - birthDate.getMonth();
+		if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+			calculatedAge--;
+		}
+		return calculatedAge;
+	});
 
 	// Employment Details
 	let occupation = $state(initialValues.occupation);
@@ -141,6 +168,10 @@
 	let compensationType = $state<'salaried' | 'hourly'>(initialValues.compensationType);
 	let annualSalary = $state(initialValues.annualSalary);
 	let hourlyRate = $state(initialValues.hourlyRate);
+	let standardHoursPerWeek = $state(initialValues.standardHoursPerWeek);
+	// Effective date from compensation history (for edit mode only)
+	// Falls back to hireDate if no compensation history exists
+	let currentCompensationEffectiveDate = $state<string | undefined>(employee?.hireDate);
 
 	// Tax - Multi-year TD1 claims state
 	const currentTaxYearForClaims = new Date().getFullYear();
@@ -208,8 +239,28 @@
 
 	// UI state
 	let _isSubmitting = $state(false);
+	// Sync isSubmitting prop when internal state changes
+	$effect(() => {
+		if (isSubmitting !== undefined) {
+			isSubmitting = _isSubmitting;
+		}
+	});
 	let errors = $state<Record<string, string>>({});
 	let submitError = $state<string | null>(null);
+	let duplicateCheckVersion = 0;
+
+	// Duplicate name warning state
+	let duplicateEmployees = $state<Employee[]>([]);
+	const duplicateNamesWarning = $derived(() => {
+		if (duplicateEmployees.length === 0) return null;
+		const names = duplicateEmployees.map((e) => `${e.firstName} ${e.lastName}`);
+		const uniqueNames = [...new Set(names)];
+		return {
+			count: duplicateEmployees.length,
+			names: uniqueNames.join(', '),
+			employeeIds: duplicateEmployees.map((e) => e.id)
+		};
+	});
 
 	// Derived values
 	const yearsOfService = $derived(calculateYearsOfService(hireDate));
@@ -288,6 +339,21 @@
 		}
 	});
 
+	// Fetch current compensation effective date for edit mode
+	$effect(() => {
+		if (mode === 'edit' && employee?.id) {
+			getCurrentCompensation(employee.id)
+				.then((result) => {
+					if (result.data?.effectiveDate) {
+						currentCompensationEffectiveDate = result.data.effectiveDate;
+					}
+				})
+				.catch(() => {
+					// Fallback to hire date on error
+				});
+		}
+	});
+
 	// Reload BPA defaults when province changes (for multi-year)
 	$effect(() => {
 		const currentProvince = province;
@@ -363,15 +429,83 @@
 		}
 	});
 
+	// Auto-check CPP exempt based on age (create mode only)
+	$effect(() => {
+		if (mode === 'create') {
+			const calculatedAge = age();
+			if (calculatedAge !== null) {
+				isCppExempt = calculatedAge < 18 || calculatedAge > 70;
+			}
+		}
+	});
+
+	// Auto-set hourly rate for part-time employees (create mode only)
+	$effect(() => {
+		if (mode === 'create' && employmentType === 'part_time') {
+			compensationType = 'hourly';
+		}
+	});
+
+	// Load employment type preference from localStorage (create mode only)
+	$effect(() => {
+		if (mode === 'create' && browser && !employee) {
+			const saved = localStorage.getItem(EMPLOYMENT_TYPE_STORAGE_KEY);
+			if (saved && saved !== employmentType) {
+				employmentType = saved as EmploymentType;
+			}
+		}
+	});
+
+	// Save employment type preference when it changes (create mode only)
+	$effect(() => {
+		if (mode === 'create' && browser) {
+			localStorage.setItem(EMPLOYMENT_TYPE_STORAGE_KEY, employmentType);
+		}
+	});
+
+	// Auto-set pay_as_you_go for hourly employees (create mode only)
+	$effect(() => {
+		if (mode === 'create' && compensationType === 'hourly') {
+			vacationPayoutMethod = 'pay_as_you_go';
+		}
+	});
+
+	// Check for duplicate names when first and last name are both provided
+	$effect(() => {
+		const trimmedFirst = firstName.trim();
+		const trimmedLast = lastName.trim();
+		const requestVersion = ++duplicateCheckVersion;
+
+		// Only check if both names have at least 2 characters
+		if (trimmedFirst.length >= 2 && trimmedLast.length >= 2) {
+			checkDuplicateNames(trimmedFirst, trimmedLast, mode === 'edit' ? employee?.id : undefined)
+				.then((result) => {
+					if (requestVersion !== duplicateCheckVersion) return;
+					if (!result.error) {
+						duplicateEmployees = result.data;
+					}
+				})
+				.catch(() => {
+					if (requestVersion !== duplicateCheckVersion) return;
+					// Silently fail on error - this is a soft warning
+					duplicateEmployees = [];
+				});
+		} else {
+			duplicateEmployees = [];
+		}
+	});
+
 	// Reset form when employee prop changes (for edit mode)
 	$effect(() => {
 		if (mode === 'edit' && employee) {
 			firstName = employee.firstName;
 			lastName = employee.lastName;
+			sin = employee.sin ?? '';
 			email = employee.email ?? '';
 			addressStreet = employee.addressStreet ?? '';
 			addressCity = employee.addressCity ?? '';
 			addressPostalCode = employee.addressPostalCode ?? '';
+			dateOfBirth = employee.dateOfBirth ?? '';
 			occupation = employee.occupation ?? '';
 			province = employee.provinceOfEmployment;
 			payFrequency = employee.payFrequency;
@@ -381,6 +515,7 @@
 			compensationType = employee.hourlyRate ? 'hourly' : 'salaried';
 			annualSalary = employee.annualSalary ?? 0;
 			hourlyRate = employee.hourlyRate ?? 0;
+			standardHoursPerWeek = employee.standardHoursPerWeek ?? 40;
 			federalAdditionalClaims = employee.federalAdditionalClaims;
 			provincialAdditionalClaims = employee.provincialAdditionalClaims;
 			isCppExempt = employee.isCppExempt;
@@ -636,10 +771,7 @@
 		if (!lastName.trim()) newErrors.lastName = 'Last name is required';
 		if (email && !isValidEmail(email)) newErrors.email = 'Invalid email format';
 
-		if (mode === 'create') {
-			if (!sin.trim()) newErrors.sin = 'SIN is required';
-			else if (!isValidSIN(sin)) newErrors.sin = 'SIN must be 9 digits';
-		}
+		if (canEditSin && sin.trim() && !isValidSIN(sin)) newErrors.sin = 'SIN must be 9 digits';
 
 		if (!province) newErrors.province = 'Province is required';
 		if (!hireDate) newErrors.hireDate = 'Hire date is required';
@@ -686,7 +818,7 @@
 	// SUBMIT HANDLER
 	// ============================================
 
-	async function handleSubmit() {
+	async function handleSubmit(submitAction: 'save' | 'saveAndNew' = 'save') {
 		if (!validate()) return;
 
 		_isSubmitting = true;
@@ -696,18 +828,21 @@
 			const createInput: EmployeeCreateInput = {
 				first_name: firstName.trim(),
 				last_name: lastName.trim(),
-				sin: sin.replace(/\D/g, ''),
+				sin: sin.replace(/\D/g, '') || null,
 				email: email.trim() || null,
 				province_of_employment: province,
 				pay_frequency: payFrequency,
 				employment_type: employmentType,
 				hire_date: hireDate,
+				date_of_birth: dateOfBirth || null,
 				address_street: addressStreet.trim() || null,
 				address_city: addressCity.trim() || null,
 				address_postal_code: addressPostalCode.trim() || null,
 				occupation: occupation.trim() || null,
 				annual_salary: compensationType === 'salaried' ? annualSalary : null,
 				hourly_rate: compensationType === 'hourly' ? hourlyRate : null,
+				standard_hours_per_week:
+					compensationType === 'salaried' ? standardHoursPerWeek : undefined,
 				federal_additional_claims: federalAdditionalClaims,
 				provincial_additional_claims: provincialAdditionalClaims,
 				is_cpp_exempt: isCppExempt,
@@ -739,7 +874,7 @@
 					console.warn('Tax claim save warning:', taxClaimError);
 				}
 				_isSubmitting = false;
-				onSuccess(result.data);
+				onSuccess(result.data, submitAction);
 			}
 		} else {
 			if (!employee) return;
@@ -752,12 +887,15 @@
 				pay_frequency: payFrequency,
 				employment_type: employmentType,
 				hire_date: hireDate,
+				date_of_birth: dateOfBirth || null,
 				address_street: addressStreet.trim() || null,
 				address_city: addressCity.trim() || null,
 				address_postal_code: addressPostalCode.trim() || null,
 				occupation: occupation.trim() || null,
 				annual_salary: compensationType === 'salaried' ? annualSalary : null,
 				hourly_rate: compensationType === 'hourly' ? hourlyRate : null,
+				standard_hours_per_week:
+					compensationType === 'salaried' ? standardHoursPerWeek : undefined,
 				federal_additional_claims: federalAdditionalClaims,
 				provincial_additional_claims: provincialAdditionalClaims,
 				is_cpp_exempt: isCppExempt,
@@ -782,6 +920,12 @@
 						}
 					: {})
 			};
+			if (canEditSin) {
+				const sanitizedSin = sin.replace(/\D/g, '');
+				if (sanitizedSin) {
+					updateInput.sin = sanitizedSin;
+				}
+			}
 
 			const result = await updateEmployee(employee.id, updateInput);
 
@@ -845,7 +989,8 @@
 	class="employee-form flex flex-col gap-6"
 	onsubmit={(e) => {
 		e.preventDefault();
-		handleSubmit();
+		const submitAction = (e.target as any)._submitAction || 'save';
+		handleSubmit(submitAction);
 	}}
 >
 	{#if submitError}
@@ -865,6 +1010,33 @@
 		</div>
 	{/if}
 
+	{#if duplicateNamesWarning()}
+		<div
+			class="flex items-start gap-3 p-4 bg-warning-50 border border-warning-200 rounded-lg text-warning-800"
+		>
+			<i class="fas fa-exclamation-triangle mt-0.5"></i>
+			<div class="flex-1">
+				<p class="font-medium mb-1">
+					Duplicate name warning: {duplicateEmployees.length} existing
+					{duplicateEmployees.length === 1 ? 'employee' : 'employees'} with the name {duplicateNamesWarning()?.names}
+					found in this company.
+				</p>
+				<p class="text-sm">
+					This is just a reminder - you can still save. Please verify that this is a new
+					employee and not a duplicate entry.
+				</p>
+			</div>
+			<button
+				type="button"
+				class="bg-transparent border-none text-warning-600 cursor-pointer p-1 opacity-70 hover:opacity-100"
+				onclick={() => (duplicateEmployees = [])}
+				aria-label="Dismiss warning"
+			>
+				<i class="fas fa-times"></i>
+			</button>
+		</div>
+	{/if}
+
 	<PersonalInfoSection
 		{firstName}
 		{lastName}
@@ -873,6 +1045,7 @@
 		{addressStreet}
 		{addressCity}
 		{addressPostalCode}
+		{dateOfBirth}
 		{mode}
 		{employee}
 		{errors}
@@ -883,6 +1056,7 @@
 		onAddressStreetChange={(v) => (addressStreet = v)}
 		onAddressCityChange={(v) => (addressCity = v)}
 		onAddressPostalCodeChange={(v) => (addressPostalCode = v)}
+		onDateOfBirthChange={(v) => (dateOfBirth = v)}
 	/>
 
 	<EmploymentDetailsSection
@@ -905,13 +1079,18 @@
 	/>
 
 	<CompensationSection
+		{mode}
+		employeeId={employee?.id}
 		{compensationType}
 		{annualSalary}
 		{hourlyRate}
+		{standardHoursPerWeek}
+		effectiveDate={currentCompensationEffectiveDate}
 		{errors}
 		onCompensationTypeChange={(v) => (compensationType = v)}
 		onAnnualSalaryChange={(v) => (annualSalary = v)}
 		onHourlyRateChange={(v) => (hourlyRate = v)}
+		onStandardHoursPerWeekChange={(v) => (standardHoursPerWeek = v)}
 	/>
 
 	<TaxInfoSection

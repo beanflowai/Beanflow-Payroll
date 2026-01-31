@@ -12,6 +12,7 @@ export type {
 	PayrollServiceResult,
 	PayrollDashboardStats,
 	PayrollRunListOptions,
+	PayrollRunListOptionsExt,
 	PayrollRunListResult,
 	EmployeeCompensationType,
 	EmployeeForPayroll,
@@ -21,7 +22,10 @@ export type {
 	EmployeeCalculationRequest,
 	BatchCalculationRequest,
 	CalculationResult,
-	BatchCalculationResponse
+	BatchCalculationResponse,
+	PayrollRecordListOptions,
+	PayrollRecordListResult,
+	PayrollRecordWithPeriod
 } from './types';
 
 // Re-export dashboard functions
@@ -39,7 +43,8 @@ export {
 	getPayrollRunByPeriodEnd,
 	getPayrollRunById,
 	listPayrollRuns,
-	type PayrollRunListOptionsExt
+	listPayrollRecordsForEmployee,
+	updatePayDate
 } from './run-queries';
 
 // Re-export payroll run status functions

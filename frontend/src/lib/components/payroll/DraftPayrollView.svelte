@@ -1,13 +1,20 @@
 <script lang="ts">
 	import type {
 		PayrollRunWithGroups,
+		PayrollRecord,
 		EmployeePayrollInput,
-		HolidayWorkEntry
+		HolidayWorkEntry,
+		CompensationType,
+		PayrollDraftFilters
 	} from '$lib/types/payroll';
+	import { DEFAULT_PAYROLL_DRAFT_FILTERS } from '$lib/types/payroll';
 	import { DraftPayGroupSection, HolidayAlert, HolidayWorkModal } from '$lib/components/payroll';
+	import { filterPayrollRun, calculateFilterStats } from '$lib/utils/payrollFilterUtils';
+	import PayrollDatePicker from './PayDatePicker.svelte';
 	import Tooltip from '$lib/components/shared/Tooltip.svelte';
 	import { formatShortDate } from '$lib/utils/dateUtils';
 	import { formatCurrency } from '$lib/utils';
+	import PayrollDraftFiltersComponent from './PayrollDraftFilters.svelte';
 
 	interface Props {
 		payrollRun: PayrollRunWithGroups;
@@ -16,6 +23,7 @@
 		isFinalizing: boolean;
 		isDeleting?: boolean;
 		onRecalculate: () => void;
+		onAutoCalculate?: (recordId: string) => void;
 		onFinalize: () => void;
 		onUpdateRecord: (
 			recordId: string,
@@ -26,6 +34,8 @@
 		onRemoveEmployee?: (employeeId: string) => void;
 		onDeleteDraft?: () => void;
 		onBack?: () => void;
+		onPayDateChange?: (newPayDate: string) => Promise<void>;
+		onPreviewPaystub?: (record: PayrollRecord) => void;
 	}
 
 	let {
@@ -35,16 +45,32 @@
 		isFinalizing,
 		isDeleting = false,
 		onRecalculate,
+		onAutoCalculate,
 		onFinalize,
 		onUpdateRecord,
 		onAddEmployee,
 		onRemoveEmployee,
 		onDeleteDraft,
-		onBack
+		onBack,
+		onPayDateChange,
+		onPreviewPaystub
 	}: Props = $props();
 
 	let expandedRecordId = $state<string | null>(null);
 	let showHolidayModal = $state(false);
+	let isUpdatingPayDate = $state(false);
+	let autoCalculateTimer = $state<ReturnType<typeof setTimeout> | null>(null);
+
+	// Filter state
+	let filters = $state<PayrollDraftFilters>(DEFAULT_PAYROLL_DRAFT_FILTERS);
+
+	// Derived: filtered pay groups
+	const filteredPayGroups = $derived(filterPayrollRun(payrollRun.payGroups, filters));
+
+	// Derived: filter stats
+	const filterStats = $derived(calculateFilterStats(payrollRun.payGroups, filteredPayGroups));
+
+	const AUTO_CALCULATE_DEBOUNCE_MS = 500;
 
 	function handleToggleExpand(id: string) {
 		expandedRecordId = expandedRecordId === id ? null : id;
@@ -56,6 +82,44 @@
 
 	function closeHolidayModal() {
 		showHolidayModal = false;
+	}
+
+	function handleManualRecalculate() {
+		if (autoCalculateTimer) {
+			clearTimeout(autoCalculateTimer);
+			autoCalculateTimer = null;
+		}
+		onRecalculate();
+	}
+
+	function triggerAutoCalculate(
+		recordId: string,
+		compensationType: CompensationType,
+		regularHours: number
+	) {
+		if (!onAutoCalculate) return;
+		if (autoCalculateTimer) clearTimeout(autoCalculateTimer);
+
+		const shouldAutoCalculate =
+			compensationType === 'salaried' || (compensationType === 'hourly' && regularHours > 0);
+
+		if (!shouldAutoCalculate) return;
+
+		autoCalculateTimer = setTimeout(() => {
+			onAutoCalculate(recordId);
+		}, AUTO_CALCULATE_DEBOUNCE_MS);
+	}
+
+	// Handle pay date update
+	async function handlePayDateSave(newPayDate: string) {
+		if (onPayDateChange) {
+			isUpdatingPayDate = true;
+			try {
+				await onPayDateChange(newPayDate);
+			} finally {
+				isUpdatingPayDate = false;
+			}
+		}
 	}
 
 	function handleHolidayWorkSave(entries: HolidayWorkEntry[]) {
@@ -124,6 +188,14 @@
 							? 'Cannot finalize: Total remittance is zero'
 							: 'Finalize payroll run'
 	);
+
+	// Get province from first pay group (for pay date editing)
+	const province = $derived(payrollRun.payGroups[0]?.province ?? 'SK');
+
+	// Filter change handler
+	function handleFiltersChange(newFilters: PayrollDraftFilters) {
+		filters = newFilters;
+	}
 </script>
 
 <div class="flex flex-col gap-5">
@@ -137,9 +209,14 @@
 					<i class="fas fa-edit"></i>
 					Draft
 				</div>
-				<h1 class="text-2xl font-bold text-gray-800 m-0">
-					Pay Date: {formatShortDate(payrollRun.payDate)}
-				</h1>
+				<PayrollDatePicker
+					value={payrollRun.payDate}
+					periodEnd={payrollRun.payGroups[0]?.periodEnd ?? payrollRun.periodEnd}
+					{province}
+					onValueChange={() => {}}
+					onSave={handlePayDateSave}
+					onCancel={() => {}}
+				/>
 			</div>
 			<div class="flex gap-3">
 				{#if onBack}
@@ -168,7 +245,7 @@
 				{/if}
 				<button
 					class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-base font-medium cursor-pointer transition-all bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 disabled:opacity-60 disabled:cursor-not-allowed"
-					onclick={onRecalculate}
+					onclick={handleManualRecalculate}
 					disabled={isRecalculating}
 				>
 					{#if isRecalculating}
@@ -381,17 +458,31 @@
 		</div>
 	</div>
 
+	<!-- Employee Filters -->
+	<PayrollDraftFiltersComponent
+		{filters}
+		payGroups={payrollRun.payGroups.map((pg) => ({
+			payGroupId: pg.payGroupId,
+			payGroupName: pg.payGroupName
+		}))}
+		stats={filterStats}
+		onFiltersChange={handleFiltersChange}
+	/>
+
 	<!-- Pay Group Sections -->
 	<div class="flex flex-col gap-4">
-		{#each payrollRun.payGroups as payGroup (payGroup.payGroupId)}
+		{#each filteredPayGroups as payGroup (payGroup.payGroupId)}
 			<DraftPayGroupSection
 				{payGroup}
 				holidays={payrollRun.holidays ?? []}
 				{expandedRecordId}
+				{isRecalculating}
 				onToggleExpand={handleToggleExpand}
 				{onUpdateRecord}
+				onAutoCalculateTrigger={triggerAutoCalculate}
 				{onAddEmployee}
 				{onRemoveEmployee}
+				{onPreviewPaystub}
 			/>
 		{/each}
 	</div>

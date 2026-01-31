@@ -116,6 +116,7 @@ export interface PayrollRun {
 	totalPayrollCost: number; // totalGross + totalEmployerCost
 	totalRemittance: number; // CPP (employee+employer) + EI (employee+employer) + federal tax + provincial tax
 	holidays?: Holiday[];
+	needsRecalculation?: boolean; // Flag indicating if pay date changed and recalculation is needed
 }
 
 // Compensation type for determining how gross pay is calculated
@@ -132,6 +133,7 @@ export interface PayrollRecord {
 	compensationType: CompensationType;
 	annualSalary?: number; // For salaried employees
 	hourlyRate?: number; // For hourly employees
+	standardHoursPerWeek: number; // Standard contractual hours per week (default 40)
 
 	// Hours worked (for hourly employees)
 	regularHoursWorked?: number; // NULL for salaried employees
@@ -153,6 +155,11 @@ export interface PayrollRecord {
 	eiEmployee: number;
 	federalTax: number;
 	provincialTax: number;
+	// Tax breakdown (income vs bonus) for PDOC-style display
+	federalTaxOnIncome?: number;
+	provincialTaxOnIncome?: number;
+	federalTaxOnBonus?: number;
+	provincialTaxOnBonus?: number;
 	rrsp: number;
 	unionDues: number;
 	garnishments: number;
@@ -358,6 +365,8 @@ export interface PayrollRunWithGroups {
 	totalRemittance: number; // CPP (employee+employer) + EI (employee+employer) + federal tax + provincial tax
 	// Holidays applicable to this pay date
 	holidays?: Holiday[];
+	// Flag indicating if pay date changed and recalculation is needed
+	needsRecalculation?: boolean;
 }
 
 // Pay frequency labels for display
@@ -452,6 +461,11 @@ export interface DbPayrollRecord {
 	ei_employee: number;
 	federal_tax: number;
 	provincial_tax: number;
+	// Tax breakdown (income vs bonus)
+	federal_tax_on_income?: number;
+	provincial_tax_on_income?: number;
+	federal_tax_on_bonus?: number;
+	provincial_tax_on_bonus?: number;
 	rrsp: number;
 	union_dues: number;
 	garnishments: number;
@@ -498,6 +512,7 @@ export interface DbPayrollRecordWithEmployee extends DbPayrollRecord {
 		email: string | null;
 		annual_salary: number | null;
 		hourly_rate: number | null;
+		standard_hours_per_week: number | null;
 		vacation_config?: {
 			payout_method?: 'accrual' | 'pay_as_you_go';
 			vacation_rate?: string;
@@ -584,12 +599,13 @@ export function dbPayrollRecordToUi(db: DbPayrollRecordWithEmployee): PayrollRec
 
 	// Calculate vacation hourly rate for UI display
 	// For hourly employees: use hourly_rate
-	// For salaried employees: annual_salary / 2080
+	// For salaried employees: annual_salary / (standard_hours_per_week * 52)
+	const standardHoursPerWeek = employee.standard_hours_per_week ?? 40;
 	let vacationHourlyRate: number | undefined;
 	if (hourlyRate != null) {
 		vacationHourlyRate = hourlyRate;
 	} else if (annualSalary != null) {
-		vacationHourlyRate = annualSalary / 2080;
+		vacationHourlyRate = annualSalary / (standardHoursPerWeek * 52);
 	}
 
 	// Extract vacation config from employee data
@@ -605,6 +621,7 @@ export function dbPayrollRecordToUi(db: DbPayrollRecordWithEmployee): PayrollRec
 		compensationType,
 		annualSalary: annualSalary ?? undefined,
 		hourlyRate: hourlyRate ?? undefined,
+		standardHoursPerWeek: employee.standard_hours_per_week ?? 40,
 		// Hours worked (for hourly employees)
 		regularHoursWorked: db.regular_hours_worked ?? undefined,
 		overtimeHoursWorked: db.overtime_hours_worked ?? undefined,
@@ -623,6 +640,11 @@ export function dbPayrollRecordToUi(db: DbPayrollRecordWithEmployee): PayrollRec
 		eiEmployee: Number(db.ei_employee),
 		federalTax: Number(db.federal_tax),
 		provincialTax: Number(db.provincial_tax),
+		// Tax breakdown (income vs bonus)
+		federalTaxOnIncome: db.federal_tax_on_income != null ? Number(db.federal_tax_on_income) : undefined,
+		provincialTaxOnIncome: db.provincial_tax_on_income != null ? Number(db.provincial_tax_on_income) : undefined,
+		federalTaxOnBonus: db.federal_tax_on_bonus != null ? Number(db.federal_tax_on_bonus) : undefined,
+		provincialTaxOnBonus: db.provincial_tax_on_bonus != null ? Number(db.provincial_tax_on_bonus) : undefined,
 		rrsp: Number(db.rrsp),
 		unionDues: Number(db.union_dues),
 		garnishments: Number(db.garnishments),
@@ -752,7 +774,7 @@ export interface EmployeePayrollInput {
 	employeeId: string;
 
 	// Hours
-	regularHours: number; // Required for hourly employees
+	regularHours: number; // Required for hourly employees; for salaried, used for proration (default: standard hours per period)
 	overtimeHours: number; // Overtime hours worked
 
 	// Overtime choice (when bank time is enabled)
@@ -861,4 +883,40 @@ export interface TimesheetSummary {
 export interface TimesheetResponse {
 	entries: TimesheetEntry[];
 	summary: TimesheetSummary;
+}
+
+// ===========================================
+// Payroll Draft Filter Types
+// ===========================================
+
+/**
+ * Filters for payroll draft employee list
+ * Note: Province and compensation type are not included as they are tied to pay groups
+ */
+export interface PayrollDraftFilters {
+	searchQuery: string;
+	payGroupId: string | 'all';
+	showNoHoursEntered: boolean;
+	showZeroEarnings: boolean;
+	showNeedsHolidayPay: boolean;
+}
+
+/**
+ * Default filter values for payroll draft
+ */
+export const DEFAULT_PAYROLL_DRAFT_FILTERS: PayrollDraftFilters = {
+	searchQuery: '',
+	payGroupId: 'all',
+	showNoHoursEntered: false,
+	showZeroEarnings: false,
+	showNeedsHolidayPay: false
+};
+
+/**
+ * Statistics for filtered payroll draft view
+ */
+export interface PayrollDraftFilterStats {
+	totalEmployees: number;
+	filteredCount: number;
+	visibleCount: number;
 }

@@ -9,10 +9,11 @@ import type {
 	PayrollRunPayGroup,
 	PayrollRunStatus,
 	DbPayrollRun,
+	DbPayrollRecord,
 	DbPayrollRecordWithEmployee,
 	Holiday
 } from '$lib/types/payroll';
-import { dbPayrollRecordToUi } from '$lib/types/payroll';
+import { dbPayrollRecordToUi, dbPayrollRunToUi } from '$lib/types/payroll';
 import {
 	DEFAULT_EARNINGS_CONFIG,
 	DEFAULT_TAXABLE_BENEFITS_CONFIG,
@@ -24,7 +25,15 @@ import {
 	type GroupBenefits
 } from '$lib/types/pay-group';
 import { getCurrentUserId, getCurrentCompanyId } from './helpers';
-import type { PayrollServiceResult, PayrollRunListOptions, PayrollRunListResult } from './types';
+import type {
+	PayrollServiceResult,
+	PayrollRunListOptions,
+	PayrollRunListOptionsExt,
+	PayrollRunListResult,
+	PayrollRecordListOptions,
+	PayrollRecordListResult,
+	PayrollRecordWithPeriod
+} from './types';
 
 // ===========================================
 // Helper: Query Holidays for Period
@@ -119,11 +128,11 @@ async function buildPayrollRunWithGroups(
 					| 'semi_monthly'
 					| 'monthly',
 				employmentType: (payGroup?.employment_type ?? 'full_time') as
-				| 'full_time'
-				| 'part_time'
-				| 'seasonal'
-				| 'contract'
-				| 'casual',
+					| 'full_time'
+					| 'part_time'
+					| 'seasonal'
+					| 'contract'
+					| 'casual',
 				province: payGroupProvince,
 				periodStart: runData.period_start,
 				periodEnd: runData.period_end,
@@ -264,8 +273,10 @@ export async function getPayrollRunByPayDate(
 					email,
 					hourly_rate,
 					annual_salary,
+					standard_hours_per_week,
 					vacation_balance,
 					sick_balance,
+					vacation_config,
 					pay_groups (
 						id,
 						name,
@@ -346,8 +357,10 @@ export async function getPayrollRunByPeriodEnd(
 					email,
 					hourly_rate,
 					annual_salary,
+					standard_hours_per_week,
 					vacation_balance,
 					sick_balance,
+					vacation_config,
 					pay_groups (
 						id,
 						name,
@@ -410,10 +423,56 @@ export async function getPayrollRunById(
 			return { data: null, error: null };
 		}
 
-		// Use getPayrollRunByPayDate to get full data
-		return getPayrollRunByPayDate(runData.pay_date);
+		// Get payroll records with employee and pay group info using the run ID
+		// (Don't use getPayrollRunByPayDate which might get a different run)
+		const { data: recordsData, error: recordsError } = await supabase
+			.from('payroll_records')
+			.select(
+				`
+				*,
+				employees!inner (
+					id,
+					first_name,
+					last_name,
+					province_of_employment,
+					pay_group_id,
+					email,
+					hourly_rate,
+					annual_salary,
+					standard_hours_per_week,
+					vacation_balance,
+					sick_balance,
+					vacation_config,
+					pay_groups (
+						id,
+						name,
+						pay_frequency,
+						employment_type,
+						province,
+						earnings_config,
+						taxable_benefits_config,
+						deductions_config,
+						group_benefits
+					)
+				)
+			`
+			)
+			.eq('payroll_run_id', runId);
+
+		if (recordsError) {
+			console.error('Failed to get payroll records:', recordsError);
+			return { data: null, error: recordsError.message };
+		}
+
+		const result = await buildPayrollRunWithGroups(
+			runData as DbPayrollRun,
+			(recordsData as DbPayrollRecordWithEmployee[]) ?? []
+		);
+
+		return { data: result, error: null };
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Failed to get payroll run';
+		console.error('getPayrollRunById error:', message);
 		return { data: null, error: message };
 	}
 }
@@ -423,19 +482,23 @@ export async function getPayrollRunById(
 // ===========================================
 
 /**
- * Extended options for listing payroll runs
- */
-export interface PayrollRunListOptionsExt extends PayrollRunListOptions {
-	excludeStatuses?: string[];
-}
-
-/**
  * List payroll runs with pagination via Supabase direct query
  */
 export async function listPayrollRuns(
 	options: PayrollRunListOptionsExt = {}
 ): Promise<PayrollRunListResult> {
-	const { status, excludeStatuses, limit = 20, offset = 0 } = options;
+	const {
+		status,
+		excludeStatuses,
+		payGroupId,
+		employeeId,
+		startDate,
+		endDate,
+		limit = 20,
+		offset = 0
+	} = options;
+
+
 
 	try {
 		const userId = getCurrentUserId();
@@ -456,37 +519,64 @@ export async function listPayrollRuns(
 			query = query.not('status', 'in', `(${excludeStatuses.join(',')})`);
 		}
 
+		// Pay group filter
+		if (payGroupId && payGroupId !== 'all') {
+			query = query.contains('pay_group_ids', [payGroupId]);
+		}
+
+		// Employee filter (通过 payroll_records join)
+		if (employeeId && employeeId !== 'all') {
+			// 先查该员工的所有 payroll_run_id
+			const { data: records, error: recordsError } = await supabase
+				.from('payroll_records')
+				.select('payroll_run_id')
+				.eq('employee_id', employeeId)
+				.returns<{ payroll_run_id: string }[]>();
+
+			if (recordsError) {
+				console.error('Failed to query employee runs:', {
+					employeeId,
+					error: recordsError
+				});
+				return { data: [], count: 0, error: recordsError.message };
+			}
+
+			const runIds = records?.map((r) => r.payroll_run_id) ?? [];
+
+			if (runIds.length === 0) {
+				// 员工没有任何工资单
+				return { data: [], count: 0, error: null };
+			}
+
+			// 用 run_ids 过滤
+			query = query.in('id', runIds);
+		}
+
+		// Date range filter (by period_end - matches pay period being filtered)
+		// Using period_end instead of pay_date to filter by the payroll period itself
+		if (startDate) {
+			query = query.gte('period_end', startDate);
+		}
+		if (endDate) {
+			query = query.lte('period_end', endDate);
+		}
+
 		const { data, error, count } = await query
 			.order('pay_date', { ascending: false })
 			.range(offset, offset + limit - 1);
+
+
 
 		if (error) throw error;
 
 		// Convert snake_case DB fields to camelCase PayrollRunWithGroups
 		const runs: PayrollRunWithGroups[] = (data || []).map((run) => {
-			const totalGross = run.total_gross ?? 0;
-			const totalNetPay = run.total_net_pay ?? 0;
-			const totalEmployerCost = run.total_employer_cost ?? 0;
+			const uiRun = dbPayrollRunToUi(run as unknown as DbPayrollRun);
 
 			return {
-				id: run.id,
-				periodEnd: run.period_end,
-				payDate: run.pay_date,
-				status: run.status as PayrollRunStatus,
+				...uiRun,
 				payGroups: [],
-				totalEmployees: run.total_employees ?? 0,
-				totalGross,
-				totalCppEmployee: 0,
-				totalCppEmployer: 0,
-				totalEiEmployee: 0,
-				totalEiEmployer: 0,
-				totalFederalTax: 0,
-				totalProvincialTax: 0,
-				totalDeductions: totalGross - totalNetPay,
-				totalNetPay,
-				totalEmployerCost,
-				totalPayrollCost: totalGross + totalEmployerCost,
-				totalRemittance: 0
+				totalPayrollCost: uiRun.totalGross + uiRun.totalEmployerCost
 			};
 		});
 
@@ -494,5 +584,160 @@ export async function listPayrollRuns(
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Failed to list payroll runs';
 		return { data: [], count: 0, error: message };
+	}
+}
+
+// ===========================================
+// List Employee Payroll Records
+// ===========================================
+
+/**
+ * List payroll records for a specific employee with period info
+ * Used for employee-level payroll history view
+ */
+export async function listPayrollRecordsForEmployee(
+	employeeId: string,
+	options: PayrollRecordListOptions = {}
+): Promise<PayrollRecordListResult> {
+	const { startDate, endDate, status, excludeStatuses, limit = 20, offset = 0 } = options;
+
+	try {
+		const userId = getCurrentUserId();
+		const companyId = getCurrentCompanyId();
+
+		// Query payroll_records with joins to payroll_runs and employees
+		let query = supabase
+			.from('payroll_records')
+			.select(
+				`
+				*,
+				employees!inner (
+					id,
+					first_name,
+					last_name,
+					province_of_employment,
+					pay_group_id,
+					email,
+					hourly_rate,
+					annual_salary,
+					standard_hours_per_week,
+					vacation_balance,
+					sick_balance,
+					vacation_config,
+					pay_groups (
+						id,
+						name,
+						pay_frequency,
+						employment_type,
+						province,
+						earnings_config,
+						taxable_benefits_config,
+						deductions_config,
+						group_benefits
+					)
+				),
+				payroll_runs!inner (
+					id,
+					period_end,
+					pay_date,
+					status
+				)
+			`,
+				{ count: 'exact' }
+			)
+			.eq('employee_id', employeeId)
+			.eq('user_id', userId)
+			.eq('company_id', companyId);
+
+		// Apply date range filters on payroll_runs.period_end
+		if (startDate) {
+			query = query.gte('payroll_runs.period_end', startDate);
+		}
+		if (endDate) {
+			query = query.lte('payroll_runs.period_end', endDate);
+		}
+
+		// Apply status filters
+		if (status) {
+			query = query.eq('payroll_runs.status', status);
+		}
+		if (excludeStatuses && excludeStatuses.length > 0) {
+			query = query.not('payroll_runs.status', 'in', `(${excludeStatuses.join(',')})`);
+		}
+
+		// Order by period_end descending and paginate
+		const { data, error, count } = await query
+			.order('payroll_runs(period_end)', { ascending: false })
+			.range(offset, offset + limit - 1);
+
+		if (error) throw error;
+
+		// Convert to UI records with period info
+		const records: PayrollRecordWithPeriod[] = (data || []).map((record) => {
+			const baseRecord = dbPayrollRecordToUi(record as DbPayrollRecordWithEmployee);
+			const runData = record.payroll_runs as unknown as {
+				id: string;
+				period_end: string;
+				pay_date: string;
+				status: PayrollRunStatus;
+			};
+
+			return {
+				...baseRecord,
+				periodEnd: runData.period_end,
+				payDate: runData.pay_date,
+				runStatus: runData.status,
+				runId: runData.id
+			};
+		});
+
+		return { data: records, count: count ?? 0, error: null };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to list employee records';
+		console.error('listPayrollRecordsForEmployee error:', message);
+		return { data: [], count: 0, error: message };
+	}
+}
+
+// ===========================================
+// Update Pay Date
+// ===========================================
+
+/**
+ * Update the pay date of an existing payroll run using the backend API
+ * @param runId Payroll run ID
+ * @param payDate New pay date (YYYY-MM-DD format)
+ * @returns Result with updated payroll run data
+ */
+export async function updatePayDate(
+	runId: string,
+	payDate: string
+): Promise<{
+	data: { id: string; payDate: string; status: string; needsRecalculation: boolean } | null;
+	error: string | null;
+}> {
+	try {
+		const { api } = await import('$lib/api/client');
+
+		const response = await api.patch<{
+			id: string;
+			pay_date: string;
+			status: string;
+			needs_recalculation: boolean;
+		}>(`/payroll/runs/${runId}/pay-date`, { payDate });
+
+		return {
+			data: {
+				id: response.id,
+				payDate: response.pay_date,
+				status: response.status,
+				needsRecalculation: response.needs_recalculation
+			},
+			error: null
+		};
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to update pay date';
+		console.error('updatePayDate error:', message);
+		return { data: null, error: message };
 	}
 }

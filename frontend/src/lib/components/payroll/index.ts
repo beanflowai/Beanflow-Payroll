@@ -5,6 +5,8 @@ export { default as HolidayWorkModal } from './HolidayWorkModal.svelte';
 export { default as HolidayAlert } from './HolidayAlert.svelte';
 export { default as PaystubStatusBadge } from './PaystubStatusBadge.svelte';
 export { default as LeaveTypeBadge } from './LeaveTypeBadge.svelte';
+export { default as PaystubWebPreview } from './PaystubWebPreview.svelte';
+export { default as PaystubPreviewModal } from './PaystubPreviewModal.svelte';
 
 // Multi Pay Group Support
 export { default as PayPeriodCard } from './PayPeriodCard.svelte';
@@ -14,6 +16,9 @@ export { default as PayGroupSection } from './PayGroupSection.svelte';
 // Draft State Components
 export { default as DraftPayrollView } from './DraftPayrollView.svelte';
 export { default as DraftPayGroupSection } from './DraftPayGroupSection.svelte';
+export { default as DeleteDraftModal } from './DeleteDraftModal.svelte';
+export { default as ZeroEarningsConfirmModal } from './ZeroEarningsConfirmModal.svelte';
+export { default as PayrollDraftFilters } from './PayrollDraftFilters.svelte';
 
 // Add Employees Panel
 export { default as AddEmployeesPanel } from './AddEmployeesPanel.svelte';

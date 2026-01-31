@@ -153,10 +153,16 @@
           "min_years_of_service": 0,
           "vacation_weeks": 2,
           "vacation_rate": 0.04,
-          "notes": "2 weeks minimum (no upgrade tier)"
+          "notes": "2 weeks minimum"
+        },
+        {
+          "min_years_of_service": 5,
+          "vacation_weeks": 3,
+          "vacation_rate": 0.06,
+          "notes": "3 weeks after 5 years"
         }
       ],
-      "notes": "NWT Employment Standards Act - Fixed at 2 weeks"
+      "notes": "NWT Employment Standards Act s.24 - 4% for first 5 years, 6% after 5 years"
     },
     "NU": {
       "province_code": "NU",
@@ -166,10 +172,16 @@
           "min_years_of_service": 0,
           "vacation_weeks": 2,
           "vacation_rate": 0.04,
-          "notes": "2 weeks minimum (no upgrade tier)"
+          "notes": "2 weeks minimum"
+        },
+        {
+          "min_years_of_service": 6,
+          "vacation_weeks": 3,
+          "vacation_rate": 0.06,
+          "notes": "3 weeks after 6 years"
         }
       ],
-      "notes": "Nunavut Labour Standards Act - Fixed at 2 weeks"
+      "notes": "Nunavut Labour Standards Act - 4% for first 5 years, 6% after 6 years"
     },
     "ON": {
       "province_code": "ON",

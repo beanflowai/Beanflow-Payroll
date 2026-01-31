@@ -73,7 +73,7 @@ class Config(BaseSettings):
     # Email Configuration (Resend)
     resend_api_key: str | None = Field(default=None, validation_alias="RESEND_EMAIL_API_KEY")
     email_from_address: str = Field(
-        default="noreply@email.beanflow.ai", validation_alias="EMAIL_FROM_ADDRESS"
+        default="noreply@beanflow.ai", validation_alias="EMAIL_FROM_ADDRESS"
     )
     email_from_name: str = Field(default="BeanFlow", validation_alias="EMAIL_FROM_NAME")
 

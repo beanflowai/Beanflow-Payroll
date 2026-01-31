@@ -19,6 +19,12 @@
 	let isDeleting = $state(false);
 	let showDeleteConfirm = $state(false);
 
+	// Sync isSaving with form's isSubmitting state
+	let formIsSubmitting = $state(false);
+	$effect(() => {
+		isSaving = formIsSubmitting;
+	});
+
 	// Load data on mount
 	onMount(async () => {
 		await loadData();
@@ -182,7 +188,13 @@
 
 		<!-- Form -->
 		<div class="form-container">
-			<EmployeeForm {employee} mode="edit" onSuccess={handleSuccess} onCancel={handleCancel} />
+			<EmployeeForm
+				{employee}
+				mode="edit"
+				bind:isSubmitting={formIsSubmitting}
+				onSuccess={handleSuccess}
+				onCancel={handleCancel}
+			/>
 		</div>
 
 		<!-- Bottom Action Bar -->

@@ -131,14 +131,17 @@ export interface Employee {
 	id: string;
 	firstName: string;
 	lastName: string;
-	sin: string; // For UI display (masked or full)
+	sin: string; // For UI display (masked or empty if not provided)
 	email?: string;
 	provinceOfEmployment: Province; // Determines provincial tax & holiday rules
 	payFrequency: PayFrequency;
 	employmentType: EmploymentType;
 	status: EmployeeStatus;
 	hireDate: string;
+	dateOfBirth?: string | null; // For CPP calculations
 	terminationDate?: string | null;
+	createdAt?: string; // ISO 8601 format
+	updatedAt?: string; // ISO 8601 format
 	// Address fields (for paystub)
 	addressStreet?: string | null;
 	addressCity?: string | null;
@@ -147,6 +150,8 @@ export interface Employee {
 	// Compensation
 	annualSalary?: number | null;
 	hourlyRate?: number | null;
+	/** Standard contractual hours per week. Used for ROE insurable hours and pay stub display. Default: 40 */
+	standardHoursPerWeek: number;
 	// TD1 additional claims beyond BPA (BPA is fetched dynamically from tax tables)
 	federalAdditionalClaims: number;
 	provincialAdditionalClaims: number;
@@ -209,6 +214,31 @@ export interface EmployeeStatusCounts {
 	active: number;
 	terminated: number;
 }
+
+// ============================================================================
+// Sort Types
+// ============================================================================
+
+export type EmployeeSortField = 'updated_at' | 'created_at' | 'name' | 'hire_date';
+
+export type EmployeeSortDirection = 'asc' | 'desc';
+
+export interface EmployeeSortOptions {
+	field: EmployeeSortField;
+	direction: EmployeeSortDirection;
+}
+
+export const SORT_FIELD_LABELS: Record<EmployeeSortField, string> = {
+	updated_at: 'Last Updated',
+	created_at: 'Recently Added',
+	name: 'Name (A-Z)',
+	hire_date: 'Hire Date (Newest)'
+};
+
+export const DEFAULT_SORT_OPTIONS: EmployeeSortOptions = {
+	field: 'updated_at',
+	direction: 'desc'
+};
 
 // ============================================================================
 // BPA Constants (Fallback Values)
@@ -410,7 +440,7 @@ export interface DbEmployee {
 	user_id: string;
 	first_name: string;
 	last_name: string;
-	sin_encrypted: string;
+	sin_encrypted: string | null;
 	email: string | null;
 	province_of_employment: Province;
 	pay_frequency: PayFrequency;
@@ -423,12 +453,15 @@ export interface DbEmployee {
 	// Compensation
 	annual_salary: number | null;
 	hourly_rate: number | null;
+	/** Standard contractual hours per week (default 40) */
+	standard_hours_per_week: number;
 	federal_additional_claims: number;
 	provincial_additional_claims: number;
 	is_cpp_exempt: boolean;
 	is_ei_exempt: boolean;
 	cpp2_exempt: boolean;
 	hire_date: string;
+	date_of_birth: string | null;
 	termination_date: string | null;
 	vacation_config: {
 		payout_method: VacationPayoutMethod;
@@ -457,7 +490,7 @@ export interface DbEmployee {
 export interface EmployeeCreateInput {
 	first_name: string;
 	last_name: string;
-	sin: string; // Raw SIN - will be encrypted on backend
+	sin?: string | null; // Raw SIN - will be encrypted on backend, now optional
 	email?: string | null;
 	province_of_employment: Province;
 	pay_frequency: PayFrequency;
@@ -470,11 +503,14 @@ export interface EmployeeCreateInput {
 	// Compensation
 	annual_salary?: number | null;
 	hourly_rate?: number | null;
+	/** Standard contractual hours per week (default 40, range 1-60) */
+	standard_hours_per_week?: number;
 	federal_additional_claims: number;
 	provincial_additional_claims: number;
 	is_cpp_exempt?: boolean;
 	is_ei_exempt?: boolean;
 	cpp2_exempt?: boolean;
+	date_of_birth?: string | null;
 	hire_date: string;
 	termination_date?: string | null;
 	vacation_config?: {
@@ -492,7 +528,7 @@ export interface EmployeeCreateInput {
 /**
  * Input type for updating an employee (all fields optional)
  */
-export type EmployeeUpdateInput = Partial<Omit<EmployeeCreateInput, 'sin'>>;
+export type EmployeeUpdateInput = Partial<EmployeeCreateInput>;
 
 /**
  * Convert database employee to UI employee
@@ -509,7 +545,10 @@ export function dbEmployeeToUi(db: DbEmployee, maskedSin: string): Employee {
 		employmentType: db.employment_type,
 		status: db.termination_date ? 'terminated' : 'active',
 		hireDate: db.hire_date,
+		dateOfBirth: db.date_of_birth,
 		terminationDate: db.termination_date,
+		createdAt: db.created_at,
+		updatedAt: db.updated_at,
 		// Address fields
 		addressStreet: db.address_street,
 		addressCity: db.address_city,
@@ -518,6 +557,7 @@ export function dbEmployeeToUi(db: DbEmployee, maskedSin: string): Employee {
 		// Compensation
 		annualSalary: db.annual_salary,
 		hourlyRate: db.hourly_rate,
+		standardHoursPerWeek: db.standard_hours_per_week ?? 40,
 		federalAdditionalClaims: db.federal_additional_claims,
 		provincialAdditionalClaims: db.provincial_additional_claims,
 		isCppExempt: db.is_cpp_exempt,
@@ -547,12 +587,12 @@ export function dbEmployeeToUi(db: DbEmployee, maskedSin: string): Employee {
  * Convert UI employee to database input for create
  */
 export function uiEmployeeToDbCreate(
-	ui: Omit<Employee, 'id' | 'status' | 'vacationBalance'> & { sin: string }
+	ui: Omit<Employee, 'id' | 'status' | 'vacationBalance'> & { sin?: string | null }
 ): EmployeeCreateInput {
 	return {
 		first_name: ui.firstName,
 		last_name: ui.lastName,
-		sin: ui.sin,
+		sin: ui.sin ?? null,
 		email: ui.email ?? null,
 		province_of_employment: ui.provinceOfEmployment,
 		pay_frequency: ui.payFrequency,
@@ -565,11 +605,13 @@ export function uiEmployeeToDbCreate(
 		// Compensation
 		annual_salary: ui.annualSalary ?? null,
 		hourly_rate: ui.hourlyRate ?? null,
+		standard_hours_per_week: ui.standardHoursPerWeek ?? 40,
 		federal_additional_claims: ui.federalAdditionalClaims,
 		provincial_additional_claims: ui.provincialAdditionalClaims,
 		is_cpp_exempt: ui.isCppExempt,
 		is_ei_exempt: ui.isEiExempt,
 		cpp2_exempt: ui.cpp2Exempt,
+		date_of_birth: ui.dateOfBirth ?? null,
 		hire_date: ui.hireDate,
 		termination_date: ui.terminationDate ?? null,
 		vacation_config: {

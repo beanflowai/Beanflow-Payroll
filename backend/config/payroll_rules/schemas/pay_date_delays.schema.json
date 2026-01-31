@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pay Date Delays Configuration",
+  "description": "Configuration for maximum days after period end to pay employees by Canadian province",
+  "type": "object",
+  "required": ["_metadata", "provinces"],
+  "properties": {
+    "_metadata": {
+      "type": "object",
+      "properties": {
+        "description": { "type": "string" },
+        "last_reviewed": { "type": "string", "format": "date" },
+        "source": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    },
+    "provinces": {
+      "type": "object",
+      "patternProperties": {
+        "^[A-Z]{2}$": {
+          "type": "object",
+          "required": ["delay_days", "name"],
+          "properties": {
+            "delay_days": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 31,
+              "description": "Maximum days after period end to pay employees"
+            },
+            "name": {
+              "type": "string",
+              "description": "Full province name"
+            },
+            "reference": {
+              "type": "string",
+              "description": "Legal reference for the deadline"
+            }
+          }
+        }
+      }
+    },
+    "default_province": {
+      "type": "string",
+      "pattern": "^[A-Z]{2}$"
+    },
+    "default_delay_days": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 31
+    }
+  }
+}

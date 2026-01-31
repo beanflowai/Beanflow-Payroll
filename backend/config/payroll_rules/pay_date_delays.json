@@ -1,0 +1,77 @@
+{
+  "_metadata": {
+    "description": "Maximum days after period end to pay employees by province (Canadian labour standards)",
+    "last_reviewed": "2025-01-17",
+    "source": "Province labour standards",
+    "version": "1.0"
+  },
+  "provinces": {
+    "SK": {
+      "delay_days": 6,
+      "name": "Saskatchewan",
+      "reference": "The Saskatchewan Employment Act, 2013"
+    },
+    "ON": {
+      "delay_days": 7,
+      "name": "Ontario",
+      "reference": "Employment Standards Act, 2000"
+    },
+    "BC": {
+      "delay_days": 8,
+      "name": "British Columbia",
+      "reference": "Employment Standards Act"
+    },
+    "AB": {
+      "delay_days": 10,
+      "name": "Alberta",
+      "reference": "Employment Standards Code"
+    },
+    "MB": {
+      "delay_days": 10,
+      "name": "Manitoba",
+      "reference": "Employment Standards Code"
+    },
+    "QC": {
+      "delay_days": 16,
+      "name": "Quebec",
+      "reference": "Act Respecting Labour Standards"
+    },
+    "NB": {
+      "delay_days": 5,
+      "name": "New Brunswick",
+      "reference": "Employment Standards Act"
+    },
+    "NS": {
+      "delay_days": 5,
+      "name": "Nova Scotia",
+      "reference": "Labour Standards Code"
+    },
+    "PE": {
+      "delay_days": 7,
+      "name": "Prince Edward Island",
+      "reference": "Employment Standards Act"
+    },
+    "NL": {
+      "delay_days": 7,
+      "name": "Newfoundland and Labrador",
+      "reference": "Labour Standards Act"
+    },
+    "NT": {
+      "delay_days": 10,
+      "name": "Northwest Territories",
+      "reference": "Employment Standards Act"
+    },
+    "NU": {
+      "delay_days": 10,
+      "name": "Nunavut",
+      "reference": "Labour Standards Act"
+    },
+    "YT": {
+      "delay_days": 10,
+      "name": "Yukon",
+      "reference": "Employment Standards Act"
+    }
+  },
+  "default_province": "SK",
+  "default_delay_days": 7
+}

@@ -39,31 +39,32 @@
 		const diffTime = targetDate.getTime() - today.getTime();
 		const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-		if (diffDays < 0) return 'overdue';
-		if (diffDays <= 3) return 'urgent';
-		if (diffDays <= 7) return 'soon';
-		return 'normal';
+		if (diffDays < 0) return 'bg-error-100 text-error-700';
+		if (diffDays <= 3) return 'bg-warning-100 text-warning-700';
+		if (diffDays <= 7) return 'bg-info-100 text-info-700';
+		return 'bg-surface-100 text-surface-600';
 	}
 
 	function getStatusClass(status?: string): string {
 		if (!status) return '';
 		switch (status) {
 			case 'paid':
-				return 'status-paid';
+				return 'bg-success-100 text-success-700';
 			case 'approved':
-				return 'status-approved';
+				return 'bg-info-100 text-info-700';
 			case 'pending_approval':
-				return 'status-pending';
+				return 'bg-warning-100 text-warning-700';
 			case 'draft':
-				return 'status-draft';
+				return 'bg-surface-100 text-surface-600';
 			default:
 				return '';
 		}
 	}
 
 	function handleRunPayroll() {
-		// Navigate to the payroll run detail page using periodEnd
-		goto(`/payroll/run/${periodData.periodEnd}`);
+		// Collect pay group IDs for this period to ensure correct groups are included
+		const payGroupIds = periodData.payGroups.map((g) => g.id).join(',');
+		goto(`/payroll/run/${periodData.periodEnd}?payGroupIds=${payGroupIds}`);
 	}
 
 	function getButtonLabel(): string {
@@ -84,376 +85,117 @@
 	const daysUntilClass = $derived(getDaysUntilClass(periodData.periodEnd));
 </script>
 
-<div class="pay-period-card">
-	<div class="card-header">
-		<div class="date-info">
-			<div class="date-icon">
+<div class="bg-white rounded-xl shadow-md3-1 p-5 transition-shadow duration-150 hover:shadow-md3-2">
+	<!-- Header -->
+	<div class="flex items-start justify-between mb-4 gap-4 max-md:flex-col">
+		<div class="flex items-center gap-3">
+			<div
+				class="w-11 h-11 rounded-lg bg-primary-100 text-primary-600 flex items-center justify-center text-lg"
+			>
 				<i class="fas fa-calendar-alt"></i>
 			</div>
-			<div class="date-text">
-				<h3 class="period-end">Period End: {formatShortDate(periodData.periodEnd)}</h3>
-				<div class="date-meta">
-					<span class="pay-date-info">Pay Date: {formatShortDate(periodData.payDate)}</span>
-					<span class="days-until {daysUntilClass}">{getDaysUntil(periodData.periodEnd)}</span>
+			<div class="flex flex-col gap-1">
+				<h3 class="text-title-small font-semibold text-surface-800 m-0">
+					Period End: {formatShortDate(periodData.periodEnd)}
+				</h3>
+				<div class="flex items-center gap-3 max-md:flex-col max-md:items-start max-md:gap-1">
+					<span class="text-auxiliary-text text-surface-500">
+						Pay Date: {formatShortDate(periodData.payDate)}
+					</span>
+					<span class="text-auxiliary-text font-medium px-2 py-1 rounded-sm {daysUntilClass}">
+						{getDaysUntil(periodData.periodEnd)}
+					</span>
 				</div>
 			</div>
 		</div>
-		<div class="card-actions">
+		<div class="flex items-center gap-3 max-md:w-full max-md:justify-between">
 			{#if periodData.runStatus}
-				<span class="status-badge {getStatusClass(periodData.runStatus)}">
+				<span
+					class="inline-flex items-center px-3 py-1 rounded-full text-auxiliary-text font-medium {getStatusClass(
+						periodData.runStatus
+					)}"
+				>
 					{PAYROLL_STATUS_LABELS[periodData.runStatus]}
 				</span>
 			{/if}
 			{#if periodData.totalEmployees > 0}
-				<button class="run-btn" onclick={handleRunPayroll}>
+				<button
+					class="flex items-center gap-2 px-4 py-2 bg-gradient-to-br from-primary-500 to-secondary-500 text-white border-none rounded-lg text-body-content font-medium cursor-pointer transition-all duration-150 hover:opacity-90 hover:-translate-y-px"
+					onclick={handleRunPayroll}
+				>
 					{getButtonLabel()}
-					<i class="fas fa-arrow-right"></i>
+					<i class="fas fa-arrow-right text-xs"></i>
 				</button>
 			{/if}
 		</div>
 	</div>
 
-	<div class="card-summary">
-		<span class="summary-item">
-			<i class="fas fa-layer-group"></i>
+	<!-- Summary Bar -->
+	<div class="flex items-center gap-3 px-4 py-3 bg-surface-50 rounded-lg mb-4 max-md:flex-wrap">
+		<span class="flex items-center gap-2 text-body-content text-surface-700">
+			<i class="fas fa-layer-group text-surface-500 text-sm"></i>
 			{periodData.payGroups.length} Pay Group{periodData.payGroups.length > 1 ? 's' : ''}
 		</span>
-		<span class="summary-divider"></span>
-		<span class="summary-item">
-			<i class="fas fa-users"></i>
+		<span class="w-px h-4 bg-surface-200"></span>
+		<span class="flex items-center gap-2 text-body-content text-surface-700">
+			<i class="fas fa-users text-surface-500 text-sm"></i>
 			{periodData.totalEmployees} Employee{periodData.totalEmployees > 1 ? 's' : ''}
 		</span>
-		<span class="summary-divider"></span>
-		<span class="summary-item estimated">
-			<i class="fas fa-dollar-sign"></i>
+		<span class="w-px h-4 bg-surface-200"></span>
+		<span class="flex items-center gap-2 text-body-content font-semibold text-surface-800">
+			<i class="fas fa-dollar-sign text-surface-500 text-sm"></i>
 			Est. {formatCurrencyNoDecimals(periodData.totalEstimatedGross)}
 		</span>
 	</div>
 
-	<div class="pay-groups-list">
+	<!-- Pay Groups List -->
+	<div class="flex flex-wrap gap-3">
 		{#each periodData.payGroups as group (group.id)}
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<!-- svelte-ignore a11y_click_events_have_key_events -->
 			<div
-				class="pay-group-chip"
-				class:no-employees={group.employeeCount === 0}
-				class:clickable={!!onPayGroupClick}
-				onclick={() => onPayGroupClick?.(group)}
+				class="flex-1 min-w-[200px] max-w-[280px] max-md:max-w-none p-4 rounded-lg border transition-all duration-150 flex flex-col gap-3 hover:shadow-sm
+					{group.employeeCount === 0
+					? 'border-warning-200 bg-warning-50 hover:border-warning-300'
+					: 'border-surface-200 bg-surface-50 hover:border-surface-300'}"
 			>
-				<div class="chip-header">
-					<span class="chip-name">{group.name}</span>
-					{#if onPayGroupClick}
-						<i class="fas fa-chevron-right chip-arrow"></i>
+				<!-- Pay Group Name -->
+				<div class="flex items-center justify-between">
+					<span class="text-body-content font-semibold text-surface-800">{group.name}</span>
+				</div>
+
+				<!-- Stats -->
+				<div class="flex flex-col gap-2">
+					{#if group.employeeCount === 0}
+						<span class="flex items-center gap-2 text-auxiliary-text text-warning-700">
+							<i class="fas fa-user-slash w-3.5 text-warning-600 text-xs"></i>
+							No employees
+						</span>
+					{:else}
+						<span class="flex items-center gap-2 text-auxiliary-text text-surface-600">
+							<i class="fas fa-users w-3.5 text-surface-500 text-xs"></i>
+							{group.employeeCount} employee{group.employeeCount > 1 ? 's' : ''}
+						</span>
+						<span class="flex items-center gap-2 text-auxiliary-text text-surface-600">
+							<i class="fas fa-dollar-sign w-3.5 text-surface-500 text-xs"></i>
+							Est. {formatCurrencyNoDecimals(group.estimatedGross)}
+						</span>
 					{/if}
 				</div>
-				{#if group.employeeCount === 0}
-					<div class="chip-empty">
-						<span class="chip-empty-text">No employees</span>
-					</div>
-				{:else}
-					<div class="chip-details">
-						<span class="chip-stat">{group.employeeCount} emp</span>
-						<span class="chip-divider"></span>
-						<span class="chip-stat">{formatCurrencyNoDecimals(group.estimatedGross)}</span>
-					</div>
+
+				<!-- Action Button -->
+				{#if onPayGroupClick}
+					<button
+						class="flex items-center justify-center gap-2 px-3 py-2 rounded-md text-auxiliary-text font-medium cursor-pointer transition-all duration-150 mt-auto
+							{group.employeeCount === 0
+							? 'bg-warning-100 text-warning-800 border border-warning-300 hover:bg-warning-200'
+							: 'bg-primary-50 text-primary-700 border border-primary-200 hover:bg-primary-100 hover:border-primary-300'}"
+						onclick={() => onPayGroupClick?.(group)}
+						aria-label="Add employees to {group.name}"
+					>
+						<i class="fas fa-user-plus text-xs"></i>
+						Add Employees
+					</button>
 				{/if}
 			</div>
 		{/each}
 	</div>
 </div>
-
-<style>
-	.pay-period-card {
-		background: white;
-		border-radius: var(--radius-xl);
-		box-shadow: var(--shadow-md3-1);
-		padding: var(--spacing-5);
-		transition: var(--transition-fast);
-	}
-
-	.pay-period-card:hover {
-		box-shadow: var(--shadow-md3-2);
-	}
-
-	.card-header {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		margin-bottom: var(--spacing-4);
-		gap: var(--spacing-4);
-	}
-
-	.date-info {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-	}
-
-	.date-icon {
-		width: 44px;
-		height: 44px;
-		border-radius: var(--radius-lg);
-		background: var(--color-primary-100);
-		color: var(--color-primary-600);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 18px;
-	}
-
-	.date-text {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-1);
-	}
-
-	.period-end {
-		font-size: var(--font-size-title-small);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-		margin: 0;
-	}
-
-	.date-meta {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-	}
-
-	.pay-date-info {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-500);
-	}
-
-	.days-until {
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-medium);
-		padding: var(--spacing-1) var(--spacing-2);
-		border-radius: var(--radius-sm);
-	}
-
-	.days-until.normal {
-		background: var(--color-surface-100);
-		color: var(--color-surface-600);
-	}
-
-	.days-until.soon {
-		background: var(--color-info-100);
-		color: var(--color-info-700);
-	}
-
-	.days-until.urgent {
-		background: var(--color-warning-100);
-		color: var(--color-warning-700);
-	}
-
-	.days-until.overdue {
-		background: var(--color-error-100);
-		color: var(--color-error-700);
-	}
-
-	.card-actions {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-	}
-
-	.status-badge {
-		display: inline-flex;
-		align-items: center;
-		padding: var(--spacing-1) var(--spacing-3);
-		border-radius: var(--radius-full);
-		font-size: var(--font-size-auxiliary-text);
-		font-weight: var(--font-weight-medium);
-	}
-
-	.status-badge.status-paid {
-		background: var(--color-success-100);
-		color: var(--color-success-700);
-	}
-
-	.status-badge.status-approved {
-		background: var(--color-info-100);
-		color: var(--color-info-700);
-	}
-
-	.status-badge.status-pending {
-		background: var(--color-warning-100);
-		color: var(--color-warning-700);
-	}
-
-	.status-badge.status-draft {
-		background: var(--color-surface-100);
-		color: var(--color-surface-600);
-	}
-
-	.run-btn {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		padding: var(--spacing-2) var(--spacing-4);
-		background: var(--gradient-primary);
-		color: white;
-		border: none;
-		border-radius: var(--radius-lg);
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: var(--transition-fast);
-	}
-
-	.run-btn:hover {
-		opacity: 0.9;
-		transform: translateY(-1px);
-	}
-
-	.run-btn i {
-		font-size: 12px;
-	}
-
-	.card-summary {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-3);
-		padding: var(--spacing-3) var(--spacing-4);
-		background: var(--color-surface-50);
-		border-radius: var(--radius-lg);
-		margin-bottom: var(--spacing-4);
-	}
-
-	.summary-item {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-		font-size: var(--font-size-body-content);
-		color: var(--color-surface-700);
-	}
-
-	.summary-item i {
-		color: var(--color-surface-500);
-		font-size: 14px;
-	}
-
-	.summary-item.estimated {
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-surface-800);
-	}
-
-	.summary-divider {
-		width: 1px;
-		height: 16px;
-		background: var(--color-surface-200);
-	}
-
-	.pay-groups-list {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--spacing-3);
-	}
-
-	.pay-group-chip {
-		flex: 1;
-		min-width: 160px;
-		max-width: 240px;
-		padding: var(--spacing-3) var(--spacing-4);
-		background: var(--color-surface-50);
-		border: 1px solid var(--color-surface-200);
-		border-radius: var(--radius-lg);
-		transition: var(--transition-fast);
-	}
-
-	.pay-group-chip.clickable {
-		cursor: pointer;
-	}
-
-	.pay-group-chip.clickable:hover {
-		background: var(--color-surface-100);
-		border-color: var(--color-primary-300);
-		box-shadow: var(--shadow-sm);
-	}
-
-	.chip-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		margin-bottom: var(--spacing-2);
-	}
-
-	.chip-name {
-		font-size: var(--font-size-body-content);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-surface-800);
-	}
-
-	.chip-arrow {
-		font-size: 10px;
-		color: var(--color-surface-400);
-		transition: var(--transition-fast);
-	}
-
-	.pay-group-chip.clickable:hover .chip-arrow {
-		color: var(--color-primary-500);
-		transform: translateX(2px);
-	}
-
-	.chip-details {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-2);
-	}
-
-	.chip-stat {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-surface-600);
-	}
-
-	.chip-divider {
-		width: 4px;
-		height: 4px;
-		border-radius: 50%;
-		background: var(--color-surface-300);
-	}
-
-	/* No employees state */
-	.pay-group-chip.no-employees {
-		border-color: var(--color-warning-200);
-		background: var(--color-warning-50);
-	}
-
-	.chip-empty {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--spacing-2);
-	}
-
-	.chip-empty-text {
-		font-size: var(--font-size-auxiliary-text);
-		color: var(--color-warning-700);
-	}
-
-	@media (max-width: 768px) {
-		.card-header {
-			flex-direction: column;
-		}
-
-		.card-actions {
-			width: 100%;
-			justify-content: space-between;
-		}
-
-		.card-summary {
-			flex-wrap: wrap;
-		}
-
-		.pay-group-chip {
-			max-width: none;
-		}
-
-		.date-meta {
-			flex-direction: column;
-			align-items: flex-start;
-			gap: var(--spacing-1);
-		}
-	}
-</style>

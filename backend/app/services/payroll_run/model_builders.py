@@ -57,7 +57,9 @@ class ModelBuilder:
             total_employer_cost=Decimal(str(data.get("total_employer_cost", 0))),
             notes=data.get("notes"),
             approved_by=data.get("approved_by"),
-            approved_at=datetime.fromisoformat(data["approved_at"]) if data.get("approved_at") else None,
+            approved_at=datetime.fromisoformat(data["approved_at"])
+            if data.get("approved_at")
+            else None,
             created_at=datetime.fromisoformat(data["created_at"]),
             updated_at=datetime.fromisoformat(data["updated_at"]),
         )
@@ -81,26 +83,41 @@ class ModelBuilder:
             address_city=data.get("address_city"),
             address_postal_code=data.get("address_postal_code"),
             occupation=data.get("occupation"),
-            annual_salary=Decimal(str(data["annual_salary"])) if data.get("annual_salary") else None,
+            annual_salary=Decimal(str(data["annual_salary"]))
+            if data.get("annual_salary")
+            else None,
             hourly_rate=Decimal(str(data["hourly_rate"])) if data.get("hourly_rate") else None,
+            standard_hours_per_week=Decimal(str(data["standard_hours_per_week"]))
+            if data.get("standard_hours_per_week") is not None
+            else Decimal("40"),
             federal_additional_claims=Decimal(str(data.get("federal_additional_claims", 0))),
             provincial_additional_claims=Decimal(str(data.get("provincial_additional_claims", 0))),
             is_cpp_exempt=data.get("is_cpp_exempt", False),
             is_ei_exempt=data.get("is_ei_exempt", False),
             cpp2_exempt=data.get("cpp2_exempt", False),
             hire_date=date.fromisoformat(data["hire_date"]),
-            termination_date=date.fromisoformat(data["termination_date"]) if data.get("termination_date") else None,
+            termination_date=date.fromisoformat(data["termination_date"])
+            if data.get("termination_date")
+            else None,
             vacation_config=VacationConfig(
-                payout_method=VacationPayoutMethod(vacation_config_data.get("payout_method", "accrual")),
+                payout_method=VacationPayoutMethod(
+                    vacation_config_data.get("payout_method", "accrual")
+                ),
                 # Use vacation_rate from DB; default 0.04 only if missing (not if "0")
-                vacation_rate=Decimal(str(vacation_config_data["vacation_rate"])) if vacation_config_data.get("vacation_rate") is not None else Decimal("0.04"),
+                vacation_rate=Decimal(str(vacation_config_data["vacation_rate"]))
+                if vacation_config_data.get("vacation_rate") is not None
+                else Decimal("0.04"),
                 lump_sum_month=vacation_config_data.get("lump_sum_month"),
             ),
-            sin_encrypted=data.get("sin_encrypted", ""),
+            sin_encrypted=data.get("sin_encrypted") or "",
             vacation_balance=Decimal(str(data.get("vacation_balance", 0))),
             sick_balance=Decimal(str(data.get("sick_balance", 0))),
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.now(),
-            updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else datetime.now(),
+            created_at=datetime.fromisoformat(data["created_at"])
+            if data.get("created_at")
+            else datetime.now(),
+            updated_at=datetime.fromisoformat(data["updated_at"])
+            if data.get("updated_at")
+            else datetime.now(),
         )
 
     @staticmethod
@@ -121,16 +138,20 @@ class ModelBuilder:
             send_paystub_emails=data.get("send_paystub_emails", False),
             bookkeeping_ledger_id=data.get("bookkeeping_ledger_id"),
             bookkeeping_ledger_name=data.get("bookkeeping_ledger_name"),
-            bookkeeping_connected_at=datetime.fromisoformat(data["bookkeeping_connected_at"]) if data.get("bookkeeping_connected_at") else None,
+            bookkeeping_connected_at=datetime.fromisoformat(data["bookkeeping_connected_at"])
+            if data.get("bookkeeping_connected_at")
+            else None,
             logo_url=data.get("logo_url"),
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.now(),
-            updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else datetime.now(),
+            created_at=datetime.fromisoformat(data["created_at"])
+            if data.get("created_at")
+            else datetime.now(),
+            updated_at=datetime.fromisoformat(data["updated_at"])
+            if data.get("updated_at")
+            else datetime.now(),
         )
 
     @staticmethod
-    def _get_benefit_field(
-        data: dict[str, Any], camel: str, snake: str, default: Any = 0
-    ) -> Any:
+    def _get_benefit_field(data: dict[str, Any], camel: str, snake: str, default: Any = 0) -> Any:
         """Get field value supporting both camelCase and snake_case keys.
 
         Frontend stores camelCase, but backend models use snake_case.
@@ -144,10 +165,18 @@ class ModelBuilder:
         return BenefitConfig(
             enabled=data.get("enabled", False),
             employee_deduction=Decimal(
-                str(ModelBuilder._get_benefit_field(data, "employeeDeduction", "employee_deduction", 0))
+                str(
+                    ModelBuilder._get_benefit_field(
+                        data, "employeeDeduction", "employee_deduction", 0
+                    )
+                )
             ),
             employer_contribution=Decimal(
-                str(ModelBuilder._get_benefit_field(data, "employerContribution", "employer_contribution", 0))
+                str(
+                    ModelBuilder._get_benefit_field(
+                        data, "employerContribution", "employer_contribution", 0
+                    )
+                )
             ),
             is_taxable=ModelBuilder._get_benefit_field(data, "isTaxable", "is_taxable", False),
         )
@@ -175,14 +204,28 @@ class ModelBuilder:
             life_insurance=LifeInsuranceConfig(
                 enabled=life_data.get("enabled", False),
                 employee_deduction=Decimal(
-                    str(ModelBuilder._get_benefit_field(life_data, "employeeDeduction", "employee_deduction", 0))
+                    str(
+                        ModelBuilder._get_benefit_field(
+                            life_data, "employeeDeduction", "employee_deduction", 0
+                        )
+                    )
                 ),
                 employer_contribution=Decimal(
-                    str(ModelBuilder._get_benefit_field(life_data, "employerContribution", "employer_contribution", 0))
+                    str(
+                        ModelBuilder._get_benefit_field(
+                            life_data, "employerContribution", "employer_contribution", 0
+                        )
+                    )
                 ),
-                is_taxable=ModelBuilder._get_benefit_field(life_data, "isTaxable", "is_taxable", False),
+                is_taxable=ModelBuilder._get_benefit_field(
+                    life_data, "isTaxable", "is_taxable", False
+                ),
                 coverage_amount=Decimal(
-                    str(ModelBuilder._get_benefit_field(life_data, "coverageAmount", "coverage_amount", 0))
+                    str(
+                        ModelBuilder._get_benefit_field(
+                            life_data, "coverageAmount", "coverage_amount", 0
+                        )
+                    )
                 ),
             ),
             disability=ModelBuilder._build_benefit_config(disability_data),
@@ -203,25 +246,35 @@ class ModelBuilder:
             industry_class_code=wcb_data.get("industry_class_code"),
             industry_name=wcb_data.get("industry_name"),
             assessment_rate=Decimal(str(wcb_data.get("assessment_rate", 0))),
-            max_assessable_earnings=Decimal(str(wcb_data["max_assessable_earnings"])) if wcb_data.get("max_assessable_earnings") else None,
+            max_assessable_earnings=Decimal(str(wcb_data["max_assessable_earnings"]))
+            if wcb_data.get("max_assessable_earnings")
+            else None,
         )
 
         return PayGroup(
             id=UUID(data["id"]),
-            company_id=UUID(data["company_id"]) if data.get("company_id") else UUID("00000000-0000-0000-0000-000000000000"),
+            company_id=UUID(data["company_id"])
+            if data.get("company_id")
+            else UUID("00000000-0000-0000-0000-000000000000"),
             name=data["name"],
             description=data.get("description"),
             pay_frequency=PayFrequency(data.get("pay_frequency", "bi_weekly")),
             employment_type=data.get("employment_type", "full_time"),
-            next_pay_date=date.fromisoformat(data["next_pay_date"]) if data.get("next_pay_date") else date.today(),
+            next_pay_date=date.fromisoformat(data["next_pay_date"])
+            if data.get("next_pay_date")
+            else date.today(),
             period_start_day=PeriodStartDay(data.get("period_start_day", "monday")),
             leave_enabled=data.get("leave_enabled", True),
             overtime_policy=overtime_policy,
             wcb_config=wcb_config,
             group_benefits=group_benefits,
             custom_deductions=[],  # Not needed for paystub generation
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.now(),
-            updated_at=datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else datetime.now(),
+            created_at=datetime.fromisoformat(data["created_at"])
+            if data.get("created_at")
+            else datetime.now(),
+            updated_at=datetime.fromisoformat(data["updated_at"])
+            if data.get("updated_at")
+            else datetime.now(),
         )
 
     @staticmethod
@@ -239,6 +292,7 @@ class ModelBuilder:
             holiday_premium_pay=Decimal(str(data.get("holiday_premium_pay", 0))),
             vacation_pay_paid=Decimal(str(data.get("vacation_pay_paid", 0))),
             other_earnings=Decimal(str(data.get("other_earnings", 0))),
+            bonus_earnings=Decimal(str(data.get("bonus_earnings", 0))),
             cpp_employee=Decimal(str(data.get("cpp_employee", 0))),
             cpp_additional=Decimal(str(data.get("cpp_additional", 0))),
             ei_employee=Decimal(str(data.get("ei_employee", 0))),
@@ -261,8 +315,16 @@ class ModelBuilder:
             ytd_provincial_tax=Decimal(str(data.get("ytd_provincial_tax", 0))),
             vacation_accrued=Decimal(str(data.get("vacation_accrued", 0))),
             vacation_hours_taken=Decimal(str(data.get("vacation_hours_taken", 0))),
+            regular_hours_worked=Decimal(str(data["regular_hours_worked"]))
+            if data.get("regular_hours_worked")
+            else None,
+            overtime_hours_worked=Decimal(str(data.get("overtime_hours_worked", 0))),
             calculation_details=data.get("calculation_details"),
             paystub_storage_key=data.get("paystub_storage_key"),
-            paystub_generated_at=datetime.fromisoformat(data["paystub_generated_at"]) if data.get("paystub_generated_at") else None,
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.now(),
+            paystub_generated_at=datetime.fromisoformat(data["paystub_generated_at"])
+            if data.get("paystub_generated_at")
+            else None,
+            created_at=datetime.fromisoformat(data["created_at"])
+            if data.get("created_at")
+            else datetime.now(),
         )

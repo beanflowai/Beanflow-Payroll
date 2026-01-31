@@ -3,7 +3,7 @@
  * All type definitions for payroll service operations
  */
 
-import type { PayrollRunStatus, PayrollRunWithGroups } from '$lib/types/payroll';
+import type { PayrollRunStatus, PayrollRunWithGroups, PayrollRecord } from '$lib/types/payroll';
 import type {
 	OvertimePolicy,
 	GroupBenefits,
@@ -40,6 +40,14 @@ export interface PayrollRunListOptions {
 	status?: PayrollRunStatus;
 	limit?: number;
 	offset?: number;
+}
+
+export interface PayrollRunListOptionsExt extends PayrollRunListOptions {
+	excludeStatuses?: string[];
+	payGroupId?: string; // Filter by pay group
+	employeeId?: string; // Filter by employee
+	startDate?: string; // ISO date string (period_end >= startDate)
+	endDate?: string; // ISO date string (period_end <= endDate)
 }
 
 export interface PayrollRunListResult {
@@ -191,4 +199,41 @@ export interface BatchCalculationResponse {
 		total_net_pay: string;
 		total_employer_costs: string;
 	};
+}
+
+// ===========================================
+// Employee Payroll Record List (for History)
+// ===========================================
+
+/**
+ * Options for listing employee payroll records
+ * Used when viewing individual employee's payroll history
+ */
+export interface PayrollRecordListOptions {
+	startDate?: string; // Filter by period_end >= startDate
+	endDate?: string; // Filter by period_end <= endDate
+	status?: PayrollRunStatus; // Filter by run status
+	excludeStatuses?: string[]; // Exclude these statuses
+	limit?: number; // Default 20
+	offset?: number; // Default 0
+}
+
+/**
+ * Result type for employee payroll records list
+ */
+export interface PayrollRecordListResult {
+	data: PayrollRecordWithPeriod[];
+	count: number;
+	error: string | null;
+}
+
+/**
+ * Extended PayrollRecord with period info from the parent payroll run
+ * Used for displaying individual employee's payroll history
+ */
+export interface PayrollRecordWithPeriod extends PayrollRecord {
+	periodEnd: string; // From payroll_runs
+	payDate: string; // From payroll_runs
+	runStatus: PayrollRunStatus; // From payroll_runs
+	runId: string; // For navigation to the run detail page
 }

@@ -17,7 +17,9 @@ export const ONBOARDING_STEPS: OnboardingStepConfig[] = [
       return !!data?.company_name && !!data?.business_number &&
              !!data?.payroll_account_number && !!data?.province;
     },
-    videoUrl: undefined
+    youtubeVideoId: '37LnbqzWsnM',
+    estimatedMinutes: 5,
+    tip: 'Have your BN and RP numbers ready'
   },
   {
     id: 'pay_groups',
@@ -32,7 +34,9 @@ export const ONBOARDING_STEPS: OnboardingStepConfig[] = [
         .eq('company_id', companyId);
       return (count ?? 0) > 0;
     },
-    videoUrl: undefined
+    youtubeVideoId: 'btDGIqJmH7w',
+    estimatedMinutes: 3,
+    tip: 'Most companies need 1-2 pay groups'
   },
   {
     id: 'employees',
@@ -48,7 +52,9 @@ export const ONBOARDING_STEPS: OnboardingStepConfig[] = [
         .is('termination_date', null);
       return (count ?? 0) > 0;
     },
-    videoUrl: undefined
+    youtubeVideoId: 'aukVu3HIJBo',
+    estimatedMinutes: 3,
+    tip: 'You can import employees later too'
   },
   {
     id: 'employee_assignment',
@@ -65,7 +71,9 @@ export const ONBOARDING_STEPS: OnboardingStepConfig[] = [
         .is('termination_date', null);
       return (count ?? 0) > 0;
     },
-    videoUrl: undefined
+    youtubeVideoId: 'X2lsHzY1uN8',
+    estimatedMinutes: 2,
+    tip: 'Assign from the employee list page'
   },
   {
     id: 'payroll_run',
@@ -81,6 +89,8 @@ export const ONBOARDING_STEPS: OnboardingStepConfig[] = [
         .in('status', ['paid', 'approved']);
       return (count ?? 0) > 0;
     },
-    videoUrl: undefined
+    youtubeVideoId: 'YxsFNTNWw3s',
+    estimatedMinutes: 5,
+    tip: 'Review calculations before approving'
   }
 ];

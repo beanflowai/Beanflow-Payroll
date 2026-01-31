@@ -10,9 +10,27 @@
 	import type { PayrollRunWithGroups } from '$lib/types/payroll';
 	import type { RemittancePeriod } from '$lib/types/remittance';
 	import { onboardingState, loadOnboardingProgress, dismissOnboarding } from '$lib/stores/onboarding.svelte';
-	import { OnboardingBanner, OnboardingProgressCard, GettingStartedSection } from '$lib/components/onboarding';
+	import { OnboardingBanner, OnboardingProgressCard, GettingStartedSection, WelcomeCard } from '$lib/components/onboarding';
+	import YouTubeVideoModal from '$lib/components/modals/YouTubeVideoModal.svelte';
 	import { ONBOARDING_STEPS } from '$lib/config/onboardingSteps';
 	import { goto } from '$app/navigation';
+
+	// Video modal state for banner
+	let isVideoModalOpen = $state(false);
+	let videoId = $state('');
+	let videoTitle = $state('');
+
+	function handleWatchVideo(id: string, title: string) {
+		videoId = id;
+		videoTitle = title;
+		isVideoModalOpen = true;
+	}
+
+	function handleCloseVideoModal() {
+		isVideoModalOpen = false;
+		videoId = '';
+		videoTitle = '';
+	}
 
 	// State
 	let employeeCount = $state(0);
@@ -159,18 +177,29 @@
 					);
 					if (nextStep) goto(nextStep.route);
 				}}
+				onWatchVideo={handleWatchVideo}
 			/>
 		{/if}
 
 		<!-- Stats Grid -->
 		<div class="stats-grid">
 			{#if showOnboarding}
-				<!-- During onboarding: show only onboarding progress card -->
+				<!-- During onboarding: show onboarding progress card and welcome card -->
 				<OnboardingProgressCard
 					progress={onboardingState.progress}
 					onStepClick={(stepId) => {
 						const step = ONBOARDING_STEPS.find((s) => s.id === stepId);
 						if (step) goto(step.route);
+					}}
+					onSkip={() => dismissOnboarding()}
+				/>
+				<WelcomeCard
+					progress={onboardingState.progress}
+					onContinue={() => {
+						const nextStep = ONBOARDING_STEPS.find(
+							(s) => !onboardingState.progress?.completedSteps.includes(s.id)
+						);
+						if (nextStep) goto(nextStep.route);
 					}}
 				/>
 			{:else}
@@ -296,6 +325,14 @@
 		</section>
 	</div>
 {/if}
+
+<!-- YouTube Video Modal for banner -->
+<YouTubeVideoModal
+	isOpen={isVideoModalOpen}
+	videoId={videoId}
+	title={videoTitle}
+	onClose={handleCloseVideoModal}
+/>
 
 <style>
 	.dashboard {

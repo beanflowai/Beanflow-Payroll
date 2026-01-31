@@ -99,6 +99,7 @@ class TestEmployeeModel:
             is_cpp_exempt=False,
             is_ei_exempt=False,
             cpp2_exempt=False,
+            date_of_birth=None,  # Optional field added to model
             hire_date=date(2024, 1, 1),
             termination_date=None,
             vacation_config=VacationConfig(),
@@ -236,20 +237,25 @@ class TestPayFrequencyEnum:
 class TestEmployeeCreate:
     """Tests for EmployeeCreate model."""
 
-    def test_employee_create_requires_sin(self):
-        """Test that EmployeeCreate requires SIN."""
-        with pytest.raises(ValidationError) as exc_info:
-            EmployeeCreate(
-                first_name="John",
-                last_name="Doe",
-                email="john@example.com",
-                province_of_employment=Province.BC,
-                pay_frequency=PayFrequency.BIWEEKLY,
-                hire_date="2024-01-01",
-                # SIN is missing
-            )
+    def test_employee_create_sin_is_optional(self):
+        """Test that EmployeeCreate allows optional SIN.
 
-        assert "sin" in str(exc_info.value)
+        SIN was made optional to support onboarding flows where
+        employees can be created before SIN is collected.
+        """
+        # Should NOT raise - SIN is optional
+        employee = EmployeeCreate(
+            first_name="John",
+            last_name="Doe",
+            email="john@example.com",
+            province_of_employment=Province.BC,
+            pay_frequency=PayFrequency.BIWEEKLY,
+            hire_date="2024-01-01",
+            # SIN is intentionally missing
+        )
+
+        assert employee.sin is None
+        assert employee.first_name == "John"
 
     def test_employee_create_validates_sin_length(self):
         """Test that EmployeeCreate validates SIN length."""

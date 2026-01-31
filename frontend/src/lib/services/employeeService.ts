@@ -36,9 +36,11 @@ export { dbEmployeeToUi } from '$lib/types/employee';
 const TABLE_NAME = 'employees';
 
 /**
- * Helper to mask SIN for display (***-***-XXX)
+ * Helper to mask SIN for display (***-***-XXX).
+ * Returns empty string when SIN is missing.
  */
-export function maskSin(_sinEncrypted: string): string {
+export function maskSin(sinEncrypted: string | null | undefined): string {
+	if (!sinEncrypted) return '';
 	// Since SIN is encrypted, we can't derive last 3 digits
 	// In production, this would be handled by the backend
 	return '***-***-***';
@@ -70,6 +72,7 @@ export interface EmployeeListOptions {
 export interface EmployeeServiceResult<T> {
 	data: T | null;
 	error: string | null;
+	warning?: string | null;
 }
 
 export interface EmployeeListResult {
@@ -159,10 +162,44 @@ export async function getEmployee(employeeId: string): Promise<EmployeeServiceRe
 }
 
 /**
+ * Create initial compensation history record for a new employee
+ * This ensures compensation history is tracked from day one.
+ */
+export async function createInitialCompensation(
+	employeeId: string,
+	data: {
+		compensationType: 'salary' | 'hourly';
+		annualSalary?: number | null;
+		hourlyRate?: number | null;
+		hireDate: string;
+	}
+): Promise<{ error: string | null }> {
+	try {
+		await api.post(`/employees/${employeeId}/compensation/initial`, {
+			compensationType: data.compensationType,
+			annualSalary: data.annualSalary ?? null,
+			hourlyRate: data.hourlyRate ?? null,
+			hireDate: data.hireDate
+		});
+		return { error: null };
+	} catch (err) {
+		if (err instanceof APIError) {
+			console.error('Failed to create initial compensation:', err);
+			return { error: err.message };
+		}
+		const message = err instanceof Error ? err.message : 'Failed to create initial compensation';
+		return { error: message };
+	}
+}
+
+/**
  * Create a new employee
  *
  * Note: In production, SIN encryption should be handled by the backend
  * For now, we're storing it as-is (the backend API should encrypt it)
+ *
+ * This function also creates an initial compensation history record to
+ * ensure compensation changes are tracked from hire date.
  */
 export async function createEmployee(
 	input: EmployeeCreateInput
@@ -177,19 +214,21 @@ export async function createEmployee(
 			company_id: companyId,
 			first_name: input.first_name,
 			last_name: input.last_name,
-			sin_encrypted: input.sin, // In production, this should be encrypted by backend
+			sin_encrypted: input.sin || null, // SIN is now optional
 			email: input.email ?? null,
 			province_of_employment: input.province_of_employment,
 			pay_frequency: input.pay_frequency,
 			employment_type: input.employment_type ?? 'full_time',
 			annual_salary: input.annual_salary ?? null,
 			hourly_rate: input.hourly_rate ?? null,
+			standard_hours_per_week: input.standard_hours_per_week ?? 40,
 			federal_additional_claims: input.federal_additional_claims,
 			provincial_additional_claims: input.provincial_additional_claims,
 			is_cpp_exempt: input.is_cpp_exempt ?? false,
 			is_ei_exempt: input.is_ei_exempt ?? false,
 			cpp2_exempt: input.cpp2_exempt ?? false,
 			hire_date: input.hire_date,
+			date_of_birth: input.date_of_birth ?? null,
 			termination_date: input.termination_date ?? null,
 			vacation_config: input.vacation_config ?? {
 				payout_method: 'accrual',
@@ -211,9 +250,28 @@ export async function createEmployee(
 		}
 
 		const db = data as DbEmployee;
+		const employee = dbEmployeeToUi(db, maskSin(db.sin_encrypted));
+
+		// Create initial compensation history record
+		const compensationType = input.hourly_rate ? 'hourly' : 'salary';
+		const { error: compError } = await createInitialCompensation(employee.id, {
+			compensationType,
+			annualSalary: input.annual_salary,
+			hourlyRate: input.hourly_rate,
+			hireDate: input.hire_date
+		});
+
+		if (compError) {
+			// Log warning and surface to caller
+			console.warn('Failed to create initial compensation history:', compError);
+		}
+
 		return {
-			data: dbEmployeeToUi(db, maskSin(db.sin_encrypted)),
-			error: null
+			data: employee,
+			error: null,
+			warning: compError
+				? 'Compensation history could not be created. Please add via Adjust Compensation.'
+				: null
 		};
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Failed to create employee';
@@ -248,8 +306,12 @@ export async function updateEmployee(
 			updateData.province_of_employment = input.province_of_employment;
 		if (input.pay_frequency !== undefined) updateData.pay_frequency = input.pay_frequency;
 		if (input.employment_type !== undefined) updateData.employment_type = input.employment_type;
-		if (input.annual_salary !== undefined) updateData.annual_salary = input.annual_salary;
-		if (input.hourly_rate !== undefined) updateData.hourly_rate = input.hourly_rate;
+		// NOTE: annual_salary and hourly_rate are intentionally excluded from updateEmployee
+		// Compensation changes MUST go through the dedicated /compensation endpoint
+		// to ensure proper history tracking. See: create_initial_compensation()
+		// standard_hours_per_week is a work schedule field, not a rate, so it can be updated here
+		if (input.standard_hours_per_week !== undefined)
+			updateData.standard_hours_per_week = input.standard_hours_per_week;
 		if (input.federal_additional_claims !== undefined)
 			updateData.federal_additional_claims = input.federal_additional_claims;
 		if (input.provincial_additional_claims !== undefined)
@@ -258,6 +320,7 @@ export async function updateEmployee(
 		if (input.is_ei_exempt !== undefined) updateData.is_ei_exempt = input.is_ei_exempt;
 		if (input.cpp2_exempt !== undefined) updateData.cpp2_exempt = input.cpp2_exempt;
 		if (input.hire_date !== undefined) updateData.hire_date = input.hire_date;
+		if (input.date_of_birth !== undefined) updateData.date_of_birth = input.date_of_birth;
 		if (input.termination_date !== undefined) updateData.termination_date = input.termination_date;
 		if (input.vacation_config !== undefined) updateData.vacation_config = input.vacation_config;
 		if (input.vacation_balance !== undefined) updateData.vacation_balance = input.vacation_balance;
@@ -266,6 +329,10 @@ export async function updateEmployee(
 		if (input.initial_ytd_cpp2 !== undefined) updateData.initial_ytd_cpp2 = input.initial_ytd_cpp2;
 		if (input.initial_ytd_ei !== undefined) updateData.initial_ytd_ei = input.initial_ytd_ei;
 		if (input.initial_ytd_year !== undefined) updateData.initial_ytd_year = input.initial_ytd_year;
+		// SIN: only update when caller provides a non-empty value (UI sends when editable)
+		if (input.sin !== undefined && input.sin) {
+			updateData.sin_encrypted = input.sin;
+		}
 
 		const { data, error } = await supabase
 			.from(TABLE_NAME)
@@ -300,6 +367,27 @@ export async function terminateEmployee(
 	terminationDate: string
 ): Promise<EmployeeServiceResult<Employee>> {
 	return updateEmployee(employeeId, { termination_date: terminationDate });
+}
+
+/**
+ * Update employee status (terminate or reactivate)
+ * @param newStatus - 'active' to reactivate, 'terminated' to terminate
+ * @param terminationDate - Required when newStatus is 'terminated'
+ */
+export async function updateEmployeeStatus(
+	employeeId: string,
+	newStatus: 'active' | 'terminated',
+	terminationDate?: string
+): Promise<EmployeeServiceResult<Employee>> {
+	if (newStatus === 'terminated') {
+		if (!terminationDate) {
+			return { data: null, error: 'Termination date is required when terminating an employee' };
+		}
+		return updateEmployee(employeeId, { termination_date: terminationDate });
+	} else {
+		// Reactivate: clear termination date
+		return updateEmployee(employeeId, { termination_date: null });
+	}
 }
 
 /**
@@ -389,6 +477,50 @@ export async function getEmployeesByProvince(): Promise<Record<Province, number>
 		return counts as Record<Province, number>;
 	} catch {
 		return {} as Record<Province, number>;
+	}
+}
+
+/**
+ * Check for duplicate employee names in the same company
+ * Returns a list of employees with matching first and last name
+ */
+export async function checkDuplicateNames(
+	firstName: string,
+	lastName: string,
+	excludeEmployeeId?: string
+): Promise<EmployeeListResult> {
+	try {
+		const userId = getCurrentUserId();
+		const companyId = getCurrentCompanyId();
+
+		let query = supabase
+			.from(TABLE_NAME)
+			.select('*', { count: 'exact' })
+			.eq('user_id', userId)
+			.eq('company_id', companyId)
+			.eq('first_name', firstName.trim())
+			.eq('last_name', lastName.trim());
+
+		// Exclude the current employee when editing
+		if (excludeEmployeeId) {
+			query = query.neq('id', excludeEmployeeId);
+		}
+
+		const { data, error, count } = await query.order('last_name').order('first_name');
+
+		if (error) {
+			console.error('Failed to check duplicate names:', error);
+			return { data: [], count: 0, error: error.message };
+		}
+
+		const employees: Employee[] = (data as DbEmployee[]).map((db) =>
+			dbEmployeeToUi(db, maskSin(db.sin_encrypted))
+		);
+
+		return { data: employees, count: count ?? 0, error: null };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'Failed to check duplicate names';
+		return { data: [], count: 0, error: message };
 	}
 }
 
@@ -742,12 +874,12 @@ export async function checkEmployeeHasPayrollRecords(employeeId: string): Promis
 
 		if (error) {
 			console.error('Failed to check payroll records:', error);
-			return false; // On error, default to allowing edit
+			return true; // On error, conservatively assume records exist (disable delete)
 		}
 
 		return (count ?? 0) > 0;
 	} catch {
-		return false;
+		return true; // On error, conservatively assume records exist (disable delete)
 	}
 }
 

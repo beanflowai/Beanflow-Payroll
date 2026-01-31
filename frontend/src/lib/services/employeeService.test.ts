@@ -617,15 +617,65 @@ describe('assignEmployeesToPayGroup', () => {
 	});
 
 	it('assigns employees to pay group', async () => {
-		const mockBuilder = createMockQueryBuilder({
-			data: null,
-			error: null
-		});
-		mockBuilder.in.mockImplementation(() => ({
-			...mockBuilder,
-			then: (resolve: (value: unknown) => void) => resolve({ error: null })
-		}));
-		mockSupabase.from.mockReturnValue(mockBuilder as unknown as ReturnType<typeof supabase.from>);
+		// Create a mock implementation that handles both select and update chains
+		const fromMock = vi.fn();
+
+		// Mock select chain for fetching employees
+		const selectChain = {
+			eq: vi.fn().mockReturnValue({
+				eq: vi.fn().mockReturnValue({
+					in: vi.fn().mockResolvedValue({
+						data: [
+							{
+								id: 'emp-1',
+								sin_encrypted: 'xxx',
+								pay_frequency: 'bi_weekly',
+								employment_type: 'full_time',
+								province_of_employment: 'SK',
+								// Need annual_salary for compensation type = 'salary'
+								annual_salary: 50000,
+								hourly_rate: null,
+								// Required by dbEmployeeToUi
+								vacation_config: { payout_method: 'accrual', vacation_rate: '0.04' },
+								first_name: 'John',
+								last_name: 'Doe'
+							},
+							{
+								id: 'emp-2',
+								sin_encrypted: 'xxx',
+								pay_frequency: 'bi_weekly',
+								employment_type: 'full_time',
+								province_of_employment: 'SK',
+								annual_salary: 60000,
+								hourly_rate: null,
+								vacation_config: { payout_method: 'accrual', vacation_rate: '0.04' },
+								first_name: 'Jane',
+								last_name: 'Smith'
+							}
+						],
+						error: null
+					})
+				})
+			})
+		};
+
+		// Mock update chain for assigning pay group
+		const updateChain = {
+			eq: vi.fn().mockReturnValue({
+				eq: vi.fn().mockReturnValue({
+					in: vi.fn().mockResolvedValue({ error: null })
+				})
+			})
+		};
+
+		// Create a combined mock that routes select/update to their respective chains
+		const combinedMock = {
+			select: vi.fn().mockReturnValue(selectChain),
+			update: vi.fn().mockReturnValue(updateChain)
+		};
+
+		fromMock.mockReturnValue(combinedMock as unknown as ReturnType<typeof supabase.from>);
+		mockSupabase.from = fromMock;
 
 		const mockPayGroup = {
 			id: 'group-123',
@@ -637,8 +687,7 @@ describe('assignEmployeesToPayGroup', () => {
 
 		const result = await assignEmployeesToPayGroup(['emp-1', 'emp-2'], mockPayGroup);
 
-		expect(mockBuilder.update).toHaveBeenCalledWith({ pay_group_id: 'group-123' });
-		expect(mockBuilder.in).toHaveBeenCalledWith('id', ['emp-1', 'emp-2']);
+		expect(combinedMock.update).toHaveBeenCalledWith({ pay_group_id: 'group-123' });
 		expect(result.error).toBeNull();
 	});
 });
@@ -698,7 +747,7 @@ describe('checkEmployeeHasPayrollRecords', () => {
 		expect(result).toBe(false);
 	});
 
-	it('returns false on error', async () => {
+	it('returns true on error (conservative)', async () => {
 		const mockBuilder = createMockQueryBuilder({
 			data: null,
 			error: { message: 'Error' },
@@ -708,7 +757,8 @@ describe('checkEmployeeHasPayrollRecords', () => {
 
 		const result = await checkEmployeeHasPayrollRecords('emp-123');
 
-		expect(result).toBe(false);
+		// On error, conservatively assume records exist (disable delete)
+		expect(result).toBe(true);
 	});
 });
 

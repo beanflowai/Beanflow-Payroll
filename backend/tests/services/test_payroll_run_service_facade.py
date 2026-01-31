@@ -417,7 +417,8 @@ class TestDelegatedMethods:
 
         result = await service.create_or_get_run_by_period_end("2025-01-15")
 
-        service._run_ops.create_or_get_run_by_period_end.assert_called_once_with("2025-01-15")
+        # Second argument is optional pay_date (defaults to None)
+        service._run_ops.create_or_get_run_by_period_end.assert_called_once_with("2025-01-15", None)
 
     @pytest.mark.asyncio
     async def test_recalculate_run_delegates(self, service):

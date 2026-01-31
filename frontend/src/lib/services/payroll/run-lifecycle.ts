@@ -6,7 +6,7 @@
 import { api } from '$lib/api/client';
 import type { PayrollRunWithGroups } from '$lib/types/payroll';
 import { getCurrentUserId } from './helpers';
-import { getPayrollRunByPayDate, getPayrollRunByPeriodEnd } from './run-queries';
+import { getPayrollRunByPayDate, getPayrollRunById } from './run-queries';
 import type { PayrollServiceResult } from './types';
 
 // ===========================================
@@ -19,6 +19,8 @@ import type { PayrollServiceResult } from './types';
 export interface CreateOrGetRunResult {
 	created: boolean;
 	recordsCount: number;
+	synced?: boolean;
+	addedCount?: number;
 }
 
 /**
@@ -53,6 +55,8 @@ export async function createOrGetPayrollRun(
 			};
 			created: boolean;
 			recordsCount: number;
+			synced?: boolean;
+			addedCount?: number;
 		}>('/payroll/runs/create-or-get', { payDate });
 
 		// Get the full payroll run data with records
@@ -65,7 +69,9 @@ export async function createOrGetPayrollRun(
 			data: {
 				...runResult.data,
 				created: response.created,
-				recordsCount: response.recordsCount
+				recordsCount: response.recordsCount,
+				synced: response.synced,
+				addedCount: response.addedCount
 			},
 			error: null
 		};
@@ -81,14 +87,20 @@ export async function createOrGetPayrollRun(
  * Uses period_end as the primary identifier (pay_date is auto-calculated).
  *
  * This is the new entry point using period_end instead of pay_date.
+ *
+ * @param periodEnd - The period end date (YYYY-MM-DD)
+ * @param payDate - Optional pay date override
+ * @param payGroupIds - Optional pay group IDs to include (ensures correct groups when multiple exist)
  */
 export async function createOrGetPayrollRunByPeriodEnd(
-	periodEnd: string
+	periodEnd: string,
+	payDate?: string,
+	payGroupIds?: string[]
 ): Promise<PayrollServiceResult<PayrollRunWithGroups & CreateOrGetRunResult>> {
 	try {
 		getCurrentUserId();
 
-		// Call backend create-or-get endpoint with periodEnd
+		// Call backend create-or-get endpoint with periodEnd and optional payGroupIds
 		const response = await api.post<{
 			run: {
 				id: string;
@@ -108,10 +120,13 @@ export async function createOrGetPayrollRunByPeriodEnd(
 			};
 			created: boolean;
 			recordsCount: number;
-		}>('/payroll/runs/create-or-get', { periodEnd });
+			synced?: boolean;
+			addedCount?: number;
+		}>('/payroll/runs/create-or-get', { periodEnd, payDate, payGroupIds });
 
-		// Get the full payroll run data with records using period_end
-		const runResult = await getPayrollRunByPeriodEnd(periodEnd);
+		// Get the full payroll run data using the run ID returned by backend
+		// This ensures we get the correct run when multiple runs exist for the same period_end
+		const runResult = await getPayrollRunById(response.run.id);
 		if (runResult.error || !runResult.data) {
 			return { data: null, error: runResult.error ?? 'Failed to load payroll run' };
 		}
@@ -120,7 +135,9 @@ export async function createOrGetPayrollRunByPeriodEnd(
 			data: {
 				...runResult.data,
 				created: response.created,
-				recordsCount: response.recordsCount
+				recordsCount: response.recordsCount,
+				synced: response.synced,
+				addedCount: response.addedCount
 			},
 			error: null
 		};
@@ -153,7 +170,13 @@ export async function createPayrollRunForDate(
 		return { data: null, error: result.error ?? 'Failed to create payroll run' };
 	}
 	// Return just the PayrollRunWithGroups portion (without created/recordsCount metadata)
-	const { created: _created, recordsCount: _recordsCount, ...runData } = result.data;
+	const {
+		created: _created,
+		recordsCount: _recordsCount,
+		synced: _synced,
+		addedCount: _addedCount,
+		...runData
+	} = result.data;
 	return { data: runData, error: null };
 }
 

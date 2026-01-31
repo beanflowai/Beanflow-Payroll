@@ -1,0 +1,146 @@
+{
+  "tier": 4,
+  "name": "Bonus Taxation - 2025 Jul Edition",
+  "description": "Tests for bonus payment taxation using CRA T4127 marginal rate method - July 2025 rate change",
+  "version": "2025-07",
+  "collected_date": "2025-07-01",
+  "pdoc_version": "T4127 - 121st Edition (July 2025)",
+  "tolerance": "0.05",
+  "notes": "2025 Jul edition: Federal rate changed from 15% to 14% on July 1, 2025, BPAF $16,129. Bonus taxation uses marginal rate method.",
+  "test_cases": [
+    {
+      "id": "ON_BONUS_10K",
+      "tier": 4,
+      "description": "Ontario $10,000 bonus with aligned mid-year YTD - standard bonus scenario (14% rate)",
+      "status": "PENDING",
+      "category": "bonus",
+      "special_rules": [
+        "Bonus taxation",
+        "Marginal rate method",
+        "Post July rate change"
+      ],
+      "input": {
+        "province": "ON",
+        "pay_frequency": "biweekly",
+        "pay_periods": "26",
+        "salary_per_period": "2307.69",
+        "bonus_amount": "10000.00",
+        "pay_date": "2025-07-11",
+        "federal_claim": "16129.00",
+        "provincial_claim": "12747.00",
+        "ytd_gross": "29999.97",
+        "ytd_pensionable_earnings": "29999.97",
+        "ytd_insurable_earnings": "29999.97",
+        "ytd_cpp_base": "1680.90",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "492.00",
+        "pensionable_months": "12"
+      },
+      "pdoc_expected": {
+        "income_federal_tax": "209.85",
+        "income_provincial_tax": "116.66",
+        "income_total_tax": "326.51",
+        "bonus_federal_tax": "1947.34",
+        "bonus_provincial_tax": "876.24",
+        "bonus_total_tax": "2823.58",
+        "cpp_deductions": "724.30",
+        "cpp2_deductions": "0.00",
+        "cpp_additional_deductions": "0.00",
+        "ei_deductions": "201.85",
+        "total_deductions": "4076.24",
+        "net_amount": "8231.45"
+      },
+      "notes": "REDESIGNED INPUT: YTD aligned to 13 prior biweekly periods for 2025-07-11 pay date. PDOC revalidated."
+    },
+    {
+      "id": "BC_BONUS_60K",
+      "tier": 4,
+      "description": "BC $60,000 bonus with $76,333 YTD - high-value bonus edge case (14% rate)",
+      "status": "PENDING",
+      "category": "bonus",
+      "special_rules": [
+        "Bonus taxation",
+        "High-value bonus",
+        "BC tax reduction",
+        "Post July rate change"
+      ],
+      "input": {
+        "province": "BC",
+        "pay_frequency": "biweekly",
+        "pay_periods": "26",
+        "salary_per_period": "2935.88",
+        "bonus_amount": "60000.00",
+        "pay_date": "2025-07-18",
+        "federal_claim": "16129.00",
+        "provincial_claim": "12932.00",
+        "ytd_gross": "76333.00",
+        "ytd_pensionable_earnings": "76333.00",
+        "ytd_insurable_earnings": "65700.00",
+        "ytd_cpp_base": "3118.50",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "854.00",
+        "pensionable_months": "12"
+      },
+      "pdoc_expected": {
+        "income_federal_tax": "334.53",
+        "income_provincial_tax": "140.25",
+        "income_total_tax": "474.78",
+        "bonus_federal_tax": "13313.33",
+        "bonus_provincial_tax": "5997.64",
+        "bonus_total_tax": "19310.97",
+        "cpp_deductions": "915.60",
+        "cpp2_deductions": "396.00",
+        "cpp_additional_deductions": "549.88",
+        "ei_deductions": "223.48",
+        "total_deductions": "21320.83",
+        "net_amount": "41615.05"
+      },
+      "notes": "COLLECT FROM PDOC: BC, $60K bonus, $76,333 YTD as of 2025-07-18. Critical test - bonus should NOT be annualized. NOTE: 2025 PDOC data not available during collection (only 2026-01 edition was accessible). Requires manual collection from archived 2025-07 PDOC edition or testing with historical values. See 2026/jan file for 2026 reference data."
+    },
+    {
+      "id": "AB_BONUS_5K",
+      "tier": 4,
+      "description": "Alberta $5,000 bonus with $50K YTD - small bonus scenario (14% rate)",
+      "status": "PENDING",
+      "category": "bonus",
+      "special_rules": [
+        "Bonus taxation",
+        "Small bonus",
+        "Alberta flat 10%",
+        "Post July rate change"
+      ],
+      "input": {
+        "province": "AB",
+        "pay_frequency": "biweekly",
+        "pay_periods": "26",
+        "salary_per_period": "1923.08",
+        "bonus_amount": "5000.00",
+        "pay_date": "2025-07-11",
+        "federal_claim": "16129.00",
+        "provincial_claim": "22323.00",
+        "ytd_gross": "50000.00",
+        "ytd_pensionable_earnings": "50000.00",
+        "ytd_insurable_earnings": "50000.00",
+        "ytd_cpp_base": "2600.00",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "710.00",
+        "pensionable_months": "12"
+      },
+      "pdoc_expected": {
+        "income_federal_tax": "155.01",
+        "income_provincial_tax": "55.53",
+        "income_total_tax": "210.54",
+        "bonus_federal_tax": "647.01",
+        "bonus_provincial_tax": "277.29",
+        "bonus_total_tax": "924.30",
+        "cpp_deductions": "403.91",
+        "cpp2_deductions": "0.00",
+        "cpp_additional_deductions": "67.88",
+        "ei_deductions": "113.54",
+        "total_deductions": "1652.29",
+        "net_amount": "5270.79"
+      },
+      "notes": "COLLECT FROM PDOC: Alberta, $5K bonus, $50K YTD as of 2025-07-11 (first pay period after rate change). NOTE: 2025 PDOC data not available during collection (only 2026-01 edition was accessible). Requires manual collection from archived 2025-07 PDOC edition or testing with historical values. See 2026/jan file for 2026 reference data."
+    }
+  ]
+}

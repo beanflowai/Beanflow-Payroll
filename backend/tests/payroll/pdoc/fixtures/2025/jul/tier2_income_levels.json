@@ -81,6 +81,41 @@
       "notes": "PDOC verified 2025-12-29 - Tests BC tax reduction for low income"
     },
     {
+      "id": "BC_VERY_LOW_SEMIMONTHLY",
+      "tier": 2,
+      "description": "BC very low income semi-monthly - zero tax, vacation pay included",
+      "status": "VERIFIED",
+      "category": "low_income",
+      "special_rules": ["Zero tax (below threshold)", "Semi-monthly pay", "Vacation pay included"],
+      "input": {
+        "province": "BC",
+        "gross_pay": "649.74",
+        "pay_frequency": "semimonthly",
+        "pay_periods": 24,
+        "pay_date": "2025-12-31",
+        "federal_claim": "16129.00",
+        "provincial_claim": "12932.00",
+        "rrsp": "0",
+        "union_dues": "0",
+        "ytd_gross": "0",
+        "ytd_pensionable_earnings": "0",
+        "ytd_insurable_earnings": "0",
+        "ytd_cpp_base": "0",
+        "ytd_cpp_additional": "0",
+        "ytd_ei": "0"
+      },
+      "pdoc_expected": {
+        "cpp_total": "29.98",
+        "cpp2": "0.00",
+        "ei": "10.66",
+        "federal_tax": "0.00",
+        "provincial_tax": "0.00",
+        "total_deductions": "40.64",
+        "net_pay": "609.10"
+      },
+      "notes": "PDOC verified 2025-12-31 - Very low income (~$15.6k annual) with zero tax deductions, includes vacation pay"
+    },
+    {
       "id": "MB_30K_BIWEEKLY",
       "tier": 2,
       "description": "Manitoba low income $30k - full dynamic BPA benefit",

@@ -7,3 +7,7 @@ export { default as EmployeeForm } from './EmployeeForm.svelte';
 export { default as PortalStatusBadge } from './PortalStatusBadge.svelte';
 export { default as InviteToPortalModal } from './InviteToPortalModal.svelte';
 export { default as ProfileChangeReviewModal } from './ProfileChangeReviewModal.svelte';
+
+// Employee Action Modals
+export { default as EmployeeDeleteModal } from './EmployeeDeleteModal.svelte';
+export { default as EmployeeStatusModal } from './EmployeeStatusModal.svelte';

@@ -32,6 +32,7 @@ class EmployeeCalculationRequest(BaseModel):
     )
     vacation_pay: Decimal = Field(default=Decimal("0"), description="Vacation pay")
     other_earnings: Decimal = Field(default=Decimal("0"), description="Other earnings")
+    bonus_earnings: Decimal = Field(default=Decimal("0"), description="Bonus/lump-sum earnings taxed using bonus method")
 
     # TD1 Claims
     federal_claim_amount: Decimal = Field(
@@ -94,6 +95,7 @@ class CalculationResponse(BaseModel):
     holiday_premium_pay: Decimal
     vacation_pay: Decimal
     other_earnings: Decimal
+    bonus_earnings: Decimal
     total_gross: Decimal
 
     # Employee Deductions
@@ -300,6 +302,14 @@ class CreateOrGetRunRequest(BaseModel):
     """Request to create or get a draft payroll run."""
 
     periodEnd: str = Field(..., description="Period end date in YYYY-MM-DD format")
+    payDate: str | None = Field(
+        default=None,
+        description="Optional pay date in YYYY-MM-DD format. If not provided, calculated from period_end + province delay",
+    )
+    payGroupIds: list[str] | None = Field(
+        default=None,
+        description="Optional list of pay group IDs to include. If provided, uses these IDs instead of querying by next_period_end",
+    )
 
 
 class CreateOrGetRunResponse(BaseModel):
@@ -308,6 +318,15 @@ class CreateOrGetRunResponse(BaseModel):
     run: PayrollRunResponse
     created: bool = Field(description="True if a new run was created, False if existing")
     recordsCount: int = Field(alias="records_count", description="Number of records created")
+    synced: bool = Field(
+        default=False,
+        description="True if employees were auto-synced when loading an existing draft",
+    )
+    addedCount: int = Field(
+        alias="added_count",
+        default=0,
+        description="Number of employees added during auto-sync",
+    )
 
     model_config = {"populate_by_name": True}
 
@@ -356,6 +375,26 @@ class ApprovePayrollRunResponse(BaseModel):
     total_net_pay: float = Field(alias="totalNetPay")
     paystubs_generated: int = Field(alias="paystubsGenerated")
     paystub_errors: list[str] | None = Field(default=None, alias="paystubErrors")
+
+    model_config = {"populate_by_name": True}
+
+
+class UpdatePayDateRequest(BaseModel):
+    """Request to update the pay date of a payroll run."""
+
+    payDate: str = Field(..., description="New pay date in YYYY-MM-DD format")
+
+
+class UpdatePayDateResponse(BaseModel):
+    """Response from updating pay date."""
+
+    id: str
+    payDate: str = Field(alias="pay_date")
+    status: str
+    totalEmployees: int = Field(alias="total_employees")
+    totalGross: float = Field(alias="total_gross")
+    totalNetPay: float = Field(alias="total_net_pay")
+    needsRecalculation: bool = Field(alias="needs_recalculation", default=False)
 
     model_config = {"populate_by_name": True}
 

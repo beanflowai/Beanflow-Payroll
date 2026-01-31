@@ -49,7 +49,14 @@ class PDOCTestCase:
 
     @property
     def is_verified(self) -> bool:
-        """Check if test case has been verified with PDOC."""
+        """Check if test case has been verified with PDOC.
+
+        A case is verified if:
+        1. status is not "PENDING"
+        2. federal_tax is not "TO_BE_VERIFIED"
+        """
+        if self.status == "PENDING":
+            return False
         return self.pdoc_expected.get("federal_tax") != "TO_BE_VERIFIED"
 
     @classmethod
@@ -100,7 +107,7 @@ def load_tier_fixture(
     """Load fixture data for a specific tier, year, and edition.
 
     Args:
-        tier: Test tier (1-5)
+        tier: Test tier (1-6)
         year: Tax year (default: 2025)
         edition: Tax edition ("jan" for 120th/15%, "jul" for 121st/14%)
                  Defaults to DEFAULT_EDITION if not specified.
@@ -114,6 +121,7 @@ def load_tier_fixture(
         3: "tier3_cpp_ei_boundary.json",
         4: "tier4_special_conditions.json",
         5: "tier5_federal_rate_change.json",
+        # Note: Tier 6 uses split fixtures by category (see load_tier6_category_fixture)
     }
 
     filename = tier_files.get(tier)
@@ -170,8 +178,31 @@ def get_case_by_id(
     edition: str | None = None,
 ) -> PDOCTestCase | None:
     """Get a specific test case by ID."""
-    cases = load_tier_cases(tier, year, edition)
-    return next((c for c in cases if c.id == case_id), None)
+    if tier == 6:
+        # Tier 6 uses split fixtures by category - need to search all categories
+        for category in TIER6_CATEGORIES:
+            fixture_data = load_tier6_category_fixture(category, year, edition)
+            if fixture_data is None:
+                continue
+            cases = [PDOCTestCase.from_dict(case) for case in fixture_data.get("test_cases", [])]
+            case = next((c for c in cases if c.id == case_id), None)
+            if case is not None:
+                return case
+        return None
+    elif tier == 4:
+        # Tier 4 bonus uses separate fixture file
+        fixture_data = load_tier4_bonus_fixture(year, edition, skip_on_missing=False)
+        if fixture_data is not None:
+            cases = [PDOCTestCase.from_dict(case) for case in fixture_data.get("test_cases", [])]
+            case = next((c for c in cases if c.id == case_id), None)
+            if case is not None:
+                return case
+        # Fall through to regular tier4 loading
+        cases = load_tier_cases(tier, year, edition)
+        return next((c for c in cases if c.id == case_id), None)
+    else:
+        cases = load_tier_cases(tier, year, edition)
+        return next((c for c in cases if c.id == case_id), None)
 
 
 def get_all_case_ids(
@@ -203,7 +234,7 @@ def get_cases_by_category(
     """Get verified test cases filtered by category.
 
     Args:
-        tier: Test tier (1-5)
+        tier: Test tier (1-6)
         category: Category to filter by (e.g., "cpp2", "low_income")
         year: Tax year
         edition: Tax edition
@@ -211,8 +242,124 @@ def get_cases_by_category(
     Returns:
         List of verified test cases matching the category
     """
-    cases = load_tier_cases(tier, year, edition)
+    if tier == 6:
+        # Tier 6 uses split fixtures by category
+        fixture_data = load_tier6_category_fixture(category, year, edition)
+        if fixture_data is None:
+            return []
+    elif tier == 4 and category == "bonus":
+        # Tier 4 bonus uses separate fixture file
+        fixture_data = load_tier4_bonus_fixture(year, edition, skip_on_missing=False)
+        if fixture_data is None:
+            return []
+    else:
+        fixture_data = load_tier_fixture(tier, year, edition)
+
+    cases = [PDOCTestCase.from_dict(case) for case in fixture_data.get("test_cases", [])]
     return [c for c in cases if c.category == category and c.is_verified]
+
+
+# =============================================================================
+# Tier 4 Bonus Fixture Loading
+# =============================================================================
+
+
+def load_tier4_bonus_fixture(
+    year: int = DEFAULT_TAX_YEAR,
+    edition: str | None = None,
+    skip_on_missing: bool = False,
+) -> dict | None:
+    """Load Tier 4 bonus fixture file.
+
+    Tier 4 bonus uses a separate fixture file (tier4_bonus.json) from
+    the main tier4_special_conditions.json file.
+
+    Args:
+        year: Tax year (default: 2025)
+        edition: Tax edition ("jan" or "jul")
+        skip_on_missing: If True, call pytest.skip when file not found.
+                         If False, return None when file not found.
+
+    Returns:
+        Dictionary containing fixture data, or None if file not found
+    """
+    effective_edition = edition or DEFAULT_EDITION
+
+    # Validate edition
+    if effective_edition not in VALID_EDITIONS:
+        if skip_on_missing:
+            pytest.skip(f"Invalid edition: {effective_edition}")
+        return None
+
+    filename = "tier4_bonus.json"
+    filepath = FIXTURES_BASE_DIR / str(year) / effective_edition / filename
+
+    if not filepath.exists():
+        if skip_on_missing:
+            pytest.skip(f"Tier 4 bonus fixture file not found: {filepath}")
+        return None
+
+    with open(filepath) as f:
+        return json.load(f)
+
+
+# =============================================================================
+# Tier 6 Split Fixture Loading
+# =============================================================================
+
+
+# Tier 6 categories (TD1 form fields)
+# Note: Only employer_rrsp and retroactive_pay are currently implemented.
+# Other categories (prescribed_zone, alimony, reserve_income, annual_deductions, rpp_prpp)
+# were removed as they lack fixture data and implementation.
+TIER6_CATEGORIES = [
+    "employer_rrsp",
+    "retroactive_pay",
+]
+
+
+def load_tier6_category_fixture(
+    category: str,
+    year: int = DEFAULT_TAX_YEAR,
+    edition: str | None = None,
+    skip_on_missing: bool = False,
+) -> dict | None:
+    """Load Tier 6 fixture for a specific category.
+
+    Tier 6 uses split fixtures by category for easier fixture collection
+    and management. Each TD1 form field has its own fixture file.
+
+    Args:
+        category: One of TIER6_CATEGORIES
+        year: Tax year (default: 2025)
+        edition: Tax edition ("jan" or "jul")
+        skip_on_missing: If True, call pytest.skip when file not found.
+                         If False, return None when file not found.
+
+    Returns:
+        Dictionary containing fixture data, or None if file not found
+    """
+    if category not in TIER6_CATEGORIES:
+        raise ValueError(f"Invalid Tier 6 category: {category}")
+
+    effective_edition = edition or DEFAULT_EDITION
+
+    # Validate edition
+    if effective_edition not in VALID_EDITIONS:
+        raise ValueError(
+            f"Invalid edition: {effective_edition}. Must be one of {VALID_EDITIONS}"
+        )
+
+    filename = f"tier6_{category}.json"
+    filepath = FIXTURES_BASE_DIR / str(year) / effective_edition / filename
+
+    if not filepath.exists():
+        if skip_on_missing:
+            pytest.skip(f"Tier 6 fixture file not found: {filepath}")
+        return None
+
+    with open(filepath) as f:
+        return json.load(f)
 
 
 # =============================================================================
@@ -248,12 +395,51 @@ def build_payroll_input(case: PDOCTestCase) -> EmployeePayrollInput:
     # Parse taxable benefits (used for both pensionable and insurable)
     taxable_benefits = Decimal(inp.get("taxable_benefits", "0"))
 
+    # Tier 6: TD1 Form Fields
+    # Employer RRSP contributions
+    employer_rrsp = Decimal(inp.get("employer_rrsp_per_period", "0"))
+    employer_rrsp_restricted = inp.get("employer_rrsp_withdrawal_restricted", False)
+
+    # Retroactive payments
+    retroactive_amount = Decimal(inp.get("retroactive_pay_amount", "0"))
+    retroactive_periods = int(inp.get("retroactive_pay_periods", 1))
+
+    # Prescribed zone deductions
+    prescribed_zone = Decimal(inp.get("prescribed_zone_deduction", "0"))
+
+    # Alimony/maintenance
+    alimony = Decimal(inp.get("alimony_per_period", "0"))
+
+    # Reserve income
+    reserve_exempt = Decimal(inp.get("reserve_income_exempt", "0"))
+    reserve_pensionable = inp.get("reserve_income_pensionable", False)
+
+    # Annual deductions
+    child_care = Decimal(inp.get("child_care_expenses_annual", "0"))
+    medical = Decimal(inp.get("medical_expenses_annual", "0"))
+    charitable = Decimal(inp.get("charitable_donations_annual", "0"))
+
+    # RPP/PRPP
+    rpp = Decimal(inp.get("rpp_per_period", "0"))
+    prpp = Decimal(inp.get("prpp_per_period", "0"))
+
+    # Bonus earnings (tier4_bonus tests use salary_per_period + bonus_amount)
+    # For bonus tests: salary_per_period -> gross_regular, bonus_amount -> bonus_earnings
+    # For regular tests: gross_pay -> gross_regular
+    if "salary_per_period" in inp:
+        gross_regular = Decimal(inp["salary_per_period"])
+        bonus_earnings = Decimal(inp.get("bonus_amount", "0"))
+    else:
+        gross_regular = Decimal(inp["gross_pay"])
+        bonus_earnings = Decimal(inp.get("bonus_amount", "0"))
+
     return EmployeePayrollInput(
         employee_id=f"pdoc_{case.id.lower()}",
         province=Province[inp["province"]],
         pay_frequency=get_pay_frequency(inp["pay_frequency"]),
         pay_date=parse_date(inp["pay_date"]),
-        gross_regular=Decimal(inp["gross_pay"]),
+        gross_regular=gross_regular,
+        bonus_earnings=bonus_earnings,
         federal_claim_amount=Decimal(inp["federal_claim"]),
         provincial_claim_amount=Decimal(inp["provincial_claim"]),
         rrsp_per_period=Decimal(inp.get("rrsp", "0")),
@@ -272,6 +458,20 @@ def build_payroll_input(case: PDOCTestCase) -> EmployeePayrollInput:
         # Taxable benefits (pensionable and insurable)
         taxable_benefits_pensionable=taxable_benefits,
         taxable_benefits_insurable=taxable_benefits,
+        # Tier 6: TD1 Form Fields
+        employer_rrsp_per_period=employer_rrsp,
+        employer_rrsp_withdrawal_restricted=employer_rrsp_restricted,
+        retroactive_pay_amount=retroactive_amount,
+        retroactive_pay_periods=retroactive_periods,
+        prescribed_zone_deduction_annual=prescribed_zone,
+        alimony_per_period=alimony,
+        reserve_income_exempt=reserve_exempt,
+        reserve_income_pensionable=reserve_pensionable,
+        child_care_expenses_annual=child_care,
+        medical_expenses_annual=medical,
+        charitable_donations_annual=charitable,
+        rpp_per_period=rpp,
+        prpp_per_period=prpp,
     )
 
 
@@ -355,6 +555,123 @@ def validate_all_components(
                 "Provincial Tax",
                 result.provincial_tax,
                 Decimal(expected["provincial_tax"]),
+                tolerance,
+            )
+        )
+
+    # Federal Tax on Retroactive Pay
+    if "federal_tax_on_retroactive" in expected:
+        validations.append(
+            validate_component(
+                "Federal Tax (Retroactive)",
+                result.federal_tax_on_retroactive,
+                Decimal(expected["federal_tax_on_retroactive"]),
+                tolerance,
+            )
+        )
+
+    # Provincial Tax on Retroactive Pay
+    if "provincial_tax_on_retroactive" in expected:
+        validations.append(
+            validate_component(
+                "Provincial Tax (Retroactive)",
+                result.provincial_tax_on_retroactive,
+                Decimal(expected["provincial_tax_on_retroactive"]),
+                tolerance,
+            )
+        )
+
+    # Bonus Tax Components (tier4_bonus tests)
+    if "income_federal_tax" in expected:
+        validations.append(
+            validate_component(
+                "Income Federal Tax",
+                result.federal_tax_on_income,
+                Decimal(expected["income_federal_tax"]),
+                tolerance,
+            )
+        )
+
+    if "income_provincial_tax" in expected:
+        validations.append(
+            validate_component(
+                "Income Provincial Tax",
+                result.provincial_tax_on_income,
+                Decimal(expected["income_provincial_tax"]),
+                tolerance,
+            )
+        )
+
+    if "income_total_tax" in expected:
+        income_total = result.federal_tax_on_income + result.provincial_tax_on_income
+        validations.append(
+            validate_component(
+                "Income Total Tax",
+                income_total,
+                Decimal(expected["income_total_tax"]),
+                tolerance,
+            )
+        )
+
+    if "bonus_federal_tax" in expected:
+        validations.append(
+            validate_component(
+                "Bonus Federal Tax",
+                result.federal_tax_on_bonus,
+                Decimal(expected["bonus_federal_tax"]),
+                tolerance,
+            )
+        )
+
+    if "bonus_provincial_tax" in expected:
+        validations.append(
+            validate_component(
+                "Bonus Provincial Tax",
+                result.provincial_tax_on_bonus,
+                Decimal(expected["bonus_provincial_tax"]),
+                tolerance,
+            )
+        )
+
+    if "bonus_total_tax" in expected:
+        bonus_total = result.federal_tax_on_bonus + result.provincial_tax_on_bonus
+        validations.append(
+            validate_component(
+                "Bonus Total Tax",
+                bonus_total,
+                Decimal(expected["bonus_total_tax"]),
+                tolerance,
+            )
+        )
+
+    # CPP Deductions (bonus tests may use "cpp_deductions" key)
+    if "cpp_deductions" in expected and "cpp_total" not in expected:
+        # PDOC lists base CPP and CPP2 separately for bonus cases.
+        validations.append(
+            validate_component(
+                "CPP",
+                result.cpp_base,
+                Decimal(expected["cpp_deductions"]),
+                tolerance,
+            )
+        )
+        if "cpp2_deductions" in expected:
+            validations.append(
+                validate_component(
+                    "CPP2",
+                    result.cpp_additional,
+                    Decimal(expected["cpp2_deductions"]),
+                    tolerance,
+                )
+            )
+
+    # EI Deductions (bonus tests may use "ei_deductions" key)
+    if "ei_deductions" in expected and "ei" not in expected:
+        validations.append(
+            validate_component(
+                "EI",
+                result.ei_employee,
+                Decimal(expected["ei_deductions"]),
                 tolerance,
             )
         )

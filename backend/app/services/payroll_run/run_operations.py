@@ -31,6 +31,8 @@ from app.services.payroll_run.constants import (
     calculate_next_period_end,
     calculate_pay_date,
     extract_year_from_date,
+    get_province_name,
+    is_pay_date_compliant,
 )
 from app.services.payroll_run.holiday_pay_calculator import HolidayPayCalculator
 from app.services.payroll_run.input_preparation import PayrollInputPreparer
@@ -55,6 +57,7 @@ class PayrollRunOperations:
         get_run_func: Any,
         get_run_records_func: Any,
         create_records_func: Any,
+        sync_employees_func: Any | None = None,
     ):
         """Initialize payroll run operations.
 
@@ -66,6 +69,7 @@ class PayrollRunOperations:
             get_run_func: Function to get a payroll run by ID
             get_run_records_func: Function to get run records with employee info
             create_records_func: Function to create records for employees
+            sync_employees_func: Optional function to sync employees for a draft run
         """
         self.supabase = supabase
         self.user_id = user_id
@@ -75,6 +79,7 @@ class PayrollRunOperations:
         self._get_run = get_run_func
         self._get_run_records = get_run_records_func
         self._create_records_for_employees = create_records_func
+        self._sync_employees = sync_employees_func
 
         # Initialize sub-modules
         self.input_preparer = PayrollInputPreparer(
@@ -456,52 +461,110 @@ class PayrollRunOperations:
         and delegates to the new method.
 
         Returns:
-            Dict with 'run', 'created' bool, and 'records_count'
+            Dict with 'run', 'created' bool, 'records_count', and sync metadata
         """
         pay_date_obj = datetime.strptime(pay_date, "%Y-%m-%d").date()
         period_end = pay_date_obj - timedelta(days=6)
         return await self.create_or_get_run_by_period_end(period_end.strftime("%Y-%m-%d"))
 
-    async def create_or_get_run_by_period_end(self, period_end: str) -> dict[str, Any]:
+    async def create_or_get_run_by_period_end(
+        self, period_end: str, pay_date: str | None = None, pay_group_ids: list[str] | None = None
+    ) -> dict[str, Any]:
         """Create a new draft payroll run or get existing one for a period end.
 
         This is the new entry point that uses period_end as the primary identifier.
-        Pay date is auto-calculated based on province regulations.
+        Pay date is auto-calculated based on province regulations, or can be provided.
+
+        Args:
+            period_end: The pay period end date (YYYY-MM-DD)
+            pay_date: Optional pay date (YYYY-MM-DD). If not provided, calculated from
+                     period_end + province delay. If provided, must be compliant with
+                     province regulations (on or after period_end, on or before legal deadline).
+            pay_group_ids: Optional list of pay group IDs to include. If provided,
+                          uses these IDs instead of querying by next_period_end.
 
         Returns:
-            Dict with 'run', 'created' bool, and 'records_count'
+            Dict with 'run', 'created' bool, 'records_count', and sync metadata
+
+        Raises:
+            ValueError: If pay_date is provided but not compliant with province regulations
         """
-        # Check if run already exists for this period_end
+        # Check if run already exists for this period_end and pay_group_ids
         existing_result = self.supabase.table("payroll_runs").select("*").eq(
             "user_id", self.user_id
         ).eq("company_id", self.company_id).eq("period_end", period_end).execute()
 
         if existing_result.data and len(existing_result.data) > 0:
-            return {
-                "run": existing_result.data[0],
-                "created": False,
-                "records_count": 0,
-            }
+            # If pay_group_ids provided, find the run that matches those specific pay groups
+            if pay_group_ids:
+                sorted_input_ids = sorted(pay_group_ids)
+                for run in existing_result.data:
+                    run_pay_group_ids = run.get("pay_group_ids") or []
+                    if sorted(run_pay_group_ids) == sorted_input_ids:
+                        existing_run = run
+                        break
+                else:
+                    # No matching run found, will create a new one below
+                    existing_run = None
+            else:
+                # No pay_group_ids provided, use first matching run (legacy behavior)
+                existing_run = existing_result.data[0]
 
-        # Get pay groups with matching next_period_end
-        pay_groups_result = self.supabase.table("pay_groups").select(
-            "id, name, pay_frequency, employment_type, group_benefits"
-        ).eq("next_period_end", period_end).execute()
+            if existing_run:
+                if existing_run.get("status") == "draft" and self._sync_employees:
+                    sync_result = await self._sync_employees(UUID(existing_run["id"]))
+                    added_count = sync_result.get("added_count", 0)
+                    removed_count = sync_result.get("removed_count", 0)
+                    return {
+                        "run": sync_result.get("run", existing_run),
+                        "created": False,
+                        "records_count": 0,
+                        "synced": added_count > 0 or removed_count > 0,
+                        "added_count": added_count,
+                    }
+
+                return {
+                    "run": existing_run,
+                    "created": False,
+                    "records_count": 0,
+                    "synced": False,
+                    "added_count": 0,
+                }
+
+        # Get pay groups - use provided IDs if available, otherwise query by next_period_end
+        if pay_group_ids:
+            # Use the explicitly provided pay group IDs
+            pay_groups_result = self.supabase.table("pay_groups").select(
+                "id, name, pay_frequency, employment_type, group_benefits, province"
+            ).eq("company_id", self.company_id).in_("id", pay_group_ids).eq("is_active", True).execute()
+        else:
+            # Fallback: query by next_period_end (legacy behavior)
+            pay_groups_result = self.supabase.table("pay_groups").select(
+                "id, name, pay_frequency, employment_type, group_benefits, province"
+            ).eq("company_id", self.company_id).eq("next_period_end", period_end).eq("is_active", True).execute()
 
         pay_groups = pay_groups_result.data or []
         if not pay_groups:
-            raise ValueError(f"No pay groups found with period end {period_end}")
+            raise ValueError(f"No pay groups found for period end {period_end}")
 
-        pay_group_ids = [pg["id"] for pg in pay_groups]
+        selected_pay_group_ids = [pg["id"] for pg in pay_groups]
         pay_group_map = {pg["id"]: pg for pg in pay_groups}
+
+        # Collect all provinces from pay groups for compliance validation
+        pay_group_provinces: set[str] = {
+            pg.get("province") for pg in pay_groups if pg.get("province")
+        }
+        if not pay_group_provinces:
+            pay_group_provinces = {"SK"}  # Default fallback
 
         # Get all active employees
         employees_result = self.supabase.table("employees").select(
             "id, first_name, last_name, province_of_employment, pay_group_id, "
-            "annual_salary, hourly_rate, federal_additional_claims, provincial_additional_claims, "
+            "annual_salary, hourly_rate, standard_hours_per_week, "
+            "federal_additional_claims, provincial_additional_claims, "
             "is_cpp_exempt, is_ei_exempt, cpp2_exempt, vacation_config"
         ).eq("user_id", self.user_id).eq("company_id", self.company_id).in_(
-            "pay_group_id", pay_group_ids
+            "pay_group_id", selected_pay_group_ids
         ).is_("termination_date", "null").execute()
 
         employees = employees_result.data or []
@@ -525,8 +588,25 @@ class PayrollRunOperations:
         else:  # bi_weekly
             period_start = period_end_obj - timedelta(days=13)
 
-        # Calculate pay_date from period_end
-        pay_date_obj = calculate_pay_date(period_end_obj, "SK")
+        # Determine pay_date - use the most restrictive province for compliance
+        most_restrictive_province = min(
+            pay_group_provinces,
+            key=lambda p: calculate_pay_date(period_end_obj, p)
+        )
+
+        if pay_date:
+            # Validate custom pay_date is compliant with the most restrictive province
+            pay_date_obj = datetime.strptime(pay_date, "%Y-%m-%d").date()
+            if not is_pay_date_compliant(pay_date_obj, period_end_obj, most_restrictive_province):
+                province_name = get_province_name(most_restrictive_province)
+                legal_deadline = calculate_pay_date(period_end_obj, most_restrictive_province)
+                raise ValueError(
+                    f"Pay date {pay_date} is not compliant with {province_name} labour standards. "
+                    f"Pay date must be between {period_end} and {legal_deadline.strftime('%Y-%m-%d')} (inclusive)."
+                )
+        else:
+            # Calculate pay_date from period_end using most restrictive province
+            pay_date_obj = calculate_pay_date(period_end_obj, most_restrictive_province)
 
         # Create the payroll run
         run_insert_result = self.supabase.table("payroll_runs").insert({
@@ -536,6 +616,7 @@ class PayrollRunOperations:
             "period_end": period_end,
             "pay_date": pay_date_obj.strftime("%Y-%m-%d"),
             "status": "draft",
+            "pay_group_ids": selected_pay_group_ids,
             "total_employees": len(employees),
             "total_gross": 0,
             "total_cpp_employee": 0,
@@ -589,4 +670,94 @@ class PayrollRunOperations:
             "run": run,
             "created": True,
             "records_count": len(employees),
+            "synced": False,
+            "added_count": 0,
         }
+
+    async def update_pay_date(self, run_id: UUID, pay_date: str) -> dict[str, Any]:
+        """Update the pay date of an existing payroll run.
+
+        Args:
+            run_id: The payroll run ID
+            pay_date: New pay date (YYYY-MM-DD)
+
+        Returns:
+            Updated payroll run data with needs_recalculation flag
+
+        Raises:
+            ValueError: If run not found, not in draft status, or pay_date is not compliant
+        """
+        # Get the run with payroll records to determine province
+        run = await self._get_run(run_id)
+        if not run:
+            raise ValueError("Payroll run not found")
+
+        # Only allow updating pay_date for draft runs
+        if run["status"] != "draft":
+            raise ValueError(
+                f"Cannot update pay date: payroll run is in '{run['status']}' status. "
+                "Only draft runs can have their pay date modified."
+            )
+
+        # Get payroll records to determine provinces from employees
+        records_result = self.supabase.table("payroll_records").select(
+            "id, employee_id, employees!inner(province_of_employment)"
+        ).eq("payroll_run_id", str(run_id)).execute()
+
+        # Collect all unique provinces from employee records
+        provinces: set[str] = set()
+        if records_result.data:
+            for record in records_result.data:
+                prov = record.get("employees", {}).get("province_of_employment")
+                if prov:
+                    provinces.add(prov)
+
+        # Default to SK if no provinces found
+        if not provinces:
+            provinces = {"SK"}
+
+        # Parse dates
+        pay_date_obj = datetime.strptime(pay_date, "%Y-%m-%d").date()
+        period_end_str = run.get("period_end", "")
+        period_end_obj = datetime.strptime(period_end_str, "%Y-%m-%d").date()
+
+        # Validate compliance against ALL provinces (use the most restrictive deadline)
+        # Find the province with the shortest deadline
+        most_restrictive_province = min(
+            provinces,
+            key=lambda p: calculate_pay_date(period_end_obj, p)
+        )
+
+        if not is_pay_date_compliant(pay_date_obj, period_end_obj, most_restrictive_province, allow_early_days=10):
+            province_name = get_province_name(most_restrictive_province)
+            legal_deadline = calculate_pay_date(period_end_obj, most_restrictive_province)
+            earliest_date = period_end_obj - timedelta(days=10)
+            raise ValueError(
+                f"Pay date {pay_date} is not compliant with {province_name} labour standards. "
+                f"Pay date must be between {earliest_date.strftime('%Y-%m-%d')} and {legal_deadline.strftime('%Y-%m-%d')} (inclusive)."
+            )
+
+        # Update the pay_date
+        update_result = self.supabase.table("payroll_runs").update({
+            "pay_date": pay_date,
+        }).eq("id", str(run_id)).eq("user_id", self.user_id).eq("company_id", self.company_id).execute()
+
+        if not update_result.data or len(update_result.data) == 0:
+            raise ValueError("Failed to update pay date")
+
+        # Mark all records as is_modified=True so finalize will require recalculation
+        # This persists the needs_recalculation state in the database
+        if records_result.data:
+            record_ids = [r["id"] for r in records_result.data]
+            self.supabase.table("payroll_records").update({
+                "is_modified": True,
+            }).in_("id", record_ids).execute()
+            logger.info(
+                "Marked %d records as modified after pay_date change for run %s",
+                len(record_ids), run_id
+            )
+
+        # Return updated run with needs_recalculation flag for immediate UI feedback
+        updated_run = cast(dict[str, Any], update_result.data[0])
+        updated_run["needs_recalculation"] = True
+        return updated_run

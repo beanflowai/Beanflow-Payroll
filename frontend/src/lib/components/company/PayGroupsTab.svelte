@@ -1,10 +1,12 @@
 <script lang="ts">
 	// PayGroupsTab - Pay Groups management (Tab 2)
+	// Supports Active and Inactive pay groups with soft delete functionality
 	import { goto } from '$app/navigation';
 	import type { PayGroup } from '$lib/types/pay-group';
 	import {
 		listPayGroupsWithCounts,
 		deletePayGroup,
+		setPayGroupStatus,
 		type PayGroupWithCount
 	} from '$lib/services/payGroupService';
 	import { companyState } from '$lib/stores/company.svelte';
@@ -13,17 +15,19 @@
 	import { Skeleton, AlertBanner, EmptyState } from '$lib/components/shared';
 
 	// State
-	let payGroups = $state<PayGroupWithCount[]>([]);
+	let activePayGroups = $state<PayGroupWithCount[]>([]);
+	let inactivePayGroups = $state<PayGroupWithCount[]>([]);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let companyId = $state<string | null>(null);
+	let isInactiveExpanded = $state(false);
 
 	// Delete modal state
 	let showDeleteModal = $state(false);
 	let deletingPayGroup = $state<PayGroup | null>(null);
 
-	// Computed: is empty state
-	const isEmpty = $derived(payGroups.length === 0);
+	// Computed: is empty state (only active groups count)
+	const isEmpty = $derived(activePayGroups.length === 0 && inactivePayGroups.length === 0);
 	const hasNoCompany = $derived(!companyId && !isLoading);
 
 	// Load data when company changes
@@ -34,7 +38,8 @@
 			loadPayGroups();
 		} else {
 			companyId = null;
-			payGroups = [];
+			activePayGroups = [];
+			inactivePayGroups = [];
 			isLoading = false;
 		}
 	});
@@ -52,7 +57,9 @@
 				return;
 			}
 
-			payGroups = result.data;
+			// Separate active and inactive pay groups
+			activePayGroups = result.data.filter((pg) => pg.isActive);
+			inactivePayGroups = result.data.filter((pg) => !pg.isActive);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load pay groups';
 		} finally {
@@ -80,21 +87,52 @@
 		deletingPayGroup = null;
 	}
 
-	async function handleDeleteConfirm() {
-		if (!deletingPayGroup) return;
-
+	async function handleActivate(payGroup: PayGroup) {
 		try {
-			const result = await deletePayGroup(deletingPayGroup.id);
+			const result = await setPayGroupStatus(payGroup.id, true);
 			if (result.error) {
 				error = result.error;
 			} else {
-				payGroups = payGroups.filter((pg) => pg.id !== deletingPayGroup!.id);
+				// Reload to update both lists
+				await loadPayGroups();
 			}
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to delete pay group';
+			error = err instanceof Error ? err.message : 'Failed to activate pay group';
+		}
+	}
+
+	async function handleDeleteConfirm(action: 'hard_delete' | 'soft_delete') {
+		if (!deletingPayGroup) return;
+
+		try {
+			if (action === 'hard_delete') {
+				const result = await deletePayGroup(deletingPayGroup.id);
+				if (result.error) {
+					error = result.error;
+				} else {
+					// Remove from both lists
+					activePayGroups = activePayGroups.filter((pg) => pg.id !== deletingPayGroup!.id);
+					inactivePayGroups = inactivePayGroups.filter((pg) => pg.id !== deletingPayGroup!.id);
+				}
+			} else {
+				// soft_delete = set as inactive
+				const result = await setPayGroupStatus(deletingPayGroup.id, false);
+				if (result.error) {
+					error = result.error;
+				} else {
+					// Reload to update both lists
+					await loadPayGroups();
+				}
+			}
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to process pay group';
 		} finally {
 			handleDeleteModalClose();
 		}
+	}
+
+	function toggleInactiveSection() {
+		isInactiveExpanded = !isInactiveExpanded;
 	}
 </script>
 
@@ -173,26 +211,67 @@
 				</div>
 			</div>
 		{:else}
-			<!-- Pay Groups List -->
-			<div class="pay-groups-list">
-				{#each payGroups as payGroup (payGroup.id)}
-					<PayGroupCard {payGroup} onView={handleViewGroup} onDelete={handleDeleteGroup} />
-				{/each}
-			</div>
+			<!-- Active Pay Groups Section -->
+			{#if activePayGroups.length > 0}
+				<div class="pay-groups-section">
+					<h3 class="section-title">
+						<i class="fas fa-check-circle"></i>
+						Active Pay Groups ({activePayGroups.length})
+					</h3>
+					<div class="pay-groups-list">
+						{#each activePayGroups as payGroup (payGroup.id)}
+							<PayGroupCard {payGroup} onView={handleViewGroup} onDelete={handleDeleteGroup} />
+						{/each}
+					</div>
+				</div>
+			{:else}
+				<!-- No Active Pay Groups -->
+				<div class="no-active-state">
+					<i class="fas fa-info-circle"></i>
+					<span>No active pay groups. Create a new one or reactivate an inactive group below.</span>
+				</div>
+			{/if}
+
+			<!-- Inactive Pay Groups Section (Collapsible) -->
+			{#if inactivePayGroups.length > 0}
+				<div class="pay-groups-section inactive-section">
+					<button class="section-header-btn" onclick={toggleInactiveSection}>
+						<i class="fas fa-chevron-{isInactiveExpanded ? 'down' : 'right'}"></i>
+						<h3 class="section-title">
+							<i class="fas fa-archive"></i>
+							Inactive Pay Groups ({inactivePayGroups.length})
+						</h3>
+					</button>
+
+					{#if isInactiveExpanded}
+						<div class="pay-groups-list">
+							{#each inactivePayGroups as payGroup (payGroup.id)}
+								<PayGroupCard
+									{payGroup}
+									onView={handleViewGroup}
+									onDelete={handleDeleteGroup}
+									onActivate={handleActivate}
+									isInactive={true}
+								/>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			{/if}
 
 			<!-- Info Note -->
 			<div class="info-note">
 				<i class="fas fa-info-circle"></i>
 				<span>
-					Employees must be assigned to a Pay Group before they can be included in a payroll run. Go
-					to <a href="/employees">Employees</a> to assign groups.
+					Employees must be assigned to a Pay Group before they can be included in a payroll run.
+					Go to <a href="/employees">Employees</a> to assign groups.
 				</span>
 			</div>
 		{/if}
 	{/if}
 </div>
 
-<!-- Delete Confirmation Modal -->
+<!-- Delete/Deactivate Confirmation Modal -->
 {#if showDeleteModal && deletingPayGroup}
 	<PayGroupDeleteModal
 		payGroup={deletingPayGroup}
@@ -231,6 +310,88 @@
 		color: var(--color-surface-600);
 		margin: 0;
 		max-width: 600px;
+	}
+
+	/* Pay Groups Sections */
+	.pay-groups-section {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-4);
+	}
+
+	.section-title {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
+		font-size: var(--font-size-body-content);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-surface-700);
+		margin: 0;
+	}
+
+	.section-title i {
+		font-size: 14px;
+	}
+
+	.section-title i.fa-check-circle {
+		color: var(--color-success-500);
+	}
+
+	.section-title i.fa-archive {
+		color: var(--color-surface-400);
+	}
+
+	/* Inactive Section */
+	.inactive-section {
+		padding: var(--spacing-4);
+		background: var(--color-surface-50);
+		border-radius: var(--radius-lg);
+		border: 1px solid var(--color-surface-100);
+	}
+
+	.section-header-btn {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
+		width: 100%;
+		padding: 0;
+		background: none;
+		border: none;
+		cursor: pointer;
+		text-align: left;
+		color: var(--color-surface-600);
+		transition: var(--transition-fast);
+	}
+
+	.section-header-btn:hover {
+		color: var(--color-surface-800);
+	}
+
+	.section-header-btn > i {
+		font-size: 12px;
+		width: 16px;
+		color: var(--color-surface-400);
+	}
+
+	.inactive-section .pay-groups-list {
+		margin-top: var(--spacing-4);
+	}
+
+	/* No Active State */
+	.no-active-state {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
+		padding: var(--spacing-4);
+		background: var(--color-warning-50);
+		border: 1px solid var(--color-warning-200);
+		border-radius: var(--radius-lg);
+		font-size: var(--font-size-body-content);
+		color: var(--color-warning-700);
+	}
+
+	.no-active-state i {
+		color: var(--color-warning-500);
 	}
 
 	/* Empty State */

@@ -68,12 +68,12 @@
       },
       "brackets": [
         {"threshold": 0, "rate": 0.0506, "constant": 0},
-        {"threshold": 50363, "rate": 0.077, "constant": 1329.58},
-        {"threshold": 100728, "rate": 0.105, "constant": 4149.96},
-        {"threshold": 115648, "rate": 0.1229, "constant": 6220.06},
-        {"threshold": 140430, "rate": 0.147, "constant": 9604.42},
-        {"threshold": 190405, "rate": 0.168, "constant": 13602.92},
-        {"threshold": 265545, "rate": 0.205, "constant": 23428.09}
+        {"threshold": 50363, "rate": 0.077, "constant": 1330},
+        {"threshold": 100728, "rate": 0.105, "constant": 4150},
+        {"threshold": 115648, "rate": 0.1229, "constant": 6220},
+        {"threshold": 140430, "rate": 0.147, "constant": 9604},
+        {"threshold": 190405, "rate": 0.168, "constant": 13603},
+        {"threshold": 265545, "rate": 0.205, "constant": 23428}
       ]
     },
     "MB": {

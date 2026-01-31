@@ -10,7 +10,7 @@ Reference: T4127 (121st Edition, July 2025)
 from __future__ import annotations
 
 import logging
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
 from typing import NamedTuple
 
 from app.services.payroll.tax_tables import get_cpp_config
@@ -137,8 +137,10 @@ class CPPCalculator:
         if ytd_cpp_base >= effective_max:
             return Decimal("0")
 
-        # Basic exemption per pay period
-        exemption_per_period = self.basic_exemption / self.P
+        # Basic exemption per pay period (T4127: drop 3rd digit)
+        exemption_per_period = (self.basic_exemption / self.P).quantize(
+            Decimal("0.01"), rounding=ROUND_DOWN
+        )
 
         # Pensionable earnings after exemption
         pensionable_after_exemption = max(
